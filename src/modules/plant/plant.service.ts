@@ -9,7 +9,9 @@ export class PlantService {
   constructor(@InjectRepository(PlantSettings) private readonly repo: Repository<PlantSettings>) {}
 
   async getOrCreate(): Promise<PlantSettings> {
-    let row = await this.repo.findOne({ order: { id: 'ASC' } });
+    // TypeORM 0.3+ no permite findOne solo con order; usar find + take.
+    const rows = await this.repo.find({ order: { id: 'ASC' }, take: 1 });
+    let row = rows[0];
     if (!row) {
       row = await this.repo.save(
         this.repo.create({
