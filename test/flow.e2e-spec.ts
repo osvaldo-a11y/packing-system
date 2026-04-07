@@ -2,6 +2,14 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AbstractSqliteDriver } from 'typeorm/driver/sqlite-abstract/AbstractSqliteDriver';
+
+/** sql.js hereda de SQLite: `timestamp` no está en supportedDataTypes; normalizar a datetime solo en tests. */
+const _origSqliteNormalize = AbstractSqliteDriver.prototype.normalizeType;
+AbstractSqliteDriver.prototype.normalizeType = function (column: { type?: unknown }) {
+  if (column.type === 'timestamp') return 'datetime';
+  return _origSqliteNormalize.call(this, column);
+};
 import { AuthModule } from '../src/modules/auth/auth.module';
 import { DispatchBillingModule } from '../src/modules/dispatch/dispatch-billing.module';
 import { ProcessModule } from '../src/modules/process/process.module';

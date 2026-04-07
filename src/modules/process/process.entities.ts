@@ -15,7 +15,7 @@ export class FruitProcess {
   @Column({ type: 'bigint' })
   recepcion_id: number;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'timestamp' })
   fecha_proceso: Date;
 
   @Column({ type: 'bigint' })
@@ -54,7 +54,7 @@ export class PtTag {
   @Column({ type: 'varchar', length: 64, unique: true })
   tag_code: string;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'timestamp' })
   fecha: Date;
 
   @Column({ type: 'enum', enum: ProcessResult })
