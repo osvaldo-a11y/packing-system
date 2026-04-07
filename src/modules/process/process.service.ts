@@ -1,3 +1,4 @@
+import { toJsonRecord } from '../../common/to-json-record';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -96,8 +97,8 @@ export class ProcessService {
       this.tagAuditRepo.create({
         tarja_id: tagId,
         action: 'update_tag',
-        before_payload: before,
-        after_payload: tag,
+        before_payload: toJsonRecord(before),
+        after_payload: toJsonRecord(tag),
       }),
     );
     return tag;

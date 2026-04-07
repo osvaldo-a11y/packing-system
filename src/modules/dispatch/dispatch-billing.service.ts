@@ -1,3 +1,4 @@
+import { toJsonRecord } from '../../common/to-json-record';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -38,8 +39,8 @@ export class DispatchBillingService {
     await this.soModRepo.save(
       this.soModRepo.create({
         order_id: orderId,
-        before_payload: before,
-        after_payload: order,
+        before_payload: toJsonRecord(before),
+        after_payload: toJsonRecord(order),
       }),
     );
 
