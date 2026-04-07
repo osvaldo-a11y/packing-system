@@ -1,0 +1,34 @@
+import { Body, Controller, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { ROLES } from '../../common/roles';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AddPtTagItemDto, CreateFruitProcessDto, CreatePtTagDto, UpdatePtTagDto } from './process.dto';
+import { ProcessService } from './process.service';
+
+@Controller('api')
+export class ProcessController {
+  constructor(private readonly service: ProcessService) {}
+
+  @Post('processes')
+  createProcess(@Body() dto: CreateFruitProcessDto) {
+    return this.service.createProcess(dto);
+  }
+
+  @Post('pt-tags')
+  createTag(@Body() dto: CreatePtTagDto) {
+    return this.service.createTag(dto);
+  }
+
+  @Post('pt-tags/:id/items')
+  addToTag(@Param('id', ParseIntPipe) id: number, @Body() dto: AddPtTagItemDto) {
+    return this.service.addProcessToTag(id, dto);
+  }
+
+  @Put('pt-tags/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
+  updateTag(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtTagDto) {
+    return this.service.updateTag(id, dto);
+  }
+}
