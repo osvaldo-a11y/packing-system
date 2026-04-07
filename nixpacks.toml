@@ -1,0 +1,4 @@
+# Railway / Nixpacks: instalar también dependencias de desarrollo en la fase de build
+# (necesarias para compilar TypeScript con tipos).
+[variables]
+NIXPACKS_NODE_ENV = "development"
