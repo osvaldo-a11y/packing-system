@@ -5,6 +5,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  await app.listen(process.env.PORT || 3000);
+  const port = Number(process.env.PORT) || 3000;
+  // Railway/containers: escuchar en todas las interfaces (no solo localhost).
+  await app.listen(port, '0.0.0.0');
 }
-bootstrap();
+
+bootstrap().catch((err) => {
+  console.error('Nest bootstrap failed:', err);
+  process.exit(1);
+});
