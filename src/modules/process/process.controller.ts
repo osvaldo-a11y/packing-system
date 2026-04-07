@@ -7,26 +7,29 @@ import { AddPtTagItemDto, CreateFruitProcessDto, CreatePtTagDto, UpdatePtTagDto 
 import { ProcessService } from './process.service';
 
 @Controller('api')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ProcessController {
   constructor(private readonly service: ProcessService) {}
 
   @Post('processes')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   createProcess(@Body() dto: CreateFruitProcessDto) {
     return this.service.createProcess(dto);
   }
 
   @Post('pt-tags')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   createTag(@Body() dto: CreatePtTagDto) {
     return this.service.createTag(dto);
   }
 
   @Post('pt-tags/:id/items')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   addToTag(@Param('id', ParseIntPipe) id: number, @Body() dto: AddPtTagItemDto) {
     return this.service.addProcessToTag(id, dto);
   }
 
   @Put('pt-tags/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   updateTag(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtTagDto) {
     return this.service.updateTag(id, dto);

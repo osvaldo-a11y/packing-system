@@ -94,112 +94,173 @@ describe('End-to-end packing flow', () => {
 
     await request(app.getHttpServer()).get('/api/reporting/generate').query({ productor_id: 10 }).expect(401);
 
-    const processRes = await request(app.getHttpServer()).post('/api/processes').send({
-      recepcion_id: 1,
-      fecha_proceso: '2026-04-07T10:00:00.000Z',
-      productor_id: 10,
-      variedad_id: 2,
-      peso_procesado_lb: 900,
-      merma_lb: 100,
-      resultado: 'IQF',
-    }).expect(201);
+    const processRes = await request(app.getHttpServer())
+      .post('/api/processes')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        recepcion_id: 1,
+        fecha_proceso: '2026-04-07T10:00:00.000Z',
+        productor_id: 10,
+        variedad_id: 2,
+        peso_procesado_lb: 900,
+        merma_lb: 100,
+        resultado: 'IQF',
+      })
+      .expect(201);
 
-    const tagRes = await request(app.getHttpServer()).post('/api/pt-tags').send({
-      fecha: '2026-04-07T10:00:00.000Z',
-      resultado: 'IQF',
-      format_code: '12x18oz',
-      cajas_por_pallet: 100,
-    }).expect(201);
+    const tagRes = await request(app.getHttpServer())
+      .post('/api/pt-tags')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        fecha: '2026-04-07T10:00:00.000Z',
+        resultado: 'IQF',
+        format_code: '12x18oz',
+        cajas_por_pallet: 100,
+      })
+      .expect(201);
 
-    await request(app.getHttpServer()).post(`/api/pt-tags/${tagRes.body.id}/items`).send({
-      process_id: processRes.body.id,
-    }).expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/pt-tags/${tagRes.body.id}/items`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        process_id: processRes.body.id,
+      })
+      .expect(201);
 
-    const soRes = await request(app.getHttpServer()).post('/api/sales-orders').send({
-      cliente_id: 20,
-      requested_pallets: 20,
-      requested_boxes: 2000,
-    }).expect(201);
+    const soRes = await request(app.getHttpServer())
+      .post('/api/sales-orders')
+      .set('Authorization', `Bearer ${supervisorToken}`)
+      .send({
+        cliente_id: 20,
+        requested_pallets: 20,
+        requested_boxes: 2000,
+      })
+      .expect(201);
 
-    const dispatchRes = await request(app.getHttpServer()).post('/api/dispatches').send({
-      orden_id: soRes.body.id,
-      cliente_id: 20,
-      fecha_despacho: '2026-04-07T16:00:00.000Z',
-      numero_bol: 'BOL-001',
-      temperatura_f: 34,
-    }).expect(201);
+    const dispatchRes = await request(app.getHttpServer())
+      .post('/api/dispatches')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        orden_id: soRes.body.id,
+        cliente_id: 20,
+        fecha_despacho: '2026-04-07T16:00:00.000Z',
+        numero_bol: 'BOL-001',
+        temperatura_f: 34,
+      })
+      .expect(201);
 
-    await request(app.getHttpServer()).post(`/api/dispatches/${dispatchRes.body.id}/tags`).send({
-      tarja_id: tagRes.body.id,
-      cajas_despachadas: 100,
-      pallets_despachados: 1,
-      unit_price: 22.5,
-      pallet_cost: 1400,
-    }).expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/dispatches/${dispatchRes.body.id}/tags`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        tarja_id: tagRes.body.id,
+        cajas_despachadas: 100,
+        pallets_despachados: 1,
+        unit_price: 22.5,
+        pallet_cost: 1400,
+      })
+      .expect(201);
 
-    await request(app.getHttpServer()).post(`/api/dispatches/${dispatchRes.body.id}/packing-list/generate`).expect(201);
-    const invoiceRes = await request(app.getHttpServer()).post(`/api/dispatches/${dispatchRes.body.id}/invoice/generate`).expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/dispatches/${dispatchRes.body.id}/packing-list/generate`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(201);
+    const invoiceRes = await request(app.getHttpServer())
+      .post(`/api/dispatches/${dispatchRes.body.id}/invoice/generate`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(201);
 
     expect(Number(invoiceRes.body.total)).toBeGreaterThan(0);
 
-    const clamshell = await request(app.getHttpServer()).post('/api/packaging/materials').send({
-      nombre_material: 'Clamshell 18oz',
-      categoria: 'clamshell',
-      unidad_medida: 'unit',
-      costo_unitario: 0.4,
-      cantidad_disponible: 10000,
-    }).expect(201);
+    const clamshell = await request(app.getHttpServer())
+      .post('/api/packaging/materials')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        nombre_material: 'Clamshell 18oz',
+        categoria: 'clamshell',
+        unidad_medida: 'unit',
+        costo_unitario: 0.4,
+        cantidad_disponible: 10000,
+      })
+      .expect(201);
 
-    const tape = await request(app.getHttpServer()).post('/api/packaging/materials').send({
-      nombre_material: 'Tape',
-      categoria: 'tape',
-      unidad_medida: 'm',
-      costo_unitario: 0.08,
-      cantidad_disponible: 2000,
-    }).expect(201);
+    const tape = await request(app.getHttpServer())
+      .post('/api/packaging/materials')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        nombre_material: 'Tape',
+        categoria: 'tape',
+        unidad_medida: 'm',
+        costo_unitario: 0.08,
+        cantidad_disponible: 2000,
+      })
+      .expect(201);
 
-    const corner = await request(app.getHttpServer()).post('/api/packaging/materials').send({
-      nombre_material: 'Corner Board',
-      categoria: 'corner_board',
-      unidad_medida: 'unit',
-      costo_unitario: 1.2,
-      cantidad_disponible: 1000,
-    }).expect(201);
+    const corner = await request(app.getHttpServer())
+      .post('/api/packaging/materials')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        nombre_material: 'Corner Board',
+        categoria: 'corner_board',
+        unidad_medida: 'unit',
+        costo_unitario: 1.2,
+        cantidad_disponible: 1000,
+      })
+      .expect(201);
 
-    const etiqueta = await request(app.getHttpServer()).post('/api/packaging/materials').send({
-      nombre_material: 'Etiqueta PT',
-      categoria: 'etiqueta',
-      unidad_medida: 'unit',
-      costo_unitario: 0.05,
-      cantidad_disponible: 2000,
-    }).expect(201);
+    const etiqueta = await request(app.getHttpServer())
+      .post('/api/packaging/materials')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        nombre_material: 'Etiqueta PT',
+        categoria: 'etiqueta',
+        unidad_medida: 'unit',
+        costo_unitario: 0.05,
+        cantidad_disponible: 2000,
+      })
+      .expect(201);
 
-    const recipe = await request(app.getHttpServer()).post('/api/packaging/recipes').send({
-      format_code: '12x18oz',
-      descripcion: 'Receta base 12x18oz',
-    }).expect(201);
+    const recipe = await request(app.getHttpServer())
+      .post('/api/packaging/recipes')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        format_code: '12x18oz',
+        descripcion: 'Receta base 12x18oz',
+      })
+      .expect(201);
 
-    await request(app.getHttpServer()).post(`/api/packaging/recipes/${recipe.body.id}/items`).send({
-      material_id: clamshell.body.id,
-      qty_per_unit: 12,
-      base_unidad: 'box',
-    }).expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/packaging/recipes/${recipe.body.id}/items`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        material_id: clamshell.body.id,
+        qty_per_unit: 12,
+        base_unidad: 'box',
+      })
+      .expect(201);
 
-    const consumption = await request(app.getHttpServer()).post('/api/packaging/consumptions').send({
-      tarja_id: tagRes.body.id,
-      dispatch_tag_item_id: 1,
-      recipe_id: recipe.body.id,
-      pallet_count: 1,
-      boxes_count: 100,
-      tape_linear_meters: 15,
-      corner_boards_qty: 8,
-      labels_qty: 100,
-    }).expect(201);
+    const consumption = await request(app.getHttpServer())
+      .post('/api/packaging/consumptions')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({
+        tarja_id: tagRes.body.id,
+        dispatch_tag_item_id: 1,
+        recipe_id: recipe.body.id,
+        pallet_count: 1,
+        boxes_count: 100,
+        tape_linear_meters: 15,
+        corner_boards_qty: 8,
+        labels_qty: 100,
+      })
+      .expect(201);
 
     expect(consumption.body.total_cost).toBeGreaterThan(0);
     expect(consumption.body.breakdowns.length).toBeGreaterThanOrEqual(4);
 
-    const materials = await request(app.getHttpServer()).get('/api/packaging/materials').expect(200);
+    const materials = await request(app.getHttpServer())
+      .get('/api/packaging/materials')
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .expect(200);
     const clamshellAfter = materials.body.find((m: { id: number }) => m.id === clamshell.body.id);
     const tapeAfter = materials.body.find((m: { id: number }) => m.id === tape.body.id);
     const cornerAfter = materials.body.find((m: { id: number }) => m.id === corner.body.id);

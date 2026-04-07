@@ -1,8 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { ROLES } from '../../common/roles';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AddRecipeItemDto, CreateConsumptionDto, CreateMaterialDto, CreateRecipeDto } from './packaging.dto';
 import { PackagingService } from './packaging.service';
 
 @Controller('api/packaging')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
 export class PackagingController {
   constructor(private readonly service: PackagingService) {}
 

@@ -7,37 +7,42 @@ import { AddDispatchTagDto, CreateDispatchDto, CreateSalesOrderDto, ModifySalesO
 import { DispatchBillingService } from './dispatch-billing.service';
 
 @Controller('api')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class DispatchBillingController {
   constructor(private readonly service: DispatchBillingService) {}
 
   @Post('sales-orders')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   createSalesOrder(@Body() dto: CreateSalesOrderDto) {
     return this.service.createSalesOrder(dto);
   }
 
   @Put('sales-orders/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   modifySalesOrder(@Param('id', ParseIntPipe) id: number, @Body() dto: ModifySalesOrderDto) {
     return this.service.modifySalesOrder(id, dto);
   }
 
   @Post('dispatches')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   createDispatch(@Body() dto: CreateDispatchDto) {
     return this.service.createDispatch(dto);
   }
 
   @Post('dispatches/:id/tags')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   addTag(@Param('id', ParseIntPipe) id: number, @Body() dto: AddDispatchTagDto) {
     return this.service.addTag(id, dto);
   }
 
   @Post('dispatches/:id/packing-list/generate')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   genPacking(@Param('id', ParseIntPipe) id: number) {
     return this.service.generatePackingList(id);
   }
 
   @Post('dispatches/:id/invoice/generate')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   genInvoice(@Param('id', ParseIntPipe) id: number) {
     return this.service.generateInvoice(id);
   }
