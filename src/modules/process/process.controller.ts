@@ -1,4 +1,5 @@
 import { Body, Controller, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
@@ -6,6 +7,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AddPtTagItemDto, CreateFruitProcessDto, CreatePtTagDto, UpdatePtTagDto } from './process.dto';
 import { ProcessService } from './process.service';
 
+@ApiTags('proceso / tarjas')
+@ApiBearerAuth('JWT-auth')
 @Controller('api')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProcessController {

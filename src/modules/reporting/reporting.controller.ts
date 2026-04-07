@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -20,6 +21,8 @@ import { ReportingExportService } from './reporting-export.service';
 import { ReportingService } from './reporting.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@ApiTags('reportes')
+@ApiBearerAuth('JWT-auth')
 @Controller('api/reporting')
 export class ReportingController {
   constructor(

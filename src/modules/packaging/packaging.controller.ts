@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
@@ -6,6 +7,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AddRecipeItemDto, CreateConsumptionDto, CreateMaterialDto, CreateRecipeDto } from './packaging.dto';
 import { PackagingService } from './packaging.service';
 
+@ApiTags('empaque')
+@ApiBearerAuth('JWT-auth')
 @Controller('api/packaging')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
