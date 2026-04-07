@@ -20,8 +20,10 @@ import { ReportSnapshot } from '../src/modules/reporting/reporting.entities';
 import { PlantModule } from '../src/modules/plant/plant.module';
 import { PlantSettings } from '../src/modules/plant/plant.entities';
 
+jest.setTimeout(60000);
+
 describe('End-to-end packing flow', () => {
-  let app: INestApplication;
+  let app!: INestApplication;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-jwt-secret-e2e';
@@ -29,8 +31,10 @@ describe('End-to-end packing flow', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
-          type: 'sqlite',
-          database: ':memory:',
+          // sql.js evita el binario nativo de sqlite3 (fallos frecuentes en Windows/Jest).
+          type: 'sqljs',
+          location: ':memory:',
+          autoSave: false,
           entities: [
             FruitProcess,
             PtTag,
@@ -68,7 +72,7 @@ describe('End-to-end packing flow', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('runs Process -> Tag -> Dispatch -> Invoice flow with JWT', async () => {

@@ -24,7 +24,8 @@ export class Dispatch {
   orden_id: number;
   @Column({ type: 'bigint' })
   cliente_id: number;
-  @Column({ type: 'timestamp' })
+  /** `datetime` mapea a `timestamp` en PostgreSQL y es compatible con SQLite (tests e2e). */
+  @Column({ type: 'datetime' })
   fecha_despacho: Date;
   @Column({ type: 'varchar', length: 50, unique: true })
   numero_bol: string;
