@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -9,8 +10,10 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    const user = this.auth.validateUser(dto.username, dto.password);
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 25, ttl: 60_000 } })
+  async login(@Body() dto: LoginDto) {
+    const user = await this.auth.validateUser(dto.username, dto.password);
     return this.auth.login(user);
   }
 

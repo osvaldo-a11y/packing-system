@@ -1,0 +1,9 @@
+# Secretos y entorno local
+.env
+.env.*.local
+
+# Build y dependencias
+/node_modules
+/dist
+/frontend/dist
+*.tsbuildinfo

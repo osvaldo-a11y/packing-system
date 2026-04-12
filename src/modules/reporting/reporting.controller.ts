@@ -16,7 +16,7 @@ import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
-import { ReportExportQueryDto, ReportFilterDto, SaveReportDto } from './reporting.dto';
+import { ReportExportQueryDto, ReportFilterDto, SaveReportDto, UpsertPackingCostDto } from './reporting.dto';
 import { ReportingExportService } from './reporting-export.service';
 import { ReportingService } from './reporting.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -35,6 +35,56 @@ export class ReportingController {
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
   generate(@Query() query: ReportFilterDto) {
     return this.service.generate(query);
+  }
+
+  @Get('format-cost')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  formatCost(@Query() query: ReportFilterDto) {
+    return this.service.formatCost(query);
+  }
+
+  @Get('producer-settlement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  producerSettlement(@Query() query: ReportFilterDto) {
+    return this.service.producerSettlement(query);
+  }
+
+  @Get('producer-settlement-diagnostic')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN)
+  producerSettlementDiagnostic(@Query() query: ReportFilterDto) {
+    return this.service.producerSettlementDiagnostic(query);
+  }
+
+  @Get('producer-settlement/pdf')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  async producerSettlementPdf(
+    @Query() query: ReportFilterDto,
+    @Query('variant') variant: string | undefined,
+    @Res() res: Response,
+  ) {
+    const v = variant === 'internal' ? 'internal' : 'producer';
+    const { buffer, mime, filename } = await this.exportService.buildProducerSettlementPdf(v, query);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get('packing-costs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  listPackingCosts() {
+    return this.service.listPackingCosts();
+  }
+
+  @Post('packing-costs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
+  upsertPackingCost(@Body() dto: UpsertPackingCostDto) {
+    return this.service.upsertPackingCost(dto);
   }
 
   @Get('export')

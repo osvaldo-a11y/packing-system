@@ -1,10 +1,14 @@
+import 'dotenv/config';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { TypeOrmQueryFailedFilter } from './common/filters/typeorm-query-failed.filter';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalFilters(new TypeOrmQueryFailedFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   if (process.env.SWAGGER_DISABLED !== 'true') {

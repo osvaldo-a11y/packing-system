@@ -1,13 +1,42 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { MaterialCategory as MaterialCategoryEntity } from '../traceability/catalog.entities';
+import { PresentationFormat } from '../traceability/traceability.entities';
 
-export enum MaterialCategory {
-  CLAMSHELL = 'clamshell',
-  CAJA = 'caja',
-  ETIQUETA = 'etiqueta',
-  TAPE = 'tape',
-  CORNER_BOARD = 'corner_board',
-  OTRO = 'otro',
+/** Movimiento de inventario (kardex): el stock actual es la suma de quantity_delta por material (más el saldo inicial al crear el material). */
+@Entity('packaging_material_movements')
+export class PackagingMaterialMovement {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'bigint' })
+  material_id: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4 })
+  quantity_delta: string;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  ref_type?: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  ref_id?: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  nota?: string | null;
+
+  @CreateDateColumn()
+  created_at: Date;
 }
+
+/** Códigos de categoría alineados con `material_categories.codigo` (búsquedas por tipo). */
+export const MATERIAL_CATEGORY_CODES = {
+  CLAMSHELL: 'clamshell',
+  CAJA: 'caja',
+  BOLSA: 'bolsa',
+  ETIQUETA: 'etiqueta',
+  TAPE: 'tape',
+  CORNER_BOARD: 'corner_board',
+  OTRO: 'otro',
+} as const;
 
 @Entity('packaging_materials')
 export class PackagingMaterial {
@@ -17,8 +46,12 @@ export class PackagingMaterial {
   @Column({ type: 'varchar', length: 80 })
   nombre_material: string;
 
-  @Column({ type: 'enum', enum: MaterialCategory })
-  categoria: MaterialCategory;
+  @Column({ type: 'bigint' })
+  material_category_id: number;
+
+  @ManyToOne(() => MaterialCategoryEntity, { eager: false })
+  @JoinColumn({ name: 'material_category_id' })
+  material_category: MaterialCategoryEntity;
 
   @Column({ type: 'text', nullable: true })
   descripcion?: string;
@@ -32,18 +65,30 @@ export class PackagingMaterial {
   @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
   cantidad_disponible: string;
 
+  /** Si es clamshell: formato de presentación al que aplica (nombre comercial puede diferir del código formato). */
+  @Column({ type: 'bigint', nullable: true })
+  presentation_format_id: number | null;
+
+  /** Unidades de este clamshell por caja comercial (para costeo y stock). */
+  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  clamshell_units_per_box: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 }
 
 @Entity('packaging_recipes')
-@Unique('uq_packaging_recipe_format_code', ['format_code'])
+@Unique('uq_packaging_recipe_presentation_format', ['presentation_format_id'])
 export class PackagingRecipe {
   @PrimaryGeneratedColumn('increment')
   id: number;
 
-  @Column({ type: 'varchar', length: 20 })
-  format_code: string;
+  @Column({ type: 'bigint' })
+  presentation_format_id: number;
+
+  @ManyToOne(() => PresentationFormat, { nullable: false })
+  @JoinColumn({ name: 'presentation_format_id' })
+  presentation_format: PresentationFormat;
 
   @Column({ type: 'text', nullable: true })
   descripcion?: string;
@@ -67,8 +112,12 @@ export class PackagingRecipeItem {
   @Column({ type: 'decimal', precision: 14, scale: 4 })
   qty_per_unit: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: 'varchar', length: 20, default: 'box' })
   base_unidad: 'box' | 'pallet';
+
+  /** Tipo para costeo por formato: directo (por producto) o tripaje (material físico de pallet). */
+  @Column({ type: 'varchar', length: 20, default: 'directo' })
+  cost_type: 'directo' | 'tripaje';
 }
 
 @Entity('packaging_pallet_consumptions')

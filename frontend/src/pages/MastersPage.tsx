@@ -1,0 +1,3365 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { apiJson } from '@/api';
+import { useAuth } from '@/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+const DEACTIVATE_HELP =
+  'No se eliminará de la base de datos; dejará de aparecer en selectores. Si está referenciado en recepciones u otros módulos, el sistema rechazará la operación y mostrará el motivo.';
+
+function MasterDeactivateDialog({
+  open,
+  onOpenChange,
+  title,
+  label,
+  pending,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  label: string;
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          ¿Desactivar <strong className="text-foreground">{label}</strong>? {DEACTIVATE_HELP}
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="destructive" disabled={pending} onClick={onConfirm}>
+            Desactivar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MasterRowActions({
+  canWrite,
+  activo,
+  onEdit,
+  onDeactivateClick,
+  onReactivate,
+  reactivatePending,
+}: {
+  canWrite: boolean;
+  activo: boolean;
+  onEdit: () => void;
+  onDeactivateClick: () => void;
+  onReactivate: () => void;
+  reactivatePending: boolean;
+}) {
+  if (!canWrite) return null;
+  return (
+    <div className="flex justify-end gap-1">
+      <Button type="button" size="sm" variant="outline" title="Editar" onClick={onEdit}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      {activo ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="text-destructive hover:text-destructive"
+          title="Desactivar"
+          onClick={onDeactivateClick}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          title="Reactivar"
+          onClick={onReactivate}
+          disabled={reactivatePending}
+        >
+          Reactivar
+        </Button>
+      )}
+    </div>
+  );
+}
+
+type SpeciesRow = { id: number; codigo: string; nombre: string; activo: boolean };
+type ProducerRow = { id: number; codigo: string | null; nombre: string; activo: boolean };
+type VarietyRow = { id: number; species_id: number; codigo: string | null; nombre: string; activo: boolean; species?: { nombre: string } };
+type QualityRow = { id: number; codigo: string; nombre: string; activo: boolean; purpose?: string };
+
+type FormatRow = {
+  id: number;
+  format_code: string;
+  species_id: number | null;
+  descripcion: string | null;
+  net_weight_lb_per_box?: string;
+  max_boxes_per_pallet?: number | null;
+  box_kind?: 'mano' | 'maquina' | null;
+  clamshell_label_kind?: 'generica' | 'marca' | null;
+  activo: boolean;
+  species?: { nombre: string } | null;
+};
+
+const speciesSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(120),
+});
+
+const producerSchema = z.object({
+  codigo: z.string().optional(),
+  nombre: z.string().min(1).max(200),
+});
+
+const varietySchema = z.object({
+  species_id: z.coerce.number().int().positive(),
+  codigo: z.string().optional(),
+  nombre: z.string().min(1).max(120),
+});
+
+const qualitySchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(120),
+  purpose: z.enum(['exportacion', 'proceso', 'both']).optional(),
+});
+
+const qualityEditSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(120),
+  purpose: z.enum(['exportacion', 'proceso', 'both']),
+});
+
+const formatSchema = z.object({
+  format_code: z.string().min(1).max(20),
+  species_id_str: z.string().optional(),
+  descripcion: z.string().optional(),
+  net_weight_lb_per_box: z.coerce.number().positive(),
+  max_boxes_per_pallet: z.preprocess((a) => {
+    if (a === '' || a === undefined || a === null) return undefined;
+    const n = Number(a);
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
+  }, z.number().int().optional()),
+  box_kind: z.enum(['', 'mano', 'maquina']),
+  clamshell_label_kind: z.enum(['', 'generica', 'marca']),
+});
+
+const containerSchema = z.object({
+  tipo: z.string().min(1).max(80),
+  capacidad: z.string().optional(),
+  requiere_retorno: z.boolean().optional(),
+});
+
+const processMachineSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(160),
+  kind: z.enum(['single', 'double']),
+});
+
+const editProcessMachineSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(160),
+  kind: z.enum(['single', 'double']),
+});
+
+const brandSchema = z.object({
+  codigo: z.string().min(1).max(40),
+  nombre: z.string().min(1).max(120),
+  client_id: z.coerce.number().int().min(0),
+});
+
+const editBrandSchema = z.object({
+  codigo: z.string().min(1).max(40),
+  nombre: z.string().min(1).max(120),
+  client_id: z.coerce.number().int().min(0),
+});
+
+const processResultComponentSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(120),
+  sort_order: z.coerce.number().int().min(0),
+});
+
+const editProcessResultComponentSchema = z.object({
+  codigo: z.string().min(1).max(32),
+  nombre: z.string().min(1).max(120),
+  sort_order: z.coerce.number().int().min(0),
+});
+
+type ProcessMachineRow = { id: number; codigo: string; nombre: string; kind: 'single' | 'double'; activo: boolean };
+type ProcessResultComponentRow = { id: number; codigo: string; nombre: string; activo: boolean; sort_order: number };
+type SpeciesProcessResultComponentRow = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  sort_order: number;
+  master_activo: boolean;
+  activo: boolean;
+};
+
+type ClientMasterRow = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  pais?: string | null;
+  mercado_id?: number | null;
+  mercado?: { id: number; codigo: string; nombre: string } | null;
+  activo: boolean;
+};
+type BrandMasterRow = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  client_id: number | null;
+  client?: { nombre: string; codigo: string } | null;
+};
+
+type TabKey =
+  | 'species'
+  | 'producers'
+  | 'varieties'
+  | 'formats'
+  | 'quality'
+  | 'process_machines'
+  | 'process_results'
+  | 'brands'
+  | 'clients'
+  | 'mercados'
+  | 'material_categories'
+  | 'reception_types'
+  | 'document_states'
+  | 'containers';
+
+export function MastersPage() {
+  const { role } = useAuth();
+  const canWrite = role === 'admin' || role === 'supervisor';
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<TabKey>('species');
+
+  const { data: speciesList } = useQuery({
+    queryKey: ['masters', 'species'],
+    queryFn: () => apiJson<SpeciesRow[]>('/api/masters/species?include_inactive=true'),
+  });
+  const { data: producersList } = useQuery({
+    queryKey: ['masters', 'producers'],
+    queryFn: () => apiJson<ProducerRow[]>('/api/masters/producers?include_inactive=true'),
+  });
+  const { data: varietiesList } = useQuery({
+    queryKey: ['masters', 'varieties'],
+    queryFn: () => apiJson<VarietyRow[]>('/api/masters/varieties?include_inactive=true'),
+  });
+  const { data: formatsList } = useQuery({
+    queryKey: ['masters', 'formats'],
+    queryFn: () => apiJson<FormatRow[]>('/api/masters/presentation-formats?include_inactive=true'),
+  });
+  const { data: qualityList } = useQuery({
+    queryKey: ['masters', 'quality-grades'],
+    queryFn: () => apiJson<QualityRow[]>('/api/masters/quality-grades?include_inactive=true'),
+  });
+  const { data: containersList } = useQuery({
+    queryKey: ['masters', 'returnable-containers'],
+    queryFn: () =>
+      apiJson<
+        { id: number; tipo: string; capacidad: string | null; requiereRetorno: boolean; activo: boolean }[]
+      >('/api/masters/returnable-containers?include_inactive=true'),
+  });
+
+  const { data: processMachinesList } = useQuery({
+    queryKey: ['masters', 'process-machines'],
+    queryFn: () => apiJson<ProcessMachineRow[]>('/api/masters/process-machines?include_inactive=true'),
+  });
+  const { data: processResultComponents } = useQuery({
+    queryKey: ['masters', 'process-result-components'],
+    queryFn: () => apiJson<ProcessResultComponentRow[]>('/api/masters/process-result-components?include_inactive=true'),
+  });
+
+  const { data: clientsList } = useQuery({
+    queryKey: ['masters', 'clients'],
+    queryFn: () => apiJson<ClientMasterRow[]>('/api/masters/clients?include_inactive=true'),
+  });
+
+  const { data: mercadosList } = useQuery({
+    queryKey: ['masters', 'mercados'],
+    queryFn: () =>
+      apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>('/api/masters/mercados?include_inactive=true'),
+  });
+
+  const { data: materialCategoriesList } = useQuery({
+    queryKey: ['masters', 'material-categories'],
+    queryFn: () =>
+      apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>(
+        '/api/masters/material-categories?include_inactive=true',
+      ),
+  });
+
+  const { data: receptionTypesList } = useQuery({
+    queryKey: ['masters', 'reception-types'],
+    queryFn: () =>
+      apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>('/api/masters/reception-types?include_inactive=true'),
+  });
+
+  const { data: documentStatesList } = useQuery({
+    queryKey: ['masters', 'document-states'],
+    queryFn: () =>
+      apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>('/api/masters/document-states?include_inactive=true'),
+  });
+
+  const { data: brandsList } = useQuery({
+    queryKey: ['masters', 'brands'],
+    queryFn: () => apiJson<BrandMasterRow[]>('/api/masters/brands?include_inactive=true'),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Mantenedores</h1>
+        <p className="text-muted-foreground">
+          Catálogos maestros: <strong>especie</strong>, <strong>variedad</strong>, <strong>productor</strong>, <strong>calidad</strong>,{' '}
+          <strong>líneas de proceso</strong> (máquinas single/double), <strong>formatos NxMoz</strong>,{' '}
+          <strong>marcas comerciales</strong> (opcionalmente ligadas a cliente), <strong>envases retornables</strong>.
+        </p>
+      </div>
+
+      {!canWrite && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-medium">Solo lectura</CardTitle>
+            <CardDescription>
+              Tu rol no puede crear ni editar mantenedores. Usá un usuario supervisor o admin, o la{' '}
+              <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
+                API docs
+              </a>
+              .
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ['species', 'Especies'],
+            ['producers', 'Productores'],
+            ['varieties', 'Variedades'],
+            ['quality', 'Calidades'],
+            ['process_machines', 'Líneas de proceso'],
+            ['process_results', 'Resultados proceso'],
+            ['formats', 'Formatos NxMoz'],
+            ['brands', 'Marcas'],
+            ['clients', 'Clientes'],
+            ['mercados', 'Mercados'],
+            ['material_categories', 'Cat. materiales'],
+            ['reception_types', 'Tipos recepción'],
+            ['document_states', 'Estados doc.'],
+            ['containers', 'Envases'],
+          ] as const
+        ).map(([k, label]) => (
+          <Button
+            key={k}
+            type="button"
+            variant={tab === k ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setTab(k)}
+            className={cn(tab === k && 'pointer-events-none')}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {tab === 'species' && (
+        <SpeciesSection list={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+      {tab === 'producers' && (
+        <ProducersSection list={producersList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+      {tab === 'varieties' && (
+        <VarietiesSection
+          list={varietiesList ?? []}
+          species={speciesList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+        />
+      )}
+      {tab === 'quality' && (
+        <QualitySection list={qualityList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+      {tab === 'process_machines' && (
+        <ProcessMachinesSection list={processMachinesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+      {tab === 'process_results' && (
+        <ProcessResultComponentsSection
+          list={processResultComponents ?? []}
+          species={speciesList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+        />
+      )}
+      {tab === 'formats' && (
+        <FormatsSection list={formatsList ?? []} species={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+      {tab === 'brands' && (
+        <BrandsSection
+          list={brandsList ?? []}
+          clients={clientsList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+        />
+      )}
+      {tab === 'clients' && (
+        <ClientsSection
+          list={clientsList ?? []}
+          mercados={mercadosList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+        />
+      )}
+      {tab === 'mercados' && (
+        <SimpleCatalogSection
+          title="Mercados"
+          description="Destinos comerciales (recepción, referencia)."
+          list={mercadosList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+          queryKey={['masters', 'mercados']}
+          apiPath="mercados"
+        />
+      )}
+      {tab === 'material_categories' && (
+        <SimpleCatalogSection
+          title="Categorías de materiales"
+          description="Clasificación de materiales de empaque (obligatorio en alta de material)."
+          list={materialCategoriesList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+          queryKey={['masters', 'material-categories']}
+          apiPath="material-categories"
+        />
+      )}
+      {tab === 'reception_types' && (
+        <SimpleCatalogSection
+          title="Tipos de recepción"
+          description="Mano / máquina / mixto; selector en recepción de fruta."
+          list={receptionTypesList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+          queryKey={['masters', 'reception-types']}
+          apiPath="reception-types"
+        />
+      )}
+      {tab === 'document_states' && (
+        <SimpleCatalogSection
+          title="Estados de documento"
+          description="Borrador, confirmado, cerrado, anulado; transiciones validadas en recepción."
+          list={documentStatesList ?? []}
+          canWrite={canWrite}
+          queryClient={queryClient}
+          queryKey={['masters', 'document-states']}
+          apiPath="document-states"
+        />
+      )}
+      {tab === 'containers' && (
+        <ContainersSection list={containersList ?? []} canWrite={canWrite} queryClient={queryClient} />
+      )}
+    </div>
+  );
+}
+
+function ProcessMachinesSection({
+  list,
+  canWrite,
+  queryClient,
+}: {
+  list: ProcessMachineRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof processMachineSchema>>({
+    resolver: zodResolver(processMachineSchema),
+    defaultValues: { codigo: '', nombre: '', kind: 'single' },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof processMachineSchema>) =>
+      apiJson('/api/masters/process-machines', {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          kind: body.kind,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
+      toast.success('Línea de proceso creada');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', kind: 'single' });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof editProcessMachineSchema> }) =>
+      apiJson(`/api/masters/process-machines/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          kind: body.kind,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
+      toast.success('Línea actualizada');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/process-machines/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Líneas de proceso (máquinas)</CardTitle>
+          <CardDescription>
+            Equipos en planta p. ej. IQF: <strong>single</strong> o <strong>double</strong>. Se eligen al registrar un proceso.
+          </CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nueva línea
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva máquina / línea</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input placeholder="IQF-SINGLE" {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tipo</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('kind')}
+                  >
+                    <option value="single">Single</option>
+                    <option value="double">Double</option>
+                  </select>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.kind}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        {canWrite && editing != null && (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar línea #{editing.id}</DialogTitle>
+              </DialogHeader>
+              <EditProcessMachineForm
+                row={editing}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                onClose={() => setEditId(null)}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar línea de proceso"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditProcessMachineForm({
+  row,
+  onSave,
+  onClose,
+  pending,
+}: {
+  row: ProcessMachineRow;
+  onSave: (body: z.infer<typeof editProcessMachineSchema>) => void;
+  onClose: () => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof editProcessMachineSchema>>({
+    resolver: zodResolver(editProcessMachineSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      kind: row.kind,
+    },
+  });
+
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({
+          codigo: v.codigo.trim(),
+          nombre: v.nombre.trim(),
+          kind: v.kind,
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Tipo</Label>
+        <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('kind')}>
+          <option value="single">Single</option>
+          <option value="double">Double</option>
+        </select>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function BrandsSection({
+  list,
+  clients,
+  canWrite,
+  queryClient,
+}: {
+  list: BrandMasterRow[];
+  clients: ClientMasterRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof brandSchema>>({
+    resolver: zodResolver(brandSchema),
+    defaultValues: { codigo: '', nombre: '', client_id: 0 },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof brandSchema>) =>
+      apiJson('/api/masters/brands', {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          client_id: body.client_id > 0 ? body.client_id : undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
+      toast.success('Marca creada');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', client_id: 0 });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: {
+        codigo?: string;
+        nombre?: string;
+        client_id?: number | null;
+      };
+    }) =>
+      apiJson(`/api/masters/brands/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
+      toast.success('Marca actualizada');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/brands/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Marcas comerciales</CardTitle>
+          <CardDescription>
+            Marca especial o corporativa. Si está <strong>ligada a un cliente</strong>, solo podrá usarse en pallets (y otros
+            flujos) con ese mismo cliente.
+          </CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nueva marca
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva marca</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input {...form.register('codigo')} placeholder="Ej. ALP-SP" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Cliente (opcional)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('client_id', { valueAsNumber: true })}
+                  >
+                    <option value={0}>Sin cliente (cualquier pallet)</option>
+                    {clients
+                      .filter((c) => c.activo)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} ({c.codigo})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Estado</TableHead>
+              {canWrite ? <TableHead className="w-[100px]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>
+                  {r.client_id != null && r.client != null
+                    ? `${r.client.nombre} (${r.client.codigo})`
+                    : r.client_id != null
+                      ? `#${r.client_id}`
+                      : '—'}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={r.activo ? 'default' : 'secondary'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge>
+                </TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+
+      {canWrite && editing ? (
+        <Dialog open={editId != null} onOpenChange={(o) => !o && setEditId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar marca</DialogTitle>
+            </DialogHeader>
+            <BrandEditForm
+              row={editing}
+              clients={clients}
+              onClose={() => setEditId(null)}
+              onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+              pending={updateMut.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      <MasterDeactivateDialog
+        open={confirmDeactivate != null}
+        onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+        title="Desactivar marca"
+        label={confirmDeactivate?.label ?? ''}
+        pending={setActivoMut.isPending}
+        onConfirm={() =>
+          confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+        }
+      />
+    </Card>
+  );
+}
+
+function BrandEditForm({
+  row,
+  clients,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: BrandMasterRow;
+  clients: ClientMasterRow[];
+  onClose: () => void;
+  onSave: (body: { codigo: string; nombre: string; client_id: number | null }) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof editBrandSchema>>({
+    resolver: zodResolver(editBrandSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      client_id: row.client_id ?? 0,
+    },
+  });
+
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({
+          codigo: v.codigo.trim(),
+          nombre: v.nombre.trim(),
+          client_id: v.client_id > 0 ? v.client_id : null,
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Cliente</Label>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          {...f.register('client_id', { valueAsNumber: true })}
+        >
+          <option value={0}>Sin cliente</option>
+          {clients
+            .filter((c) => c.activo)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} ({c.codigo})
+              </option>
+            ))}
+        </select>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function ContainersSection({
+  list,
+  canWrite,
+  queryClient,
+}: {
+  list: { id: number; tipo: string; capacidad: string | null; requiereRetorno: boolean; activo: boolean }[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof containerSchema>>({
+    resolver: zodResolver(containerSchema),
+    defaultValues: { tipo: '', capacidad: '', requiere_retorno: false },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof containerSchema>) =>
+      apiJson('/api/masters/returnable-containers', {
+        method: 'POST',
+        body: JSON.stringify({
+          tipo: body.tipo.trim(),
+          capacidad: body.capacidad?.trim() || undefined,
+          requiere_retorno: body.requiere_retorno ?? false,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
+      toast.success('Envase creado');
+      setOpen(false);
+      form.reset({ tipo: '', capacidad: '', requiere_retorno: false });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: Partial<z.infer<typeof containerSchema>> & { activo?: boolean };
+    }) =>
+      apiJson(`/api/masters/returnable-containers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
+      toast.success('Envase actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/returnable-containers/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Envases retornables</CardTitle>
+          <CardDescription>
+            Ej. <strong>Lug blue</strong>, capacidad <strong>3,25 lb</strong>. Se eligen en cada línea de recepción como tipo de envase.
+          </CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo envase
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo envase</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Tipo / nombre</Label>
+                  <Input placeholder="Lug blue" {...form.register('tipo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Capacidad o peso (texto libre)</Label>
+                  <Input placeholder="3,25 lb" {...form.register('capacidad')} />
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" {...form.register('requiere_retorno')} />
+                  Requiere retorno
+                </label>
+                <DialogFooter>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Capacidad</TableHead>
+              <TableHead>Retorno</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.tipo}</TableCell>
+                <TableCell>{r.capacidad ?? '—'}</TableCell>
+                <TableCell>{r.requiereRetorno ? 'Sí' : 'No'}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({
+                          id: r.id,
+                          label: `${r.tipo}${r.capacidad ? ` · ${r.capacidad}` : ''}`,
+                        })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        {canWrite && editing != null && (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar envase #{editing.id}</DialogTitle>
+              </DialogHeader>
+              <EditContainerForm
+                key={editing.id}
+                row={editing}
+                onSave={(payload) => updateMut.mutate({ id: editing.id, body: payload })}
+                onCancel={() => setEditId(null)}
+                isPending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar envase"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditContainerForm({
+  row,
+  onSave,
+  onCancel,
+  isPending,
+}: {
+  row: { tipo: string; capacidad: string | null; requiereRetorno: boolean; activo: boolean };
+  onSave: (payload: Record<string, unknown>) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const form = useForm({
+    defaultValues: {
+      tipo: row.tipo,
+      capacidad: row.capacidad ?? '',
+      requiere_retorno: row.requiereRetorno,
+    },
+  });
+
+  return (
+    <form
+      onSubmit={form.handleSubmit((v) =>
+        onSave({
+          tipo: v.tipo.trim(),
+          capacidad: v.capacidad?.trim() || undefined,
+          requiere_retorno: v.requiere_retorno,
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Tipo</Label>
+        <Input {...form.register('tipo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Capacidad</Label>
+        <Input {...form.register('capacidad')} />
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" {...form.register('requiere_retorno')} />
+        Requiere retorno
+      </label>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function QualitySection({
+  list,
+  canWrite,
+  queryClient,
+}: {
+  list: QualityRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof qualitySchema>>({
+    resolver: zodResolver(qualitySchema),
+    defaultValues: { codigo: '', nombre: '', purpose: 'both' },
+  });
+  const mut = useMutation({
+    mutationFn: (body: z.infer<typeof qualitySchema>) =>
+      apiJson('/api/masters/quality-grades', {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          purpose: body.purpose ?? 'both',
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
+      toast.success('Calidad creada');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', purpose: 'both' });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof qualityEditSchema> }) =>
+      apiJson(`/api/masters/quality-grades/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          purpose: body.purpose,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
+      toast.success('Calidad actualizada');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/quality-grades/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      setConfirmDeactivate(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Calidades</CardTitle>
+          <CardDescription>Ej. FRESH BERRIES, IQF A — usadas en líneas de recepción y reportes.</CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nueva
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva calidad</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Uso (exportación / proceso)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('purpose')}
+                  >
+                    <option value="both">Ambos</option>
+                    <option value="exportacion">Exportación</option>
+                    <option value="proceso">Proceso</option>
+                  </select>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={mut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Uso</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell className="text-muted-foreground">{r.purpose ?? 'both'}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar calidad</DialogTitle>
+              </DialogHeader>
+              <QualityEditForm
+                row={editing}
+                onClose={() => setEditId(null)}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar calidad"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function QualityEditForm({
+  row,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: QualityRow;
+  onClose: () => void;
+  onSave: (body: z.infer<typeof qualityEditSchema>) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof qualityEditSchema>>({
+    resolver: zodResolver(qualityEditSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      purpose: (row.purpose as 'exportacion' | 'proceso' | 'both') ?? 'both',
+    },
+  });
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({
+          codigo: v.codigo.trim(),
+          nombre: v.nombre.trim(),
+          purpose: v.purpose,
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Uso</Label>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          {...f.register('purpose')}
+        >
+          <option value="both">Ambos</option>
+          <option value="exportacion">Exportación</option>
+          <option value="proceso">Proceso</option>
+        </select>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function SpeciesSection({
+  list,
+  canWrite,
+  queryClient,
+}: {
+  list: SpeciesRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof speciesSchema>>({
+    resolver: zodResolver(speciesSchema),
+    defaultValues: { codigo: '', nombre: '' },
+  });
+  const mut = useMutation({
+    mutationFn: (body: z.infer<typeof speciesSchema>) =>
+      apiJson('/api/masters/species', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      toast.success('Especie creada');
+      setOpen(false);
+      form.reset();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof speciesSchema> }) =>
+      apiJson(`/api/masters/species/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ codigo: body.codigo.trim(), nombre: body.nombre.trim() }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
+      toast.success('Especie actualizada');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/species/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Especies</CardTitle>
+          <CardDescription>Ej. Arándano, Frambuesa. Es el nivel donde se declara la fruta como cultivo.</CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nueva
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva especie</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input placeholder="ARB" {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input placeholder="Arándano" {...form.register('nombre')} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={mut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() => setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })}
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar especie</DialogTitle>
+              </DialogHeader>
+              <SpeciesEditForm
+                row={editing}
+                onClose={() => setEditId(null)}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar especie"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function SpeciesEditForm({
+  row,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: SpeciesRow;
+  onClose: () => void;
+  onSave: (body: z.infer<typeof speciesSchema>) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof speciesSchema>>({
+    resolver: zodResolver(speciesSchema),
+    defaultValues: { codigo: row.codigo, nombre: row.nombre },
+  });
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) => onSave({ codigo: v.codigo.trim(), nombre: v.nombre.trim() }))}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function ProducersSection({
+  list,
+  canWrite,
+  queryClient,
+}: {
+  list: ProducerRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof producerSchema>>({
+    resolver: zodResolver(producerSchema),
+    defaultValues: { codigo: '', nombre: '' },
+  });
+  const mut = useMutation({
+    mutationFn: (body: z.infer<typeof producerSchema>) =>
+      apiJson('/api/masters/producers', {
+        method: 'POST',
+        body: JSON.stringify({ nombre: body.nombre, codigo: body.codigo?.trim() || undefined }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
+      toast.success('Productor creado');
+      setOpen(false);
+      form.reset();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof producerSchema> }) =>
+      apiJson(`/api/masters/producers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          nombre: body.nombre.trim(),
+          codigo: body.codigo?.trim() || undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
+      toast.success('Productor actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/producers/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Productores</CardTitle>
+          <CardDescription>Quien entrega la fruta en recepción.</CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo productor</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código (opcional)</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={mut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.codigo ?? '—'}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo ?? '—'} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar productor</DialogTitle>
+              </DialogHeader>
+              <ProducerEditForm
+                row={editing}
+                onClose={() => setEditId(null)}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar productor"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProducerEditForm({
+  row,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: ProducerRow;
+  onClose: () => void;
+  onSave: (body: z.infer<typeof producerSchema>) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof producerSchema>>({
+    resolver: zodResolver(producerSchema),
+    defaultValues: { codigo: row.codigo ?? '', nombre: row.nombre },
+  });
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({ codigo: v.codigo?.trim() || undefined, nombre: v.nombre.trim() }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código (opcional)</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function VarietiesSection({
+  list,
+  species,
+  canWrite,
+  queryClient,
+}: {
+  list: VarietyRow[];
+  species: SpeciesRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const speciesOptions = species.filter((s) => s.activo);
+  const form = useForm<z.infer<typeof varietySchema>>({
+    resolver: zodResolver(varietySchema),
+    defaultValues: { species_id: 0, codigo: '', nombre: '' },
+  });
+  const mut = useMutation({
+    mutationFn: (body: z.infer<typeof varietySchema>) =>
+      apiJson('/api/masters/varieties', {
+        method: 'POST',
+        body: JSON.stringify({
+          species_id: body.species_id,
+          nombre: body.nombre,
+          codigo: body.codigo?.trim() || undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      toast.success('Variedad creada');
+      setOpen(false);
+      form.reset({ species_id: 0, codigo: '', nombre: '' });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof varietySchema> }) =>
+      apiJson(`/api/masters/varieties/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          species_id: body.species_id,
+          nombre: body.nombre.trim(),
+          codigo: body.codigo?.trim() || undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      toast.success('Variedad actualizada');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/varieties/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Variedades</CardTitle>
+          <CardDescription>Cada variedad pertenece a una especie (ej. Emerald → Arándano).</CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nueva
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva variedad</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Especie</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('species_id', { valueAsNumber: true })}
+                  >
+                    <option value={0}>Elegir…</option>
+                    {speciesOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre} ({s.codigo})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Código (opcional)</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={mut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Especie</TableHead>
+              <TableHead>Variedad</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell>{r.species?.nombre ?? r.species_id}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.codigo ?? '—'}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.nombre} (${r.species?.nombre ?? r.species_id})` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar variedad</DialogTitle>
+              </DialogHeader>
+              <VarietyEditForm
+                row={editing}
+                speciesOptions={speciesOptions}
+                allSpecies={species}
+                onClose={() => setEditId(null)}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar variedad"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function VarietyEditForm({
+  row,
+  speciesOptions,
+  allSpecies,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: VarietyRow;
+  speciesOptions: SpeciesRow[];
+  allSpecies: SpeciesRow[];
+  onClose: () => void;
+  onSave: (body: z.infer<typeof varietySchema>) => void;
+  pending: boolean;
+}) {
+  const selectSpecies = (() => {
+    const m = new Map(speciesOptions.map((s) => [s.id, s]));
+    const need = allSpecies.find((s) => s.id === row.species_id);
+    if (need && !m.has(need.id)) m.set(need.id, need);
+    return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  })();
+  const f = useForm<z.infer<typeof varietySchema>>({
+    resolver: zodResolver(varietySchema),
+    defaultValues: {
+      species_id: row.species_id,
+      codigo: row.codigo ?? '',
+      nombre: row.nombre,
+    },
+  });
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({
+          species_id: v.species_id,
+          nombre: v.nombre.trim(),
+          codigo: v.codigo?.trim() || undefined,
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Especie</Label>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          {...f.register('species_id', { valueAsNumber: true })}
+        >
+          {selectSpecies.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.nombre} ({s.codigo})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-2">
+        <Label>Código (opcional)</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function formatPayloadFromForm(body: z.infer<typeof formatSchema>, mode: 'create' | 'update') {
+  const sid = body.species_id_str?.trim();
+  let species_id: number | null | undefined;
+  if (sid === '') {
+    species_id = mode === 'update' ? null : undefined;
+  } else if (sid) {
+    const n = Number.parseInt(sid, 10);
+    species_id = Number.isFinite(n) ? n : undefined;
+  }
+  const box_kind =
+    body.box_kind === '' ? (mode === 'update' ? null : undefined) : (body.box_kind as 'mano' | 'maquina');
+  const clamshell_label_kind =
+    body.clamshell_label_kind === ''
+      ? mode === 'update'
+        ? null
+        : undefined
+      : (body.clamshell_label_kind as 'generica' | 'marca');
+  return {
+    format_code: body.format_code.trim(),
+    species_id,
+    descripcion: body.descripcion?.trim() || undefined,
+    net_weight_lb_per_box: body.net_weight_lb_per_box,
+    max_boxes_per_pallet: body.max_boxes_per_pallet,
+    ...(box_kind !== undefined ? { box_kind } : {}),
+    ...(clamshell_label_kind !== undefined ? { clamshell_label_kind } : {}),
+  };
+}
+
+function FormatsSection({
+  list,
+  species,
+  canWrite,
+  queryClient,
+}: {
+  list: FormatRow[];
+  species: SpeciesRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const speciesOptions = species.filter((s) => s.activo);
+  const form = useForm<z.infer<typeof formatSchema>>({
+    resolver: zodResolver(formatSchema),
+    defaultValues: {
+      format_code: '',
+      species_id_str: '',
+      descripcion: '',
+      net_weight_lb_per_box: 1,
+      max_boxes_per_pallet: undefined,
+      box_kind: '',
+      clamshell_label_kind: '',
+    },
+  });
+  const mut = useMutation({
+    mutationFn: (body: z.infer<typeof formatSchema>) =>
+      apiJson('/api/masters/presentation-formats', {
+        method: 'POST',
+        body: JSON.stringify(formatPayloadFromForm(body, 'create')),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
+      toast.success('Formato creado');
+      setOpen(false);
+      form.reset();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof formatSchema> }) =>
+      apiJson(`/api/masters/presentation-formats/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(formatPayloadFromForm(body, 'update')),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
+      toast.success('Formato actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/presentation-formats/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Formatos de presentación</CardTitle>
+          <CardDescription>
+            Patrón <code className="text-primary">NxMoz</code> (ej. 4x16oz). Peso neto por caja (lb) obligatorio para unidades PT.
+            Opcionalmente restringido a una especie. Las <strong>recetas de empaque</strong> usan el mismo patrón en otro catálogo.
+          </CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo formato</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>format_code</Label>
+                  <Input placeholder="4x16oz" {...form.register('format_code')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Especie (opcional)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('species_id_str')}
+                  >
+                    <option value="">Todas</option>
+                    {speciesOptions.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Peso neto por caja (lb)</Label>
+                  <Input type="number" step="0.0001" min="0.0001" {...form.register('net_weight_lb_per_box', { valueAsNumber: true })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Descripción</Label>
+                  <Input {...form.register('descripcion')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tope cajas por pallet/unidad PT (opcional)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Ej. 100"
+                    {...form.register('max_boxes_per_pallet', { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <Label>Tipo de caja (empaque)</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                      {...form.register('box_kind')}
+                    >
+                      <option value="">Sin definir</option>
+                      <option value="mano">Mano</option>
+                      <option value="maquina">Máquina</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label>Etiqueta clamshell</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                      {...form.register('clamshell_label_kind')}
+                    >
+                      <option value="">Sin definir</option>
+                      <option value="generica">Genérica</option>
+                      <option value="marca">Marca</option>
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={mut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Especie</TableHead>
+              <TableHead>lb/caja</TableHead>
+              <TableHead>Máx cajas/pallet</TableHead>
+              <TableHead>Caja</TableHead>
+              <TableHead>Clamshell</TableHead>
+              <TableHead>Descripción</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead className="w-[1%]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
+                <TableCell className="font-mono">{r.format_code}</TableCell>
+                <TableCell>{r.species?.nombre ?? '—'}</TableCell>
+                <TableCell className="font-mono">{r.net_weight_lb_per_box ?? '—'}</TableCell>
+                <TableCell>{r.max_boxes_per_pallet ?? '—'}</TableCell>
+                <TableCell className="text-sm">
+                  {r.box_kind === 'mano' ? 'Mano' : r.box_kind === 'maquina' ? 'Máquina' : '—'}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {r.clamshell_label_kind === 'generica'
+                    ? 'Genérica'
+                    : r.clamshell_label_kind === 'marca'
+                      ? 'Marca'
+                      : '—'}
+                </TableCell>
+                <TableCell className="max-w-[200px] truncate">{r.descripcion ?? '—'}</TableCell>
+                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: r.format_code })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar formato</DialogTitle>
+              </DialogHeader>
+              <FormatEditForm
+                row={editing}
+                onClose={() => setEditId(null)}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                pending={updateMut.isPending}
+                speciesOptions={speciesOptions}
+                allSpecies={species}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar formato"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function FormatEditForm({
+  row,
+  onClose,
+  onSave,
+  pending,
+  speciesOptions,
+  allSpecies,
+}: {
+  row: FormatRow;
+  onClose: () => void;
+  onSave: (body: z.infer<typeof formatSchema>) => void;
+  pending: boolean;
+  speciesOptions: SpeciesRow[];
+  allSpecies: SpeciesRow[];
+}) {
+  const speciesSelect = (() => {
+    const m = new Map(speciesOptions.map((s) => [s.id, s]));
+    const need = row.species_id != null ? allSpecies.find((s) => s.id === row.species_id) : undefined;
+    if (need && !m.has(need.id)) m.set(need.id, need);
+    return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  })();
+  const nw = Number(row.net_weight_lb_per_box);
+  const f = useForm<z.infer<typeof formatSchema>>({
+    resolver: zodResolver(formatSchema),
+    defaultValues: {
+      format_code: row.format_code,
+      species_id_str: row.species_id != null ? String(row.species_id) : '',
+      descripcion: row.descripcion ?? '',
+      net_weight_lb_per_box: Number.isFinite(nw) && nw > 0 ? nw : 0.0001,
+      max_boxes_per_pallet: row.max_boxes_per_pallet ?? undefined,
+      box_kind: row.box_kind === 'mano' || row.box_kind === 'maquina' ? row.box_kind : '',
+      clamshell_label_kind:
+        row.clamshell_label_kind === 'generica' || row.clamshell_label_kind === 'marca'
+          ? row.clamshell_label_kind
+          : '',
+    },
+  });
+  return (
+    <form onSubmit={f.handleSubmit((v) => onSave(v))} className="grid gap-3">
+      <div className="grid gap-2">
+        <Label>format_code</Label>
+        <Input {...f.register('format_code')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Especie (opcional)</Label>
+        <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('species_id_str')}>
+          <option value="">Todas</option>
+          {speciesSelect.map((s) => (
+            <option key={s.id} value={String(s.id)}>
+              {s.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-2">
+        <Label>Peso neto por caja (lb)</Label>
+        <Input type="number" step="0.0001" min="0.0001" {...f.register('net_weight_lb_per_box', { valueAsNumber: true })} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Descripción</Label>
+        <Input {...f.register('descripcion')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Tope cajas por pallet/unidad PT (opcional)</Label>
+        <Input
+          type="number"
+          min={1}
+          placeholder="Ej. 100"
+          {...f.register('max_boxes_per_pallet', { valueAsNumber: true })}
+        />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-1">
+          <Label>Tipo de caja (empaque)</Label>
+          <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('box_kind')}>
+            <option value="">Sin definir</option>
+            <option value="mano">Mano</option>
+            <option value="maquina">Máquina</option>
+          </select>
+        </div>
+        <div className="grid gap-1">
+          <Label>Etiqueta clamshell</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+            {...f.register('clamshell_label_kind')}
+          >
+            <option value="">Sin definir</option>
+            <option value="generica">Genérica</option>
+            <option value="marca">Marca</option>
+          </select>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function ProcessResultComponentsSection({
+  list,
+  species,
+  canWrite,
+  queryClient,
+}: {
+  list: ProcessResultComponentRow[];
+  species: SpeciesRow[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [speciesCfgId, setSpeciesCfgId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+
+  const form = useForm<z.infer<typeof processResultComponentSchema>>({
+    resolver: zodResolver(processResultComponentSchema),
+    defaultValues: { codigo: '', nombre: '', sort_order: 0 },
+  });
+
+  const { data: speciesComponents } = useQuery({
+    queryKey: ['masters', 'species', speciesCfgId, 'process-result-components'],
+    queryFn: () =>
+      apiJson<SpeciesProcessResultComponentRow[]>(
+        `/api/masters/species/${speciesCfgId}/process-result-components?include_inactive=true`,
+      ),
+    enabled: speciesCfgId != null,
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof processResultComponentSchema>) =>
+      apiJson('/api/masters/process-result-components', {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: body.codigo.trim().toUpperCase(),
+          nombre: body.nombre.trim(),
+          sort_order: body.sort_order,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
+      toast.success('Componente creado');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', sort_order: 0 });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof editProcessResultComponentSchema> }) =>
+      apiJson(`/api/masters/process-result-components/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          codigo: body.codigo.trim().toUpperCase(),
+          nombre: body.nombre.trim(),
+          sort_order: body.sort_order,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
+      toast.success('Componente actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/process-result-components/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveSpeciesConfigMut = useMutation({
+    mutationFn: ({ sid, activeIds }: { sid: number; activeIds: number[] }) =>
+      apiJson(`/api/masters/species/${sid}/process-result-components`, {
+        method: 'PUT',
+        body: JSON.stringify({ active_component_ids: activeIds }),
+      }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species', vars.sid, 'process-result-components'] });
+      toast.success('Configuración por especie guardada');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((x) => x.id === editId) : null;
+
+  const speciesForProcessConfig = (() => {
+    const active = species.filter((s) => s.activo);
+    const m = new Map(active.map((s) => [s.id, s]));
+    if (speciesCfgId != null) {
+      const cur = species.find((s) => s.id === speciesCfgId);
+      if (cur && !m.has(cur.id)) m.set(cur.id, cur);
+    }
+    return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  })();
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Resultados de proceso (variables)</CardTitle>
+          <CardDescription>
+            Definí componentes dinámicos (IQF, merma, jugo, X) y activalos por especie para usarlos en procesos.
+          </CardDescription>
+        </div>
+        {canWrite ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo componente
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo componente variable</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input {...form.register('codigo')} placeholder="IQF / MERMA / JUGO / X" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Orden</Label>
+                  <Input type="number" {...form.register('sort_order', { valueAsNumber: true })} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Orden</TableHead>
+              <TableHead>Estado</TableHead>
+              {canWrite ? <TableHead className="w-[1%]">Acción</TableHead> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.sort_order}</TableCell>
+                <TableCell>
+                  <Badge variant={r.activo ? 'default' : 'secondary'}>{r.activo ? 'activo' : 'inactivo'}</Badge>
+                </TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <div className="grid gap-2 sm:max-w-sm">
+          <Label>Configurar componentes por especie</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+            value={speciesCfgId ?? 0}
+            onChange={(e) => setSpeciesCfgId(Number(e.target.value) || null)}
+          >
+            <option value={0}>Elegir especie…</option>
+            {speciesForProcessConfig.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre}
+                {!s.activo ? ' (inactiva)' : ''}
+              </option>
+            ))}
+          </select>
+          {speciesCfgId != null && speciesComponents ? (
+            <div className="space-y-2 rounded-md border p-3">
+              {speciesComponents.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={c.activo}
+                    onChange={(e) => {
+                      const next = speciesComponents.map((x) => (x.id === c.id ? { ...x, activo: e.target.checked } : x));
+                      queryClient.setQueryData(['masters', 'species', speciesCfgId, 'process-result-components'], next);
+                    }}
+                  />
+                  <span className="font-mono">{c.codigo}</span>
+                  <span>{c.nombre}</span>
+                  {!c.master_activo ? <Badge variant="secondary">maestro inactivo</Badge> : null}
+                </label>
+              ))}
+              {canWrite ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    saveSpeciesConfigMut.mutate({
+                      sid: speciesCfgId,
+                      activeIds: (speciesComponents ?? []).filter((x) => x.activo).map((x) => x.id),
+                    })
+                  }
+                  disabled={saveSpeciesConfigMut.isPending}
+                >
+                  Guardar especie
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </CardContent>
+
+      {editing ? (
+        <EditProcessResultComponentDialog
+          row={editing}
+          onClose={() => setEditId(null)}
+          onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+          pending={updateMut.isPending}
+        />
+      ) : null}
+      <MasterDeactivateDialog
+        open={confirmDeactivate != null}
+        onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+        title="Desactivar componente"
+        label={confirmDeactivate?.label ?? ''}
+        pending={setActivoMut.isPending}
+        onConfirm={() =>
+          confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+        }
+      />
+    </Card>
+  );
+}
+
+function EditProcessResultComponentDialog({
+  row,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: ProcessResultComponentRow;
+  onClose: () => void;
+  onSave: (body: z.infer<typeof editProcessResultComponentSchema>) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof editProcessResultComponentSchema>>({
+    resolver: zodResolver(editProcessResultComponentSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      sort_order: row.sort_order,
+    },
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar componente variable</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={f.handleSubmit((v) =>
+            onSave({
+              codigo: v.codigo.trim().toUpperCase(),
+              nombre: v.nombre.trim(),
+              sort_order: v.sort_order,
+            }),
+          )}
+          className="grid gap-3"
+        >
+          <div className="grid gap-2">
+            <Label>Código</Label>
+            <Input {...f.register('codigo')} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Nombre</Label>
+            <Input {...f.register('nombre')} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Orden</Label>
+            <Input type="number" {...f.register('sort_order', { valueAsNumber: true })} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const clientMasterSchema = z.object({
+  codigo: z.string().min(1).max(40),
+  nombre: z.string().min(1).max(200),
+  pais: z.string().optional(),
+  mercado_id: z.coerce.number().int().min(0),
+});
+
+const editClientMasterSchema = clientMasterSchema;
+
+type ClientUpdatePayload = {
+  codigo: string;
+  nombre: string;
+  pais?: string;
+  mercado_id: number | null;
+};
+
+function ClientsSection({
+  list,
+  mercados,
+  canWrite,
+  queryClient,
+}: {
+  list: ClientMasterRow[];
+  mercados: { id: number; codigo: string; nombre: string; activo: boolean }[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof clientMasterSchema>>({
+    resolver: zodResolver(clientMasterSchema),
+    defaultValues: { codigo: '', nombre: '', pais: '', mercado_id: 0 },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof clientMasterSchema>) =>
+      apiJson('/api/masters/clients', {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: body.codigo.trim(),
+          nombre: body.nombre.trim(),
+          pais: body.pais?.trim() || undefined,
+          mercado_id: body.mercado_id > 0 ? body.mercado_id : undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
+      toast.success('Cliente creado');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', pais: '', mercado_id: 0 });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: Partial<ClientUpdatePayload>;
+    }) =>
+      apiJson(`/api/masters/clients/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
+      toast.success('Cliente actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/clients/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">Clientes comerciales</CardTitle>
+          <CardDescription>
+            Código, nombre, país y mercado opcional. Las marcas pueden asociarse a un cliente; despachos y órdenes podrán
+            referenciar este catálogo.
+          </CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo cliente</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>País (opcional)</Label>
+                  <Input {...form.register('pais')} placeholder="ej. Chile" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Mercado (opcional)</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    {...form.register('mercado_id', { valueAsNumber: true })}
+                  >
+                    <option value={0}>—</option>
+                    {mercados
+                      .filter((m) => m.activo !== false)
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>País</TableHead>
+              <TableHead>Mercado</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>{r.pais ?? '—'}</TableCell>
+                <TableCell>{r.mercado?.nombre ?? '—'}</TableCell>
+                <TableCell>
+                  <Badge variant={r.activo ? 'default' : 'secondary'}>{r.activo ? 'Sí' : 'No'}</Badge>
+                </TableCell>
+                {canWrite ? (
+                  <TableCell className="text-right">
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <EditClientDialog
+            row={editing}
+            mercados={mercados}
+            onClose={() => setEditId(null)}
+            onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+            pending={updateMut.isPending}
+          />
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar cliente"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditClientDialog({
+  row,
+  mercados,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: ClientMasterRow;
+  mercados: { id: number; codigo: string; nombre: string; activo: boolean }[];
+  onClose: () => void;
+  onSave: (body: ClientUpdatePayload) => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof editClientMasterSchema>>({
+    resolver: zodResolver(editClientMasterSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      pais: row.pais ?? '',
+      mercado_id: row.mercado_id ?? 0,
+    },
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar cliente</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={f.handleSubmit((v) =>
+            onSave({
+              codigo: v.codigo.trim(),
+              nombre: v.nombre.trim(),
+              pais: v.pais?.trim() || undefined,
+              mercado_id: v.mercado_id > 0 ? v.mercado_id : null,
+            }),
+          )}
+          className="grid gap-3"
+        >
+          <div className="grid gap-2">
+            <Label>Código</Label>
+            <Input {...f.register('codigo')} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Nombre</Label>
+            <Input {...f.register('nombre')} />
+          </div>
+          <div className="grid gap-2">
+            <Label>País</Label>
+            <Input {...f.register('pais')} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Mercado</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+              {...f.register('mercado_id', { valueAsNumber: true })}
+            >
+              <option value={0}>—</option>
+              {mercados
+                .filter((m) => m.activo !== false)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const simpleCatalogSchema = z.object({
+  codigo: z.string().min(1).max(40),
+  nombre: z.string().min(1).max(120),
+});
+
+function SimpleCatalogSection({
+  title,
+  description,
+  list,
+  canWrite,
+  queryClient,
+  queryKey,
+  apiPath,
+}: {
+  title: string;
+  description: string;
+  list: { id: number; codigo: string; nombre: string; activo: boolean }[];
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+  queryKey: string[];
+  apiPath: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+  const form = useForm<z.infer<typeof simpleCatalogSchema>>({
+    resolver: zodResolver(simpleCatalogSchema),
+    defaultValues: { codigo: '', nombre: '' },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: z.infer<typeof simpleCatalogSchema>) =>
+      apiJson(`/api/masters/${apiPath}`, {
+        method: 'POST',
+        body: JSON.stringify({ codigo: body.codigo.trim(), nombre: body.nombre.trim() }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Registro creado');
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '' });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { codigo: string; nombre: string } }) =>
+      apiJson(`/api/masters/${apiPath}/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Actualizado');
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/${apiPath}/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      setConfirmDeactivate(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+        <div>
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        {canWrite && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Nuevo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Código</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nombre</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </CardHeader>
+      <CardContent className="overflow-x-auto pt-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Activo</TableHead>
+              {canWrite ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>
+                  <Badge variant={r.activo ? 'default' : 'secondary'}>{r.activo ? 'Sí' : 'No'}</Badge>
+                </TableCell>
+                {canWrite ? (
+                  <TableCell className="text-right">
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeactivateClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {editing ? (
+          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar</DialogTitle>
+              </DialogHeader>
+              <EditSimpleCatalogForm
+                row={editing}
+                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+                onClose={() => setEditId(null)}
+                pending={updateMut.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        <MasterDeactivateDialog
+          open={confirmDeactivate != null}
+          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+          title="Desactivar registro"
+          label={confirmDeactivate?.label ?? ''}
+          pending={setActivoMut.isPending}
+          onConfirm={() =>
+            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditSimpleCatalogForm({
+  row,
+  onSave,
+  onClose,
+  pending,
+}: {
+  row: { id: number; codigo: string; nombre: string; activo: boolean };
+  onSave: (body: { codigo: string; nombre: string }) => void;
+  onClose: () => void;
+  pending: boolean;
+}) {
+  const f = useForm<z.infer<typeof simpleCatalogSchema>>({
+    resolver: zodResolver(simpleCatalogSchema),
+    defaultValues: { codigo: row.codigo, nombre: row.nombre },
+  });
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) => onSave({ codigo: v.codigo.trim(), nombre: v.nombre.trim() }))}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>Código</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Nombre</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={pending}>
+          Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}

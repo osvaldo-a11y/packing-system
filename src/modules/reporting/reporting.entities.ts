@@ -17,3 +17,25 @@ export class ReportSnapshot {
   @CreateDateColumn()
   created_at: Date;
 }
+
+@Entity('packing_costs')
+export class PackingCost {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'bigint' })
+  species_id: number;
+
+  /** Temporada opcional para evolución futura de costos (ej: 2026-2027). */
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  season: string | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 6 })
+  price_per_lb: string;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @CreateDateColumn()
+  created_at: Date;
+}

@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tema claro por defecto: fondo suave, texto oscuro, primario azul sobrio */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 48%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 25% 96%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 32% 93%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 24% 88%;
+    --input: 214 24% 88%;
+    --ring: 221 83% 48%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased;
+    min-height: 100dvh;
+    height: 100%;
+  }
+
+  body {
+    @apply min-h-[100dvh] bg-background text-foreground font-sans;
+    background-image: linear-gradient(180deg, hsl(210 25% 97%) 0%, hsl(var(--background)) 32%);
+  }
+
+  h1 {
+    @apply tracking-tight text-slate-900;
+  }
+
+  h2 {
+    @apply tracking-tight text-slate-800;
+  }
+
+  #root {
+    @apply min-h-[100dvh] w-full min-w-0;
+  }
+}
