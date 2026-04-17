@@ -132,14 +132,18 @@ async function main() {
   await page.evaluate((t) => localStorage.setItem('ps_token', t), token);
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForFunction(() => !window.location.hash.includes('login'), null, { timeout: 30_000 });
-  await page.waitForFunction(
-    () => {
-      const h = document.querySelector('h1');
-      return h != null && /Hola/i.test((h.textContent || '').trim());
-    },
-    null,
-    { timeout: 25_000 },
-  );
+  try {
+    await page.waitForFunction(
+      () => {
+        const h = document.querySelector('h1');
+        return h != null && /Hola/i.test((h.textContent || '').trim());
+      },
+      null,
+      { timeout: 5000 },
+    );
+  } catch {
+    // Algunas variantes de UI no muestran el saludo "Hola"; continuar con capturas igual.
+  }
   await page.waitForTimeout(800);
 
   for (const { path: hashPath, file, label } of routes) {

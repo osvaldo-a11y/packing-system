@@ -7,6 +7,7 @@ import { MATERIAL_CATEGORY_CODES, PackagingMaterial } from '../packaging/packagi
 import {
   FruitProcess,
   FruitProcessLineAllocation,
+  ProcessResult,
   PtTag,
   PtTagItem,
   PtTagMerge,
@@ -142,11 +143,19 @@ export class FinalPalletService {
     return (Number(m[1]) * Number(m[2])) / 16;
   }
 
+  /** Lookup tolerante a mayúsculas/minúsculas para format_code. */
+  private async findFormatByCode(formatCode: string): Promise<PresentationFormat | null> {
+    const fc = (formatCode ?? '').trim().toLowerCase();
+    if (!fc) return null;
+    return this.formatRepo
+      .createQueryBuilder('pf')
+      .where('LOWER(pf.format_code) = :fc', { fc })
+      .getOne();
+  }
+
   /** Misma lógica que despacho / proceso (lb netas por caja). */
   private async netLbPerBoxFromFormatCode(formatCode: string): Promise<number> {
-    const row = await this.formatRepo.findOne({
-      where: { format_code: formatCode.trim().toLowerCase() },
-    });
+    const row = await this.findFormatByCode(formatCode);
     if (row && Number(row.net_weight_lb_per_box) > 0) {
       return Number(row.net_weight_lb_per_box);
     }
@@ -454,6 +463,17 @@ export class FinalPalletService {
     linesByPallet: Map<number, FinalPalletLine[]>,
     palletById: Map<number, FinalPallet>,
   ): Promise<Map<number, UnidadPtTraceability>> {
+    const buildDisplayCode = (
+      trazabilidad_pt: UnidadPtTraceability['trazabilidad_pt'],
+      unidad_pt_codigos: string[],
+      codigo_logistico: string,
+    ): string => {
+      if (trazabilidad_pt === 'sin_trazabilidad') return codigo_logistico;
+      if (trazabilidad_pt === 'unica') return unidad_pt_codigos[0];
+      const n = unidad_pt_codigos.length;
+      return n === 2 ? `${unidad_pt_codigos[0]} · ${unidad_pt_codigos[1]}` : `${unidad_pt_codigos[0]} (+${n - 1} más)`;
+    };
+
     const out = new Map<number, UnidadPtTraceability>();
     const allLines = [...linesByPallet.values()].flat();
     const processIds = [
@@ -618,18 +638,7 @@ export class FinalPalletService {
         }
       }
 
-      let codigo_unidad_pt_display: string;
-      if (trazabilidad_pt === 'sin_trazabilidad') {
-        codigo_unidad_pt_display = codigo_logistico;
-      } else if (trazabilidad_pt === 'unica') {
-        codigo_unidad_pt_display = unidad_pt_codigos[0];
-      } else {
-        const n = unidad_pt_codigos.length;
-        codigo_unidad_pt_display =
-          n === 2
-            ? `${unidad_pt_codigos[0]} · ${unidad_pt_codigos[1]}`
-            : `${unidad_pt_codigos[0]} (+${n - 1} más)`;
-      }
+      const codigo_unidad_pt_display = buildDisplayCode(trazabilidad_pt, unidad_pt_codigos, codigo_logistico);
 
       out.set(palletId, {
         unidad_pt_codigos,
@@ -638,6 +647,72 @@ export class FinalPalletService {
         codigo_unidad_pt_display,
         codigo_logistico,
       });
+    }
+
+    /**
+     * Resultado de repaletizaje: la identidad PT debe venir de los pallets fuente del evento activo,
+     * no del historial completo de `pt_tag_items` por proceso (que puede arrastrar TAR antiguas).
+     */
+    const palletIds = [...palletById.keys()];
+    if (palletIds.length > 0) {
+      const activeEvents = await this.repalletEventRepo.find({
+        where: { result_final_pallet_id: In(palletIds), reversed_at: IsNull() },
+        select: ['id', 'result_final_pallet_id'],
+      });
+      if (activeEvents.length > 0) {
+        const eventIds = activeEvents.map((e) => Number(e.id));
+        const srcRows = await this.repalletSourceRepo.find({
+          where: { event_id: In(eventIds) },
+          select: ['event_id', 'source_final_pallet_id'],
+        });
+        const srcIds = [...new Set(srcRows.map((s) => Number(s.source_final_pallet_id)).filter((x) => x > 0))];
+        const srcTraceMap = srcIds.length > 0 ? await this.resolveUnidadPtTraceabilityForPalletIds(srcIds) : new Map<number, UnidadPtTraceability>();
+        const srcByEvent = new Map<number, number[]>();
+        for (const s of srcRows) {
+          const eid = Number(s.event_id);
+          const sid = Number(s.source_final_pallet_id);
+          if (sid <= 0) continue;
+          const arr = srcByEvent.get(eid) ?? [];
+          arr.push(sid);
+          srcByEvent.set(eid, arr);
+        }
+
+        for (const ev of activeEvents) {
+          const resultPid = Number(ev.result_final_pallet_id);
+          const base = out.get(resultPid);
+          if (!base) continue;
+          const sourceIds = srcByEvent.get(Number(ev.id)) ?? [];
+          if (sourceIds.length === 0) continue;
+
+          const codeSet = new Set<string>();
+          const tarjaSet = new Set<number>();
+          for (const sid of sourceIds) {
+            const tr = srcTraceMap.get(sid);
+            if (!tr) continue;
+            for (const c of tr.unidad_pt_codigos ?? []) {
+              const code = c?.trim();
+              if (code) codeSet.add(code);
+            }
+            for (const tid of tr.tarja_ids ?? []) {
+              if (Number.isFinite(tid) && tid > 0) tarjaSet.add(Number(tid));
+            }
+          }
+
+          const unidad_pt_codigos = [...codeSet].sort((a, b) => a.localeCompare(b));
+          const tarja_ids = [...tarjaSet].sort((a, b) => a - b);
+          const trazabilidad_pt: UnidadPtTraceability['trazabilidad_pt'] =
+            unidad_pt_codigos.length === 0 ? 'sin_trazabilidad' : unidad_pt_codigos.length === 1 ? 'unica' : 'varias';
+          const codigo_unidad_pt_display = buildDisplayCode(trazabilidad_pt, unidad_pt_codigos, base.codigo_logistico);
+
+          out.set(resultPid, {
+            unidad_pt_codigos,
+            tarja_ids,
+            trazabilidad_pt,
+            codigo_unidad_pt_display,
+            codigo_logistico: base.codigo_logistico,
+          });
+        }
+      }
     }
 
     return out;
@@ -1240,7 +1315,10 @@ export class FinalPalletService {
     }
 
     const fc = tag.format_code.trim().toLowerCase();
-    const fmt = await T.format.findOne({ where: { format_code: fc } });
+    const fmt = await T.format
+      .createQueryBuilder('pf')
+      .where('LOWER(pf.format_code) = :fc', { fc })
+      .getOne();
     if (!fmt) {
       throw new BadRequestException(`Formato de presentación no encontrado para la unidad PT: ${fc}`);
     }
@@ -2021,6 +2099,11 @@ export class FinalPalletService {
         );
       }
 
+      const fmtRow =
+        template.presentation_format ??
+        (formatId != null ? await em.findOne(PresentationFormat, { where: { id: formatId } }) : null);
+      await this.attachUnifiedRepalletPtTag(em, saved, template, destSpecs, fmtRow, totalDestBoxes);
+
       const rev = em.create(RepalletEvent, {
         result_final_pallet_id: saved.id,
         notes: dto.notes?.trim() || null,
@@ -2069,6 +2152,97 @@ export class FinalPalletService {
     }
     await this.reconcileFinishedPtStockForPallet(newId);
     return this.getPallet(newId);
+  }
+
+  /**
+   * Tarja PT única para el pallet resultado del repallet (`TAR-{id}`), agregando cajas por proceso.
+   */
+  private async attachUnifiedRepalletPtTag(
+    em: EntityManager,
+    savedPallet: FinalPallet,
+    template: FinalPallet,
+    destSpecs: Array<{
+      fruit_process_id: number | null;
+      variety_id: number;
+      ref_text: string | null;
+      caliber: string | null;
+      fecha: Date;
+      amount: number;
+      pounds: number;
+    }>,
+    fmt: PresentationFormat | null,
+    totalDestBoxes: number,
+  ): Promise<void> {
+    for (const sp of destSpecs) {
+      if (sp.amount > 0 && sp.fruit_process_id == null) {
+        throw new BadRequestException(
+          'Repalet: hay cajas en líneas sin proceso vinculado; no se puede emitir tarja unificada.',
+        );
+      }
+    }
+    const fc = (fmt?.format_code ?? template.presentation_format?.format_code ?? 'unknown').trim().toLowerCase();
+    const cppRaw = fmt?.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : NaN;
+    const cpp =
+      Number.isFinite(cppRaw) && cppRaw > 0
+        ? Math.floor(cppRaw)
+        : Math.max(1, Math.min(totalDestBoxes, 220));
+
+    const byProc = new Map<number, number>();
+    for (const sp of destSpecs) {
+      if (sp.fruit_process_id == null || sp.amount <= 0) continue;
+      const pid = Number(sp.fruit_process_id);
+      byProc.set(pid, (byProc.get(pid) ?? 0) + sp.amount);
+    }
+    if (byProc.size === 0) {
+      throw new BadRequestException(
+        'Repalet: no hay procesos en las líneas destino; no se puede crear tarja unificada.',
+      );
+    }
+
+    const tmp = `TMP${Date.now()}${Math.random().toString(36).slice(2, 8)}`.slice(0, 64);
+    let tag = em.create(PtTag, {
+      fecha: new Date(),
+      resultado: ProcessResult.CAJAS,
+      format_code: fc,
+      cajas_por_pallet: cpp,
+      tag_code: tmp,
+      client_id: template.client_id ?? null,
+      brand_id: template.brand_id ?? null,
+      bol: this.normalizeBol(template.bol),
+      total_cajas: 0,
+      total_pallets: 0,
+    });
+    tag = await em.save(PtTag, tag);
+    tag.tag_code = `TAR-${tag.id}`;
+    tag = await em.save(PtTag, tag);
+
+    const procRepo = em.getRepository(FruitProcess);
+    let sumCajas = 0;
+    let sumPal = 0;
+    for (const [procId, cajas] of byProc) {
+      const proc = await procRepo.findOne({ where: { id: procId } });
+      if (!proc) throw new BadRequestException(`Proceso #${procId} no encontrado`);
+      const palletsN = Math.max(1, Math.ceil(cajas / cpp));
+      await em.save(
+        em.create(PtTagItem, {
+          tarja_id: tag.id,
+          process_id: procId,
+          productor_id: proc.productor_id,
+          cajas_generadas: cajas,
+          pallets_generados: palletsN,
+        }),
+      );
+      sumCajas += cajas;
+      sumPal += palletsN;
+    }
+    tag.total_cajas = sumCajas;
+    tag.total_pallets = sumPal;
+    const netPer = await this.netLbPerBoxFromFormatCode(fc);
+    tag.net_weight_lb = (sumCajas * netPer).toFixed(3);
+    await em.save(PtTag, tag);
+
+    savedPallet.tarja_id = tag.id;
+    await em.save(FinalPallet, savedPallet);
   }
 
   /**
@@ -2248,8 +2422,14 @@ export class FinalPalletService {
 
       const resP = await em.findOne(FinalPallet, { where: { id: resultPalletId } });
       if (resP) {
+        const tid = resP.tarja_id != null && Number(resP.tarja_id) > 0 ? Number(resP.tarja_id) : null;
+        resP.tarja_id = null;
         resP.status = 'revertido';
         await em.save(FinalPallet, resP);
+        if (tid != null) {
+          await em.delete(PtTagItem, { tarja_id: tid });
+          await em.delete(PtTag, { id: tid });
+        }
       }
 
       evLocked.reversed_at = new Date();
@@ -2281,6 +2461,7 @@ export class FinalPalletService {
       .createQueryBuilder('fp')
       .leftJoinAndSelect('fp.species', 'sp')
       .leftJoinAndSelect('fp.client', 'cl')
+      .leftJoinAndSelect('fp.brand', 'br')
       .leftJoinAndSelect('fp.presentation_format', 'pf');
 
     if (q.species_id != null && q.species_id > 0) {
@@ -2422,6 +2603,7 @@ export class FinalPalletService {
         format_code: p.presentation_format?.format_code ?? null,
         client_id: p.client_id != null ? Number(p.client_id) : null,
         client_nombre: p.client?.nombre ?? null,
+        brand_nombre: p.brand_id != null && p.brand != null ? p.brand.nombre ?? null : null,
         boxes,
         pounds,
         status: p.status,
@@ -2435,6 +2617,11 @@ export class FinalPalletService {
         dispatch_bol: disp?.numero_bol ?? null,
         /** Pedido vinculado al despacho (cuando el pallet ya salió). */
         sales_order_number: so?.order_number ?? null,
+        /** Tope de cajas por pallet físico según formato (para marcar pallets parciales en UI). */
+        max_boxes_per_pallet:
+          p.presentation_format?.max_boxes_per_pallet != null
+            ? Number(p.presentation_format.max_boxes_per_pallet)
+            : null,
       };
     })
       /** Inventario PT: no listar pallets sin cajas o sin lb (datos incompletos). */

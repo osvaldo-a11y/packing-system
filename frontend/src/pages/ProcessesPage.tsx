@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Info, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -11,10 +11,19 @@ import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
 import { DataTable } from '@/components/data/DataTable';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
 import {
   contentCard,
@@ -36,6 +45,13 @@ import {
   tableShell,
 } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
+
+/** Mínimo para cruzar con /existencias-pt (evita import circular con ExistenciasPtPage). */
+type ExistenciaSnapRow = {
+  tarja_ids?: number[];
+  dispatch_id: number | null;
+  status: string;
+};
 
 export type EligibleMpLine = {
   reception_line_id: number;
@@ -129,12 +145,68 @@ export type FruitProcessRow = {
   created_at: string;
 };
 
-type PtTagKpi = {
+/** Listado /api/pt-tags (misma forma que Unidad PT). */
+type PtTagListRow = {
   id: number;
+  tag_code: string;
   format_code: string;
+  fecha: string;
+  total_cajas: number;
+  /** Alineado al backend: no suma al packout del proceso (etiqueta repallet unificada). */
+  excluida_suma_packout?: boolean;
   client_id?: number | null;
-  items: Array<{ process_id: number; cajas_generadas: number }>;
+  brand_id?: number | null;
+  bol?: string | null;
+  net_weight_lb?: string | null;
+  items: Array<{
+    id: number;
+    tarja_id: number;
+    process_id: number;
+    productor_id: number;
+    cajas_generadas: number;
+    pallets_generados: number;
+  }>;
 };
+
+function processRowMatchesGlobalSearch(r: FruitProcessRow, s: string): boolean {
+  if (!s) return true;
+  if (String(r.id).includes(s)) return true;
+  if (r.productor_nombre?.toLowerCase().includes(s)) return true;
+  if (r.variedad_nombre?.toLowerCase().includes(s)) return true;
+  if (r.especie_nombre?.toLowerCase().includes(s)) return true;
+  if (r.nota?.toLowerCase().includes(s)) return true;
+  for (const a of r.allocations ?? []) {
+    if (a.lot_code?.toLowerCase().includes(s)) return true;
+  }
+  return false;
+}
+
+function palletDisponibleDeposito(r: ExistenciaSnapRow): boolean {
+  return r.status === 'definitivo' && (r.dispatch_id == null || Number(r.dispatch_id) <= 0);
+}
+
+function tagOperativoLabel(
+  tagId: number,
+  tag: PtTagListRow,
+  exRows: ExistenciaSnapRow[] | undefined,
+): { label: string; detail: string } {
+  const rows = exRows ?? [];
+  const hits = rows.filter((row) => (row.tarja_ids ?? []).some((tid) => Number(tid) === tagId));
+  if (hits.some((h) => h.dispatch_id != null && Number(h.dispatch_id) > 0)) {
+    return { label: 'En despacho', detail: 'Pallet asociado a despacho' };
+  }
+  if (hits.some((h) => h.status === 'asignado_pl')) {
+    return { label: 'Asignado', detail: 'Reservado en packing list' };
+  }
+  if (hits.some((h) => palletDisponibleDeposito(h))) {
+    return { label: 'Disponible', detail: 'Stock en cámara / depósito' };
+  }
+  const cid = tag.client_id != null ? Number(tag.client_id) : 0;
+  if (cid > 0) {
+    return { label: 'Asignado', detail: 'Cliente previsto en unidad PT' };
+  }
+  return { label: 'Sin asignación', detail: 'Sin cliente en tarja' };
+}
 
 function fmtLb2(v: string | number | null | undefined) {
   if (v == null || v === '') return '—';
@@ -285,7 +357,17 @@ export function ProcessesPage() {
 
   const { data: ptTags } = useQuery({
     queryKey: ['pt-tags'],
-    queryFn: () => apiJson<PtTagKpi[]>('/api/pt-tags'),
+    queryFn: () => apiJson<PtTagListRow[]>('/api/pt-tags'),
+  });
+
+  const navigate = useNavigate();
+
+  const { data: existenciasForModal } = useQuery({
+    queryKey: ['existencias-pt', 'process-modal'],
+    queryFn: () =>
+      apiJson<ExistenciaSnapRow[]>(`/api/final-pallets/existencias-pt?solo_deposito=0&excluir_anulados=1`),
+    enabled: weightsOpen && weightsRow != null,
+    staleTime: 45_000,
   });
 
   const { data: commercialClients } = useQuery({
@@ -327,10 +409,40 @@ export function ProcessesPage() {
   }, [processMachines]);
 
   const tagById = useMemo(() => {
-    const m = new Map<number, PtTagKpi>();
+    const m = new Map<number, PtTagListRow>();
     for (const t of ptTags ?? []) m.set(t.id, t);
     return m;
   }, [ptTags]);
+
+  const linkedPtRowsForModal = useMemo(() => {
+    if (!weightsRow || !ptTags) return [];
+    const pid = weightsRow.id;
+    const out: Array<{ tag: PtTagListRow; item: PtTagListRow['items'][0] }> = [];
+    for (const t of ptTags) {
+      /** Misma regla que Σ lb packout en servidor (excluye tarja solo-etiqueta repallet). */
+      if (t.excluida_suma_packout) continue;
+      for (const it of t.items) {
+        if (it.process_id !== pid) continue;
+        out.push({ tag: t, item: it });
+      }
+    }
+    return out;
+  }, [weightsRow, ptTags]);
+
+  const linkedPtModalStats = useMemo(() => {
+    let cajas = 0;
+    let lbSum = 0;
+    const rows = linkedPtRowsForModal.length;
+    for (const { tag, item } of linkedPtRowsForModal) {
+      cajas += item.cajas_generadas;
+      const net = Number(tag.net_weight_lb);
+      const tot = tag.total_cajas;
+      if (Number.isFinite(net) && net > 0 && tot > 0) {
+        lbSum += (net * item.cajas_generadas) / tot;
+      }
+    }
+    return { rows, cajas, lbSum };
+  }, [linkedPtRowsForModal]);
 
   const formatFilterOptions = useMemo(() => {
     const s = new Set<string>();
@@ -424,6 +536,32 @@ export function ProcessesPage() {
     defaultValues: {},
   });
   const componentsEditTotal = Object.values(weightComponentsDraft).reduce((s, n) => s + (Number.isFinite(n) ? n : 0), 0);
+
+  /** Valores de reparto / KPI del modal editar proceso (alineado al PATCH de pesos). */
+  const processEditModalSnapshot = useMemo(() => {
+    if (!weightsRow) return null;
+    const entrada =
+      weightsRow.lb_entrada != null && weightsRow.lb_entrada !== ''
+        ? Number(weightsRow.lb_entrada)
+        : Number(weightsRow.peso_procesado_lb);
+    const packTarjas = Number(weightsRow.lb_packout_planned ?? 0);
+    const packPallets = Number(weightsRow.lb_packout_asociado ?? 0);
+    const packoutProductLb = Math.max(packTarjas, packPallets);
+    const components = componentsEditTotal;
+    const pendiente = entrada - packoutProductLb - components;
+    const ok = Math.abs(pendiente) < ALLOC_EPS;
+    const merma = Number(weightsRow.merma_lb ?? 0);
+    return {
+      entrada,
+      lbEnPtPlan: packTarjas,
+      packPallets,
+      packoutProductLb,
+      components,
+      pendiente,
+      ok,
+      merma,
+    };
+  }, [weightsRow, componentsEditTotal]);
 
   type CreateMutationBody = CreateProcessForm & {
     allocations: { reception_line_id: number; lb_allocated: number }[];
@@ -651,6 +789,10 @@ export function ProcessesPage() {
     }
     return rows;
   }, [data, filterProducer, filterVariedad, filterStatus, filterProcessFormat, filterProcessClient, tagById]);
+
+  const sortedFilteredProcesses = useMemo(() => {
+    return [...filteredProcesses].sort((a, b) => b.id - a.id);
+  }, [filteredProcesses]);
 
   const processKpis = useMemo(() => {
     const rows = filteredProcesses;
@@ -1206,184 +1348,370 @@ export function ProcessesPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar proceso #{weightsRow?.id ?? '—'}</DialogTitle>
+        <DialogContent className="flex max-h-[min(92vh,900px)] w-full max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]">
+          <DialogHeader className="shrink-0 space-y-1 border-b border-border px-6 py-3 pr-12 text-left">
+            <DialogTitle className="text-lg">Editar proceso #{weightsRow?.id ?? '—'}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Resumen de lb, estado y unidades PT; abajo el reparto y componentes para guardar.
+            </DialogDescription>
           </DialogHeader>
-          {weightsRow && canChangeProcessStatus ? (
-            <div className="rounded-lg border border-border bg-muted/25 px-3 py-3 space-y-2">
-              <Label className="text-xs font-semibold">
-                Estado del proceso {isAdmin ? '(administrador)' : '(supervisor: reabrir a borrador o cerrar)'}
-              </Label>
-              <div className="flex flex-wrap gap-2 items-center">
-                <select
-                  className="flex h-10 min-w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={adminStatusDraft}
-                  onChange={(e) => setAdminStatusDraft(e.target.value as ProcessStatusUi)}
-                >
-                  <option value="borrador">borrador</option>
-                  <option value="confirmado">confirmado</option>
-                  <option value="cerrado">cerrado</option>
-                </select>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={(() => {
-                    if (adminEstadoMut.isPending) return true;
-                    const cur = weightsRow.process_status ?? 'borrador';
-                    const same = adminStatusDraft === cur;
-                    /** Si ya es borrador pero sigue vinculado a una PT, hay que re-aplicar borrador para desvincular en el servidor. */
-                    const mustReapplyBorrador =
-                      same && cur === 'borrador' && weightsRow.tarja_id != null;
-                    return same && !mustReapplyBorrador;
-                  })()}
-                  onClick={() => adminEstadoMut.mutate({ id: weightsRow.id, status: adminStatusDraft })}
-                >
-                  {adminEstadoMut.isPending ? 'Aplicando…' : 'Aplicar estado'}
-                </Button>
-              </div>
-              {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
-                  El proceso figura en borrador pero sigue asociado a la unidad PT #{weightsRow.tarja_id}. Pulsá{' '}
-                  <strong>Aplicar estado</strong> para desvincularlo y poder usarlo en una unidad PT nueva.
-                </p>
-              ) : null}
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Pasar de <strong>borrador</strong> a <strong>confirmado</strong> sigue exigiendo el cuadre de lb (entrada = packout +
-                componentes). El resto permite reabrir o ajustar el flujo administrativamente.
-              </p>
-            </div>
-          ) : null}
-          {weightsRow ? (
-            <form
-              onSubmit={weightsForm.handleSubmit((vals) => {
-                const body: WeightsPatchForm & {
-                  components: Array<{ component_id: number; lb_value: number }>;
-                } = {
-                  nota: vals.nota,
-                  components: Object.entries(weightComponentsDraft).map(([component_id, lb_value]) => ({
-                    component_id: Number(component_id),
-                    lb_value: Number(lb_value || 0),
-                  })),
-                };
-                weightsMut.mutate({ id: weightsRow.id, body });
-              })}
-              className="grid gap-3 py-2"
-            >
-              {(() => {
-                const entrada =
-                  weightsRow.lb_entrada != null && weightsRow.lb_entrada !== ''
-                    ? Number(weightsRow.lb_entrada)
-                    : Number(weightsRow.peso_procesado_lb);
-                const packTarjas = Number(weightsRow.lb_packout_planned ?? 0);
-                const packPallets = Number(weightsRow.lb_packout_asociado ?? 0);
-                /** Misma lógica que el PATCH: max(tarjas, pallets) como lb ya en vía producto (evita doble conteo típico). */
-                const packoutProductLb = Math.max(packTarjas, packPallets);
-                const disponiblesComponentes = Math.max(0, entrada - packoutProductLb);
-                const restante = entrada - packoutProductLb - componentsEditTotal;
-                const ok = Math.abs(restante) < ALLOC_EPS;
-                return (
-                  <div className="space-y-2">
-                    <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm space-y-1.5">
-                      <p className="font-medium text-foreground">Reparto de lb netas de entrada</p>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="text-muted-foreground">Lb entrada</span>
-                        <span className="font-mono font-medium">{fmtLb2(entrada)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="text-muted-foreground">Packout unidades PT (cache)</span>
-                        <span className="font-mono">{fmtLb2(packTarjas)}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-xs sm:flex-row sm:justify-between sm:gap-2">
-                        <span className="text-muted-foreground">
-                          Pallets finales asociados
-                          {weightsRow.tarja_id != null && weightsRow.tarja_id > 0 ? (
-                            <span className="text-foreground"> → Unidad PT #{weightsRow.tarja_id}</span>
-                          ) : null}
-                        </span>
-                        <span className="font-mono">{fmtLb2(packPallets)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2 text-xs border-t border-border pt-1.5">
-                        <span className="text-foreground font-medium">
-                          Ya en producto (máx. unidades PT · pallets){' '}
-                          <span className="font-normal text-muted-foreground">para cuadrar</span>
-                        </span>
-                        <span className="font-mono font-semibold text-foreground">{fmtLb2(packoutProductLb)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="text-foreground font-medium">
-                          Disponibles para componentes{' '}
-                          <span className="font-normal text-muted-foreground">(entrada − ya en producto)</span>
-                        </span>
-                        <span className="font-mono font-semibold text-foreground">{fmtLb2(disponiblesComponentes)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="text-muted-foreground">Suma componentes cargada</span>
-                        <span className="font-mono">{fmtLb2(componentsEditTotal)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2 text-xs">
-                        <span className="text-muted-foreground">Pendiente de cuadrar</span>
-                        <span className={`font-mono font-semibold ${ok ? 'text-green-600 dark:text-green-500' : 'text-destructive'}`}>
-                          {fmtLb2(restante)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Cuando pendiente = 0: entrada = máx.(unidades PT, pallets) + componentes. Si cargaste cajas solo en pallets finales
-                        (sin unidades PT), cuenta el <strong>asociado</strong> del listado.
+
+          {weightsRow && processEditModalSnapshot ? (
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Entrada</p>
+                      <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
+                        {fmtLb2(processEditModalSnapshot.entrada)}
                       </p>
+                      <p className="text-[9px] text-muted-foreground">lb</p>
                     </div>
-                    {!ok ? (
-                      <p className="text-xs text-destructive">
-                        Ajustá componentes, unidades PT o pallets hasta que el pendiente sea 0.
+                    <div
+                      className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm"
+                      title="Lb planificadas en unidades PT (cache). El cuadre usa el máximo entre esto y pallets PF asociados."
+                    >
+                      <p className="flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        En PT
+                        <HelpCircle className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
                       </p>
-                    ) : null}
+                      <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
+                        {fmtLb2(processEditModalSnapshot.lbEnPtPlan)}
+                      </p>
+                      {processEditModalSnapshot.packPallets > processEditModalSnapshot.lbEnPtPlan + 0.01 ? (
+                        <p className="mt-0.5 text-[9px] text-amber-700 dark:text-amber-400">PF asoc. &gt; plan PT</p>
+                      ) : (
+                        <p className="text-[9px] text-muted-foreground">plan</p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Componentes</p>
+                      <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
+                        {fmtLb2(processEditModalSnapshot.components)}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">lb (borrador)</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pendiente</p>
+                      <p
+                        className={cn(
+                          'mt-0.5 text-base font-bold tabular-nums leading-none',
+                          processEditModalSnapshot.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive',
+                        )}
+                      >
+                        {fmtLb2(processEditModalSnapshot.pendiente)}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">{processEditModalSnapshot.ok ? 'Cuadrado' : 'Ajustar'}</p>
+                    </div>
+                    <div className="col-span-2 rounded-lg border border-border bg-muted/25 px-2.5 py-2 sm:col-span-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Estado</p>
+                      <div className="mt-1">
+                        <ProcessStatusBadge status={weightsRow.process_status} />
+                      </div>
+                    </div>
                   </div>
-                );
-              })()}
-              <p className="text-xs text-muted-foreground">
-                El packout cuenta unidades PT y también libras ya cargadas en <strong>pallets finales</strong> con este proceso. Podés
-                cargar o ajustar <strong>componentes y nota</strong> en borrador o confirmado (p. ej. tras vincular la unidad PT) hasta
-                cuadrar el pendiente; luego confirmá o marcá cerrado.
-              </p>
-              {(() => {
-                const st = weightsRow.process_status ?? 'borrador';
-                const canEditWeights = !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
-                return (
-                  <>
-                    {st === 'cerrado' && isAdmin ? (
-                      <p className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:border-amber-600 dark:bg-amber-950/30 dark:text-amber-100">
-                        <strong>Administrador:</strong> podés ajustar componentes y nota aunque el proceso esté cerrado. Sigue aplicando el
-                        cuadre de lb (entrada = packout + componentes).
-                      </p>
-                    ) : null}
-                    {(weightsRow.components ?? []).map((c) => (
-                      <div key={c.id} className="grid gap-2">
-                        <Label className="text-xs">{c.nombre}</Label>
-                        <Input
-                          type="number"
-                          step="0.001"
-                          disabled={!canEditWeights}
-                          value={weightComponentsDraft[c.id] ?? 0}
-                          onChange={(e) =>
-                            setWeightComponentsDraft((prev) => ({
-                              ...prev,
-                              [c.id]: Number(e.target.value || 0),
-                            }))
-                          }
-                        />
+
+                  {canChangeProcessStatus ? (
+                    <section className="rounded-lg border border-border bg-muted/20 p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-foreground">Estado del proceso</p>
+                        <span className="text-[10px] text-muted-foreground">{isAdmin ? 'Administración' : 'Supervisor'}</span>
                       </div>
-                    ))}
-                    <div className="grid gap-2">
-                      <Label className="text-xs">Nota</Label>
-                      <Input disabled={!canEditWeights} {...weightsForm.register('nota')} />
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-muted-foreground">Cambiar a</Label>
+                          <select
+                            className="flex h-9 min-w-[180px] rounded-md border border-input bg-background px-2 py-1 text-sm"
+                            value={adminStatusDraft}
+                            onChange={(e) => setAdminStatusDraft(e.target.value as ProcessStatusUi)}
+                          >
+                            <option value="borrador">borrador</option>
+                            <option value="confirmado">confirmado</option>
+                            <option value="cerrado">cerrado</option>
+                          </select>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9"
+                          disabled={(() => {
+                            if (adminEstadoMut.isPending) return true;
+                            const cur = weightsRow.process_status ?? 'borrador';
+                            const same = adminStatusDraft === cur;
+                            const mustReapplyBorrador =
+                              same && cur === 'borrador' && weightsRow.tarja_id != null;
+                            return same && !mustReapplyBorrador;
+                          })()}
+                          onClick={() => adminEstadoMut.mutate({ id: weightsRow.id, status: adminStatusDraft })}
+                        >
+                          {adminEstadoMut.isPending ? 'Aplicando…' : 'Aplicar estado'}
+                        </Button>
+                      </div>
+                      {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
+                        <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+                          Borrador con PT #{weightsRow.tarja_id} aún enlazada: <strong>Aplicar estado</strong> desvincula en servidor.
+                        </p>
+                      ) : null}
+                      <details className="group mt-2 rounded-md border border-border/60 bg-background/50 [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/40">
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                          Ayuda estados y cuadre
+                        </summary>
+                        <p className="border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
+                          Pasar a <strong>confirmado</strong> exige cuadre (entrada = packout + componentes). Reabrir a borrador o cerrar
+                          son acciones administrativas según rol.
+                        </p>
+                      </details>
+                    </section>
+                  ) : null}
+
+                  <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-foreground">Unidades PT vinculadas</h3>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {linkedPtModalStats.rows} tarjas · {formatCount(linkedPtModalStats.cajas)} cajas ·{' '}
+                          {linkedPtModalStats.rows === 0 ? '—' : fmtLb2(linkedPtModalStats.lbSum)} lb
+                        </p>
+                      </div>
+                      {linkedPtRowsForModal.length > 1 && canChangeProcessStatus ? (
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          className="h-9 shrink-0 gap-1.5 px-4 text-xs font-semibold"
+                          disabled={adminEstadoMut.isPending}
+                          onClick={() => {
+                            if (!weightsRow) return;
+                            adminEstadoMut.mutate({ id: weightsRow.id, status: 'borrador' });
+                          }}
+                        >
+                          <Link2Off className="h-3.5 w-3.5" />
+                          Desvincular todas
+                        </Button>
+                      ) : null}
                     </div>
-                    <DialogFooter className="flex flex-wrap gap-2 sm:justify-end">
-                      <Button type="button" variant="outline" onClick={() => setWeightsOpen(false)}>
-                        Cerrar
-                      </Button>
+                    {linkedPtRowsForModal.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Ninguna unidad PT referencia este proceso.</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-md border border-border/80">
+                        <Table className="min-w-[680px] text-xs [&_td]:py-1.5 [&_th]:h-8 [&_th]:py-1.5 [&_th]:text-[10px]">
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="whitespace-nowrap">Unidad PT</TableHead>
+                              <TableHead>Formato</TableHead>
+                              <TableHead className="text-right tabular-nums">Cajas</TableHead>
+                              <TableHead className="text-right tabular-nums">LB (aprox.)</TableHead>
+                              <TableHead>Estado</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead className="text-right">Acción</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {linkedPtRowsForModal.map(({ tag, item }) => {
+                              const op = tagOperativoLabel(tag.id, tag, existenciasForModal);
+                              const lbCell = (() => {
+                                const net = Number(tag.net_weight_lb);
+                                const tot = tag.total_cajas;
+                                if (Number.isFinite(net) && net > 0 && tot > 0) {
+                                  return fmtLb2((net * item.cajas_generadas) / tot);
+                                }
+                                return '—';
+                              })();
+                              const clientLab =
+                                tag.client_id != null && Number(tag.client_id) > 0
+                                  ? (commercialClients ?? []).find((c) => c.id === Number(tag.client_id))?.nombre ?? `#${tag.client_id}`
+                                  : '—';
+                              return (
+                                <TableRow key={`${tag.id}-${item.id}`}>
+                                  <TableCell className="font-mono font-semibold text-foreground">{tag.tag_code}</TableCell>
+                                  <TableCell className="max-w-[120px] truncate" title={tag.format_code}>
+                                    {tag.format_code}
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums">{item.cajas_generadas}</TableCell>
+                                  <TableCell className="text-right tabular-nums">{lbCell}</TableCell>
+                                  <TableCell>
+                                    <span className="inline-flex max-w-[120px] flex-col gap-0.5" title={op.detail}>
+                                      <span className="rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-semibold">
+                                        {op.label}
+                                      </span>
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="max-w-[120px] truncate" title={clientLab}>
+                                    {clientLab}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {linkedPtRowsForModal.length === 1 && canChangeProcessStatus ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 gap-1 px-2 text-[10px]"
+                                        disabled={adminEstadoMut.isPending}
+                                        onClick={() => {
+                                          if (!weightsRow) return;
+                                          adminEstadoMut.mutate({ id: weightsRow.id, status: 'borrador' });
+                                        }}
+                                      >
+                                        <Link2Off className="h-3 w-3" />
+                                        Desligar
+                                      </Button>
+                                    ) : linkedPtRowsForModal.length > 1 ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 gap-1 px-2 text-[10px]"
+                                        title="Abre la unidad PT para revisar el vínculo."
+                                        onClick={() => {
+                                          navigate(`/pt-tags?open=${tag.id}`);
+                                          setWeightsOpen(false);
+                                          setWeightsRow(null);
+                                        }}
+                                      >
+                                        <Link2Off className="h-3 w-3" />
+                                        Abrir
+                                      </Button>
+                                    ) : (
+                                      <span className="text-[10px] text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                    {linkedPtRowsForModal.length > 1 ? (
+                      <details className="mt-2 rounded-md border border-dashed border-border/70 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="cursor-pointer list-none px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/30">
+                          Varias tarjas: cómo desligar
+                        </summary>
+                        <p className="border-t border-border/50 px-2 py-2 text-[10px] leading-snug text-muted-foreground">
+                          Usá <strong>Desligar / Abrir</strong> por fila o <strong>Desvincular todas</strong> arriba (pasa por borrador en
+                          servidor).
+                        </p>
+                      </details>
+                    ) : null}
+                  </section>
+
+                  <form
+                    id="process-edit-weights-form"
+                    onSubmit={weightsForm.handleSubmit((vals) => {
+                      const body: WeightsPatchForm & {
+                        components: Array<{ component_id: number; lb_value: number }>;
+                      } = {
+                        nota: vals.nota,
+                        components: Object.entries(weightComponentsDraft).map(([component_id, lb_value]) => ({
+                          component_id: Number(component_id),
+                          lb_value: Number(lb_value || 0),
+                        })),
+                      };
+                      weightsMut.mutate({ id: weightsRow.id, body });
+                    })}
+                    className="grid gap-3 border-t border-border/60 pt-4"
+                  >
+                    <div className="grid gap-3 lg:grid-cols-[1fr_minmax(120px,140px)] lg:items-stretch">
+                      <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/15 p-3 sm:grid-cols-4">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Entrada</p>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.entrada)}</p>
+                        </div>
+                        <div title="Máx. entre PT planificado y pallets PF asociados (cuadre).">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">En producto</p>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.packoutProductLb)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Componentes</p>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.components)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pendiente</p>
+                          <p
+                            className={cn(
+                              'mt-0.5 text-sm font-bold tabular-nums',
+                              processEditModalSnapshot.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive',
+                            )}
+                          >
+                            {fmtLb2(processEditModalSnapshot.pendiente)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col justify-center rounded-lg border border-border bg-card px-3 py-2 shadow-sm">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Merma</p>
+                        <p className="mt-0.5 text-lg font-bold tabular-nums leading-none">{fmtLb2(processEditModalSnapshot.merma)}</p>
+                        <p className="mt-1 text-[9px] text-muted-foreground">Registro del proceso</p>
+                      </div>
+                    </div>
+                    {!processEditModalSnapshot.ok ? (
+                      <p className="text-xs text-destructive">Pendiente distinto de 0: ajustá componentes o PT/pallets hasta cuadrar.</p>
+                    ) : null}
+                    <details className="rounded-md border border-border/60 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
+                      <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/30">
+                        Detalle técnico del reparto (PT vs PF)
+                      </summary>
+                      <div className="space-y-1 border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
+                        <p>
+                          PT planificado: {fmtLb2(processEditModalSnapshot.lbEnPtPlan)} · PF asociado:{' '}
+                          {fmtLb2(processEditModalSnapshot.packPallets)}. El cuadre usa el máximo de ambos como &quot;ya en producto&quot;.
+                        </p>
+                        <p>
+                          Podés editar componentes y nota en borrador o confirmado hasta cuadrar; luego confirmá o cerrá el proceso desde la
+                          barra inferior.
+                        </p>
+                      </div>
+                    </details>
+                    {(() => {
+                      const st = weightsRow.process_status ?? 'borrador';
+                      const canEditWeights = !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
+                      return (
+                        <>
+                          {st === 'cerrado' && isAdmin ? (
+                            <p className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:border-amber-600 dark:bg-amber-950/30 dark:text-amber-100">
+                              <strong>Admin:</strong> edición con proceso cerrado; sigue el cuadre de lb.
+                            </p>
+                          ) : null}
+                          {(weightsRow.components ?? []).map((c) => (
+                            <div key={c.id} className="grid max-w-md gap-1.5">
+                              <Label className="text-xs">{c.nombre}</Label>
+                              <Input
+                                type="number"
+                                step="0.001"
+                                className="h-9"
+                                disabled={!canEditWeights}
+                                value={weightComponentsDraft[c.id] ?? 0}
+                                onChange={(e) =>
+                                  setWeightComponentsDraft((prev) => ({
+                                    ...prev,
+                                    [c.id]: Number(e.target.value || 0),
+                                  }))
+                                }
+                              />
+                            </div>
+                          ))}
+                          <div className="grid max-w-md gap-1.5">
+                            <Label className="text-xs">Nota</Label>
+                            <Input className="h-9" disabled={!canEditWeights} {...weightsForm.register('nota')} />
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </form>
+                </div>
+              </div>
+              <DialogFooter className="shrink-0 flex flex-wrap gap-2 border-t border-border bg-muted/20 px-6 py-3 sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setWeightsOpen(false)}>
+                  Cerrar
+                </Button>
+                {(() => {
+                  const st = weightsRow.process_status ?? 'borrador';
+                  const canEditWeights = !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
+                  return (
+                    <>
                       {canEditWeights ? (
-                        <Button type="submit" disabled={weightsMut.isPending}>
+                        <Button type="submit" form="process-edit-weights-form" disabled={weightsMut.isPending}>
                           {weightsMut.isPending ? 'Guardando…' : 'Guardar cambios'}
                         </Button>
                       ) : null}
@@ -1407,11 +1735,11 @@ export function ProcessesPage() {
                           Marcar cerrado
                         </Button>
                       ) : null}
-                    </DialogFooter>
-                  </>
-                );
-              })()}
-            </form>
+                    </>
+                  );
+                })()}
+              </DialogFooter>
+            </>
           ) : null}
         </DialogContent>
       </Dialog>
@@ -1503,12 +1831,14 @@ export function ProcessesPage() {
         <div className={cn(tableShell, 'overflow-x-auto')}>
           <DataTable
             columns={columns}
-            data={filteredProcesses}
-            searchPlaceholder="Buscar en procesos…"
+            data={sortedFilteredProcesses}
+            searchPlaceholder="Buscar por productor, variedad, lote o ID de proceso"
+            customGlobalFilter={(row, s) => processRowMatchesGlobalSearch(row, s)}
+            initialPageSize={25}
             scrollToRowId={focusPid}
             getRowClassName={(r) => (r.id === focusPid ? 'bg-sky-50/60 ring-1 ring-inset ring-sky-200/70' : undefined)}
-            containerClassName="px-4 py-4 sm:px-5"
-            tableClassName="min-w-[1100px] [&_td]:py-3.5 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-3 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right"
+            containerClassName="px-3 py-3 sm:px-4"
+            tableClassName="min-w-[1180px] [&_td]:py-3 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right"
           />
         </div>
       </section>

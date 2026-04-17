@@ -76,10 +76,19 @@ export class ProcessService {
     return this.tagRepo.save(tag);
   }
 
+  /** Búsqueda tolerante a mayúsculas/minúsculas para códigos de formato. */
+  private async findFormatByCode(formatCode: string): Promise<PresentationFormat | null> {
+    const fc = (formatCode ?? '').trim().toLowerCase();
+    if (!fc) return null;
+    return this.formatRepo
+      .createQueryBuilder('pf')
+      .where('LOWER(pf.format_code) = :fc', { fc })
+      .getOne();
+  }
+
   /** `max_boxes_per_pallet` del formato limita solo «cajas por pallet» en la unidad PT, no el total de cajas del proceso. */
   private async assertCajasPorPalletVsFormat(formatCode: string, cajasPorPallet: number) {
-    const fc = formatCode.trim().toLowerCase();
-    const fmt = await this.formatRepo.findOne({ where: { format_code: fc } });
+    const fmt = await this.findFormatByCode(formatCode);
     if (!fmt) throw new BadRequestException(`Formato de presentación no encontrado: ${formatCode}`);
     const max = fmt.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : null;
     if (max != null && max > 0 && cajasPorPallet > max) {
@@ -104,11 +113,13 @@ export class ProcessService {
     const items = await this.tagItemRepo.find({ where: { process_id: In(uniq) } });
     if (items.length === 0) return out;
     const tagIds = [...new Set(items.map((i) => Number(i.tarja_id)))];
+    const skipRepalletTags = await this.repalletUnifiedTarjaIds(tagIds);
     const tags = await this.tagRepo.find({ where: { id: In(tagIds) } });
     const tagById = new Map(tags.map((t) => [Number(t.id), t]));
     const netByFormat = new Map<string, number>();
     for (const it of items) {
       if (opts?.excludeTarjaId != null && Number(it.tarja_id) === opts.excludeTarjaId) continue;
+      if (skipRepalletTags.has(Number(it.tarja_id))) continue;
       const tag = tagById.get(Number(it.tarja_id));
       if (!tag) continue;
       const fc = tag.format_code.trim().toLowerCase();
@@ -158,9 +169,7 @@ export class ProcessService {
     const lbRemainingForPt = Math.max(0, lbFromProcess - allocatedPtLb);
     const maxCajasTheoretical = Math.floor(lbRemainingForPt / netPerBox + 1e-9);
 
-    const formatEnt = await this.formatRepo.findOne({
-      where: { format_code: tag.format_code.trim().toLowerCase() },
-    });
+    const formatEnt = await this.findFormatByCode(tag.format_code);
     const presentationFormatId = formatEnt?.id != null ? Number(formatEnt.id) : undefined;
     let maxCajas = maxCajasTheoretical;
     /** Primera asignación a tarjas: mantener tope conjunto con pallet final / packout cache. */
@@ -342,9 +351,7 @@ export class ProcessService {
   }
 
   private async netLbPerBox(formatCode: string): Promise<number> {
-    const row = await this.formatRepo.findOne({
-      where: { format_code: formatCode.trim().toLowerCase() },
-    });
+    const row = await this.findFormatByCode(formatCode);
     if (row && Number(row.net_weight_lb_per_box) > 0) {
       return Number(row.net_weight_lb_per_box);
     }
@@ -360,6 +367,26 @@ export class ProcessService {
     return Number(raw?.s ?? 0);
   }
 
+  /**
+   * Tarjas PT creadas solo como etiqueta unificada del resultado de un repallet (`final_pallets.tarja_id` +
+   * evento activo). No deben sumarse al cache `lb_packout`: duplican cajas ya contadas en tarjas de producción.
+   */
+  private async repalletUnifiedTarjaIds(tagIds: number[]): Promise<Set<number>> {
+    const uniq = [...new Set(tagIds)].filter((id) => id > 0);
+    if (uniq.length === 0) return new Set();
+    const rows = await this.ds.query(
+      `SELECT DISTINCT fp.tarja_id AS tid
+       FROM final_pallets fp
+       INNER JOIN repallet_events re
+         ON re.result_final_pallet_id = fp.id AND re.reversed_at IS NULL
+       WHERE fp.tarja_id IS NOT NULL AND fp.tarja_id = ANY($1::bigint[])`,
+      [uniq],
+    );
+    return new Set(
+      (rows as { tid: string | number }[]).map((r) => Number(r.tid)).filter((n) => Number.isFinite(n) && n > 0),
+    );
+  }
+
   /** Suma lb de PT por proceso: Σ (cajas en tarja × lb netas por caja según formato). */
   private async computeLbPackoutForProcessIds(processIds: number[]): Promise<Map<number, number>> {
     const out = new Map<number, number>();
@@ -372,6 +399,7 @@ export class ProcessService {
     if (items.length === 0) return out;
 
     const tagIds = [...new Set(items.map((i) => Number(i.tarja_id)))];
+    const skipTags = await this.repalletUnifiedTarjaIds(tagIds);
     const tags = await this.tagRepo.find({ where: { id: In(tagIds) } });
     const tagById = new Map(tags.map((t) => [t.id, t]));
     const formats = [...new Set(tags.map((t) => t.format_code.trim().toLowerCase()))];
@@ -381,7 +409,9 @@ export class ProcessService {
     }
 
     for (const it of items) {
-      const tag = tagById.get(Number(it.tarja_id));
+      const tid = Number(it.tarja_id);
+      if (skipTags.has(tid)) continue;
+      const tag = tagById.get(tid);
       if (!tag) continue;
       const fc = tag.format_code.trim().toLowerCase();
       const net = netByFormat.get(fc) ?? (await this.netLbPerBox(fc));
@@ -621,8 +651,13 @@ export class ProcessService {
       const headerSp = headerVar?.species;
       const packComputed = packMap.get(r.id) ?? 0;
       const packPlanned = r.lb_packout != null ? Number(r.lb_packout) : 0;
-      /** Tarjas PT en vivo pueden sumar lb aunque el cache `lb_packout` en BD aún sea 0. */
-      const packPlannedEffective = Math.max(packPlanned, packComputed);
+      /**
+       * Si hay suma desde tarjas (excl. tarjas solo-repallet), manda sobre el cache en BD: evita lb_packout
+       * inflado por ítems duplicados de tarja unificada de repallet.
+       * Si aún no hay tarjas, el cache puede adelantar el valor.
+       */
+      const packPlannedEffective =
+        packComputed > BALANCE_EPS ? packComputed : Math.max(packPlanned, packComputed);
       const packAssociated = usedFinalPalletByProcess.get(r.id) ?? 0;
       const packRemainingManual = Math.max(0, packPlannedEffective - packAssociated);
       const packRemaining = packComputed > BALANCE_EPS ? packComputed : packRemainingManual;
@@ -749,6 +784,8 @@ export class ProcessService {
     });
     const mergeRows = await this.tagMergeRepo.find({ select: ['result_tarja_id'] });
     const mergeResultIds = new Set(mergeRows.map((m) => Number(m.result_tarja_id)));
+    const tagIdsNum = tags.map((t) => Number(t.id));
+    const excluidaSumaPackout = await this.repalletUnifiedTarjaIds(tagIdsNum);
     const allItems = await this.tagItemRepo.find({ order: { id: 'ASC' } });
     const processes = await this.processRepo.find();
     const procById = new Map(processes.map((p) => [p.id, p]));
@@ -757,6 +794,11 @@ export class ProcessService {
       tag_code: t.tag_code,
       /** Unión de 2+ unidades PT (repaletización a nivel tarja); las fuentes quedan en 0 cajas — no duplicar en cierres. */
       es_union_tarjas: mergeResultIds.has(t.id),
+      /**
+       * Tarja usada solo como etiqueta unificada del resultado de repallet (misma exclusión que en Σ packout proceso).
+       * No debe listarse como “unidad PT de producción” vinculada al proceso en UI.
+       */
+      excluida_suma_packout: excluidaSumaPackout.has(Number(t.id)),
       fecha: t.fecha,
       resultado: t.resultado,
       format_code: t.format_code,
@@ -932,7 +974,8 @@ export class ProcessService {
     const freshProc = await this.processRepo.findOne({ where: { id: proc.id } });
     const cachedPack = freshProc?.lb_packout != null ? Number(freshProc.lb_packout) : 0;
     const computedPack = (await this.computeLbPackoutForProcessIds([proc.id])).get(proc.id) ?? 0;
-    const packFromTags = Math.max(cachedPack, computedPack);
+    const packFromTags =
+      computedPack > BALANCE_EPS ? computedPack : Math.max(cachedPack, computedPack);
     const usedOnPallets = (await this.computeUsedLbFromFinalPallets([proc.id])).get(proc.id) ?? 0;
     /** Tarjas y pallets finales suelen ser canales alternativos; max evita duplicar si ambos reflejan el mismo PT. */
     const packProductLb = Math.max(packFromTags, usedOnPallets);
@@ -1543,7 +1586,8 @@ export class ProcessService {
 
     const cachedPack = Number(fresh.lb_packout ?? 0);
     const computedPack = (await this.computeLbPackoutForProcessIds([proc.id])).get(proc.id) ?? 0;
-    const packFromTags = Math.max(cachedPack, computedPack);
+    const packFromTags =
+      computedPack > BALANCE_EPS ? computedPack : Math.max(cachedPack, computedPack);
     const usedOnPallets = (await this.computeUsedLbFromFinalPallets([proc.id])).get(proc.id) ?? 0;
     const packProductLb = Math.max(packFromTags, usedOnPallets);
     const diff = entrada - (packProductLb + componentTotal);

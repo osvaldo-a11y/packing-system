@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 import { PackagingMaterial } from '../packaging/packaging.entities';
 import {
   Brand,
@@ -20,6 +21,7 @@ import {
   CreateReceptionTypeDto,
   CreateReturnableContainerDto,
   LinkMaterialSupplierDto,
+  UpdatePackingMaterialLinkDto,
   UpdateBrandDto,
   UpdateClientDto,
   UpdateDocumentStateDto,
@@ -51,6 +53,10 @@ export class OperationalService {
 
   private isDeactivating(rowActivo: boolean, dtoActivo?: boolean): boolean {
     return rowActivo && dtoActivo === false;
+  }
+
+  private isPgForeignKeyViolation(err: unknown): boolean {
+    return err instanceof QueryFailedError && (err as { driverError?: { code?: string } }).driverError?.code === '23503';
   }
 
   private async assertUniqueCodigoNombre(
@@ -123,6 +129,21 @@ export class OperationalService {
     return this.clientRepo.save(row);
   }
 
+  async deleteClient(id: number) {
+    const row = await this.clientRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Cliente no encontrado');
+    await this.masterUsage.assertCanDeactivateClient(id);
+    try {
+      await this.clientRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este cliente porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   listMercados(includeInactive = false) {
     return this.mercadoRepo.find({
       where: includeInactive ? {} : { activo: true },
@@ -157,6 +178,21 @@ export class OperationalService {
     if (dto.nombre != null) row.nombre = nextNombre;
     if (dto.activo != null) row.activo = dto.activo;
     return this.mercadoRepo.save(row);
+  }
+
+  async deleteMercado(id: number) {
+    const row = await this.mercadoRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Mercado no encontrado');
+    await this.masterUsage.assertCanDeactivateMercado(id);
+    try {
+      await this.mercadoRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este mercado porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
   }
 
   listMaterialCategories(includeInactive = false) {
@@ -195,6 +231,21 @@ export class OperationalService {
     return this.materialCategoryRepo.save(row);
   }
 
+  async deleteMaterialCategory(id: number) {
+    const row = await this.materialCategoryRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Categoría no encontrada');
+    await this.masterUsage.assertCanDeactivateMaterialCategory(id);
+    try {
+      await this.materialCategoryRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta categoría porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   listReceptionTypes(includeInactive = false) {
     return this.receptionTypeRepo.find({
       where: includeInactive ? {} : { activo: true },
@@ -231,6 +282,21 @@ export class OperationalService {
     return this.receptionTypeRepo.save(row);
   }
 
+  async deleteReceptionType(id: number) {
+    const row = await this.receptionTypeRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Tipo de recepción no encontrado');
+    await this.masterUsage.assertCanDeactivateReceptionType(id);
+    try {
+      await this.receptionTypeRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este tipo de recepción porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   listDocumentStates(includeInactive = false) {
     return this.documentStateRepo.find({
       where: includeInactive ? {} : { activo: true },
@@ -265,6 +331,21 @@ export class OperationalService {
     if (dto.nombre != null) row.nombre = nextNombre;
     if (dto.activo != null) row.activo = dto.activo;
     return this.documentStateRepo.save(row);
+  }
+
+  async deleteDocumentState(id: number) {
+    const row = await this.documentStateRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Estado no encontrado');
+    await this.masterUsage.assertCanDeactivateDocumentState(id);
+    try {
+      await this.documentStateRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este estado de documento porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
   }
 
   /**
@@ -343,6 +424,21 @@ export class OperationalService {
     return this.brandRepo.save(row);
   }
 
+  async deleteBrand(id: number) {
+    const row = await this.brandRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Marca no encontrada');
+    await this.masterUsage.assertCanDeactivateBrand(id);
+    try {
+      await this.brandRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta marca porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   listPackingSuppliers(includeInactive = false) {
     return this.packingSupplierRepo.find({
       where: includeInactive ? {} : { activo: true },
@@ -379,17 +475,67 @@ export class OperationalService {
     return this.packingSupplierRepo.save(row);
   }
 
+  async deletePackingSupplier(id: number) {
+    const row = await this.packingSupplierRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Proveedor no encontrado');
+    await this.masterUsage.assertCanDeactivatePackingSupplier(id);
+    try {
+      await this.packingSupplierRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este proveedor porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   async linkMaterialSupplier(dto: LinkMaterialSupplierDto) {
     const m = await this.materialRepo.findOne({ where: { id: dto.material_id } });
     const s = await this.packingSupplierRepo.findOne({ where: { id: dto.supplier_id } });
     if (!m || !s) throw new BadRequestException('material_id o supplier_id inválido');
-    await this.pmsRepo.save(
-      this.pmsRepo.create({
+    let row = await this.pmsRepo.findOne({
+      where: { material_id: dto.material_id, supplier_id: dto.supplier_id },
+    });
+    if (!row) {
+      row = this.pmsRepo.create({
         material_id: dto.material_id,
         supplier_id: dto.supplier_id,
-      }),
-    );
-    return { ok: true };
+      });
+    }
+    if (dto.supplier_item_code !== undefined) {
+      const c = dto.supplier_item_code?.trim();
+      row.supplier_item_code = c ? c.slice(0, 80) : null;
+    }
+    if (dto.supplier_item_name !== undefined) {
+      const n = dto.supplier_item_name?.trim();
+      row.supplier_item_name = n ? n.slice(0, 300) : null;
+    }
+    await this.pmsRepo.save(row);
+    return this.pmsRepo.findOne({
+      where: { material_id: dto.material_id, supplier_id: dto.supplier_id },
+      relations: ['supplier', 'material'],
+    });
+  }
+
+  async updatePackingMaterialLink(dto: UpdatePackingMaterialLinkDto) {
+    const row = await this.pmsRepo.findOne({
+      where: { material_id: dto.material_id, supplier_id: dto.supplier_id },
+    });
+    if (!row) throw new NotFoundException('No existe vínculo material–proveedor.');
+    if (dto.supplier_item_code !== undefined) {
+      const c = dto.supplier_item_code?.trim();
+      row.supplier_item_code = c ? c.slice(0, 80) : null;
+    }
+    if (dto.supplier_item_name !== undefined) {
+      const n = dto.supplier_item_name?.trim();
+      row.supplier_item_name = n ? n.slice(0, 300) : null;
+    }
+    await this.pmsRepo.save(row);
+    return this.pmsRepo.findOne({
+      where: { material_id: dto.material_id, supplier_id: dto.supplier_id },
+      relations: ['supplier', 'material'],
+    });
   }
 
   async unlinkMaterialSupplier(dto: LinkMaterialSupplierDto) {
@@ -457,6 +603,21 @@ export class OperationalService {
     if (dto.requiere_retorno != null) row.requiereRetorno = dto.requiere_retorno;
     if (dto.activo != null) row.activo = dto.activo;
     return this.containerRepo.save(row);
+  }
+
+  async deleteReturnableContainer(id: number) {
+    const row = await this.containerRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Envase no encontrado');
+    await this.masterUsage.assertCanDeactivateReturnableContainer(id);
+    try {
+      await this.containerRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este envase porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
   }
 
   listFinishedPtStock() {

@@ -18,6 +18,8 @@ import {
   ModifySalesOrderDto,
   SalesOrderLineInputDto,
   UpdateDispatchBolDto,
+  UpdateDispatchMetaDto,
+  UpdateDispatchOrderLinkDto,
   UpdateDispatchUnitPricesDto,
 } from './dispatch.dto';
 import { PtPackingList, PtPackingListItem } from '../pt-packing-list/pt-packing-list.entities';
@@ -170,9 +172,11 @@ export class DispatchBillingService {
 
   /** Misma lógica que en process.service (peso neto por caja para PT). */
   private async netLbPerBox(formatCode: string): Promise<number> {
-    const row = await this.formatRepo.findOne({
-      where: { format_code: formatCode.trim().toLowerCase() },
-    });
+    const fc = (formatCode ?? '').trim().toLowerCase();
+    const row = await this.formatRepo
+      .createQueryBuilder('pf')
+      .where('LOWER(pf.format_code) = :fc', { fc })
+      .getOne();
     if (row && Number(row.net_weight_lb_per_box) > 0) {
       return Number(row.net_weight_lb_per_box);
     }
@@ -520,12 +524,21 @@ export class DispatchBillingService {
   async createSalesOrder(dto: CreateSalesOrderDto) {
     await this.assertSalesOrderLineRefs(dto.lines);
     const seq = (await this.soRepo.count()) + 1;
+    let orderNumber = `SO-${String(seq).padStart(5, '0')}`;
+    if (dto.order_number !== undefined && dto.order_number.trim() !== '') {
+      const custom = dto.order_number.trim();
+      const dup = await this.soRepo.findOne({ where: { order_number: custom } });
+      if (dup) {
+        throw new BadRequestException(`Ya existe un pedido con la referencia «${custom}». Elegí otro código o dejá el campo vacío para usar un número automático.`);
+      }
+      orderNumber = custom;
+    }
     const order = await this.soRepo.save(
       this.soRepo.create({
         cliente_id: dto.cliente_id,
         requested_pallets: 0,
         requested_boxes: 0,
-        order_number: `SO-${String(seq).padStart(5, '0')}`,
+        order_number: orderNumber,
       }),
     );
     await this.replaceOrderLines(order.id, dto.lines);
@@ -547,6 +560,21 @@ export class DispatchBillingService {
     if (!order) throw new NotFoundException('Orden no encontrada');
     const nameMapBefore = await this.clientNombresByIds([Number(order.cliente_id)]);
     const before = toJsonRecord(this.mapSalesOrderToRow(order, nameMapBefore));
+
+    if (dto.order_number !== undefined) {
+      const next = dto.order_number.trim();
+      if (!next) {
+        throw new BadRequestException('El nombre del pedido no puede quedar vacío.');
+      }
+      const dup = await this.soRepo.findOne({ where: { order_number: next } });
+      if (dup && Number(dup.id) !== orderId) {
+        throw new BadRequestException(`Ya existe otro pedido con la referencia «${next}».`);
+      }
+      if (order.order_number !== next) {
+        order.order_number = next;
+        await this.soRepo.save(order);
+      }
+    }
     await this.assertSalesOrderLineRefs(dto.lines);
     await this.replaceOrderLines(orderId, dto.lines);
     await this.syncOrderTotalsFromLines(orderId);
@@ -615,6 +643,18 @@ export class DispatchBillingService {
       }
       finalBol = this.normalizeDispatchBol(rawInput);
       bolOrigin = 'manual_entry';
+    }
+
+    const order = await this.soRepo.findOne({ where: { id: dto.orden_id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (Number(order.cliente_id) !== Number(dto.cliente_id)) {
+      throw new BadRequestException('cliente_id no coincide con el pedido seleccionado.');
+    }
+    const bolMatchesOtherOrder = await this.soRepo.findOne({ where: { order_number: finalBol } });
+    if (bolMatchesOtherOrder && Number(bolMatchesOtherOrder.id) !== Number(dto.orden_id)) {
+      throw new BadRequestException(
+        `La BOL ${finalBol} coincide con el pedido #${bolMatchesOtherOrder.id} (${bolMatchesOtherOrder.order_number}). Verificá el pedido del despacho.`,
+      );
     }
 
     const row = await this.dispatchRepo.save(
@@ -869,6 +909,68 @@ export class DispatchBillingService {
       }
       throw e;
     }
+    return this.listDispatchesWithItems();
+  }
+
+  async updateDispatchMeta(dispatchId: number, dto: UpdateDispatchMetaDto) {
+    const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
+    if (!dispatch) throw new NotFoundException('Despacho no encontrado');
+    const postSalidaEdit = dispatch.status === 'despachado';
+    const hasAnyField =
+      dto.fecha_despacho !== undefined ||
+      dto.temperatura_f !== undefined ||
+      dto.thermograph_serial !== undefined ||
+      dto.thermograph_notes !== undefined;
+    if (!hasAnyField) {
+      throw new BadRequestException('No se enviaron campos para actualizar.');
+    }
+
+    if (dto.fecha_despacho !== undefined) {
+      const d = new Date(dto.fecha_despacho);
+      if (Number.isNaN(d.getTime())) throw new BadRequestException('fecha_despacho inválida.');
+      dispatch.fecha_despacho = d;
+    }
+    if (dto.temperatura_f !== undefined) {
+      if (!Number.isFinite(dto.temperatura_f)) throw new BadRequestException('temperatura_f inválida.');
+      dispatch.temperatura_f = Number(dto.temperatura_f).toFixed(2);
+    }
+    if (dto.thermograph_serial !== undefined) {
+      dispatch.thermograph_serial = dto.thermograph_serial.trim() || null;
+    }
+    if (dto.thermograph_notes !== undefined) {
+      dispatch.thermograph_notes = dto.thermograph_notes.trim() || null;
+    }
+    if (postSalidaEdit) {
+      const stamp = `[AJUSTE POST-SALIDA ${new Date().toISOString()}]`;
+      const prev = dispatch.thermograph_notes?.trim() ?? '';
+      dispatch.thermograph_notes = prev ? `${prev}\n${stamp}` : stamp;
+    }
+
+    await this.dispatchRepo.save(dispatch);
+    const packing = await this.plRepo.findOne({ where: { dispatch_id: dispatchId }, select: ['id'] });
+    if (packing) {
+      await this.generatePackingList(dispatchId);
+    }
+    return this.listDispatchesWithItems();
+  }
+
+  async updateDispatchOrderLink(dispatchId: number, dto: UpdateDispatchOrderLinkDto) {
+    const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
+    if (!dispatch) throw new NotFoundException('Despacho no encontrado');
+    const order = await this.soRepo.findOne({ where: { id: dto.orden_id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+
+    dispatch.orden_id = order.id;
+    dispatch.cliente_id = dto.cliente_id != null ? dto.cliente_id : Number(order.cliente_id);
+    if (dto.client_id !== undefined) {
+      dispatch.client_id = dto.client_id && dto.client_id > 0 ? dto.client_id : null;
+    }
+    if (dispatch.status === 'despachado') {
+      const stamp = `[AJUSTE PEDIDO POST-SALIDA ${new Date().toISOString()}] pedido=${order.order_number}`;
+      const prev = dispatch.thermograph_notes?.trim() ?? '';
+      dispatch.thermograph_notes = prev ? `${prev}\n${stamp}` : stamp;
+    }
+    await this.dispatchRepo.save(dispatch);
     return this.listDispatchesWithItems();
   }
 

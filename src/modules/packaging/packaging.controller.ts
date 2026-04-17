@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -9,7 +9,9 @@ import {
   CreateConsumptionDto,
   CreateMaterialDto,
   CreateRecipeDto,
+  RecalculateConsumptionsDto,
   RecordMaterialMovementDto,
+  UpdateMaterialDto,
   UpdateRecipeItemDto,
 } from './packaging.dto';
 import { PackagingService } from './packaging.service';
@@ -27,13 +29,23 @@ export class PackagingController {
     return this.service.createMaterial(dto);
   }
 
+  @Get('materials/summary-by-format')
+  materialsSummaryByFormat() {
+    return this.service.materialsSummaryByFormat();
+  }
+
   @Get('materials')
   listMaterials() {
     return this.service.listMaterials();
   }
 
+  @Patch('materials/:id')
+  updateMaterial(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateMaterialDto) {
+    return this.service.updateMaterial(id, dto);
+  }
+
   @Delete('materials/:id')
-  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   deleteMaterial(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteMaterial(id);
   }
@@ -96,5 +108,10 @@ export class PackagingController {
   @Get('consumptions/:id')
   getConsumption(@Param('id', ParseIntPipe) id: number) {
     return this.service.getConsumption(id);
+  }
+
+  @Post('consumptions/recalculate')
+  recalculateConsumptions(@Body() dto: RecalculateConsumptionsDto) {
+    return this.service.recalculateConsumptions(dto.tarja_id);
   }
 }

@@ -99,6 +99,14 @@ export class PackingMaterialSupplier {
   @PrimaryColumn({ type: 'bigint' })
   supplier_id: number;
 
+  /** Código del artículo en remito/factura del proveedor (búsqueda al cargar guías). */
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  supplier_item_code: string | null;
+
+  /** Denominación comercial en documento del proveedor (texto libre). */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  supplier_item_name: string | null;
+
   @ManyToOne(() => PackagingMaterial, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'material_id' })
   material: PackagingMaterial;

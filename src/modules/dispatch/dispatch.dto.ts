@@ -27,6 +27,11 @@ export class SalesOrderLineInputDto {
 
 export class CreateSalesOrderDto {
   @IsInt() cliente_id: number;
+  /** Si se informa (no vacío), sustituye el número automático SO-#####; debe ser único. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  order_number?: string;
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -77,6 +82,21 @@ export class UpdateDispatchBolDto {
   apply_to_packing_lists: boolean;
 }
 
+/** Correcciones operativas del despacho (fecha, temperatura y datos termógrafo). */
+export class UpdateDispatchMetaDto {
+  @IsOptional() @IsDateString() fecha_despacho?: string;
+  @IsOptional() @IsNumber() temperatura_f?: number;
+  @IsOptional() @IsString() @MaxLength(120) thermograph_serial?: string;
+  @IsOptional() @IsString() @MaxLength(500) thermograph_notes?: string;
+}
+
+/** Corrección de vínculo comercial del despacho (pedido y clientes asociados). */
+export class UpdateDispatchOrderLinkDto {
+  @Type(() => Number) @IsInt() @Min(1) orden_id: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) cliente_id?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) client_id?: number | null;
+}
+
 export class AddDispatchTagDto {
   @IsInt() tarja_id: number;
   @IsInt() @Min(1) cajas_despachadas: number;
@@ -86,6 +106,13 @@ export class AddDispatchTagDto {
 }
 
 export class ModifySalesOrderDto {
+  /** Referencia visible del pedido (ej. SO-00001 o BOL comercial). Debe ser única. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  order_number?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -31,6 +31,7 @@ import {
   CreateReceptionTypeDto,
   CreateReturnableContainerDto,
   LinkMaterialSupplierDto,
+  UpdatePackingMaterialLinkDto,
   UpdateBrandDto,
   UpdateClientDto,
   UpdateDocumentStateDto,
@@ -41,6 +42,7 @@ import {
   UpdateReturnableContainerDto,
 } from './operational.dto';
 import { OperationalService } from './operational.service';
+import { MasterForceDeleteService } from './master-force-delete.service';
 import { parseIncludeInactive } from './masters-query.util';
 import { TraceabilityService } from './traceability.service';
 
@@ -52,6 +54,7 @@ export class MastersController {
   constructor(
     private readonly trace: TraceabilityService,
     private readonly operational: OperationalService,
+    private readonly masterForceDelete: MasterForceDeleteService,
   ) {}
 
   @Get('quality-grades')
@@ -72,6 +75,12 @@ export class MastersController {
     return this.trace.updateQualityGrade(id, dto);
   }
 
+  @Delete('quality-grades/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteQuality(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteQualityGrade(id);
+  }
+
   @Get('species')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listSpecies(@Query('include_inactive') includeInactive?: string) {
@@ -90,6 +99,12 @@ export class MastersController {
     return this.trace.updateSpecies(id, dto);
   }
 
+  @Delete('species/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteSpecies(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteSpecies(id);
+  }
+
   @Get('producers')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listProducers(@Query('include_inactive') includeInactive?: string) {
@@ -106,6 +121,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updateProducer(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProducerDto) {
     return this.trace.updateProducer(id, dto);
+  }
+
+  @Delete('producers/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteProducer(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteProducer(id);
   }
 
   @Get('varieties')
@@ -131,6 +152,12 @@ export class MastersController {
     return this.trace.updateVariety(id, dto);
   }
 
+  @Delete('varieties/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteVariety(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteVariety(id);
+  }
+
   @Get('presentation-formats')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listFormats(@Query('include_inactive') includeInactive?: string) {
@@ -147,6 +174,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updateFormat(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePresentationFormatDto) {
     return this.trace.updatePresentationFormat(id, dto);
+  }
+
+  @Delete('presentation-formats/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteFormat(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deletePresentationFormat(id);
   }
 
   @Get('process-machines')
@@ -167,6 +200,12 @@ export class MastersController {
     return this.trace.updateProcessMachine(id, dto);
   }
 
+  @Delete('process-machines/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteProcessMachine(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteProcessMachine(id);
+  }
+
   @Get('process-result-components')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listProcessResultComponents(@Query('include_inactive') includeInactive?: string) {
@@ -183,6 +222,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updateProcessResultComponent(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProcessResultComponentDto) {
     return this.trace.updateProcessResultComponent(id, dto);
+  }
+
+  @Delete('process-result-components/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteProcessResultComponent(@Param('id', ParseIntPipe) id: number) {
+    return this.trace.deleteProcessResultComponent(id);
   }
 
   @Get('species/:id/process-result-components')
@@ -221,6 +266,12 @@ export class MastersController {
     return this.operational.updateClient(id, dto);
   }
 
+  @Delete('clients/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteClient(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteClient(id);
+  }
+
   @Get('brands')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listBrands(
@@ -247,6 +298,12 @@ export class MastersController {
     return this.operational.updateBrand(id, dto);
   }
 
+  @Delete('brands/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteBrand(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteBrand(id);
+  }
+
   @Get('packing-suppliers')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listPackingSuppliers(@Query('include_inactive') includeInactive?: string) {
@@ -263,6 +320,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updatePackingSupplier(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePackingSupplierDto) {
     return this.operational.updatePackingSupplier(id, dto);
+  }
+
+  @Delete('packing-suppliers/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deletePackingSupplier(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deletePackingSupplier(id);
   }
 
   @Get('packing-material-links')
@@ -287,6 +350,13 @@ export class MastersController {
     return this.operational.unlinkMaterialSupplier(dto);
   }
 
+  /** Actualizar código/nombre según guía del proveedor (vínculo debe existir). */
+  @Patch('packing-material-links')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  patchPackingMaterialLink(@Body() dto: UpdatePackingMaterialLinkDto) {
+    return this.operational.updatePackingMaterialLink(dto);
+  }
+
   @Get('returnable-containers')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listReturnableContainers(@Query('include_inactive') includeInactive?: string) {
@@ -303,6 +373,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updateReturnableContainer(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateReturnableContainerDto) {
     return this.operational.updateReturnableContainer(id, dto);
+  }
+
+  @Delete('returnable-containers/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteReturnableContainer(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteReturnableContainer(id);
   }
 
   @Get('mercados')
@@ -323,6 +399,12 @@ export class MastersController {
     return this.operational.updateMercado(id, dto);
   }
 
+  @Delete('mercados/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteMercado(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteMercado(id);
+  }
+
   @Get('material-categories')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listMaterialCategories(@Query('include_inactive') includeInactive?: string) {
@@ -339,6 +421,12 @@ export class MastersController {
   @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   updateMaterialCategory(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateMaterialCategoryDto) {
     return this.operational.updateMaterialCategory(id, dto);
+  }
+
+  @Delete('material-categories/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteMaterialCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteMaterialCategory(id);
   }
 
   @Get('reception-types')
@@ -359,6 +447,12 @@ export class MastersController {
     return this.operational.updateReceptionType(id, dto);
   }
 
+  @Delete('reception-types/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteReceptionType(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteReceptionType(id);
+  }
+
   @Get('document-states')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listDocumentStates(@Query('include_inactive') includeInactive?: string) {
@@ -377,9 +471,21 @@ export class MastersController {
     return this.operational.updateDocumentState(id, dto);
   }
 
+  @Delete('document-states/:id')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  deleteDocumentState(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.deleteDocumentState(id);
+  }
+
   @Get('finished-pt-stock')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   listFinishedPtStock() {
     return this.operational.listFinishedPtStock();
+  }
+
+  @Delete(':resource/:id/force')
+  @Roles(ROLES.ADMIN)
+  forceDeleteMaster(@Param('resource') resource: string, @Param('id', ParseIntPipe) id: number) {
+    return this.masterForceDelete.forceDeleteByResource(resource, id);
   }
 }

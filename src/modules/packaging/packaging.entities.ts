@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { MaterialCategory as MaterialCategoryEntity } from '../traceability/catalog.entities';
+import { Brand } from '../traceability/operational.entities';
 import { PresentationFormat } from '../traceability/traceability.entities';
 
 /** Movimiento de inventario (kardex): el stock actual es la suma de quantity_delta por material (más el saldo inicial al crear el material). */
@@ -65,9 +66,28 @@ export class PackagingMaterial {
   @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
   cantidad_disponible: string;
 
-  /** Si es clamshell: formato de presentación al que aplica (nombre comercial puede diferir del código formato). */
+  /**
+   * Formato de aplicación principal: null = insumo genérico (todos los formatos); id = exclusivo / preferente para ese formato.
+   * (Clamshell suele requerirlo; cajas/etiquetas pueden usarlo para documentar alcance.)
+   */
   @Column({ type: 'bigint', nullable: true })
   presentation_format_id: number | null;
+
+  @ManyToOne(() => PresentationFormat, { nullable: true })
+  @JoinColumn({ name: 'presentation_format_id' })
+  presentation_format?: PresentationFormat | null;
+
+  /** Lista de formatos donde aplica este insumo (si vacío/null, usar campo legacy `presentation_format_id`). */
+  @Column({ type: 'bigint', array: true, nullable: true })
+  presentation_format_scope_ids: number[] | null;
+
+  /** Cliente comercial si el insumo es exclusivo (etiquetas, clamshell por cuenta); null = todos. */
+  @Column({ type: 'bigint', nullable: true })
+  client_id: number | null;
+
+  /** Lista de clientes donde aplica este insumo (si vacío/null, usar campo legacy `client_id`). */
+  @Column({ type: 'bigint', array: true, nullable: true })
+  client_scope_ids: number[] | null;
 
   /** Unidades de este clamshell por caja comercial (para costeo y stock). */
   @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
@@ -78,7 +98,7 @@ export class PackagingMaterial {
 }
 
 @Entity('packaging_recipes')
-@Unique('uq_packaging_recipe_presentation_format', ['presentation_format_id'])
+@Unique('uq_packaging_recipe_format_brand', ['presentation_format_id', 'brand_id'])
 export class PackagingRecipe {
   @PrimaryGeneratedColumn('increment')
   id: number;
@@ -89,6 +109,13 @@ export class PackagingRecipe {
   @ManyToOne(() => PresentationFormat, { nullable: false })
   @JoinColumn({ name: 'presentation_format_id' })
   presentation_format: PresentationFormat;
+
+  @Column({ type: 'bigint', nullable: true })
+  brand_id: number | null;
+
+  @ManyToOne(() => Brand, { nullable: true })
+  @JoinColumn({ name: 'brand_id' })
+  brand?: Brand | null;
 
   @Column({ type: 'text', nullable: true })
   descripcion?: string;

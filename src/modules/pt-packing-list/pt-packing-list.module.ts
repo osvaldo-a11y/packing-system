@@ -1,6 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Dispatch, DispatchPtPackingList, SalesOrder } from '../dispatch/dispatch.entities';
+import {
+  Dispatch,
+  DispatchPtPackingList,
+  DispatchTagItem,
+  Invoice,
+  InvoiceItem,
+  PackingList,
+  SalesOrder,
+} from '../dispatch/dispatch.entities';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletModule } from '../final-pallet/final-pallet.module';
 import { PtPackingListController } from './pt-packing-list.controller';
@@ -15,6 +23,10 @@ import { PtPackingListService } from './pt-packing-list.service';
       PtPackingListReversalEvent,
       DispatchPtPackingList,
       Dispatch,
+      DispatchTagItem,
+      Invoice,
+      InvoiceItem,
+      PackingList,
       SalesOrder,
       FinalPallet,
       FinalPalletLine,

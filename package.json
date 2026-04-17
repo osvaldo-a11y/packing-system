@@ -20,6 +20,7 @@
     "dev:down": "docker compose down",
     "dev:reset-db": "docker compose down -v && docker compose up -d && npm run migration:run",
     "dev:clear-data": "node scripts/clear-dev-data.cjs",
+    "dev:clear-packaging": "node scripts/clear-packaging-catalog.cjs",
     "seed:validation": "node scripts/seed-validation-flow.cjs",
     "auth:hash-password": "node scripts/hash-auth-password.cjs",
     "screenshots:app": "node scripts/capture-app-screenshots.mjs",

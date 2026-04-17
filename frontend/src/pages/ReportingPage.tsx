@@ -8,6 +8,7 @@ import {
   FileCheck,
   FileDown,
   FolderOpen,
+  Info,
   Pencil,
   Printer,
   RefreshCw,
@@ -31,10 +32,39 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatReportCell } from '@/lib/format-report-cell';
 import { formatLb, formatMoney, formatTechnical } from '@/lib/number-format';
-import { contentCard } from '@/lib/page-ui';
+import {
+  btnToolbarOutline,
+  btnToolbarPrimary,
+  contentCard,
+  emptyStateBanner,
+  emptyStateInset,
+  emptyStatePanel,
+  errorStateCard,
+  filterInputClass,
+  filterLabel,
+  filterPanel,
+  filterSelectClass,
+  kpiCardSm,
+  kpiFootnote,
+  kpiFootnoteLead,
+  kpiGrid3,
+  kpiLabel,
+  kpiValueMd,
+  pageHeaderRow,
+  pageInfoButton,
+  pageStack,
+  pageSubtitle,
+  pageTitle,
+  sectionHint,
+  sectionTitle,
+  signalsPanel,
+  signalsTitle,
+  tableBodyRow,
+  tableHeaderRow,
+  tableShell,
+} from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
 import { ReportSemanticBlock } from '@/components/reporting/ReportSemanticBlock';
-import { ReportingHelpPanel } from '@/components/reporting/ReportingHelpPanel';
 import type { ReportHelpId } from '@/content/reportingHelp';
 
 type ReportFilters = {
@@ -156,18 +186,41 @@ type SavedReportRow = {
 
 type ReportModuleTab = 'operativo' | 'financiero' | 'entregables';
 
-const REPORT_MODULE_TABS: { id: ReportModuleTab; label: string; description: string }[] = [
+const REPORT_MODULE_TABS: {
+  id: ReportModuleTab;
+  label: string;
+  subtitle: string;
+  activeBlurb: string;
+  filterNote: string;
+  excelCtaHint: string;
+}[] = [
   {
     id: 'operativo',
-    label: 'Operativo y depósito',
-    description: 'Proceso, unidades PT, rendimiento; vista separada del financiero',
+    label: 'Operativo',
+    subtitle: 'Producción, inventario y movimiento de planta',
+    activeBlurb:
+      'Tablas de cajas PT, despacho, rendimiento y empaque. El Excel incluye todas las hojas del informe; acá navegás el bloque operativo.',
+    filterNote: 'Suelen ser clave: fechas, productor, variedad y unidad PT.',
+    excelCtaHint: 'Libro .xlsx con todas las secciones del informe (mismos filtros aplicados).',
   },
   {
     id: 'financiero',
-    label: 'Financiero interno',
-    description: 'Facturación del período, costos, liquidación y margen',
+    label: 'Financiero',
+    subtitle: 'Ventas, precios y valores para análisis interno',
+    activeBlurb:
+      'Liquidación, costos por formato, ventas por despacho y margen por cliente. El Excel es el informe completo; acá abrís el detalle y PDFs de liquidación.',
+    filterNote: 'Suelen pesar: cliente, formato, precio packing y fechas.',
+    excelCtaHint: 'Mismo libro completo: útil para cruzar cifras y liquidación en Excel.',
   },
-  { id: 'entregables', label: 'Documentos / terceros', description: 'PDFs y enlaces para terceros' },
+  {
+    id: 'entregables',
+    label: 'Documentos',
+    subtitle: 'Entregables y salidas en formato documento',
+    activeBlurb:
+      'Guía para PDFs (liquidación al productor, facturas/pl en Despachos). El Excel sigue trayendo el informe íntegro; esta vista indica qué descargar.',
+    filterNote: 'Alineá fechas y cliente con el documento que querés respaldar.',
+    excelCtaHint: 'Informe completo en .xlsx; los PDFs se generan desde los enlaces de esta pestaña o Despachos.',
+  },
 ];
 
 const REPORT_CATEGORY_ICON: Record<ReportModuleTab, LucideIcon> = {
@@ -175,6 +228,18 @@ const REPORT_CATEGORY_ICON: Record<ReportModuleTab, LucideIcon> = {
   financiero: Banknote,
   entregables: FileCheck,
 };
+
+/** Resalta filtros más útiles por categoría (solo UX; no cambia el backend). */
+function reportFilterFieldClass(tab: ReportModuleTab, field: string): string {
+  const op = ['productor', 'variedad', 'tarja', 'desde', 'hasta', 'calidad'];
+  const fin = ['cliente', 'formato', 'precio', 'desde', 'hasta'];
+  const doc = ['cliente', 'desde', 'hasta'];
+  const hit =
+    (tab === 'operativo' && op.includes(field)) ||
+    (tab === 'financiero' && fin.includes(field)) ||
+    (tab === 'entregables' && doc.includes(field));
+  return hit ? 'rounded-xl p-0.5 ring-1 ring-primary/20' : '';
+}
 
 const PACKING_HIDDEN_SPECIES_LS = 'reporting.packingHiddenSpeciesIds';
 
@@ -196,8 +261,7 @@ function ReportCategoryBadge({ kind }: { kind: 'operativo' | 'financiero' | 'ent
     financiero: 'border-slate-300 text-slate-800 bg-slate-50',
     entregable: 'border-emerald-200 text-emerald-900 bg-emerald-50',
   };
-  const label =
-    kind === 'operativo' ? 'Operativo' : kind === 'financiero' ? 'Financiero interno' : 'Documento / terceros';
+  const label = kind === 'operativo' ? 'Operativo' : kind === 'financiero' ? 'Financiero' : 'Documentos';
   return (
     <Badge variant="outline" className={cn('text-[10px] font-semibold uppercase tracking-wide', map[kind])}>
       {label}
@@ -803,11 +867,184 @@ function computeExecutiveKpis(d: GenerateResponse): ExecutiveKpis {
 
 function KpiTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white px-3 py-3 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-0.5 text-base font-semibold tabular-nums leading-tight text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-[11px] text-slate-600 leading-snug">{hint}</p> : null}
+    <div className={kpiCardSm}>
+      <p className={kpiLabel}>{label}</p>
+      <p className={kpiValueMd}>{value}</p>
+      {hint ? <p className={kpiFootnoteLead}>{hint}</p> : null}
     </div>
+  );
+}
+
+/** Muestra primeras filas del bloque principal para validar antes de exportar. */
+function ReportPreviewStrip({ data }: { data: GenerateResponse }) {
+  const section = data.boxesByProducer;
+  const rows = section?.rows ?? [];
+  if (!rows.length) {
+    return <div className={emptyStatePanel}>Sin filas en cajas PT para estos filtros.</div>;
+  }
+  const preview = rows.slice(0, 15);
+  const cols = Object.keys(preview[0] ?? {});
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className={sectionTitle}>Vista previa</p>
+        <p className={sectionHint}>Primeras 15 filas · Cajas PT por productor</p>
+      </div>
+      <div className={cn(tableShell, 'overflow-x-auto')}>
+        <Table>
+          <TableHeader>
+            <TableRow className={tableHeaderRow}>
+              {cols.map((c) => (
+                <TableHead key={c} className="whitespace-nowrap text-xs font-medium">
+                  {c}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {preview.map((row, i) => (
+              <TableRow key={i} className={tableBodyRow}>
+                {cols.map((c) => (
+                  <TableCell key={c} className="max-w-[240px] truncate text-sm tabular-nums">
+                    {renderCell(c, (row as Record<string, unknown>)[c])}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+type UnifiedPreviewRow = {
+  row_grain: string;
+  row_id: string;
+  pallet_id: string;
+  invoice_id: string;
+  producer_name: string;
+  product_variety: string;
+  boxes: string;
+  net_weight: string;
+  reference: string;
+  is_mixed_line: string;
+  line_candidate_count: string;
+};
+
+function pickAny(row: Record<string, unknown>, keys: string[]): unknown {
+  for (const k of keys) {
+    if (row[k] != null && String(row[k]).trim() !== '') return row[k];
+  }
+  return null;
+}
+
+function buildUnifiedPreviewRows(data: GenerateResponse | null): UnifiedPreviewRow[] {
+  const fallback: UnifiedPreviewRow[] = [
+    {
+      row_grain: 'invoice_item',
+      row_id: 'INV-1024',
+      pallet_id: 'PF-30',
+      invoice_id: 'FAC-00030',
+      producer_name: 'Productor demo',
+      product_variety: 'Arándano Legacy',
+      boxes: '420',
+      net_weight: '4,536.00',
+      reference: 'PL-0008',
+      is_mixed_line: 'No',
+      line_candidate_count: '1',
+    },
+    {
+      row_grain: 'final_pallet_line',
+      row_id: 'FPL-778',
+      pallet_id: 'PF-31',
+      invoice_id: '—',
+      producer_name: 'Pendiente trazabilidad',
+      product_variety: 'Variedad por confirmar',
+      boxes: '96',
+      net_weight: '1,036.80',
+      reference: 'Sin factura',
+      is_mixed_line: 'Sí',
+      line_candidate_count: '2',
+    },
+  ];
+  if (!data) return fallback;
+  const src =
+    data.producerSettlementDetail?.rows?.length
+      ? data.producerSettlementDetail.rows
+      : data.boxesByProducerDetail?.rows?.length
+        ? data.boxesByProducerDetail.rows
+        : [];
+  if (!src.length) return fallback;
+  return src.slice(0, 10).map((raw, i) => {
+    const row = raw as Record<string, unknown>;
+    const boxes = Number(pickAny(row, ['cajas', 'total_cajas', 'cajas_despachadas']) ?? 0);
+    const lb = Number(pickAny(row, ['lb', 'net_lb', 'pounds', 'peso_neto_lb']) ?? 0);
+    const invoice = pickAny(row, ['invoice_number', 'invoice_id', 'dispatch_id']);
+    const candidateCount = Number(pickAny(row, ['line_candidate_count']) ?? 1);
+    return {
+      row_grain: String(pickAny(row, ['row_grain']) ?? (invoice ? 'invoice_item' : 'final_pallet_line')),
+      row_id: String(pickAny(row, ['row_id']) ?? `${invoice ? 'INV' : 'FPL'}-PRE-${i + 1}`),
+      pallet_id: String(pickAny(row, ['final_pallet_id', 'pallet_id', 'tarja_id']) ?? '—'),
+      invoice_id: String(invoice ?? '—'),
+      producer_name: String(pickAny(row, ['productor_nombre', 'producer_name']) ?? '—'),
+      product_variety: String(pickAny(row, ['variedad_nombre', 'variety_name', 'variedad', 'format_code']) ?? '—'),
+      boxes: formatTechnical(boxes, 4),
+      net_weight: formatTechnical(lb, 3),
+      reference: String(pickAny(row, ['reference', 'packing_list_ref', 'nota_prorrateo']) ?? '—'),
+      is_mixed_line: String(pickAny(row, ['is_mixed_line']) ?? (candidateCount > 1 ? 'Sí' : 'No')),
+      line_candidate_count: String(candidateCount),
+    };
+  });
+}
+
+function UnifiedDatasetTechPreview({ data }: { data: GenerateResponse | null }) {
+  const rows = useMemo(() => buildUnifiedPreviewRows(data), [data]);
+  return (
+    <details className="group mt-3 rounded-2xl border border-slate-200 bg-white/90 open:border-slate-300">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+        <span className="mr-2 inline-block transition-transform group-open:rotate-90">▸</span>
+        Dataset unificado PT/Despacho (preview técnico)
+      </summary>
+      <div className="border-t border-slate-100 px-4 py-3">
+        <div className={cn(tableShell, 'overflow-x-auto')}>
+          <Table>
+            <TableHeader>
+              <TableRow className={tableHeaderRow}>
+                <TableHead>row_grain</TableHead>
+                <TableHead>row_id</TableHead>
+                <TableHead>pallet_id</TableHead>
+                <TableHead>invoice_id</TableHead>
+                <TableHead>producer_name</TableHead>
+                <TableHead>product_variety</TableHead>
+                <TableHead className="text-right">boxes</TableHead>
+                <TableHead className="text-right">net_weight</TableHead>
+                <TableHead>reference</TableHead>
+                <TableHead>is_mixed_line</TableHead>
+                <TableHead className="text-right">line_candidate_count</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.row_id} className={tableBodyRow}>
+                  <TableCell>{r.row_grain}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.row_id}</TableCell>
+                  <TableCell>{r.pallet_id}</TableCell>
+                  <TableCell>{r.invoice_id}</TableCell>
+                  <TableCell>{r.producer_name}</TableCell>
+                  <TableCell>{r.product_variety}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.boxes}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.net_weight}</TableCell>
+                  <TableCell>{r.reference}</TableCell>
+                  <TableCell>{r.is_mixed_line}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.line_candidate_count}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -1352,21 +1589,56 @@ export function ReportingPage() {
   const canManagePackingCosts = role === 'admin' || role === 'supervisor';
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Reportes</h1>
-        <p className="mt-2 max-w-3xl text-slate-600">
-          Un solo <strong className="font-semibold text-slate-800">Generar</strong> carga todos los datos. Elegí una{' '}
-          <strong className="font-semibold text-slate-800">categoría</strong>, revisá el resumen y abrí cada informe por
-          separado (sin mezclar operación, logística comercial y finanzas en un mismo scroll).
-        </p>
+    <div className={pageStack}>
+      <div className={pageHeaderRow}>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className={pageTitle}>Reportes</h1>
+            <button
+              type="button"
+              className={pageInfoButton}
+              title="Un generado alimenta todas las tablas. Elegí categoría y exportá. Más: Guía del sistema."
+              aria-label="Información sobre reportes"
+            >
+              <Info className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+          <p className={cn(pageSubtitle, 'mt-1')}>Exportación y análisis operativo.</p>
+          <Link
+            to="/guide/sistema"
+            className="mt-2 inline-block text-[13px] text-slate-600 underline-offset-2 hover:underline"
+          >
+            Guía del sistema
+          </Link>
+        </div>
       </div>
 
-      <ReportingHelpPanel />
+      {reportData && executiveKpis && !generateMut.isPending ? (
+        <div className={kpiGrid3}>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Registros (cajas PT)</p>
+            <p className={kpiValueMd}>{String(reportData.boxesByProducer?.total ?? 0)}</p>
+            <p className={kpiFootnote}>Total en servidor</p>
+          </div>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Período</p>
+            <p className={cn(kpiValueMd, 'break-words text-base leading-tight sm:text-[1.65rem]')}>
+              {(filters.fecha_desde ?? '—') + ' → ' + (filters.fecha_hasta ?? '—')}
+            </p>
+            <p className={kpiFootnote}>Fechas aplicadas</p>
+          </div>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Categoría</p>
+            <p className={kpiValueMd}>{REPORT_MODULE_TABS.find((t) => t.id === reportTab)?.label ?? '—'}</p>
+            <p className={kpiFootnote}>Bloques en pantalla</p>
+          </div>
+        </div>
+      ) : null}
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Elegí categoría</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+      <div className={cn(contentCard, 'p-4 sm:p-5')}>
+        <p className={sectionTitle}>Tipo de reporte</p>
+        <p className={sectionHint}>Misma data generada: la categoría solo cambia qué bloques y ayudas ves en pantalla.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {REPORT_MODULE_TABS.map((t) => {
             const Icon = REPORT_CATEGORY_ICON[t.id];
             const active = reportTab === t.id;
@@ -1379,45 +1651,42 @@ export function ReportingPage() {
                   setDetailId(null);
                 }}
                 className={cn(
-                  'rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md',
+                  'flex flex-col gap-2 rounded-2xl border p-4 text-left shadow-sm transition-all',
                   active
-                    ? 'border-primary ring-2 ring-primary/25'
-                    : 'border-slate-200 hover:border-slate-300',
+                    ? 'border-primary bg-primary/[0.04] ring-2 ring-primary/20'
+                    : 'border-slate-200 bg-white hover:border-slate-300',
                 )}
               >
-                <div className="mb-3 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-xl',
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
                       active ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-600',
                     )}
                   >
-                    <Icon className="h-5 w-5" aria-hidden />
+                    <Icon className="h-4 w-4" aria-hidden />
                   </span>
-                  <ReportCategoryBadge
-                    kind={t.id === 'operativo' ? 'operativo' : t.id === 'financiero' ? 'financiero' : 'entregable'}
-                  />
+                  <span className="text-sm font-semibold text-slate-900">{t.label}</span>
                 </div>
-                <div className="font-semibold text-slate-900">{t.label}</div>
-                <p className="mt-1 text-sm leading-relaxed text-slate-600">{t.description}</p>
+                <p className="text-[13px] leading-snug text-slate-600">{t.subtitle}</p>
                 {t.id === 'operativo' ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                    <Button asChild variant="outline" size="sm" className="shadow-sm">
+                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
                       <Link to="/sales-orders">Pedidos</Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="shadow-sm">
-                      <Link to="/existencias-pt/inventario">Inventario cámara</Link>
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                      <Link to="/existencias-pt/inventario">Inventario</Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="shadow-sm">
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
                       <Link to="/processes">Procesos</Link>
                     </Button>
                   </div>
                 ) : null}
                 {t.id === 'entregables' ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                    <Button asChild variant="outline" size="sm" className="gap-1.5 shadow-sm">
+                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                    <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
                       <Link to="/dispatches">
-                        <Truck className="h-3.5 w-3.5" />
+                        <Truck className="h-3 w-3" />
                         Despachos
                       </Link>
                     </Button>
@@ -1427,22 +1696,46 @@ export function ReportingPage() {
             );
           })}
         </div>
+        {(() => {
+          const active = REPORT_MODULE_TABS.find((x) => x.id === reportTab);
+          if (!active) return null;
+          return (
+            <div className={cn(signalsPanel, 'mt-4')}>
+              <p className={signalsTitle}>Qué verás en esta categoría</p>
+              <p className="text-[13px] leading-snug text-slate-700">{active.activeBlurb}</p>
+            </div>
+          );
+        })()}
       </div>
 
-      <Card className="border-slate-200/90 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Filtros</CardTitle>
-          <CardDescription>
-            Fechas en formato YYYY-MM-DD (opcional). Paginación común a todas las secciones. Por defecto límite 100 para
-            acercarte a “ver todo” en un solo generado (máx. 100 por sección).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="grid gap-2">
-            <Label>Productor ID</Label>
+      <div className={filterPanel}>
+        <p className={sectionTitle}>Filtros</p>
+        <p className={sectionHint}>
+          Los valores que apliques con «Vista previa» son los que usa el archivo al exportar (Excel, CSV, PDF).
+        </p>
+        <p className="mt-1 text-[13px] text-slate-600">
+          Paginación compartida · límite máx. 100 por sección.
+        </p>
+        {(() => {
+          const active = REPORT_MODULE_TABS.find((x) => x.id === reportTab);
+          if (!active) return null;
+          return (
+            <div className={cn(signalsPanel, 'mt-3')}>
+              <p className={signalsTitle}>Filtros para esta vista</p>
+              <p className="text-[13px] leading-snug text-slate-700">{active.filterNote}</p>
+            </div>
+          );
+        })()}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
+          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'productor'))}>
+            <label className={filterLabel} htmlFor="rep-productor">
+              Productor ID
+            </label>
             <Input
+              id="rep-productor"
               type="number"
               placeholder="Todos"
+              className={filterInputClass}
               value={draft.productor_id ?? ''}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -1452,11 +1745,15 @@ export function ReportingPage() {
               }
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Variedad ID</Label>
+          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'variedad'))}>
+            <label className={filterLabel} htmlFor="rep-variedad">
+              Variedad ID
+            </label>
             <Input
+              id="rep-variedad"
               type="number"
               placeholder="Todas"
+              className={filterInputClass}
               value={draft.variedad_id ?? ''}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -1466,11 +1763,15 @@ export function ReportingPage() {
               }
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Unidad PT (ID)</Label>
+          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'tarja'))}>
+            <label className={filterLabel} htmlFor="rep-tarja">
+              Unidad PT (ID)
+            </label>
             <Input
+              id="rep-tarja"
               type="number"
               placeholder="Todas"
+              className={filterInputClass}
               value={draft.tarja_id ?? ''}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -1480,34 +1781,49 @@ export function ReportingPage() {
               }
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Fecha desde</Label>
+          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'desde'))}>
+            <label className={filterLabel} htmlFor="rep-desde">
+              Fecha desde
+            </label>
             <Input
+              id="rep-desde"
               type="date"
+              className={filterInputClass}
               value={draft.fecha_desde ?? ''}
               onChange={(e) => setDraft((d) => ({ ...d, fecha_desde: e.target.value || undefined }))}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Fecha hasta</Label>
+          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'hasta'))}>
+            <label className={filterLabel} htmlFor="rep-hasta">
+              Fecha hasta
+            </label>
             <Input
+              id="rep-hasta"
               type="date"
+              className={filterInputClass}
               value={draft.fecha_hasta ?? ''}
               onChange={(e) => setDraft((d) => ({ ...d, fecha_hasta: e.target.value || undefined }))}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Calidad (texto)</Label>
+          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'calidad'))}>
+            <label className={filterLabel} htmlFor="rep-calidad">
+              Calidad (texto)
+            </label>
             <Input
+              id="rep-calidad"
               placeholder="Opcional"
+              className={filterInputClass}
               value={draft.calidad ?? ''}
               onChange={(e) => setDraft((d) => ({ ...d, calidad: e.target.value || undefined }))}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Cliente (despacho)</Label>
+          <div className={cn('grid min-w-[220px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'cliente'))}>
+            <label className={filterLabel} htmlFor="rep-cliente">
+              Cliente (despacho)
+            </label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              id="rep-cliente"
+              className={filterSelectClass}
               value={draft.cliente_id != null && draft.cliente_id > 0 ? String(draft.cliente_id) : ''}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -1525,29 +1841,32 @@ export function ReportingPage() {
                   </option>
                 ))}
             </select>
-            <p className="text-[11px] text-muted-foreground">
-              Filtra facturación por <span className="font-mono">despacho.cliente_id</span> (p. ej. margen por cliente).
-            </p>
+            <p className={sectionHint}>Facturación por cliente (despacho.cliente_id).</p>
           </div>
-          <div className="grid gap-2">
-            <Label>Formato (código receta)</Label>
+          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'formato'))}>
+            <label className={filterLabel} htmlFor="rep-format">
+              Formato (código receta)
+            </label>
             <Input
+              id="rep-format"
               placeholder="Ej. 12x18oz"
+              className={filterInputClass}
               value={draft.format_code ?? ''}
               onChange={(e) => setDraft((d) => ({ ...d, format_code: e.target.value || undefined }))}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Aplica a costo por formato, liquidación y margen por cliente (líneas de factura con ese{' '}
-              <span className="font-mono">packaging_code</span>).
-            </p>
+            <p className={sectionHint}>Líneas con ese packaging_code.</p>
           </div>
-          <div className="grid gap-2">
-            <Label>Precio packing por lb</Label>
+          <div className={cn('grid min-w-[140px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'precio'))}>
+            <label className={filterLabel} htmlFor="rep-precio-pack">
+              Precio packing por lb
+            </label>
             <Input
+              id="rep-precio-pack"
               type="number"
               step="0.0001"
               min={0}
               placeholder="0"
+              className={filterInputClass}
               value={draft.precio_packing_por_lb ?? ''}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -1557,112 +1876,176 @@ export function ReportingPage() {
               }
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Página</Label>
+          <div className="grid min-w-[100px] flex-1 gap-1.5">
+            <label className={filterLabel} htmlFor="rep-page">
+              Página
+            </label>
             <Input
+              id="rep-page"
               type="number"
               min={1}
+              className={filterInputClass}
               value={draft.page ?? filters.page}
               onChange={(e) => setDraft((d) => ({ ...d, page: Number(e.target.value) || 1 }))}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Límite (máx. 100)</Label>
+          <div className="grid min-w-[120px] flex-1 gap-1.5">
+            <label className={filterLabel} htmlFor="rep-limit">
+              Límite (máx. 100)
+            </label>
             <Input
+              id="rep-limit"
               type="number"
               min={1}
               max={100}
+              className={filterInputClass}
               value={draft.limit ?? filters.limit}
               onChange={(e) => setDraft((d) => ({ ...d, limit: Math.min(100, Number(e.target.value) || 20) }))}
             />
           </div>
-        </CardContent>
-        <CardContent className="flex flex-wrap gap-2 border-t border-border pt-4">
-          <Button
-            type="button"
-            onClick={() => {
-              const next: ReportFilters = {
-                ...filters,
-                ...draft,
-                page: draft.page ?? filters.page,
-                limit: Math.min(100, draft.limit ?? filters.limit),
-              };
-              setFilters(next);
-              generateMut.mutate(next);
-            }}
-            disabled={generateMut.isPending}
-            className="gap-2"
-          >
-            <BarChart3 className="h-4 w-4" />
-            {generateMut.isPending ? 'Generando…' : 'Generar'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2"
-            disabled={!reportData}
-            onClick={() => downloadExport('xlsx')}
-          >
-            <Download className="h-4 w-4" />
-            Excel
-          </Button>
-          <Button type="button" variant="outline" className="gap-2" disabled={!reportData} onClick={() => downloadExport('csv')}>
-            CSV
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2"
-            disabled={!reportData}
-            title="Tablas completas, todas las secciones"
-            onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}
-          >
-            <FileDown className="h-4 w-4" />
-            PDF interno
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 text-muted-foreground"
-            disabled={!reportData}
-            title="Resumen para entrega: menos detalle operativo"
-            onClick={() => void downloadExport('pdf', { pdfProfile: 'external' })}
-          >
-            PDF resumen
-          </Button>
-          {canSave && (
-            <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="secondary" className="gap-2" disabled={!reportData}>
-                  <Save className="h-4 w-4" />
-                  Guardar vista
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Guardar reporte</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-2 py-2">
-                  <Label>Nombre</Label>
-                  <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Ej. Semana 15 productor 3" />
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>
-                    Cancelar
+        </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4">
+          <div className={cn(emptyStateBanner, 'text-left')}>
+            <p className={signalsTitle}>Antes de exportar</p>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1.5 text-[13px] text-slate-700">
+              <span>
+                <span className="text-slate-500">Categoría · </span>
+                <strong>{REPORT_MODULE_TABS.find((x) => x.id === reportTab)?.label ?? '—'}</strong>
+              </span>
+              <span>
+                <span className="text-slate-500">Período en el archivo · </span>
+                <strong>{(filters.fecha_desde ?? '—') + ' → ' + (filters.fecha_hasta ?? '—')}</strong>
+              </span>
+              <span>
+                <span className="text-slate-500">Registros (cajas PT) · </span>
+                <strong>
+                  {reportData ? String(reportData.boxesByProducer?.total ?? 0) : '—'}
+                  {!reportData ? <span className="font-normal text-slate-500"> (tras vista previa)</span> : null}
+                </strong>
+              </span>
+              <span>
+                <span className="text-slate-500">Vista previa · </span>
+                <strong>{reportData ? 'Lista' : 'Pendiente'}</strong>
+              </span>
+            </div>
+            <p className="mt-2 text-[12px] leading-snug text-slate-500">
+              Los archivos usan los filtros ya aplicados con «Vista previa». El Excel contiene el informe completo; la categoría
+              define qué bloques ves en pantalla.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(btnToolbarOutline, 'gap-2')}
+              onClick={() => {
+                const next: ReportFilters = {
+                  ...filters,
+                  ...draft,
+                  page: draft.page ?? filters.page,
+                  limit: Math.min(100, draft.limit ?? filters.limit),
+                };
+                setFilters(next);
+                generateMut.mutate(next);
+              }}
+              disabled={generateMut.isPending}
+            >
+              <BarChart3 className="h-4 w-4" />
+              {generateMut.isPending ? 'Generando…' : 'Vista previa'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(btnToolbarOutline, 'gap-2')}
+              disabled={!reportData}
+              onClick={() => downloadExport('csv')}
+            >
+              CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(btnToolbarOutline, 'gap-2')}
+              disabled={!reportData}
+              title="Tablas completas, todas las secciones"
+              onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}
+            >
+              <FileDown className="h-4 w-4" />
+              PDF interno
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(btnToolbarOutline, 'gap-2 text-muted-foreground')}
+              disabled={!reportData}
+              title="Resumen para entrega: menos detalle operativo"
+              onClick={() => void downloadExport('pdf', { pdfProfile: 'external' })}
+            >
+              PDF resumen
+            </Button>
+            {canSave && (
+              <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="secondary" className={cn(btnToolbarOutline, 'gap-2')} disabled={!reportData}>
+                    <Save className="h-4 w-4" />
+                    Guardar vista
                   </Button>
-                  <Button
-                    type="button"
-                    disabled={!saveName.trim() || saveMut.isPending}
-                    onClick={() => saveMut.mutate()}
-                  >
-                    {saveMut.isPending ? 'Guardando…' : 'Guardar'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </CardContent>
-      </Card>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Guardar reporte</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-2 py-2">
+                    <Label>Nombre</Label>
+                    <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Ej. Semana 15 productor 3" />
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={!saveName.trim() || saveMut.isPending}
+                      onClick={() => saveMut.mutate()}
+                    >
+                      {saveMut.isPending ? 'Guardando…' : 'Guardar'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                type="button"
+                className={cn(btnToolbarPrimary, 'gap-2')}
+                disabled={!reportData}
+                title={REPORT_MODULE_TABS.find((x) => x.id === reportTab)?.excelCtaHint}
+                onClick={() => downloadExport('xlsx')}
+              >
+                <Download className="h-4 w-4" />
+                Generar Excel
+              </Button>
+              <span className="max-w-[22rem] text-right text-[11px] leading-snug text-slate-500">
+                {REPORT_MODULE_TABS.find((x) => x.id === reportTab)?.excelCtaHint}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {reportData && !generateMut.isPending && detailId === null ? (
+        <div className={cn(contentCard, 'p-4 sm:p-5')}>
+          <ReportPreviewStrip data={reportData} />
+        </div>
+      ) : null}
+
+      <div className={cn(contentCard, 'p-4 sm:p-5')}>
+        <p className={sectionTitle}>Dataset unificado PT/Despacho</p>
+        <p className={sectionHint}>
+          Vista técnica preliminar del dataset base para BI (sin endpoint nuevo todavía).
+        </p>
+        <UnifiedDatasetTechPreview data={reportData} />
+      </div>
 
       {reportTab === 'financiero' && detailId === null ? (
         <Card className="border-slate-200/90 bg-white shadow-sm">
@@ -1839,15 +2222,11 @@ export function ReportingPage() {
       )}
 
       {generateError && !generateMut.isPending && (
-        <Card className="border-destructive/50">
-          <CardHeader>
-            <CardTitle className="text-base">No se pudo generar el reporte</CardTitle>
-            <CardDescription>{generateError}</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Probá primero sin <strong>Formato</strong>, luego aplicá filtros de a uno. Si sigue fallando, avisame y lo depuramos con el error exacto.
-          </CardContent>
-        </Card>
+        <div className={errorStateCard}>
+          <p className="text-sm font-medium text-rose-900">No se pudo generar el reporte</p>
+          <p className="mt-2 text-sm text-rose-800/95">{generateError}</p>
+          <p className="mt-3 text-xs text-slate-500">Probá sin filtro de formato; luego añadí filtros de a uno.</p>
+        </div>
       )}
 
       {reportData && !generateMut.isPending && (
@@ -1866,7 +2245,7 @@ export function ReportingPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className={kpiGrid3}>
                     <KpiTile label="Cajas PT (unidades)" value={fmtQty(executiveKpis.cajasPtTotal, 0)} />
                     <KpiTile label="Cajas despachadas (factura)" value={fmtQty(executiveKpis.cajasDespachadasTotal, 2)} />
                     <KpiTile
@@ -1918,13 +2297,13 @@ export function ReportingPage() {
                 <div className="mb-1">
                   <ReportCategoryBadge kind="financiero" />
                 </div>
-                <CardTitle className="text-base text-slate-900">Financiero interno — resumen ejecutivo</CardTitle>
+                <CardTitle className="text-base text-slate-900">Financiero — resumen ejecutivo</CardTitle>
                 <CardDescription>
                   Cifras agregadas del período (mismos filtros). Los informes detallados se abren por separado.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={kpiGrid3}>
                   <KpiTile label="Ventas del período" value={fmtMoney(executiveKpis.ventasPeriodo)} />
                   <KpiTile label="Costos del período" value={fmtMoney(executiveKpis.costosPeriodo)} />
                   <KpiTile label="Margen total" value={fmtMoney(executiveKpis.margenTotal)} />
@@ -1962,13 +2341,13 @@ export function ReportingPage() {
                 <div className="mb-1">
                   <ReportCategoryBadge kind="entregable" />
                 </div>
-                <CardTitle className="text-base text-slate-900">Documentos / terceros — resumen</CardTitle>
+                <CardTitle className="text-base text-slate-900">Documentos — resumen</CardTitle>
                 <CardDescription>
                   Entregables y enlaces. El detalle agrupa PDFs y acceso a despachos sin mezclarlos con tablas financieras.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={kpiGrid3}>
                   <KpiTile label="PDF liquidación (productor)" value="Descarga" hint="Mismo período y filtros que Generar." />
                   <KpiTile label="PDF liquidación (interno)" value="En detalle" hint="Desde Financiero → liquidación interna o abajo." />
                   <KpiTile label="Despachos / factura / PL" value="Módulo" hint="PDF por despacho en la pantalla de despachos." />
@@ -2282,11 +2661,7 @@ export function ReportingPage() {
       )}
 
       {!reportData && !generateMut.isPending && (
-        <Card className={cn(contentCard, 'border-dashed border-slate-200/90 bg-slate-50/50')}>
-          <CardContent className="py-10 text-center text-sm text-slate-600">
-            Configurá filtros y pulsá <strong className="text-slate-800">Generar</strong> para ver datos.
-          </CardContent>
-        </Card>
+        <div className={cn(emptyStateInset, 'py-8 text-center')}>Selecciona filtros para generar reporte</div>
       )}
 
       {reportTab === 'financiero' &&
@@ -2311,15 +2686,10 @@ export function ReportingPage() {
           </Card>
         )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Reportes guardados</CardTitle>
-          <CardDescription>
-            Cargar en pantalla, renombrar, sincronizar con la vista actual o eliminar. Guardar/editar: supervisor/admin.
-            Eliminar: solo admin.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className={cn(contentCard, 'p-4 sm:p-5')}>
+        <p className={sectionTitle}>Reportes guardados</p>
+        <p className={sectionHint}>Cargar, renombrar o eliminar. Guardar: supervisor/admin · eliminar: admin.</p>
+        <div className="mt-4">
           {savedLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : savedSorted.length === 0 ? (
@@ -2389,8 +2759,8 @@ export function ReportingPage() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Dialog open={renameTarget != null} onOpenChange={(o) => !o && setRenameTarget(null)}>
         <DialogContent>

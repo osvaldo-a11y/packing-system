@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -14,12 +14,319 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { filterInputClass, filterSelectClass, pageSubtitle, pageTitle, tableShell } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
 
-const DEACTIVATE_HELP =
-  'No se eliminará de la base de datos; dejará de aparecer en selectores. Si está referenciado en recepciones u otros módulos, el sistema rechazará la operación y mostrará el motivo.';
+const MastersRowFilterContext = createContext<{ filter: string; setFilter: (v: string) => void }>({
+  filter: '',
+  setFilter: () => {},
+});
 
-function MasterDeactivateDialog({
+function useMastersRowFilter() {
+  return useContext(MastersRowFilterContext);
+}
+
+function filterRows<T>(list: T[], q: string, textOf: (r: T) => string): T[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return list;
+  return list.filter((r) => textOf(r).toLowerCase().includes(s));
+}
+
+/** Código único tipo `BASE-2`, `BASE-3`… respetando max 40 caracteres. */
+function uniqueDuplicateCode(original: string, existingLower: Set<string>): string {
+  for (let n = 2; n < 10000; n++) {
+    const suffix = `-${n}`;
+    const maxBase = Math.max(1, 40 - suffix.length);
+    const base = original.length <= maxBase ? original : original.slice(0, maxBase);
+    const candidate = `${base}${suffix}`;
+    if (!existingLower.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${original.slice(0, 24)}-${Date.now()}`.slice(0, 40);
+}
+
+function buildMasterDeleteEndpoint(basePath: string, id: number, force?: boolean): string {
+  return force ? `${basePath}/${id}/force` : `${basePath}/${id}`;
+}
+
+function canOfferForceDelete(errorMessage: string): boolean {
+  const msg = String(errorMessage || '').toLowerCase();
+  return msg.includes('en uso') || msg.includes('no se puede borrar');
+}
+
+type InlineCodigoNombreRow = { id: number; codigo: string; nombre: string; activo: boolean };
+
+function InlineCodigoNombreCatalogRow({
+  row,
+  canWrite,
+  onPatch,
+  onDuplicate,
+  onSetActivo,
+  onDelete,
+  patchPending,
+  duplicatePending,
+  activoPending,
+  deletePending,
+}: {
+  row: InlineCodigoNombreRow;
+  canWrite: boolean;
+  onPatch: (id: number, body: { codigo?: string; nombre?: string }) => void;
+  onDuplicate: (row: InlineCodigoNombreRow) => void;
+  onSetActivo: (id: number, activo: boolean) => void;
+  onDelete: (row: InlineCodigoNombreRow) => void;
+  patchPending: boolean;
+  duplicatePending: boolean;
+  activoPending: boolean;
+  deletePending: boolean;
+}) {
+  const [codigo, setCodigo] = useState(row.codigo);
+  const [nombre, setNombre] = useState(row.nombre);
+  useEffect(() => {
+    setCodigo(row.codigo);
+    setNombre(row.nombre);
+  }, [row.codigo, row.nombre, row.id]);
+
+  const commitText = () => {
+    const c = codigo.trim();
+    const n = nombre.trim();
+    if (!c || !n) {
+      toast.error('Código y nombre son obligatorios');
+      setCodigo(row.codigo);
+      setNombre(row.nombre);
+      return;
+    }
+    const body: { codigo?: string; nombre?: string } = {};
+    if (c !== row.codigo) body.codigo = c;
+    if (n !== row.nombre) body.nombre = n;
+    if (Object.keys(body).length === 0) return;
+    onPatch(row.id, body);
+  };
+
+  const rowBusy = patchPending || duplicatePending || deletePending;
+
+  return (
+    <TableRow>
+      <TableCell className="min-w-[7rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 font-mono text-sm"
+            value={codigo}
+            disabled={rowBusy}
+            onChange={(e) => setCodigo(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          <span className="font-mono text-sm">{row.codigo}</span>
+        )}
+      </TableCell>
+      <TableCell className="min-w-[10rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 text-sm"
+            value={nombre}
+            disabled={rowBusy}
+            onChange={(e) => setNombre(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          row.nombre
+        )}
+      </TableCell>
+      <TableCell className="w-[9.5rem]">
+        {canWrite ? (
+          <select
+            className={cn(filterSelectClass, 'h-9')}
+            value={row.activo ? '1' : '0'}
+            disabled={rowBusy || activoPending}
+            onChange={(e) => {
+              const next = e.target.value === '1';
+              if (next !== row.activo) onSetActivo(row.id, next);
+            }}
+            aria-label="Estado"
+          >
+            <option value="1">Activo</option>
+            <option value="0">Inactivo</option>
+          </select>
+        ) : (
+          <Badge variant={row.activo ? 'default' : 'secondary'}>{row.activo ? 'Activo' : 'Inactivo'}</Badge>
+        )}
+      </TableCell>
+      {canWrite ? (
+        <TableCell className="w-[1%] text-right">
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              title="Borrar"
+              disabled={rowBusy}
+              onClick={() => onDelete(row)}
+            >
+              {deletePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              title="Duplicar fila"
+              disabled={rowBusy || duplicatePending}
+              onClick={() => onDuplicate(row)}
+            >
+              {duplicatePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </TableCell>
+      ) : null}
+    </TableRow>
+  );
+}
+
+function InlineProducerRow({
+  row,
+  canWrite,
+  onPatch,
+  onDuplicate,
+  onSetActivo,
+  onDelete,
+  patchPending,
+  duplicatePending,
+  activoPending,
+  deletePending,
+}: {
+  row: ProducerRow;
+  canWrite: boolean;
+  onPatch: (id: number, body: { codigo?: string; nombre?: string }) => void;
+  onDuplicate: (row: ProducerRow) => void;
+  onSetActivo: (id: number, activo: boolean) => void;
+  onDelete: (row: ProducerRow) => void;
+  patchPending: boolean;
+  duplicatePending: boolean;
+  activoPending: boolean;
+  deletePending: boolean;
+}) {
+  const [codigo, setCodigo] = useState(row.codigo ?? '');
+  const [nombre, setNombre] = useState(row.nombre);
+  useEffect(() => {
+    setCodigo(row.codigo ?? '');
+    setNombre(row.nombre);
+  }, [row.codigo, row.nombre, row.id]);
+
+  const commitText = () => {
+    const c = codigo.trim();
+    const n = nombre.trim();
+    if (!n) {
+      toast.error('El nombre es obligatorio');
+      setCodigo(row.codigo ?? '');
+      setNombre(row.nombre);
+      return;
+    }
+    const newCodigo = c || undefined;
+    const oldCodigo = row.codigo?.trim() || '';
+    const body: { codigo?: string; nombre?: string } = {};
+    if ((newCodigo ?? '') !== oldCodigo) body.codigo = newCodigo;
+    if (n !== row.nombre) body.nombre = n;
+    if (Object.keys(body).length === 0) return;
+    onPatch(row.id, body);
+  };
+
+  const rowBusy = patchPending || duplicatePending || deletePending;
+
+  return (
+    <TableRow>
+      <TableCell className="min-w-[7rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 font-mono text-sm"
+            value={codigo}
+            placeholder="—"
+            disabled={rowBusy}
+            onChange={(e) => setCodigo(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          <span className="font-mono text-sm">{row.codigo ?? '—'}</span>
+        )}
+      </TableCell>
+      <TableCell className="min-w-[10rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 text-sm"
+            value={nombre}
+            disabled={rowBusy}
+            onChange={(e) => setNombre(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          row.nombre
+        )}
+      </TableCell>
+      <TableCell className="w-[9.5rem]">
+        {canWrite ? (
+          <select
+            className={cn(filterSelectClass, 'h-9')}
+            value={row.activo ? '1' : '0'}
+            disabled={rowBusy || activoPending}
+            onChange={(e) => {
+              const next = e.target.value === '1';
+              if (next !== row.activo) onSetActivo(row.id, next);
+            }}
+            aria-label="Estado"
+          >
+            <option value="1">Activo</option>
+            <option value="0">Inactivo</option>
+          </select>
+        ) : (
+          <Badge variant={row.activo ? 'default' : 'secondary'}>{row.activo ? 'Activo' : 'Inactivo'}</Badge>
+        )}
+      </TableCell>
+      {canWrite ? (
+        <TableCell className="w-[1%] text-right">
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              title="Borrar"
+              disabled={rowBusy}
+              onClick={() => onDelete(row)}
+            >
+              {deletePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              title="Duplicar fila"
+              disabled={rowBusy || duplicatePending}
+              onClick={() => onDuplicate(row)}
+            >
+              {duplicatePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </TableCell>
+      ) : null}
+    </TableRow>
+  );
+}
+
+function MasterDeleteDialog({
   open,
   onOpenChange,
   title,
@@ -41,14 +348,14 @@ function MasterDeactivateDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          ¿Desactivar <strong className="text-foreground">{label}</strong>? {DEACTIVATE_HELP}
+          ¿Borrar <strong className="text-foreground">{label}</strong>? Esta acción no se puede deshacer.
         </p>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button type="button" variant="destructive" disabled={pending} onClick={onConfirm}>
-            Desactivar
+            Borrar
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -60,14 +367,14 @@ function MasterRowActions({
   canWrite,
   activo,
   onEdit,
-  onDeactivateClick,
+  onDeleteClick,
   onReactivate,
   reactivatePending,
 }: {
   canWrite: boolean;
   activo: boolean;
   onEdit: () => void;
-  onDeactivateClick: () => void;
+  onDeleteClick: () => void;
   onReactivate: () => void;
   reactivatePending: boolean;
 }) {
@@ -83,8 +390,8 @@ function MasterRowActions({
           size="sm"
           variant="outline"
           className="text-destructive hover:text-destructive"
-          title="Desactivar"
-          onClick={onDeactivateClick}
+          title="Borrar"
+          onClick={onDeleteClick}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -251,11 +558,29 @@ type TabKey =
   | 'document_states'
   | 'containers';
 
+const MASTER_TAB_ITEMS: { key: TabKey; label: string }[] = [
+  { key: 'species', label: 'Especies' },
+  { key: 'producers', label: 'Productores' },
+  { key: 'varieties', label: 'Variedades' },
+  { key: 'quality', label: 'Calidades' },
+  { key: 'process_machines', label: 'Líneas de proceso' },
+  { key: 'process_results', label: 'Resultados proceso' },
+  { key: 'formats', label: 'Formatos N×Moz' },
+  { key: 'brands', label: 'Marcas' },
+  { key: 'clients', label: 'Clientes' },
+  { key: 'mercados', label: 'Mercados' },
+  { key: 'material_categories', label: 'Cat. materiales' },
+  { key: 'reception_types', label: 'Tipos recepción' },
+  { key: 'document_states', label: 'Estados doc.' },
+  { key: 'containers', label: 'Envases' },
+];
+
 export function MastersPage() {
   const { role } = useAuth();
   const canWrite = role === 'admin' || role === 'supervisor';
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('species');
+  const [rowFilter, setRowFilter] = useState('');
 
   const { data: speciesList } = useQuery({
     queryKey: ['masters', 'species'],
@@ -331,158 +656,170 @@ export function MastersPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Mantenedores</h1>
-        <p className="text-muted-foreground">
-          Catálogos maestros: <strong>especie</strong>, <strong>variedad</strong>, <strong>productor</strong>, <strong>calidad</strong>,{' '}
-          <strong>líneas de proceso</strong> (máquinas single/double), <strong>formatos NxMoz</strong>,{' '}
-          <strong>marcas comerciales</strong> (opcionalmente ligadas a cliente), <strong>envases retornables</strong>.
-        </p>
+    <MastersRowFilterContext.Provider value={{ filter: rowFilter, setFilter: setRowFilter }}>
+      <div className="space-y-4">
+        <div>
+          <h1 className={pageTitle}>Mantenedores</h1>
+          <p className={pageSubtitle}>Catálogos de apoyo — alta y edición rápida.</p>
+        </div>
+
+        {!canWrite && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm font-medium">Solo lectura</CardTitle>
+              <CardDescription className="text-xs">
+                Necesitás rol supervisor o admin para editar.{' '}
+                <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
+                  API
+                </a>
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+          <div className="shrink-0 space-y-2 lg:w-52">
+            <label htmlFor="masters-tab-select" className="sr-only">
+              Catálogo
+            </label>
+            <select
+              id="masters-tab-select"
+              className={cn(filterSelectClass, 'lg:hidden')}
+              value={tab}
+              onChange={(e) => {
+                setTab(e.target.value as TabKey);
+                setRowFilter('');
+              }}
+            >
+              {MASTER_TAB_ITEMS.map(({ key, label }) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <nav className="hidden max-h-[min(70vh,520px)] flex-col gap-0.5 overflow-y-auto pr-1 lg:flex" aria-label="Catálogos">
+              {MASTER_TAB_ITEMS.map(({ key, label }) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={tab === key ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn('h-9 justify-start px-3 text-left text-sm font-normal', tab === key && 'pointer-events-none')}
+                  onClick={() => {
+                    setTab(key);
+                    setRowFilter('');
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="min-w-0 flex-1 space-y-3">
+            <input
+              type="search"
+              className={filterInputClass}
+              placeholder="Filtrar filas del listado actual…"
+              value={rowFilter}
+              onChange={(e) => setRowFilter(e.target.value)}
+              aria-label="Filtrar filas"
+            />
+
+            {tab === 'species' && (
+              <SpeciesSection list={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'producers' && (
+              <ProducersSection list={producersList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'varieties' && (
+              <VarietiesSection
+                list={varietiesList ?? []}
+                species={speciesList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+              />
+            )}
+            {tab === 'quality' && (
+              <QualitySection list={qualityList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'process_machines' && (
+              <ProcessMachinesSection list={processMachinesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'process_results' && (
+              <ProcessResultComponentsSection
+                list={processResultComponents ?? []}
+                species={speciesList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+              />
+            )}
+            {tab === 'formats' && (
+              <FormatsSection list={formatsList ?? []} species={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'brands' && (
+              <BrandsSection
+                list={brandsList ?? []}
+                clients={clientsList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+              />
+            )}
+            {tab === 'clients' && (
+              <ClientsSection
+                list={clientsList ?? []}
+                mercados={mercadosList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+              />
+            )}
+            {tab === 'mercados' && (
+              <SimpleCatalogSection
+                title="Mercados"
+                list={mercadosList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+                queryKey={['masters', 'mercados']}
+                apiPath="mercados"
+              />
+            )}
+            {tab === 'material_categories' && (
+              <SimpleCatalogSection
+                title="Categorías de materiales"
+                list={materialCategoriesList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+                queryKey={['masters', 'material-categories']}
+                apiPath="material-categories"
+              />
+            )}
+            {tab === 'reception_types' && (
+              <SimpleCatalogSection
+                title="Tipos de recepción"
+                list={receptionTypesList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+                queryKey={['masters', 'reception-types']}
+                apiPath="reception-types"
+              />
+            )}
+            {tab === 'document_states' && (
+              <SimpleCatalogSection
+                title="Estados de documento"
+                list={documentStatesList ?? []}
+                canWrite={canWrite}
+                queryClient={queryClient}
+                queryKey={['masters', 'document-states']}
+                apiPath="document-states"
+              />
+            )}
+            {tab === 'containers' && (
+              <ContainersSection list={containersList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+          </div>
+        </div>
       </div>
-
-      {!canWrite && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">Solo lectura</CardTitle>
-            <CardDescription>
-              Tu rol no puede crear ni editar mantenedores. Usá un usuario supervisor o admin, o la{' '}
-              <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
-                API docs
-              </a>
-              .
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ['species', 'Especies'],
-            ['producers', 'Productores'],
-            ['varieties', 'Variedades'],
-            ['quality', 'Calidades'],
-            ['process_machines', 'Líneas de proceso'],
-            ['process_results', 'Resultados proceso'],
-            ['formats', 'Formatos NxMoz'],
-            ['brands', 'Marcas'],
-            ['clients', 'Clientes'],
-            ['mercados', 'Mercados'],
-            ['material_categories', 'Cat. materiales'],
-            ['reception_types', 'Tipos recepción'],
-            ['document_states', 'Estados doc.'],
-            ['containers', 'Envases'],
-          ] as const
-        ).map(([k, label]) => (
-          <Button
-            key={k}
-            type="button"
-            variant={tab === k ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setTab(k)}
-            className={cn(tab === k && 'pointer-events-none')}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-
-      {tab === 'species' && (
-        <SpeciesSection list={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-      {tab === 'producers' && (
-        <ProducersSection list={producersList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-      {tab === 'varieties' && (
-        <VarietiesSection
-          list={varietiesList ?? []}
-          species={speciesList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-        />
-      )}
-      {tab === 'quality' && (
-        <QualitySection list={qualityList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-      {tab === 'process_machines' && (
-        <ProcessMachinesSection list={processMachinesList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-      {tab === 'process_results' && (
-        <ProcessResultComponentsSection
-          list={processResultComponents ?? []}
-          species={speciesList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-        />
-      )}
-      {tab === 'formats' && (
-        <FormatsSection list={formatsList ?? []} species={speciesList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-      {tab === 'brands' && (
-        <BrandsSection
-          list={brandsList ?? []}
-          clients={clientsList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-        />
-      )}
-      {tab === 'clients' && (
-        <ClientsSection
-          list={clientsList ?? []}
-          mercados={mercadosList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-        />
-      )}
-      {tab === 'mercados' && (
-        <SimpleCatalogSection
-          title="Mercados"
-          description="Destinos comerciales (recepción, referencia)."
-          list={mercadosList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-          queryKey={['masters', 'mercados']}
-          apiPath="mercados"
-        />
-      )}
-      {tab === 'material_categories' && (
-        <SimpleCatalogSection
-          title="Categorías de materiales"
-          description="Clasificación de materiales de empaque (obligatorio en alta de material)."
-          list={materialCategoriesList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-          queryKey={['masters', 'material-categories']}
-          apiPath="material-categories"
-        />
-      )}
-      {tab === 'reception_types' && (
-        <SimpleCatalogSection
-          title="Tipos de recepción"
-          description="Mano / máquina / mixto; selector en recepción de fruta."
-          list={receptionTypesList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-          queryKey={['masters', 'reception-types']}
-          apiPath="reception-types"
-        />
-      )}
-      {tab === 'document_states' && (
-        <SimpleCatalogSection
-          title="Estados de documento"
-          description="Borrador, confirmado, cerrado, anulado; transiciones validadas en recepción."
-          list={documentStatesList ?? []}
-          canWrite={canWrite}
-          queryClient={queryClient}
-          queryKey={['masters', 'document-states']}
-          apiPath="document-states"
-        />
-      )}
-      {tab === 'containers' && (
-        <ContainersSection list={containersList ?? []} canWrite={canWrite} queryClient={queryClient} />
-      )}
-    </div>
+    </MastersRowFilterContext.Provider>
   );
 }
 
@@ -495,10 +832,19 @@ function ProcessMachinesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.kind}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof processMachineSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(processMachineSchema),
     defaultValues: { codigo: '', nombre: '', kind: 'single' },
   });
@@ -551,17 +897,34 @@ function ProcessMachinesSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/process-machines', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
+      setConfirmDeactivate(null);
+      toast.success('Línea borrada');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Líneas de proceso (máquinas)</CardTitle>
-          <CardDescription>
-            Equipos en planta p. ej. IQF: <strong>single</strong> o <strong>double</strong>. Se eligen al registrar un proceso.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Líneas de proceso</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -571,21 +934,23 @@ function ProcessMachinesSection({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nueva máquina / línea</DialogTitle>
+                <DialogTitle>Nueva línea</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input placeholder="IQF-SINGLE" {...form.register('codigo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input placeholder="IQF-SINGLE" {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Tipo</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    className={filterSelectClass}
                     {...form.register('kind')}
                   >
                     <option value="single">Single</option>
@@ -606,19 +971,17 @@ function ProcessMachinesSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="w-24">Tipo</TableHead>
+              <TableHead className="w-20">Activo</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell>{r.codigo}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
                 <TableCell>{r.kind}</TableCell>
                 <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
@@ -628,7 +991,7 @@ function ProcessMachinesSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -656,14 +1019,14 @@ function ProcessMachinesSection({
             </DialogContent>
           </Dialog>
         )}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar línea de proceso"
+          title="Borrar línea de proceso"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -683,6 +1046,8 @@ function EditProcessMachineForm({
   pending: boolean;
 }) {
   const f = useForm<z.infer<typeof editProcessMachineSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(editProcessMachineSchema),
     defaultValues: {
       codigo: row.codigo,
@@ -712,7 +1077,7 @@ function EditProcessMachineForm({
       </div>
       <div className="grid gap-2">
         <Label>Tipo</Label>
-        <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('kind')}>
+        <select className={filterSelectClass} {...f.register('kind')}>
           <option value="single">Single</option>
           <option value="double">Double</option>
         </select>
@@ -740,10 +1105,22 @@ function BrandsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () =>
+      filterRows(list, filter, (r) =>
+        `${r.codigo} ${r.nombre} ${r.client?.nombre ?? ''} ${r.client?.codigo ?? ''}`,
+      ),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof brandSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(brandSchema),
     defaultValues: { codigo: '', nombre: '', client_id: 0 },
   });
@@ -802,18 +1179,34 @@ function BrandsSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/brands', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
+      setConfirmDeactivate(null);
+      toast.success('Marca borrada');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Marcas comerciales</CardTitle>
-          <CardDescription>
-            Marca especial o corporativa. Si está <strong>ligada a un cliente</strong>, solo podrá usarse en pallets (y otros
-            flujos) con ese mismo cliente.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Marcas</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -826,21 +1219,23 @@ function BrandsSection({
                 <DialogTitle>Nueva marca</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input {...form.register('codigo')} placeholder="Ej. ALP-SP" />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input {...form.register('codigo')} placeholder="ALP-SP" autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Cliente (opcional)</Label>
+                  <Label>Cliente (opc.)</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    className={filterSelectClass}
                     {...form.register('client_id', { valueAsNumber: true })}
                   >
-                    <option value={0}>Sin cliente (cualquier pallet)</option>
+                    <option value={0}>Sin cliente</option>
                     {clients
                       .filter((c) => c.activo)
                       .map((c) => (
@@ -864,19 +1259,17 @@ function BrandsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead className="w-24">Estado</TableHead>
               {canWrite ? <TableHead className="w-[100px]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
                 <TableCell>
                   {r.client_id != null && r.client != null
@@ -894,7 +1287,7 @@ function BrandsSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -924,14 +1317,14 @@ function BrandsSection({
           </DialogContent>
         </Dialog>
       ) : null}
-      <MasterDeactivateDialog
+      <MasterDeleteDialog
         open={confirmDeactivate != null}
         onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-        title="Desactivar marca"
+        title="Borrar marca"
         label={confirmDeactivate?.label ?? ''}
-        pending={setActivoMut.isPending}
+        pending={deleteMut.isPending}
         onConfirm={() =>
-          confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
         }
       />
     </Card>
@@ -952,6 +1345,8 @@ function BrandEditForm({
   pending: boolean;
 }) {
   const f = useForm<z.infer<typeof editBrandSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(editBrandSchema),
     defaultValues: {
       codigo: row.codigo,
@@ -982,7 +1377,7 @@ function BrandEditForm({
       <div className="grid gap-2">
         <Label>Cliente</Label>
         <select
-          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          className={filterSelectClass}
           {...f.register('client_id', { valueAsNumber: true })}
         >
           <option value={0}>Sin cliente</option>
@@ -1016,10 +1411,19 @@ function ContainersSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.tipo} ${r.capacidad ?? ''} ${r.requiereRetorno ? 'retorno' : ''}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof containerSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(containerSchema),
     defaultValues: { tipo: '', capacidad: '', requiere_retorno: false },
   });
@@ -1074,17 +1478,34 @@ function ContainersSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/returnable-containers', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
+      setConfirmDeactivate(null);
+      toast.success('Envase borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Envases retornables</CardTitle>
-          <CardDescription>
-            Ej. <strong>Lug blue</strong>, capacidad <strong>3,25 lb</strong>. Se eligen en cada línea de recepción como tipo de envase.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Envases retornables</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -1097,13 +1518,15 @@ function ContainersSection({
                 <DialogTitle>Nuevo envase</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Tipo / nombre</Label>
-                  <Input placeholder="Lug blue" {...form.register('tipo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Capacidad o peso (texto libre)</Label>
-                  <Input placeholder="3,25 lb" {...form.register('capacidad')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Tipo</Label>
+                    <Input placeholder="Lug blue" {...form.register('tipo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Capacidad</Label>
+                    <Input placeholder="3,25 lb" {...form.register('capacidad')} autoComplete="off" />
+                  </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" {...form.register('requiere_retorno')} />
@@ -1123,18 +1546,16 @@ function ContainersSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Capacidad</TableHead>
-              <TableHead>Retorno</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="w-24">Retorno</TableHead>
+              <TableHead className="w-20">Activo</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
                 <TableCell>{r.tipo}</TableCell>
                 <TableCell>{r.capacidad ?? '—'}</TableCell>
                 <TableCell>{r.requiereRetorno ? 'Sí' : 'No'}</TableCell>
@@ -1145,7 +1566,7 @@ function ContainersSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({
                           id: r.id,
                           label: `${r.tipo}${r.capacidad ? ` · ${r.capacidad}` : ''}`,
@@ -1177,14 +1598,14 @@ function ContainersSection({
             </DialogContent>
           </Dialog>
         )}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar envase"
+          title="Borrar envase"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -1255,10 +1676,19 @@ function QualitySection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.purpose ?? ''}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof qualitySchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(qualitySchema),
     defaultValues: { codigo: '', nombre: '', purpose: 'both' },
   });
@@ -1310,15 +1740,34 @@ function QualitySection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/quality-grades', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
+      setConfirmDeactivate(null);
+      toast.success('Calidad borrada');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Calidades</CardTitle>
-          <CardDescription>Ej. FRESH BERRIES, IQF A — usadas en líneas de recepción y reportes.</CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Calidades</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -1331,18 +1780,20 @@ function QualitySection({
                 <DialogTitle>Nueva calidad</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input {...form.register('codigo')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Uso (exportación / proceso)</Label>
+                  <Label>Uso</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    className={filterSelectClass}
                     {...form.register('purpose')}
                   >
                     <option value="both">Ambos</option>
@@ -1364,19 +1815,17 @@ function QualitySection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Uso</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="w-20">Activo</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell>{r.codigo}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
                 <TableCell className="text-muted-foreground">{r.purpose ?? 'both'}</TableCell>
                 <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
@@ -1386,7 +1835,7 @@ function QualitySection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -1413,14 +1862,14 @@ function QualitySection({
             </DialogContent>
           </Dialog>
         ) : null}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar calidad"
+          title="Borrar calidad"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -1440,6 +1889,8 @@ function QualityEditForm({
   pending: boolean;
 }) {
   const f = useForm<z.infer<typeof qualityEditSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(qualityEditSchema),
     defaultValues: {
       codigo: row.codigo,
@@ -1469,7 +1920,7 @@ function QualityEditForm({
       <div className="grid gap-2">
         <Label>Uso</Label>
         <select
-          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          className={filterSelectClass}
           {...f.register('purpose')}
         >
           <option value="both">Ambos</option>
@@ -1498,10 +1949,17 @@ function SpeciesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.activo ? 'activo' : ''}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof speciesSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(speciesSchema),
     defaultValues: { codigo: '', nombre: '' },
   });
@@ -1519,15 +1977,31 @@ function SpeciesSection({
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof speciesSchema> }) =>
+    mutationFn: ({ id, body }: { id: number; body: { codigo?: string; nombre?: string } }) =>
       apiJson(`/api/masters/species/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ codigo: body.codigo.trim(), nombre: body.nombre.trim() }),
+        body: JSON.stringify(body),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
       toast.success('Especie actualizada');
-      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const duplicateMut = useMutation({
+    mutationFn: (source: InlineCodigoNombreRow) => {
+      const lower = new Set(list.map((x) => x.codigo.toLowerCase()));
+      const newCode = uniqueDuplicateCode(source.codigo, lower);
+      return apiJson('/api/masters/species', {
+        method: 'POST',
+        body: JSON.stringify({ codigo: newCode, nombre: source.nombre.trim() }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      toast.success('Especie duplicada');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1537,44 +2011,62 @@ function SpeciesSection({
       apiJson(`/api/masters/species/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
-      setConfirmDeactivate(null);
       toast.success(v.activo ? 'Reactivado' : 'Desactivado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/species', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      toast.success('Especie borrada');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Especies</CardTitle>
-          <CardDescription>Ej. Arándano, Frambuesa. Es el nivel donde se declara la fruta como cultivo.</CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Especies</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nueva
+                <Plus className="h-4 w-4" /> + Nuevo
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Nueva especie</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input placeholder="ARB" {...form.register('codigo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input placeholder="Arándano" {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input placeholder="ARB" {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input placeholder="Arándano" {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={mut.isPending}>
-                    Guardar
+                    Crear
                   </Button>
                 </DialogFooter>
               </form>
@@ -1582,107 +2074,42 @@ function SpeciesSection({
           </Dialog>
         )}
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Activo</TableHead>
-              {canWrite ? <TableHead className="w-[1%]" /> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell>{r.codigo}</TableCell>
-                <TableCell>{r.nombre}</TableCell>
-                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
-                {canWrite ? (
-                  <TableCell>
-                    <MasterRowActions
-                      canWrite
-                      activo={r.activo}
-                      onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() => setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })}
-                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
-                      reactivatePending={setActivoMut.isPending}
-                    />
-                  </TableCell>
-                ) : null}
+      <CardContent className="pt-0">
+        <div className={cn(tableShell, 'overflow-x-auto')}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {editing ? (
-          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Editar especie</DialogTitle>
-              </DialogHeader>
-              <SpeciesEditForm
-                row={editing}
-                onClose={() => setEditId(null)}
-                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
-                pending={updateMut.isPending}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        <MasterDeactivateDialog
-          open={confirmDeactivate != null}
-          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar especie"
-          label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
-          onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
-          }
-        />
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <InlineCodigoNombreCatalogRow
+                  key={r.id}
+                  row={r}
+                  canWrite={canWrite}
+                  onPatch={(id, body) => updateMut.mutate({ id, body })}
+                  onDuplicate={(src) => duplicateMut.mutate(src)}
+                  onSetActivo={(id, activo) => setActivoMut.mutate({ id, activo })}
+                  onDelete={(row) => {
+                    if (window.confirm(`¿Borrar ${row.codigo} — ${row.nombre}? Esta acción no se puede deshacer.`)) {
+                      deleteMut.mutate({ id: row.id });
+                    }
+                  }}
+                  patchPending={updateMut.isPending && updateMut.variables?.id === r.id}
+                  duplicatePending={duplicateMut.isPending && duplicateMut.variables?.id === r.id}
+                  activoPending={setActivoMut.isPending && setActivoMut.variables?.id === r.id}
+                  deletePending={deleteMut.isPending && deleteMut.variables?.id === r.id}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
-  );
-}
-
-function SpeciesEditForm({
-  row,
-  onClose,
-  onSave,
-  pending,
-}: {
-  row: SpeciesRow;
-  onClose: () => void;
-  onSave: (body: z.infer<typeof speciesSchema>) => void;
-  pending: boolean;
-}) {
-  const f = useForm<z.infer<typeof speciesSchema>>({
-    resolver: zodResolver(speciesSchema),
-    defaultValues: { codigo: row.codigo, nombre: row.nombre },
-  });
-  return (
-    <form
-      onSubmit={f.handleSubmit((v) => onSave({ codigo: v.codigo.trim(), nombre: v.nombre.trim() }))}
-      className="grid gap-3"
-    >
-      <div className="grid gap-2">
-        <Label>Código</Label>
-        <Input {...f.register('codigo')} />
-      </div>
-      <div className="grid gap-2">
-        <Label>Nombre</Label>
-        <Input {...f.register('nombre')} />
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={pending}>
-          Guardar
-        </Button>
-      </DialogFooter>
-    </form>
   );
 }
 
@@ -1695,10 +2122,17 @@ function ProducersSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo ?? ''} ${r.nombre}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof producerSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(producerSchema),
     defaultValues: { codigo: '', nombre: '' },
   });
@@ -1718,18 +2152,42 @@ function ProducersSection({
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: z.infer<typeof producerSchema> }) =>
+    mutationFn: ({ id, body }: { id: number; body: { codigo?: string; nombre?: string } }) =>
       apiJson(`/api/masters/producers/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          nombre: body.nombre.trim(),
-          codigo: body.codigo?.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
       toast.success('Productor actualizado');
-      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const duplicateMut = useMutation({
+    mutationFn: (source: ProducerRow) => {
+      const codes = list.map((x) => x.codigo).filter((c): c is string => c != null && c.trim() !== '');
+      const lower = new Set(codes.map((c) => c.toLowerCase()));
+      const base =
+        (source.codigo && source.codigo.trim()) ||
+        source.nombre
+          .replace(/[^\p{L}\p{N}]+/gu, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 24)
+          .toUpperCase() ||
+        'PROD';
+      const newCode = uniqueDuplicateCode(base, lower);
+      return apiJson('/api/masters/producers', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: source.nombre.trim(),
+          codigo: newCode,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
+      toast.success('Productor duplicado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1739,44 +2197,61 @@ function ProducersSection({
       apiJson(`/api/masters/producers/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      setConfirmDeactivate(null);
       toast.success(v.activo ? 'Reactivado' : 'Desactivado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/producers', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
+      toast.success('Productor borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Productores</CardTitle>
-          <CardDescription>Quien entrega la fruta en recepción.</CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Productores</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo
+                <Plus className="h-4 w-4" /> + Nuevo
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Nuevo productor</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código (opcional)</Label>
-                  <Input {...form.register('codigo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input placeholder="Opcional" {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={mut.isPending}>
-                    Guardar
+                    Crear
                   </Button>
                 </DialogFooter>
               </form>
@@ -1784,111 +2259,46 @@ function ProducersSection({
           </Dialog>
         )}
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Activo</TableHead>
-              {canWrite ? <TableHead className="w-[1%]" /> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell>{r.codigo ?? '—'}</TableCell>
-                <TableCell>{r.nombre}</TableCell>
-                <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
-                {canWrite ? (
-                  <TableCell>
-                    <MasterRowActions
-                      canWrite
-                      activo={r.activo}
-                      onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
-                        setConfirmDeactivate({ id: r.id, label: `${r.codigo ?? '—'} — ${r.nombre}` })
-                      }
-                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
-                      reactivatePending={setActivoMut.isPending}
-                    />
-                  </TableCell>
-                ) : null}
+      <CardContent className="pt-0">
+        <div className={cn(tableShell, 'overflow-x-auto')}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {editing ? (
-          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Editar productor</DialogTitle>
-              </DialogHeader>
-              <ProducerEditForm
-                row={editing}
-                onClose={() => setEditId(null)}
-                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
-                pending={updateMut.isPending}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        <MasterDeactivateDialog
-          open={confirmDeactivate != null}
-          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar productor"
-          label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
-          onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
-          }
-        />
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <InlineProducerRow
+                  key={r.id}
+                  row={r}
+                  canWrite={canWrite}
+                  onPatch={(id, body) => updateMut.mutate({ id, body })}
+                  onDuplicate={(src) => duplicateMut.mutate(src)}
+                  onSetActivo={(id, activo) => setActivoMut.mutate({ id, activo })}
+                  onDelete={(row) => {
+                    if (
+                      window.confirm(
+                        `¿Borrar ${row.codigo ?? 'sin código'} — ${row.nombre}? Esta acción no se puede deshacer.`,
+                      )
+                    ) {
+                      deleteMut.mutate({ id: row.id });
+                    }
+                  }}
+                  patchPending={updateMut.isPending && updateMut.variables?.id === r.id}
+                  duplicatePending={duplicateMut.isPending && duplicateMut.variables?.id === r.id}
+                  activoPending={setActivoMut.isPending && setActivoMut.variables?.id === r.id}
+                  deletePending={deleteMut.isPending && deleteMut.variables?.id === r.id}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
-  );
-}
-
-function ProducerEditForm({
-  row,
-  onClose,
-  onSave,
-  pending,
-}: {
-  row: ProducerRow;
-  onClose: () => void;
-  onSave: (body: z.infer<typeof producerSchema>) => void;
-  pending: boolean;
-}) {
-  const f = useForm<z.infer<typeof producerSchema>>({
-    resolver: zodResolver(producerSchema),
-    defaultValues: { codigo: row.codigo ?? '', nombre: row.nombre },
-  });
-  return (
-    <form
-      onSubmit={f.handleSubmit((v) =>
-        onSave({ codigo: v.codigo?.trim() || undefined, nombre: v.nombre.trim() }),
-      )}
-      className="grid gap-3"
-    >
-      <div className="grid gap-2">
-        <Label>Código (opcional)</Label>
-        <Input {...f.register('codigo')} />
-      </div>
-      <div className="grid gap-2">
-        <Label>Nombre</Label>
-        <Input {...f.register('nombre')} />
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={pending}>
-          Guardar
-        </Button>
-      </DialogFooter>
-    </form>
   );
 }
 
@@ -1903,14 +2313,35 @@ function VarietiesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () =>
+      filterRows(list, filter, (r) =>
+        `${r.nombre} ${r.codigo ?? ''} ${r.species?.nombre ?? ''} ${String(r.species_id)}`,
+      ),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
-  const speciesOptions = species.filter((s) => s.activo);
+  const speciesOptions = useMemo(() => species.filter((s) => s.activo), [species]);
   const form = useForm<z.infer<typeof varietySchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(varietySchema),
     defaultValues: { species_id: 0, codigo: '', nombre: '' },
   });
+
+  useEffect(() => {
+    if (!open || speciesOptions.length === 0) return;
+    form.reset({
+      species_id: speciesOptions[0]?.id ?? 0,
+      codigo: '',
+      nombre: '',
+    });
+  }, [open, speciesOptions, form.reset]);
   const mut = useMutation({
     mutationFn: (body: z.infer<typeof varietySchema>) =>
       apiJson('/api/masters/varieties', {
@@ -1959,15 +2390,34 @@ function VarietiesSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/varieties', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
+      setConfirmDeactivate(null);
+      toast.success('Variedad borrada');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Variedades</CardTitle>
-          <CardDescription>Cada variedad pertenece a una especie (ej. Emerald → Arándano).</CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Variedades</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -1983,7 +2433,7 @@ function VarietiesSection({
                 <div className="grid gap-2">
                   <Label>Especie</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    className={filterSelectClass}
                     {...form.register('species_id', { valueAsNumber: true })}
                   >
                     <option value={0}>Elegir…</option>
@@ -1994,13 +2444,15 @@ function VarietiesSection({
                     ))}
                   </select>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Código (opcional)</Label>
-                  <Input {...form.register('codigo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Código (opc.)</Label>
+                    <Input {...form.register('codigo')} autoComplete="off" />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={mut.isPending}>
@@ -2016,21 +2468,19 @@ function VarietiesSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Especie</TableHead>
               <TableHead>Variedad</TableHead>
               <TableHead>Código</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="w-20">Activo</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
                 <TableCell>{r.species?.nombre ?? r.species_id}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
-                <TableCell>{r.codigo ?? '—'}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo ?? '—'}</TableCell>
                 <TableCell>{r.activo ? 'Sí' : 'No'}</TableCell>
                 {canWrite ? (
                   <TableCell>
@@ -2038,7 +2488,7 @@ function VarietiesSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.nombre} (${r.species?.nombre ?? r.species_id})` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -2067,14 +2517,14 @@ function VarietiesSection({
             </DialogContent>
           </Dialog>
         ) : null}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar variedad"
+          title="Borrar variedad"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -2104,6 +2554,8 @@ function VarietyEditForm({
     return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
   })();
   const f = useForm<z.infer<typeof varietySchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(varietySchema),
     defaultValues: {
       species_id: row.species_id,
@@ -2125,7 +2577,7 @@ function VarietyEditForm({
       <div className="grid gap-2">
         <Label>Especie</Label>
         <select
-          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+          className={filterSelectClass}
           {...f.register('species_id', { valueAsNumber: true })}
         >
           {selectSpecies.map((s) => (
@@ -2194,11 +2646,23 @@ function FormatsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () =>
+      filterRows(list, filter, (r) =>
+        `${r.format_code} ${r.species?.nombre ?? ''} ${r.descripcion ?? ''} ${r.net_weight_lb_per_box ?? ''}`,
+      ),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const speciesOptions = species.filter((s) => s.activo);
   const form = useForm<z.infer<typeof formatSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(formatSchema),
     defaultValues: {
       format_code: '',
@@ -2250,18 +2714,34 @@ function FormatsSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/presentation-formats', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
+      setConfirmDeactivate(null);
+      toast.success('Formato borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Formatos de presentación</CardTitle>
-          <CardDescription>
-            Patrón <code className="text-primary">NxMoz</code> (ej. 4x16oz). Peso neto por caja (lb) obligatorio para unidades PT.
-            Opcionalmente restringido a una especie. Las <strong>recetas de empaque</strong> usan el mismo patrón en otro catálogo.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Formatos N×Moz</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -2275,13 +2755,13 @@ function FormatsSection({
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2">
-                  <Label>format_code</Label>
-                  <Input placeholder="4x16oz" {...form.register('format_code')} />
+                  <Label>Código (NxMoz)</Label>
+                  <Input placeholder="4x16oz" {...form.register('format_code')} autoComplete="off" />
                 </div>
                 <div className="grid gap-2">
                   <Label>Especie (opcional)</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    className={filterSelectClass}
                     {...form.register('species_id_str')}
                   >
                     <option value="">Todas</option>
@@ -2313,7 +2793,7 @@ function FormatsSection({
                   <div className="grid gap-1">
                     <Label>Tipo de caja (empaque)</Label>
                     <select
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                      className={filterSelectClass}
                       {...form.register('box_kind')}
                     >
                       <option value="">Sin definir</option>
@@ -2324,7 +2804,7 @@ function FormatsSection({
                   <div className="grid gap-1">
                     <Label>Etiqueta clamshell</Label>
                     <select
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                      className={filterSelectClass}
                       {...form.register('clamshell_label_kind')}
                     >
                       <option value="">Sin definir</option>
@@ -2347,23 +2827,21 @@ function FormatsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Especie</TableHead>
               <TableHead>lb/caja</TableHead>
-              <TableHead>Máx cajas/pallet</TableHead>
+              <TableHead>Máx/Pt</TableHead>
               <TableHead>Caja</TableHead>
               <TableHead>Clamshell</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="max-w-[140px]">Nota</TableHead>
+              <TableHead className="w-20">Activo</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono text-muted-foreground">{r.id}</TableCell>
-                <TableCell className="font-mono">{r.format_code}</TableCell>
+                <TableCell className="font-mono text-sm">{r.format_code}</TableCell>
                 <TableCell>{r.species?.nombre ?? '—'}</TableCell>
                 <TableCell className="font-mono">{r.net_weight_lb_per_box ?? '—'}</TableCell>
                 <TableCell>{r.max_boxes_per_pallet ?? '—'}</TableCell>
@@ -2385,7 +2863,7 @@ function FormatsSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: r.format_code })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -2414,14 +2892,14 @@ function FormatsSection({
             </DialogContent>
           </Dialog>
         ) : null}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar formato"
+          title="Borrar formato"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -2452,6 +2930,8 @@ function FormatEditForm({
   })();
   const nw = Number(row.net_weight_lb_per_box);
   const f = useForm<z.infer<typeof formatSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(formatSchema),
     defaultValues: {
       format_code: row.format_code,
@@ -2469,12 +2949,12 @@ function FormatEditForm({
   return (
     <form onSubmit={f.handleSubmit((v) => onSave(v))} className="grid gap-3">
       <div className="grid gap-2">
-        <Label>format_code</Label>
-        <Input {...f.register('format_code')} />
+        <Label>Código (NxMoz)</Label>
+        <Input {...f.register('format_code')} autoComplete="off" />
       </div>
       <div className="grid gap-2">
         <Label>Especie (opcional)</Label>
-        <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('species_id_str')}>
+        <select className={filterSelectClass} {...f.register('species_id_str')}>
           <option value="">Todas</option>
           {speciesSelect.map((s) => (
             <option key={s.id} value={String(s.id)}>
@@ -2503,7 +2983,7 @@ function FormatEditForm({
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="grid gap-1">
           <Label>Tipo de caja (empaque)</Label>
-          <select className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm" {...f.register('box_kind')}>
+          <select className={filterSelectClass} {...f.register('box_kind')}>
             <option value="">Sin definir</option>
             <option value="mano">Mano</option>
             <option value="maquina">Máquina</option>
@@ -2512,7 +2992,7 @@ function FormatEditForm({
         <div className="grid gap-1">
           <Label>Etiqueta clamshell</Label>
           <select
-            className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+            className={filterSelectClass}
             {...f.register('clamshell_label_kind')}
           >
             <option value="">Sin definir</option>
@@ -2544,12 +3024,21 @@ function ProcessResultComponentsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.sort_order}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [speciesCfgId, setSpeciesCfgId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
 
   const form = useForm<z.infer<typeof processResultComponentSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(processResultComponentSchema),
     defaultValues: { codigo: '', nombre: '', sort_order: 0 },
   });
@@ -2611,6 +3100,28 @@ function ProcessResultComponentsSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/process-result-components', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
+      setConfirmDeactivate(null);
+      toast.success('Componente borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const saveSpeciesConfigMut = useMutation({
     mutationFn: ({ sid, activeIds }: { sid: number; activeIds: number[] }) =>
       apiJson(`/api/masters/species/${sid}/process-result-components`, {
@@ -2638,13 +3149,8 @@ function ProcessResultComponentsSection({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Resultados de proceso (variables)</CardTitle>
-          <CardDescription>
-            Definí componentes dinámicos (IQF, merma, jugo, X) y activalos por especie para usarlos en procesos.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Resultados de proceso</CardTitle>
         {canWrite ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -2654,16 +3160,18 @@ function ProcessResultComponentsSection({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nuevo componente variable</DialogTitle>
+                <DialogTitle>Nuevo componente</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input {...form.register('codigo')} placeholder="IQF / MERMA / JUGO / X" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input {...form.register('codigo')} placeholder="IQF" autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Orden</Label>
@@ -2685,15 +3193,15 @@ function ProcessResultComponentsSection({
             <TableRow>
               <TableHead>Código</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead>Orden</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead className="w-16">Orden</TableHead>
+              <TableHead className="w-24">Estado</TableHead>
               {canWrite ? <TableHead className="w-[1%]">Acción</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
                 <TableCell>{r.sort_order}</TableCell>
                 <TableCell>
@@ -2705,7 +3213,7 @@ function ProcessResultComponentsSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -2721,7 +3229,7 @@ function ProcessResultComponentsSection({
         <div className="grid gap-2 sm:max-w-sm">
           <Label>Configurar componentes por especie</Label>
           <select
-            className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+            className={filterSelectClass}
             value={speciesCfgId ?? 0}
             onChange={(e) => setSpeciesCfgId(Number(e.target.value) || null)}
           >
@@ -2778,14 +3286,14 @@ function ProcessResultComponentsSection({
           pending={updateMut.isPending}
         />
       ) : null}
-      <MasterDeactivateDialog
+      <MasterDeleteDialog
         open={confirmDeactivate != null}
         onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-        title="Desactivar componente"
+        title="Borrar componente"
         label={confirmDeactivate?.label ?? ''}
-        pending={setActivoMut.isPending}
+        pending={deleteMut.isPending}
         onConfirm={() =>
-          confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+          confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
         }
       />
     </Card>
@@ -2804,6 +3312,8 @@ function EditProcessResultComponentDialog({
   pending: boolean;
 }) {
   const f = useForm<z.infer<typeof editProcessResultComponentSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(editProcessResultComponentSchema),
     defaultValues: {
       codigo: row.codigo,
@@ -2880,10 +3390,19 @@ function ClientsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.pais ?? ''} ${r.mercado?.nombre ?? ''}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof clientMasterSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(clientMasterSchema),
     defaultValues: { codigo: '', nombre: '', pais: '', mercado_id: 0 },
   });
@@ -2939,18 +3458,34 @@ function ClientsSection({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/clients', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
+      setConfirmDeactivate(null);
+      toast.success('Cliente borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
+
   const editing = editId != null ? list.find((r) => r.id === editId) : null;
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <div>
-          <CardTitle className="text-base">Clientes comerciales</CardTitle>
-          <CardDescription>
-            Código, nombre, país y mercado opcional. Las marcas pueden asociarse a un cliente; despachos y órdenes podrán
-            referenciar este catálogo.
-          </CardDescription>
-        </div>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
+        <CardTitle className="text-base">Clientes</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -2963,33 +3498,37 @@ function ClientsSection({
                 <DialogTitle>Nuevo cliente</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input {...form.register('codigo')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>País (opcional)</Label>
-                  <Input {...form.register('pais')} placeholder="ej. Chile" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Mercado (opcional)</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                    {...form.register('mercado_id', { valueAsNumber: true })}
-                  >
-                    <option value={0}>—</option>
-                    {mercados
-                      .filter((m) => m.activo !== false)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nombre}
-                        </option>
-                      ))}
-                  </select>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>País (opc.)</Label>
+                    <Input {...form.register('pais')} placeholder="Chile" autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Mercado (opc.)</Label>
+                    <select
+                      className={filterSelectClass}
+                      {...form.register('mercado_id', { valueAsNumber: true })}
+                    >
+                      <option value={0}>—</option>
+                      {mercados
+                        .filter((m) => m.activo !== false)
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.nombre}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -3012,14 +3551,14 @@ function ClientsSection({
               <TableHead>Nombre</TableHead>
               <TableHead>País</TableHead>
               <TableHead>Mercado</TableHead>
-              <TableHead>Activo</TableHead>
+              <TableHead className="w-24">Activo</TableHead>
               {canWrite ? <TableHead /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((r) => (
+            {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-mono">{r.codigo}</TableCell>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
                 <TableCell>{r.nombre}</TableCell>
                 <TableCell>{r.pais ?? '—'}</TableCell>
                 <TableCell>{r.mercado?.nombre ?? '—'}</TableCell>
@@ -3032,7 +3571,7 @@ function ClientsSection({
                       canWrite
                       activo={r.activo}
                       onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
+                      onDeleteClick={() =>
                         setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
                       }
                       onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
@@ -3053,14 +3592,14 @@ function ClientsSection({
             pending={updateMut.isPending}
           />
         ) : null}
-        <MasterDeactivateDialog
+        <MasterDeleteDialog
           open={confirmDeactivate != null}
           onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar cliente"
+          title="Borrar cliente"
           label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
+          pending={deleteMut.isPending}
           onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
+            confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
           }
         />
       </CardContent>
@@ -3082,6 +3621,8 @@ function EditClientDialog({
   pending: boolean;
 }) {
   const f = useForm<z.infer<typeof editClientMasterSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(editClientMasterSchema),
     defaultValues: {
       codigo: row.codigo,
@@ -3122,7 +3663,7 @@ function EditClientDialog({
           <div className="grid gap-2">
             <Label>Mercado</Label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+              className={filterSelectClass}
               {...f.register('mercado_id', { valueAsNumber: true })}
             >
               <option value={0}>—</option>
@@ -3164,17 +3705,24 @@ function SimpleCatalogSection({
   apiPath,
 }: {
   title: string;
-  description: string;
+  description?: string;
   list: { id: number; codigo: string; nombre: string; activo: boolean }[];
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
   queryKey: string[];
   apiPath: string;
 }) {
+  const { role } = useAuth();
+  const canForceDelete = role === 'admin';
+  const { filter } = useMastersRowFilter();
+  const rows = useMemo(
+    () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre}`),
+    [list, filter],
+  );
   const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
   const form = useForm<z.infer<typeof simpleCatalogSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     resolver: zodResolver(simpleCatalogSchema),
     defaultValues: { codigo: '', nombre: '' },
   });
@@ -3195,12 +3743,27 @@ function SimpleCatalogSection({
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { codigo: string; nombre: string } }) =>
+    mutationFn: ({ id, body }: { id: number; body: { codigo?: string; nombre?: string } }) =>
       apiJson(`/api/masters/${apiPath}/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Actualizado');
-      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const duplicateMut = useMutation({
+    mutationFn: (source: InlineCodigoNombreRow) => {
+      const lower = new Set(list.map((x) => x.codigo.toLowerCase()));
+      const newCode = uniqueDuplicateCode(source.codigo, lower);
+      return apiJson(`/api/masters/${apiPath}`, {
+        method: 'POST',
+        body: JSON.stringify({ codigo: newCode, nombre: source.nombre.trim() }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Duplicado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3211,46 +3774,63 @@ function SimpleCatalogSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey });
       toast.success(v.activo ? 'Reactivado' : 'Desactivado');
-      setConfirmDeactivate(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const editing = editId != null ? list.find((r) => r.id === editId) : null;
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint(`/api/masters/${apiPath}`, id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Registro borrado');
+    },
+    onError: (e: Error, vars) => {
+      if (
+        canForceDelete &&
+        !vars.force &&
+        canOfferForceDelete(e.message) &&
+        window.confirm('Este registro está en uso. ¿Forzar borrado (admin)? Se eliminarán dependencias relacionadas.')
+      ) {
+        deleteMut.mutate({ id: vars.id, force: true });
+        return;
+      }
+      toast.error(e.message);
+    },
+  });
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
         <div>
           <CardTitle className="text-base">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          {description ? <CardDescription>{description}</CardDescription> : null}
         </div>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo
+                <Plus className="h-4 w-4" /> + Nuevo
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Nuevo</DialogTitle>
+                <DialogTitle>Nuevo — {title}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
-                <div className="grid gap-2">
-                  <Label>Código</Label>
-                  <Input {...form.register('codigo')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Nombre</Label>
-                  <Input {...form.register('nombre')} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Código</Label>
+                    <Input {...form.register('codigo')} autoComplete="off" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Nombre</Label>
+                    <Input {...form.register('nombre')} autoComplete="off" />
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancelar
-                  </Button>
                   <Button type="submit" disabled={createMut.isPending}>
-                    Guardar
+                    Crear
                   </Button>
                 </DialogFooter>
               </form>
@@ -3258,108 +3838,41 @@ function SimpleCatalogSection({
           </Dialog>
         )}
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Activo</TableHead>
-              {canWrite ? <TableHead /> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono">{r.codigo}</TableCell>
-                <TableCell>{r.nombre}</TableCell>
-                <TableCell>
-                  <Badge variant={r.activo ? 'default' : 'secondary'}>{r.activo ? 'Sí' : 'No'}</Badge>
-                </TableCell>
-                {canWrite ? (
-                  <TableCell className="text-right">
-                    <MasterRowActions
-                      canWrite
-                      activo={r.activo}
-                      onEdit={() => setEditId(r.id)}
-                      onDeactivateClick={() =>
-                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
-                      }
-                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
-                      reactivatePending={setActivoMut.isPending}
-                    />
-                  </TableCell>
-                ) : null}
+      <CardContent className="pt-0">
+        <div className={cn(tableShell, 'overflow-x-auto')}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {editing ? (
-          <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Editar</DialogTitle>
-              </DialogHeader>
-              <EditSimpleCatalogForm
-                row={editing}
-                onSave={(body) => updateMut.mutate({ id: editing.id, body })}
-                onClose={() => setEditId(null)}
-                pending={updateMut.isPending}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        <MasterDeactivateDialog
-          open={confirmDeactivate != null}
-          onOpenChange={(o) => !o && setConfirmDeactivate(null)}
-          title="Desactivar registro"
-          label={confirmDeactivate?.label ?? ''}
-          pending={setActivoMut.isPending}
-          onConfirm={() =>
-            confirmDeactivate != null && setActivoMut.mutate({ id: confirmDeactivate.id, activo: false })
-          }
-        />
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <InlineCodigoNombreCatalogRow
+                  key={r.id}
+                  row={r}
+                  canWrite={canWrite}
+                  onPatch={(id, body) => updateMut.mutate({ id, body })}
+                  onDuplicate={(src) => duplicateMut.mutate(src)}
+                  onSetActivo={(id, activo) => setActivoMut.mutate({ id, activo })}
+                  onDelete={(row) => {
+                    if (window.confirm(`¿Borrar ${row.codigo} — ${row.nombre}? Esta acción no se puede deshacer.`)) {
+                      deleteMut.mutate({ id: row.id });
+                    }
+                  }}
+                  patchPending={updateMut.isPending && updateMut.variables?.id === r.id}
+                  duplicatePending={duplicateMut.isPending && duplicateMut.variables?.id === r.id}
+                  activoPending={setActivoMut.isPending && setActivoMut.variables?.id === r.id}
+                  deletePending={deleteMut.isPending && deleteMut.variables?.id === r.id}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
-  );
-}
-
-function EditSimpleCatalogForm({
-  row,
-  onSave,
-  onClose,
-  pending,
-}: {
-  row: { id: number; codigo: string; nombre: string; activo: boolean };
-  onSave: (body: { codigo: string; nombre: string }) => void;
-  onClose: () => void;
-  pending: boolean;
-}) {
-  const f = useForm<z.infer<typeof simpleCatalogSchema>>({
-    resolver: zodResolver(simpleCatalogSchema),
-    defaultValues: { codigo: row.codigo, nombre: row.nombre },
-  });
-  return (
-    <form
-      onSubmit={f.handleSubmit((v) => onSave({ codigo: v.codigo.trim(), nombre: v.nombre.trim() }))}
-      className="grid gap-3"
-    >
-      <div className="grid gap-2">
-        <Label>Código</Label>
-        <Input {...f.register('codigo')} />
-      </div>
-      <div className="grid gap-2">
-        <Label>Nombre</Label>
-        <Input {...f.register('nombre')} />
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={pending}>
-          Guardar
-        </Button>
-      </DialogFooter>
-    </form>
   );
 }

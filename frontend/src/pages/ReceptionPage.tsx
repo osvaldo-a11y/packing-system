@@ -214,6 +214,7 @@ export function ReceptionPage() {
   const [viewOnly, setViewOnly] = useState(false);
   const [serverReference, setServerReference] = useState<string | null>(null);
   const [copyFromPreviousLine, setCopyFromPreviousLine] = useState(true);
+  const [applyVarietyToInvolvedLines, setApplyVarietyToInvolvedLines] = useState(true);
   const [viewStateCodigo, setViewStateCodigo] = useState<string | null>(null);
   const [lineDrafts, setLineDrafts] = useState<LineDraft[]>([emptyLine()]);
 
@@ -865,6 +866,15 @@ export function ReceptionPage() {
                       />
                       Copiar última línea
                     </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={applyVarietyToInvolvedLines}
+                        disabled={viewOnly}
+                        onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
+                      />
+                      Aplicar variedad a líneas involucradas
+                    </label>
                     <Button
                       type="button"
                       size="sm"
@@ -922,7 +932,18 @@ export function ReceptionPage() {
                         value={L.variety_id}
                         onChange={(e) => {
                           const vid = Number(e.target.value);
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x)));
+                          setLineDrafts((d) => {
+                            if (!applyVarietyToInvolvedLines) {
+                              return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                            }
+                            const src = d[idx];
+                            if (!src || src.species_id <= 0) {
+                              return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                            }
+                            return d.map((x) =>
+                              x.species_id === src.species_id ? { ...x, variety_id: vid } : x,
+                            );
+                          });
                         }}
                       >
                         <option value={0}>—</option>

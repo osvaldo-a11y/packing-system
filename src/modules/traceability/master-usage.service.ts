@@ -180,6 +180,11 @@ export class MasterUsageService {
           params: [id],
           label: 'registro(s) de stock PT',
         },
+        {
+          sql: `SELECT COUNT(*)::int AS c FROM packaging_materials WHERE client_id = $1`,
+          params: [id],
+          label: 'material(es) de empaque',
+        },
       ],
       'este cliente',
     );

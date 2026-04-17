@@ -1,9 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDown, Info, MapPin, MoreHorizontal, Pencil, Plus, Waypoints } from 'lucide-react';
+import {
+  Clipboard,
+  ChevronDown,
+  FileDown,
+  Info,
+  MapPin,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Waypoints,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
@@ -25,6 +35,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
+  contentCard,
   emptyStatePanel,
   filterInputClass,
   filterPanel,
@@ -33,6 +44,7 @@ import {
   kpiFootnote,
   kpiLabel,
   kpiValueLg,
+  kpiValueMd,
   pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
@@ -61,11 +73,19 @@ function labelProcesoEstadoParaSelector(p: FruitProcessRow) {
   return st;
 }
 const FORMAT_CODE_RE = /^(\d+)x(\d+)oz$/i;
+const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
 
 function toDatetimeLocalValue(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toLocalDayKey(isoOrDate: string | Date): string {
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 const createTagSchema = z.object({
@@ -75,7 +95,9 @@ const createTagSchema = z.object({
   format_code: z
     .string()
     .min(1)
-    .refine((s) => FORMAT_CODE_RE.test(s), { message: 'Patrón NxMoz, ej. 4x16oz' }),
+    .refine((s) => FORMAT_CODE_RE.test(s) || FORMAT_ALIAS_RE.test(s), {
+      message: 'Usá NxMoz (ej. 4x16oz) o PINTA REGULAR / PINTA LOW PROFILE',
+    }),
   cajas_por_pallet: z.coerce
     .number()
     .int()
@@ -86,6 +108,8 @@ const createTagSchema = z.object({
   client_id: z.coerce.number().int().min(0).default(0),
   brand_id: z.coerce.number().int().min(0).default(0),
   bol: z.string().max(80).optional(),
+  /** Solo alta: repetir la misma unidad N veces (creación secuencial). */
+  bulk_units: z.coerce.number().int().min(1).max(100).default(1),
 });
 
 type CreateTagForm = z.infer<typeof createTagSchema>;
@@ -122,6 +146,8 @@ export type PtTagApi = {
   tag_code: string;
   /** Resultado de unión de 2+ unidades PT (merge); no duplicar cajas/lb con las fuentes en cierres. */
   es_union_tarjas?: boolean;
+  /** Etiqueta repallet unificada: no suma al packout del proceso (API). */
+  excluida_suma_packout?: boolean;
   fecha: string;
   resultado: string;
   format_code: string;
@@ -134,6 +160,11 @@ export type PtTagApi = {
   net_weight_lb?: string | null;
   items: PtTagItemApi[];
 };
+
+/** Misma regla que Σ packout en proceso: no duplicar cajas de la tarja solo-etiqueta de repallet. */
+export function countsTowardPtProductionTotals(t: PtTagApi): boolean {
+  return !t.excluida_suma_packout;
+}
 
 export type TagLineageApi = {
   tarja_id: number;
@@ -152,6 +183,118 @@ function formatTagDateShort(iso: string) {
   } catch {
     return '—';
   }
+}
+
+type DispatchDayRow = {
+  id: number;
+  fecha_despacho: string;
+  despachado_at?: string | null;
+  status?: string;
+  cliente_nombre?: string | null;
+  client_nombre?: string | null;
+  client_id?: number | null;
+  items: Array<{ cajas?: number; cajas_despachadas?: number; tarja_id?: number }>;
+  invoice?: {
+    lines?: Array<{
+      cajas?: number | string | null;
+      packaging_code?: string | null;
+      tarja_id?: number | null;
+    }>;
+  } | null;
+};
+
+type FormatBreakdownRow = { format: string; cajas: number };
+
+type EndOfDayClientRow = {
+  label: string;
+  packed: FormatBreakdownRow[];
+  cooler: FormatBreakdownRow[];
+  shipped: FormatBreakdownRow[];
+};
+
+/** Clave estable para agrupar formatos (mayúsc/minus/ espacios). */
+function normFormatKey(raw: string): string {
+  const t = raw.trim();
+  return t ? t.toLowerCase() : '—';
+}
+
+/** Título legible si no hay maestro (entrada ya en minúsculas salvo '—'). */
+function titleCaseFormatFallback(normKey: string): string {
+  if (normKey === '—') return '—';
+  if (normKey === 'sin formato') return 'Sin formato';
+  return normKey
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      if (/^\d/.test(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+function mergeFormatIntoMap(target: Map<string, number>, rawFormat: string, cajas: number) {
+  const nk = normFormatKey(rawFormat);
+  target.set(nk, (target.get(nk) ?? 0) + cajas);
+}
+
+function mapToSortedBreakdown(
+  m: Map<string, number>,
+  canonicalByNorm: Map<string, string>,
+): FormatBreakdownRow[] {
+  return [...m.entries()]
+    .filter(([, cajas]) => cajas > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([nk, cajas]) => {
+      const format =
+        nk === '—'
+          ? '—'
+          : (canonicalByNorm.get(nk) ?? titleCaseFormatFallback(nk));
+      return { format, cajas };
+    });
+}
+
+function subtractFormatMaps(base: Map<string, number>, discount: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [k, v] of base) {
+    const next = v - (discount.get(k) ?? 0);
+    if (next > 0) out.set(k, next);
+  }
+  return out;
+}
+
+function shippedCajasByFormat(
+  d: DispatchDayRow,
+  formatByTarjaId: Map<number, string>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  const invLines = d.invoice?.lines;
+  if (invLines && invLines.length > 0) {
+    for (const li of invLines) {
+      const cajas = Number(li.cajas) || 0;
+      if (cajas <= 0) continue;
+      let fc = (li.packaging_code ?? '').trim();
+      if (!fc && li.tarja_id != null && Number(li.tarja_id) > 0) {
+        fc = formatByTarjaId.get(Number(li.tarja_id)) ?? '';
+      }
+      mergeFormatIntoMap(out, fc || 'sin formato', cajas);
+    }
+    return out;
+  }
+  for (const it of d.items ?? []) {
+    const cajas = Number(it.cajas_despachadas ?? it.cajas ?? 0);
+    if (cajas <= 0) continue;
+    const tid = Number(it.tarja_id);
+    const fc =
+      Number.isFinite(tid) && tid > 0 ? formatByTarjaId.get(tid) ?? 'sin formato' : 'sin formato';
+    mergeFormatIntoMap(out, fc, cajas);
+  }
+  return out;
+}
+
+function totalCajasFromFormatMap(m: Map<string, number>): number {
+  let s = 0;
+  for (const v of m.values()) s += v;
+  return s;
 }
 
 function tagVarietyLabel(t: PtTagApi, processById: Map<number, FruitProcessRow>) {
@@ -259,10 +402,12 @@ function CommercialStatusBadge({ state }: { state: CommercialAssignment }) {
 
 export function PtTagsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
   const canEditTag = role === 'admin' || role === 'supervisor';
   const queryClient = useQueryClient();
   const [tagOpen, setTagOpen] = useState(false);
+  const [bulkCreateProgress, setBulkCreateProgress] = useState<{ cur: number; total: number } | null>(null);
   const [editTag, setEditTag] = useState<PtTagApi | null>(null);
   const [search, setSearch] = useState('');
   const [lineageOpen, setLineageOpen] = useState(false);
@@ -276,6 +421,7 @@ export function PtTagsPage() {
   const [filterFormat, setFilterFormat] = useState('');
   const [filterClient, setFilterClient] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<'todas' | 'disponible' | 'sin_cajas'>('todas');
+  const [opsDayKey, setOpsDayKey] = useState<string>(() => toLocalDayKey(new Date()));
 
   const { data: tags, isPending, isError, error } = useQuery({
     queryKey: ['pt-tags'],
@@ -285,6 +431,12 @@ export function PtTagsPage() {
   const { data: processes } = useQuery({
     queryKey: ['processes'],
     queryFn: fetchProcesses,
+  });
+
+  const { data: dispatchesList } = useQuery({
+    queryKey: ['dispatches'],
+    queryFn: () => apiJson<DispatchDayRow[]>('/api/dispatches'),
+    staleTime: 60_000,
   });
 
   const { data: presFormats } = useQuery({
@@ -337,6 +489,18 @@ export function PtTagsPage() {
     const m = new Map<string, { descripcion: string | null }>();
     for (const f of presFormats ?? []) {
       m.set(f.format_code.trim().toLowerCase(), { descripcion: f.descripcion ?? null });
+    }
+    return m;
+  }, [presFormats]);
+
+  /** Un solo texto por formato: mismo código que en maestros (primera variante guardada). */
+  const formatCanonicalByNorm = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of presFormats ?? []) {
+      const code = f.format_code.trim();
+      if (!code) continue;
+      const nk = code.toLowerCase();
+      if (!m.has(nk)) m.set(nk, code);
     }
     return m;
   }, [presFormats]);
@@ -427,6 +591,14 @@ export function PtTagsPage() {
     return list;
   }, [tags, search, filterProducer, filterFormat, filterClient, filterEstado]);
 
+  const formatByTarjaId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const t of tags ?? []) {
+      m.set(t.id, (t.format_code ?? '').trim() || '—');
+    }
+    return m;
+  }, [tags]);
+
   const listKpis = useMemo(() => {
     const rows = filteredTags;
     let cajas = 0;
@@ -436,13 +608,17 @@ export function PtTagsPage() {
     let sinCajas = 0;
     let uniones = 0;
     for (const t of rows) {
+      if (commercialAssignment(t) === 'none') sinCliente++;
+      if (t.es_union_tarjas) uniones++;
+      if (!countsTowardPtProductionTotals(t)) {
+        if (t.total_cajas <= 0) sinCajas++;
+        continue;
+      }
       cajas += t.total_cajas;
       const w = Number(t.net_weight_lb);
       if (Number.isFinite(w)) lb += w;
-      if (commercialAssignment(t) === 'none') sinCliente++;
       if (t.total_cajas > 0) conCajas++;
       else sinCajas++;
-      if (t.es_union_tarjas) uniones++;
     }
     return {
       unidades: rows.length,
@@ -454,6 +630,150 @@ export function PtTagsPage() {
       uniones,
     };
   }, [filteredTags]);
+
+  const operationalDaily = useMemo(() => {
+    const tagList = tags ?? [];
+    let packedToday = 0;
+    for (const t of tagList) {
+      if (toLocalDayKey(t.fecha) !== opsDayKey) continue;
+      if (!countsTowardPtProductionTotals(t)) continue;
+      packedToday += t.total_cajas;
+    }
+    let shippedToday = 0;
+    for (const d of dispatchesList ?? []) {
+      const ts = d.despachado_at || d.fecha_despacho;
+      if (toLocalDayKey(ts) !== opsDayKey) continue;
+      if (d.status && d.status !== 'despachado') continue;
+      shippedToday += totalCajasFromFormatMap(shippedCajasByFormat(d, formatByTarjaId));
+    }
+    const coolerBoxes = Math.max(0, packedToday - shippedToday);
+    const pendingLb = (processes ?? []).reduce((s, p) => {
+      const st = p.process_status ?? 'borrador';
+      if (st === 'cerrado') return s;
+      const lb = Number(p.lb_pt_restante);
+      return s + (Number.isFinite(lb) && lb > 0 ? lb : 0);
+    }, 0);
+    return { packedToday, coolerBoxes, shippedToday, pendingLb };
+  }, [tags, dispatchesList, processes, formatByTarjaId, opsDayKey]);
+
+  const endOfDayByClient = useMemo((): EndOfDayClientRow[] => {
+    type Agg = { label: string; packed: Map<string, number>; cooler: Map<string, number>; shipped: Map<string, number> };
+    const clientMap = new Map<string, Agg>();
+
+    function keyForClient(id: number | null | undefined, nombre: string | null | undefined): string {
+      if (id != null && Number(id) > 0) return `id:${id}`;
+      const n = (nombre ?? '').trim();
+      return n ? `n:${n.toUpperCase()}` : 'n:SIN CLIENTE';
+    }
+
+    function labelFor(key: string, nombre: string | null | undefined) {
+      if (key.startsWith('id:')) {
+        const id = Number(key.slice(3));
+        const c = (commercialClients ?? []).find((x) => x.id === id);
+        return (c?.nombre ?? nombre ?? `Cliente #${id}`).trim().toUpperCase();
+      }
+      return (nombre ?? 'SIN CLIENTE').trim().toUpperCase() || 'SIN CLIENTE';
+    }
+
+    const ensure = (key: string, nombre: string | null | undefined) => {
+      const cur = clientMap.get(key);
+      if (cur) return cur;
+      const a: Agg = {
+        label: labelFor(key, nombre),
+        packed: new Map(),
+        cooler: new Map(),
+        shipped: new Map(),
+      };
+      clientMap.set(key, a);
+      return a;
+    };
+
+    for (const t of tags ?? []) {
+      if (toLocalDayKey(t.fecha) !== opsDayKey) continue;
+      if (!countsTowardPtProductionTotals(t)) continue;
+      const cid = t.client_id != null ? Number(t.client_id) : 0;
+      const cn = cid > 0 ? (commercialClients ?? []).find((c) => c.id === cid)?.nombre ?? null : null;
+      const key = keyForClient(cid > 0 ? cid : null, cn);
+      const cell = ensure(key, cn);
+      const fc = (t.format_code ?? '').trim() || '—';
+      mergeFormatIntoMap(cell.packed, fc, t.total_cajas);
+    }
+
+    for (const d of dispatchesList ?? []) {
+      const ts = d.despachado_at || d.fecha_despacho;
+      if (toLocalDayKey(ts) !== opsDayKey) continue;
+      if (d.status && d.status !== 'despachado') continue;
+      const nombre = (d.client_nombre ?? d.cliente_nombre ?? '').trim();
+      const cid = d.client_id != null ? Number(d.client_id) : 0;
+      const key = keyForClient(cid > 0 ? cid : null, nombre || null);
+      const cell = ensure(key, nombre || null);
+      const byF = shippedCajasByFormat(d, formatByTarjaId);
+      for (const [fc, cajas] of byF) {
+        mergeFormatIntoMap(cell.shipped, fc, cajas);
+      }
+    }
+
+    for (const a of clientMap.values()) {
+      a.cooler = subtractFormatMaps(a.packed, a.shipped);
+    }
+
+    return [...clientMap.values()]
+      .map((a) => ({
+        label: a.label,
+        packed: mapToSortedBreakdown(a.packed, formatCanonicalByNorm),
+        cooler: mapToSortedBreakdown(a.cooler, formatCanonicalByNorm),
+        shipped: mapToSortedBreakdown(a.shipped, formatCanonicalByNorm),
+      }))
+      .filter((r) => r.packed.length + r.cooler.length + r.shipped.length > 0)
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [tags, dispatchesList, commercialClients, formatByTarjaId, formatCanonicalByNorm, opsDayKey]);
+
+  const endOfDayPlainText = useMemo(() => {
+    function linesFor(prefix: string, rows: FormatBreakdownRow[]): string[] {
+      return rows.map((row) => `${prefix}: ${row.cajas} · ${row.format}`);
+    }
+    const blocks = endOfDayByClient.map((r) => {
+      const inner = [
+        r.label,
+        ...linesFor('Packed', r.packed),
+        ...linesFor('Cooler', r.cooler),
+        ...linesFor('Shipped', r.shipped),
+      ];
+      return inner.join('\n');
+    });
+    return blocks.join('\n\n');
+  }, [endOfDayByClient]);
+
+  const pendingCajasEst = useMemo(() => {
+    const vals = activePresFormats
+      .map((f) => Number(f.net_weight_lb_per_box))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (!vals.length) return null;
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (avg <= 0) return null;
+    const lb = operationalDaily.pendingLb;
+    if (lb <= 0) return null;
+    return Math.round(lb / avg);
+  }, [activePresFormats, operationalDaily.pendingLb]);
+
+  const openTagIdFromUrl = Number(searchParams.get('open') || '') || null;
+
+  useEffect(() => {
+    if (!openTagIdFromUrl || !tags?.length) return;
+    const t = tags.find((x) => x.id === openTagIdFromUrl);
+    if (!t) return;
+    openPtModalForEditRef.current = true;
+    setEditTag(t);
+    setTagOpen(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openTagIdFromUrl, tags, setSearchParams]);
 
   const unassignedPtCount = useMemo(
     () => (tags ?? []).filter((t) => commercialAssignment(t) === 'none').length,
@@ -472,11 +792,14 @@ export function PtTagsPage() {
       client_id: 0,
       brand_id: 0,
       bol: '',
+      bulk_units: 1,
     },
   });
 
   const tagClientId = tagForm.watch('client_id');
+  const watchedBulkUnits = tagForm.watch('bulk_units');
   const watchedTagFormatCode = tagForm.watch('format_code');
+  const bulkUnitsSubmitLabel = Math.min(100, Math.max(1, Math.floor(Number(watchedBulkUnits) || 1)));
   const { data: brandsForTagClient } = useQuery({
     queryKey: ['masters', 'brands', 'pt-tag', tagClientId],
     queryFn: () =>
@@ -518,9 +841,11 @@ export function PtTagsPage() {
         client_id: editTag.client_id != null && Number(editTag.client_id) > 0 ? Number(editTag.client_id) : 0,
         brand_id: editTag.brand_id != null && Number(editTag.brand_id) > 0 ? Number(editTag.brand_id) : 0,
         bol: editTag.bol ?? '',
+        bulk_units: 1,
       });
     } else {
       cajasSeedKeyRef.current = '';
+      cajasGeneradasUserTouchedForSeedRef.current = false;
       tagForm.reset({
         process_id: 0,
         fecha: toDatetimeLocalValue(new Date().toISOString()),
@@ -531,6 +856,7 @@ export function PtTagsPage() {
         client_id: 0,
         brand_id: 0,
         bol: '',
+        bulk_units: 1,
       });
     }
   }, [tagOpen, editTag, activePresFormats, presFormats, tagForm]);
@@ -589,18 +915,72 @@ export function PtTagsPage() {
     return Math.max(0, Math.floor(lbRest / netLbPerBoxCreate + 1e-9));
   }, [selectedProcForCreate, netLbPerBoxCreate, editTag, presFormats]);
 
+  const watchedCajasGeneradas = tagForm.watch('cajas_generadas');
+  /** Feedback visual: cajas indicadas vs tope sugerido (solo lectura). */
+  const procesoVsTopeHint = useMemo(() => {
+    if (!selectedProcForCreate || createProcessId <= 0) return null;
+    if (editTag && editTag.items.length > 1) return null;
+    if (maxCajasDesdeProcesoCreate == null || maxCajasDesdeProcesoCreate < 1) return null;
+    const req = Math.floor(Number(watchedCajasGeneradas));
+    if (!Number.isFinite(req) || req < 1) return null;
+    const max = maxCajasDesdeProcesoCreate;
+    if (req > max) {
+      return {
+        tone: 'danger' as const,
+        label: 'Supera el tope sugerido',
+        detail: `Indicaste ${req} cajas; el máximo sugerido es ${max}.`,
+      };
+    }
+    if (req === max) {
+      return {
+        tone: 'tight' as const,
+        label: 'Justo en el tope',
+        detail: 'Usás el margen disponible según lb y formato.',
+      };
+    }
+    const margin = max - req;
+    const tightBand = Math.max(1, Math.floor(max * 0.08));
+    if (margin <= tightBand) {
+      return {
+        tone: 'close' as const,
+        label: 'Poco margen',
+        detail: `Quedan ~${margin} caja${margin === 1 ? '' : 's'} bajo el tope sugerido.`,
+      };
+    }
+    return {
+      tone: 'ok' as const,
+      label: 'Hay margen',
+      detail: `Podés subir hasta ${max} cajas (tope sugerido).`,
+    };
+  }, [
+    selectedProcForCreate,
+    createProcessId,
+    editTag,
+    maxCajasDesdeProcesoCreate,
+    watchedCajasGeneradas,
+  ]);
+
   /**
    * Sugerencia inicial de cajas al elegir proceso + formato (solo alta nueva).
    * La clave es solo proceso|formato: si incluimos lb_pt_restante, un refetch de /processes
    * cambia la clave y vuelve a pisar lo que el usuario ya escribió (p. ej. 100 → máximo).
    */
   const cajasSeedKeyRef = useRef('');
+  /** Evita pisar lo que el usuario ya cargó cuando el tope calculado llega tarde (formatos/async). */
+  const cajasGeneradasUserTouchedForSeedRef = useRef(false);
+
+  useEffect(() => {
+    if (!tagOpen || editTag) return;
+    cajasGeneradasUserTouchedForSeedRef.current = false;
+  }, [createProcessId, watchedTagFormatCode, tagOpen, editTag]);
+
   useEffect(() => {
     if (!tagOpen) {
       if (!editTag) cajasSeedKeyRef.current = '';
       return;
     }
     if (editTag) return;
+    if (cajasGeneradasUserTouchedForSeedRef.current) return;
     if (!createProcessId || createProcessId <= 0) return;
     if (maxCajasDesdeProcesoCreate == null || maxCajasDesdeProcesoCreate < 1) return;
     const fc = watchedTagFormatCode?.trim().toLowerCase() ?? '';
@@ -622,34 +1002,64 @@ export function PtTagsPage() {
 
   const createTagMut = useMutation({
     mutationFn: async (body: CreateTagForm) => {
-      const tag = await apiJson<PtTagApi>('/api/pt-tags', {
-        method: 'POST',
-        body: JSON.stringify({
-          fecha: new Date(body.fecha).toISOString(),
-          resultado: body.resultado,
-          format_code: body.format_code,
-          cajas_por_pallet: body.cajas_por_pallet,
-          ...(body.client_id != null && body.client_id > 0 ? { client_id: body.client_id } : {}),
-          ...(body.brand_id != null && body.brand_id > 0 ? { brand_id: body.brand_id } : {}),
-          ...(body.bol?.trim() ? { bol: body.bol.trim() } : {}),
-        }),
-      });
-      await apiJson(`/api/pt-tags/${tag.id}/items`, {
-        method: 'POST',
-        body: JSON.stringify({
-          process_id: body.process_id,
-          cajas_generadas: body.cajas_generadas,
-        }),
-      });
-      return tag;
+      const cajas = Math.floor(Number(body.cajas_generadas));
+      if (!Number.isFinite(cajas) || cajas < 1) {
+        throw new Error('Indicá cuántas cajas cargás en esta unidad PT (número válido ≥ 1).');
+      }
+      const bulk = Math.min(100, Math.max(1, Math.floor(Number(body.bulk_units ?? 1))));
+      const basePayload = {
+        fecha: new Date(body.fecha).toISOString(),
+        resultado: body.resultado,
+        format_code: body.format_code,
+        cajas_por_pallet: body.cajas_por_pallet,
+        ...(body.client_id != null && body.client_id > 0 ? { client_id: body.client_id } : {}),
+        ...(body.brand_id != null && body.brand_id > 0 ? { brand_id: body.brand_id } : {}),
+        ...(body.bol?.trim() ? { bol: body.bol.trim() } : {}),
+      };
+      const itemPayload = { process_id: body.process_id, cajas_generadas: cajas };
+      let created = 0;
+      try {
+        for (let i = 0; i < bulk; i++) {
+          setBulkCreateProgress({ cur: i + 1, total: bulk });
+          try {
+            const tag = await apiJson<PtTagApi>('/api/pt-tags', {
+              method: 'POST',
+              body: JSON.stringify(basePayload),
+            });
+            await apiJson(`/api/pt-tags/${tag.id}/items`, {
+              method: 'POST',
+              body: JSON.stringify(itemPayload),
+            });
+            created += 1;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error desconocido';
+            throw new Error(
+              created > 0
+                ? `Se crearon ${created} de ${bulk} unidades. Falló la ${created + 1}.ª: ${msg}`
+                : msg,
+            );
+          }
+        }
+      } finally {
+        setBulkCreateProgress(null);
+      }
+      return { bulk, created };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
       queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Unidad PT creada y vinculada al proceso');
+      if (data.created > 1) {
+        toast.success(`${data.created} unidades PT creadas y vinculadas al proceso`);
+      } else {
+        toast.success('Unidad PT creada y vinculada al proceso');
+      }
       setTagOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      void queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
+    },
   });
 
   const updateTagMut = useMutation({
@@ -768,22 +1178,18 @@ export function PtTagsPage() {
                 Nueva unidad PT
               </Button>
             </DialogTrigger>
-            <DialogContent className="flex max-h-[min(92vh,880px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-              <DialogHeader className="shrink-0 space-y-2 border-b border-border px-6 pb-4 pt-6 pr-14 text-left">
-                <DialogTitle>{editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}</DialogTitle>
-                <DialogDescription className="text-pretty">
+            <DialogContent className="flex max-h-[min(92vh,900px)] w-full max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]">
+              <DialogHeader className="shrink-0 space-y-1.5 border-b border-border px-6 pb-3.5 pt-5 pr-14 text-left">
+                <DialogTitle className="text-lg">{editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}</DialogTitle>
+                <DialogDescription className="text-pretty text-[13px] leading-snug text-muted-foreground">
                   {editTag ? (
                     <>
-                      Podés modificar <strong>fecha</strong>, <strong>tipo PT</strong>, <strong>formato</strong>,{' '}
-                      <strong>proceso</strong> y <strong>cajas</strong> cuando hay una sola línea de proceso;{' '}
-                      <strong>comercial</strong> (cliente, marca, BOL). Unión de varias tarjas: proceso y cajas por línea no se editan
+                      Cambiá fecha, tipo, formato, proceso y cajas (una sola línea) o datos comerciales. Unidades unidas: no se editan líneas
                       aquí.
                     </>
                   ) : (
                     <>
-                      Se genera <span className="font-mono">TAR-…</span> y el pallet <span className="font-mono">PF-…</span> en Existencias al
-                      vincular el proceso. Elegí formato (el tope de cajas por pallet viene del maestro) y cuántas cajas cargás en total en
-                      esta unidad; opcional destino comercial en la cabecera.
+                      Crear nueva unidad de producto terminado. Definí formato, origen y cantidad. El sistema calcula el resto automáticamente.
                     </>
                   )}
                 </DialogDescription>
@@ -822,127 +1228,29 @@ export function PtTagsPage() {
                 className="flex min-h-0 flex-1 flex-col"
               >
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-                  <div className="space-y-6">
-                    <section className="rounded-xl border border-border bg-muted/20 p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-baseline gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                  <div className="space-y-4">
+                    {/* 1 · Formato */}
+                    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
                           1
                         </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Proceso origen</h3>
-                        <span className="text-xs text-muted-foreground">
-                          Procesos en borrador o confirmado con lb restante para PT; podés usar el mismo proceso en varias unidades y con
-                          distintos formatos si no superás la entrada.
-                        </span>
+                        <h3 className="text-sm font-semibold tracking-tight">Formato</h3>
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="tag-process">Proceso *</Label>
-                        <select
-                          id="tag-process"
-                          disabled={!!editTag && editTag.items.length > 1}
-                          className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70"
-                          {...tagForm.register('process_id', { valueAsNumber: true })}
-                        >
-                          <option value={0}>Elegir proceso…</option>
-                          {(editTag
-                            ? editTag.items.length > 1
-                              ? processesForTagModal
-                              : processesForEditSelect
-                            : availableProcesses
-                          ).map((p) => (
-                            <option key={p.id} value={p.id}>
-                              [{labelProcesoEstadoParaSelector(p)}] #{p.id} · {p.variedad_nombre ?? '—'} · entrada{' '}
-                              {fmtLbCell(p.lb_entrada ?? p.peso_procesado_lb)}
-                              {p.lb_pt_restante != null && String(p.lb_pt_restante).trim() !== ''
-                                ? ` · restante PT ${fmtLbCell(p.lb_pt_restante)}`
-                                : ''}{' '}
-                              · {new Date(p.fecha_proceso).toLocaleDateString('es')}
-                            </option>
-                          ))}
-                        </select>
-                        {tagForm.formState.errors.process_id ? (
-                          <p className="text-sm text-destructive">{tagForm.formState.errors.process_id.message}</p>
-                        ) : null}
-                        {editTag && editTag.items.length > 1 ? (
-                          <p className="text-xs text-amber-800 dark:text-amber-200">
-                            Esta unidad tiene varias líneas de proceso (p. ej. unión de tarjas). El proceso y las cajas por línea no se
-                            editan desde este formulario.
-                          </p>
-                        ) : null}
-                        {!editTag && availableProcesses.length === 0 ? (
-                          <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-200">
-                            No hay procesos disponibles. Se listan procesos en <strong>borrador</strong> o <strong>confirmado</strong> con{' '}
-                            <strong>lb restantes para PT</strong> (o sin tarja aún). Los <strong>cerrados</strong> no aparecen.
-                          </p>
-                        ) : null}
-                        {!editTag && selectedProcForCreate && maxCajasDesdeProcesoCreate != null ? (
-                          <p className="text-xs text-muted-foreground">
-                            Tope para <strong>esta</strong> unidad:{' '}
-                            <strong>{maxCajasDesdeProcesoCreate}</strong> cajas (lb restante para PT{' '}
-                            {selectedProcForCreate.lb_pt_restante != null
-                              ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
-                              : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}{' '}
-                            ÷ lb/caja del formato). Si ya tenés otras unidades PT con el mismo proceso, el restante se actualiza al
-                            guardar.
-                          </p>
-                        ) : null}
-                        {editTag && editTag.items.length === 1 && selectedProcForCreate && maxCajasDesdeProcesoCreate != null ? (
-                          <p className="text-xs text-muted-foreground">
-                            Tope para esta línea con el formato elegido: <strong>{maxCajasDesdeProcesoCreate}</strong> cajas (considera lb
-                            ya cargadas en otras tarjas). El servidor valida el tope final.
-                          </p>
-                        ) : null}
-                        <div className="grid gap-2 sm:col-span-2">
-                          <Label htmlFor="cajas_generadas">Cajas a cargar en esta unidad PT *</Label>
-                          <Input
-                            id="cajas_generadas"
-                            type="number"
-                            min={1}
-                            max={maxCajasDesdeProcesoCreate ?? undefined}
-                            step={1}
-                            disabled={!!editTag && editTag.items.length > 1}
-                            className={
-                              editTag && editTag.items.length > 1
-                                ? 'disabled:cursor-not-allowed disabled:opacity-70'
-                                : undefined
-                            }
-                            {...tagForm.register('cajas_generadas', { valueAsNumber: true })}
-                          />
-                          <p className="text-[11px] text-muted-foreground">
-                            {editTag && editTag.items.length > 1
-                              ? 'Total agregado de varias líneas; no se edita aquí.'
-                              : editTag
-                                ? 'Total de cajas de la línea (una sola línea de proceso). Validación en servidor según lb y packout.'
-                                : 'Total de cajas que asignás a esta tarja. No se rellena sola con el máximo del proceso: el valor por defecto es el tope solo como referencia; podés bajarlo (p. ej. 100).'}
-                          </p>
-                          {tagForm.formState.errors.cajas_generadas ? (
-                            <p className="text-sm text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </section>
-
-                    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-baseline gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                          2
-                        </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Tarja y formato</h3>
-                        <span className="text-xs text-muted-foreground">
-                          Fecha de la unidad, tipo PT y presentación (cajas por pallet según mantenedor del formato)
-                        </span>
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                          <Label htmlFor="tag-fecha">Fecha</Label>
-                          <Input id="tag-fecha" type="datetime-local" {...tagForm.register('fecha')} />
+                      <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
+                        <div className="grid gap-1.5">
+                          <Label className="text-xs" htmlFor="tag-fecha">
+                            Fecha
+                          </Label>
+                          <Input id="tag-fecha" type="datetime-local" className="h-9" {...tagForm.register('fecha')} />
                           {tagForm.formState.errors.fecha && (
-                            <p className="text-sm text-destructive">{tagForm.formState.errors.fecha.message}</p>
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.fecha.message}</p>
                           )}
                         </div>
-                        <div className="grid gap-2">
-                          <Label>Tipo de producto PT</Label>
+                        <div className="grid gap-1.5 rounded-lg border border-border/50 bg-muted/15 px-2.5 py-2">
+                          <Label className="text-[11px] font-normal text-muted-foreground">Tipo de producto PT</Label>
                           <select
-                            className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex min-h-8 w-full rounded border-0 bg-transparent px-0 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
                             {...tagForm.register('resultado')}
                           >
                             {RESULTADOS_PT.map((r) => (
@@ -951,16 +1259,15 @@ export function PtTagsPage() {
                               </option>
                             ))}
                           </select>
-                          <p className="text-[11px] text-muted-foreground">
-                            Suele ser <span className="font-semibold">Cajas</span>; el stock consolidado lo ves en Inventario cámara.
-                          </p>
                         </div>
-                        <div className="grid gap-2 sm:col-span-2">
-                          <Label htmlFor="format_code">Formato de presentación (N×Moz) *</Label>
+                        <div className="grid gap-1.5 lg:col-span-2">
+                          <Label className="text-xs" htmlFor="format_code">
+                            Formato de presentación *
+                          </Label>
                           {activePresFormats.length > 0 ? (
                             <select
                               id="format_code"
-                              className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               value={tagForm.watch('format_code')}
                               onChange={(e) => tagForm.setValue('format_code', e.target.value, { shouldValidate: true })}
                             >
@@ -973,89 +1280,197 @@ export function PtTagsPage() {
                               ))}
                             </select>
                           ) : (
-                            <Input placeholder="NxMoz, ej. 4x16oz" {...tagForm.register('format_code')} />
+                            <Input
+                              placeholder="NxMoz (ej. 4x16oz) o PINTA REGULAR / PINTA LOW PROFILE"
+                              {...tagForm.register('format_code')}
+                            />
                           )}
                           {tagForm.formState.errors.format_code && (
-                            <p className="text-sm text-destructive">{tagForm.formState.errors.format_code.message}</p>
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
                           )}
-                        </div>
-                        <div className="grid gap-2 sm:col-span-2">
-                          <Label>Cajas por pallet físico (mantenedor)</Label>
-                          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-                            <span className="font-semibold tabular-nums">{tagForm.watch('cajas_por_pallet')}</span>
-                            <span className="text-muted-foreground">
-                              {' '}
-                              cajas por pallet — definido en <strong>Mantenedores → Formatos</strong> para{' '}
-                              <span className="font-mono">{watchedTagFormatCode || '—'}</span>
-                              {selectedPresFormat?.max_boxes_per_pallet != null
-                                ? ''
-                                : ' (sin tope en maestro: se usa 1; conviene cargar max. cajas/pallet en el formato)'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            No se ingresa a mano: al cambiar el formato se toma el tope del maestro. El total de cajas de la unidad es el
-                            campo de la sección 1 (solo en el alta).
+                          <p className="leading-tight text-[11px] text-muted-foreground">
+                            <span className="font-medium text-foreground/75">Cajas/pallet (maestro):</span>{' '}
+                            <span className="tabular-nums font-semibold text-foreground/90">{tagForm.watch('cajas_por_pallet')}</span>
+                            {selectedPresFormat?.max_boxes_per_pallet == null ? ' · sin tope en formato (se usa 1)' : null} ·{' '}
+                            <span className="font-mono text-foreground/70">{watchedTagFormatCode || '—'}</span>
                           </p>
                           {tagForm.formState.errors.cajas_por_pallet && (
-                            <p className="text-sm text-destructive">{tagForm.formState.errors.cajas_por_pallet.message}</p>
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_por_pallet.message}</p>
                           )}
                         </div>
                       </div>
                     </section>
 
-                    <section className="rounded-xl border border-dashed border-border bg-muted/10 p-4">
-                      <div className="mb-2 flex flex-wrap items-baseline gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                          ·
+                    {/* 2 · Proceso origen */}
+                    <section className="rounded-xl border border-border bg-muted/15 p-4 shadow-sm">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
+                          2
                         </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Lectura del mantenedor</h3>
-                        <span className="text-xs text-muted-foreground">Solo informativo según el formato elegido</span>
+                        <h3 className="text-sm font-semibold tracking-tight">Proceso origen</h3>
                       </div>
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        Misma lectura que en otros formularios de stock: tipo de caja y etiqueta clamshell.
-                      </p>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="grid gap-1">
-                          <Label className="text-xs text-muted-foreground">Tipo de caja (empaque)</Label>
-                          <p className="text-sm font-medium">
-                            {selectedPresFormat?.box_kind === 'mano'
-                              ? 'Mano'
-                              : selectedPresFormat?.box_kind === 'maquina'
-                                ? 'Máquina'
-                                : 'Sin definir — Mantenedores → Formatos'}
-                          </p>
+                      <div className="grid gap-3">
+                        <div className="grid gap-1.5">
+                          <Label className="text-xs" htmlFor="tag-process">
+                            Proceso *
+                          </Label>
+                          <select
+                            id="tag-process"
+                            disabled={!!editTag && editTag.items.length > 1}
+                            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70"
+                            {...tagForm.register('process_id', { valueAsNumber: true })}
+                          >
+                            <option value={0}>Elegir proceso…</option>
+                            {(editTag
+                              ? editTag.items.length > 1
+                                ? processesForTagModal
+                                : processesForEditSelect
+                              : availableProcesses
+                            ).map((p) => (
+                              <option key={p.id} value={p.id}>
+                                [{labelProcesoEstadoParaSelector(p)}] #{p.id} · {p.variedad_nombre ?? '—'} · entrada{' '}
+                                {fmtLbCell(p.lb_entrada ?? p.peso_procesado_lb)}
+                                {p.lb_pt_restante != null && String(p.lb_pt_restante).trim() !== ''
+                                  ? ` · restante PT ${fmtLbCell(p.lb_pt_restante)}`
+                                  : ''}{' '}
+                                · {new Date(p.fecha_proceso).toLocaleDateString('es')}
+                              </option>
+                            ))}
+                          </select>
+                          {tagForm.formState.errors.process_id ? (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.process_id.message}</p>
+                          ) : null}
                         </div>
-                        <div className="grid gap-1">
-                          <Label className="text-xs text-muted-foreground">Etiqueta clamshell</Label>
-                          <p className="text-sm font-medium">
-                            {selectedPresFormat?.clamshell_label_kind === 'generica'
-                              ? 'Genérica'
-                              : selectedPresFormat?.clamshell_label_kind === 'marca'
-                                ? 'Marca'
-                                : 'Sin definir — Mantenedores → Formatos'}
+
+                        {editTag && editTag.items.length > 1 ? (
+                          <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+                            Varias líneas de proceso: no se editan aquí.
                           </p>
-                        </div>
+                        ) : null}
+                        {!editTag && availableProcesses.length === 0 ? (
+                          <p className="text-xs leading-snug text-amber-800 dark:text-amber-200">
+                            No hay procesos disponibles (borrador/confirmado con lb para PT).
+                          </p>
+                        ) : null}
+
+                        {selectedProcForCreate && (editTag ? editTag.items.length === 1 : true) ? (
+                          <div className="space-y-2">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">Lb disponibles (PT)</p>
+                                <p className="mt-0.5 text-2xl font-bold tabular-nums leading-none tracking-tight text-foreground">
+                                  {selectedProcForCreate.lb_pt_restante != null &&
+                                  String(selectedProcForCreate.lb_pt_restante).trim() !== ''
+                                    ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
+                                    : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
+                                </p>
+                              </div>
+                              <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                                  Cajas sugeridas (tope)
+                                </p>
+                                <p className="mt-0.5 flex items-baseline gap-1.5 text-2xl font-bold tabular-nums leading-none tracking-tight text-foreground">
+                                  {maxCajasDesdeProcesoCreate != null ? (
+                                    <>
+                                      {maxCajasDesdeProcesoCreate}
+                                      <span className="text-sm font-semibold text-muted-foreground">cajas</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-lg font-normal text-muted-foreground">—</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-[10px] leading-tight text-muted-foreground">
+                              {editTag && editTag.items.length === 1
+                                ? 'Incluye lb ya cargados en otras tarjas; el servidor valida el tope.'
+                                : 'Si hay más unidades PT con este proceso, el restante se actualiza al guardar.'}
+                            </p>
+                            {procesoVsTopeHint ? (
+                              <div
+                                className={cn(
+                                  'rounded-md border-l-[3px] px-2.5 py-2 text-[11px] leading-snug',
+                                  procesoVsTopeHint.tone === 'danger' &&
+                                    'border-l-rose-500 bg-rose-50 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100',
+                                  procesoVsTopeHint.tone === 'tight' &&
+                                    'border-l-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100',
+                                  procesoVsTopeHint.tone === 'close' &&
+                                    'border-l-orange-400 bg-orange-50/90 text-orange-950 dark:bg-orange-950/25 dark:text-orange-100',
+                                  procesoVsTopeHint.tone === 'ok' &&
+                                    'border-l-emerald-600 bg-emerald-50/80 text-emerald-950 dark:bg-emerald-950/25 dark:text-emerald-100',
+                                )}
+                              >
+                                <p className="font-semibold">{procesoVsTopeHint.label}</p>
+                                <p className="mt-0.5 opacity-90">{procesoVsTopeHint.detail}</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     </section>
 
-                    <section className="rounded-xl border border-border bg-muted/20 p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-baseline gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                    {/* 3 · Cantidad (cajas) */}
+                    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
                           3
                         </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Comercial (opcional)</h3>
-                        <span className="text-xs text-muted-foreground">Cliente, marca y referencia prevista</span>
+                        <h3 className="text-sm font-semibold tracking-tight">Cantidad</h3>
                       </div>
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        {editTag
-                          ? 'Podés asignar o cambiar cliente, marca y referencia; se guardan al pulsar Guardar cambios.'
-                          : 'La lista de marcas se filtra según el cliente (incluye marcas genéricas).'}
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                          <Label>Cliente comercial (previsto)</Label>
+                      <div className="grid max-w-md gap-2">
+                        <Label htmlFor="cajas_generadas" className="text-xs font-medium">
+                          Cajas a cargar *
+                        </Label>
+                        <Input
+                          id="cajas_generadas"
+                          type="number"
+                          min={1}
+                          max={maxCajasDesdeProcesoCreate ?? undefined}
+                          step={1}
+                          disabled={!!editTag && editTag.items.length > 1}
+                          className={cn(
+                            'h-12 rounded-lg border-input text-center text-xl font-semibold tabular-nums tracking-tight',
+                            editTag && editTag.items.length > 1 ? 'disabled:cursor-not-allowed disabled:opacity-70' : '',
+                          )}
+                          {...(() => {
+                            const reg = tagForm.register('cajas_generadas', { valueAsNumber: true });
+                            return {
+                              ...reg,
+                              onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                                if (!editTag) cajasGeneradasUserTouchedForSeedRef.current = true;
+                                void reg.onChange(e);
+                              },
+                            };
+                          })()}
+                        />
+                        {maxCajasDesdeProcesoCreate != null && !(editTag && editTag.items.length > 1) ? (
+                          <p className="text-[11px] leading-tight text-muted-foreground">
+                            Máximo sugerido según proceso:{' '}
+                            <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span> cajas
+                          </p>
+                        ) : null}
+                        {editTag && editTag.items.length > 1 ? (
+                          <p className="text-[11px] leading-tight text-muted-foreground">Varias líneas; no se edita aquí.</p>
+                        ) : editTag ? (
+                          <p className="text-[11px] leading-tight text-muted-foreground">Validación en servidor (lb / packout).</p>
+                        ) : null}
+                        {tagForm.formState.errors.cajas_generadas ? (
+                          <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
+                        ) : null}
+                      </div>
+                    </section>
+
+                    {/* 4 · Comercial (opcional) */}
+                    <section className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Comercial</span>
+                        <span className="text-[10px] text-muted-foreground/80">opcional</span>
+                      </div>
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        <div className="grid gap-1">
+                          <Label className="text-[11px] text-muted-foreground">Cliente</Label>
                           <select
-                            className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
                             {...tagForm.register('client_id', { valueAsNumber: true })}
                           >
                             <option value={0}>Sin definir</option>
@@ -1066,10 +1481,10 @@ export function PtTagsPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="grid gap-2">
-                          <Label>Marca (etiqueta clamshell)</Label>
+                        <div className="grid gap-1">
+                          <Label className="text-[11px] text-muted-foreground">Marca</Label>
                           <select
-                            className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
                             {...tagForm.register('brand_id', { valueAsNumber: true })}
                           >
                             <option value={0}>Sin definir</option>
@@ -1080,23 +1495,83 @@ export function PtTagsPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="grid gap-2 sm:col-span-2">
-                          <Label htmlFor="tag-bol-prev">BOL prevista / referencia comercial</Label>
+                        <div className="grid gap-1 sm:col-span-2">
+                          <Label htmlFor="tag-bol-prev" className="text-[11px] text-muted-foreground">
+                            Referencia / BOL prevista
+                          </Label>
                           <Input
                             id="tag-bol-prev"
-                            placeholder="Ej. referencia de orden o comentario corto"
+                            placeholder="Opcional"
+                            className="h-9 rounded-md text-xs"
                             {...tagForm.register('bol')}
                           />
-                          <p className="text-[11px] text-muted-foreground">
-                            Referencia en planta; no reemplaza la BOL definitiva del despacho.
-                          </p>
                         </div>
                       </div>
                     </section>
+
+                    {/* 5 · Varias unidades (solo alta; peso bajo) */}
+                    {!editTag && (
+                      <section className="rounded-lg border border-dashed border-border/70 bg-muted/10 p-3">
+                        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="text-[11px] font-medium text-muted-foreground">Varias unidades a la vez</span>
+                          <span className="text-[10px] text-muted-foreground/90">Mismo dato que arriba · secuencial</span>
+                        </div>
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="grid w-[120px] gap-1">
+                            <Label htmlFor="tag-bulk-units" className="text-[11px] text-muted-foreground">
+                              Unidades idénticas
+                            </Label>
+                            <Input
+                              id="tag-bulk-units"
+                              type="number"
+                              min={1}
+                              max={100}
+                              step={1}
+                              inputMode="numeric"
+                              className="h-10 rounded-md border-input/80 text-center text-base font-semibold tabular-nums"
+                              {...tagForm.register('bulk_units', { valueAsNumber: true })}
+                            />
+                          </div>
+                          {tagForm.formState.errors.bulk_units && (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.bulk_units.message}</p>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Lectura mantenedor: colapsable */}
+                    <details className="group rounded-lg border border-border/60 bg-muted/15 [&_summary::-webkit-details-marker]:hidden">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium text-muted-foreground transition hover:bg-muted/30">
+                        <span>Mantenedor (solo lectura)</span>
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="grid gap-2 border-t border-border/50 px-3 pb-2.5 pt-2 sm:grid-cols-2">
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Tipo de caja</p>
+                          <p className="mt-0.5 text-xs font-medium text-foreground">
+                            {selectedPresFormat?.box_kind === 'mano'
+                              ? 'Mano'
+                              : selectedPresFormat?.box_kind === 'maquina'
+                                ? 'Máquina'
+                                : 'Sin definir'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Etiqueta clamshell</p>
+                          <p className="mt-0.5 text-xs font-medium text-foreground">
+                            {selectedPresFormat?.clamshell_label_kind === 'generica'
+                              ? 'Genérica'
+                              : selectedPresFormat?.clamshell_label_kind === 'marca'
+                                ? 'Marca'
+                                : 'Sin definir'}
+                          </p>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </div>
 
-                <DialogFooter className="shrink-0 gap-2 border-t border-border bg-muted/15 px-6 py-4">
+                <DialogFooter className="shrink-0 gap-2 border-t border-border bg-muted/15 px-6 py-3">
                   <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
                     Cancelar
                   </Button>
@@ -1113,13 +1588,105 @@ export function PtTagsPage() {
                         ? 'Guardando…'
                         : 'Guardar cambios'
                       : createTagMut.isPending
-                        ? 'Creando…'
-                        : 'Crear unidad PT'}
+                        ? bulkCreateProgress
+                          ? `Creando ${bulkCreateProgress.cur}/${bulkCreateProgress.total}…`
+                          : 'Creando…'
+                        : bulkUnitsSubmitLabel > 1
+                          ? `Crear ${bulkUnitsSubmitLabel} unidades PT`
+                          : 'Crear unidad PT'}
                   </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
+        </div>
+      </div>
+
+      <section
+        className="grid gap-3 xl:grid-cols-2 xl:gap-5 @container/daily"
+        aria-labelledby="pt-daily-ops"
+      >
+        <h2 id="pt-daily-ops" className="sr-only">
+          Operación del día
+        </h2>
+        <div className={cn(contentCard, 'px-3 py-3 sm:px-5 sm:py-4')}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen del día (operación)</p>
+            <div className="flex items-center gap-2">
+              <Label className="text-[11px] text-slate-500">Fecha</Label>
+              <Input
+                type="date"
+                className="h-8 w-[150px] bg-white"
+                value={opsDayKey}
+                onChange={(e) => setOpsDayKey(e.target.value || toLocalDayKey(new Date()))}
+              />
+            </div>
+          </div>
+          <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
+            Packed y despachado: fecha seleccionada. Saldo: packed - shipped del mismo día (sin arrastre de días anteriores).
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
+            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+              <p className={kpiLabel}>Packed día</p>
+              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
+              <p className={kpiFootnote}>Cajas</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+              <p className={kpiLabel}>Saldo del día</p>
+              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
+              <p className={kpiFootnote}>Packed - Shipped</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+              <p className={kpiLabel}>Shipped día</p>
+              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.shippedToday)}</p>
+              <p className={kpiFootnote}>Cajas (factura o ítems)</p>
+            </div>
+          </div>
+        </div>
+        <div className={cn(contentCard, 'flex flex-col px-3 py-3 sm:px-5 sm:py-4')}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día por cliente</p>
+              <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
+                Fecha seleccionada ({opsDayKey}). Formatos unificados con maestros; línea: cantidad · formato. Pegá en WhatsApp, Excel o correo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5"
+              onClick={() => {
+                void navigator.clipboard.writeText(endOfDayPlainText);
+                toast.success('Resumen copiado al portapapeles');
+              }}
+            >
+              <Clipboard className="h-3.5 w-3.5" />
+              Copiar resumen
+            </Button>
+          </div>
+          <pre className="mt-3 max-h-[min(48vh,320px)] max-xl:max-h-[38vh] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 font-mono text-[10px] leading-relaxed text-slate-800 sm:p-3 sm:text-[11px]">
+            {endOfDayPlainText || `Sin datos para ${opsDayKey}.`}
+          </pre>
+        </div>
+      </section>
+
+      <div
+        className={cn(
+          contentCard,
+          'flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5',
+        )}
+      >
+        <p className="text-sm font-medium text-slate-800">Proyección · pendiente por embalar</p>
+        <div className="text-left sm:text-right">
+          <p className="text-base font-semibold tabular-nums text-slate-900 sm:text-lg">
+            Pendiente mañana: {formatLb(operationalDaily.pendingLb, 2)} lb
+          </p>
+          {pendingCajasEst != null ? (
+            <p className="text-[11px] text-slate-500">
+              ~{formatCount(pendingCajasEst)} cajas (estim. lb ÷ neto medio formatos activos)
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -1136,7 +1703,7 @@ export function PtTagsPage() {
           <div className={kpiCard}>
             <p className={kpiLabel}>Cajas totales</p>
             <p className={kpiValueLg}>{formatCount(listKpis.cajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>Sin doble conteo repallet</p>
           </div>
           <div className={kpiCard}>
             <p className={kpiLabel}>Peso total (lb)</p>
@@ -1308,8 +1875,18 @@ export function PtTagsPage() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-slate-600">{formatTagDateShort(tag.fecha)}</TableCell>
                     <TableCell>
-                      <span className="font-mono text-sm font-semibold text-slate-900">{tag.tag_code}</span>
-                      <span className="ml-2 font-mono text-[11px] text-slate-400">#{tag.id}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-mono text-sm font-semibold text-slate-900">{tag.tag_code}</span>
+                        <span className="font-mono text-[11px] text-slate-400">#{tag.id}</span>
+                        {tag.excluida_suma_packout ? (
+                          <span
+                            className="inline-flex rounded border border-violet-200/90 bg-violet-50 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-violet-900"
+                            title="Etiqueta unificada de repallet: las cajas no se suman otra vez en el total de producción"
+                          >
+                            Repallet
+                          </span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[160px] truncate text-sm font-medium text-slate-900">
                       {tagProducerLabel(tag, producerById)}
@@ -1440,6 +2017,11 @@ export function PtTagsPage() {
                 Unión de tarjas:{' '}
                 {detailTag?.es_union_tarjas ? <strong className="text-slate-800">Sí</strong> : <span>No</span>}
               </span>
+              {detailTag?.excluida_suma_packout ? (
+                <span className="block text-xs font-medium text-violet-900">
+                  Etiqueta repallet (unificada): no duplica cajas en totales de producción.
+                </span>
+              ) : null}
             </div>
           </DialogHeader>
           {detailTag && (

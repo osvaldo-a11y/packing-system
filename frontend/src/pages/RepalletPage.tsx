@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Info, ListOrdered, Plus } from 'lucide-react';
+import { Boxes, Info, ListOrdered, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson } from '@/api';
@@ -20,11 +20,9 @@ import {
   filterInputClass,
   filterPanel,
   filterSelectClass,
-  kpiCard,
   kpiCardSm,
   kpiFootnote,
   kpiLabel,
-  kpiValueLg,
   kpiValueMd,
   pageHeaderRow,
   pageInfoButton,
@@ -56,6 +54,33 @@ function palletDisplay(r: ExistenciaPtRow): string {
     r.corner_board_code ||
     `PF-${r.id}`
   );
+}
+
+/** Orden correlativo TAR-# / PF-# / id tarja. */
+function tarjaSortKey(r: ExistenciaPtRow): number {
+  const blob = `${r.tag_code ?? ''} ${r.codigo_unidad_pt_display ?? ''}`;
+  const m = /TAR-(\d+)/i.exec(blob);
+  if (m) return Number(m[1]);
+  const m2 = /PF-(\d+)/i.exec(blob);
+  if (m2) return Number(m2[1]) + 1_000_000;
+  if (r.tarja_ids?.length) return Number(r.tarja_ids[0]);
+  return Number(r.id) + 2_000_000;
+}
+
+function sortRepalletOrigins(list: ExistenciaPtRow[]): ExistenciaPtRow[] {
+  return [...list].sort((a, b) => {
+    const ka = tarjaSortKey(a);
+    const kb = tarjaSortKey(b);
+    if (ka !== kb) return ka - kb;
+    return a.id - b.id;
+  });
+}
+
+/** Pallet con menos cajas que el tope del formato (cuando el maestro lo define). */
+function isPartialPallet(r: ExistenciaPtRow): boolean {
+  const max = r.max_boxes_per_pallet;
+  if (max == null || !Number.isFinite(max) || max <= 0) return false;
+  return (Number(r.boxes) || 0) < max;
 }
 
 function PalletStatusBadge({ status }: { status: string }) {
@@ -101,47 +126,6 @@ function RepalletRoleBadge({ r }: { r: ExistenciaPtRow }) {
       Operativo
     </span>
   );
-}
-
-function OrigenDestinoCells({ r }: { r: ExistenciaPtRow }) {
-  const isOrigen = r.repalletizaje === 'origen';
-  const isDestino = r.repalletizaje === 'resultado';
-  return (
-    <>
-      <TableCell className="align-top text-xs text-slate-600">
-        {isOrigen ? (
-          <span className="font-mono text-[11px] text-slate-800">{palletDisplay(r)}</span>
-        ) : (
-          <span className="text-slate-400">—</span>
-        )}
-      </TableCell>
-      <TableCell className="align-top text-xs text-slate-600">
-        {isDestino ? (
-          <span className="font-mono text-[11px] text-slate-800">{palletDisplay(r)}</span>
-        ) : (
-          <span className="text-slate-400">—</span>
-        )}
-      </TableCell>
-    </>
-  );
-}
-
-function DiferenciaCell({ r }: { r: ExistenciaPtRow }) {
-  if (r.repalletizaje === 'origen') {
-    return (
-      <span className="text-[11px] text-amber-800" title="Pallet origen en evento de repaletizaje">
-        Origen consumido
-      </span>
-    );
-  }
-  if (r.repalletizaje === 'resultado') {
-    return (
-      <span className="text-[11px] text-violet-900" title="Pallet nuevo generado por repaletizaje">
-        Pallet nuevo
-      </span>
-    );
-  }
-  return <span className="text-slate-400">—</span>;
 }
 
 export function RepalletPage() {
@@ -217,6 +201,18 @@ export function RepalletPage() {
     }
     return list;
   }, [rows, filterSpeciesId, filterFormatId, filterRepallet, search]);
+
+  /** Misma lista que la tabla, ordenada por TAR/PF para los desplegables de orígenes. */
+  const sortedOriginsForSelect = useMemo(() => sortRepalletOrigins(filteredRows), [filteredRows]);
+
+  const totalCajasAMover = useMemo(() => {
+    let s = 0;
+    for (const src of sources) {
+      const n = Number.parseInt(src.boxes, 10);
+      if (Number.isFinite(n) && n > 0) s += n;
+    }
+    return s;
+  }, [sources]);
 
   const kpis = useMemo(() => {
     const list = filteredRows;
@@ -372,116 +368,166 @@ export function RepalletPage() {
         </div>
       </div>
 
-      <section aria-labelledby="repallet-kpis" className="space-y-4">
-        <h2 id="repallet-kpis" className="sr-only">
-          Indicadores
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCard}>
-            <p className={kpiLabel}>Pallets en vista</p>
-            <p className={kpiValueLg}>{formatCount(kpis.total)}</p>
-            <p className={kpiFootnote}>Depósito (filtros actuales)</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>Stock operativo</p>
-            <p className={kpiValueLg}>{formatCount(kpis.stockNormal)}</p>
-            <p className={kpiFootnote}>Sin marca origen/resultado</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              kpis.origen > 0 ? 'border-amber-200/85 bg-amber-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>Origen rep.</p>
-            <p className={cn(kpiValueLg, kpis.origen > 0 ? 'text-amber-950' : '')}>{formatCount(kpis.origen)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Pallets consumidos</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              kpis.resultado > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>Resultado rep.</p>
-            <p className={cn(kpiValueLg, kpis.resultado > 0 ? 'text-violet-950' : '')}>{formatCount(kpis.resultado)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Pallets nuevos post-evento</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div
-            className={cn(
-              kpiCardSm,
-              kpis.borrador > 0 ? 'border-slate-200/90 bg-slate-50/50' : '',
-            )}
-          >
-            <p className={kpiLabel}>En proceso</p>
-            <p className={kpiValueMd}>{formatCount(kpis.borrador)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Estado borrador en vista</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>Confirmados</p>
-            <p className={kpiValueMd}>{formatCount(kpis.definitivo)}</p>
-            <p className={kpiFootnote}>Estado definitivo</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>Cerrados logísticos</p>
-            <p className={kpiValueMd}>{formatCount(kpis.asignadoPl)}</p>
-            <p className={kpiFootnote}>Reservados en PL</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>Repalet marcados</p>
-            <p className={kpiValueMd}>{formatCount(kpis.repaletMarcados)}</p>
-            <p className={kpiFootnote}>Origen + resultado</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>Cajas totales</p>
-            <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>Peso total (lb)</p>
-            <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
-          </div>
-          <div
-            className={cn(
-              kpiCardSm,
-              'sm:col-span-2',
-              kpis.sinCajas > 0 ? 'border-amber-200/90 bg-amber-50/35' : '',
-            )}
-          >
-            <p className={kpiLabel}>Incidencias / huecos</p>
-            <p className={cn(kpiValueMd, kpis.sinCajas > 0 ? 'text-amber-950' : '')}>{formatCount(kpis.sinCajas)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Pallets con 0 cajas en vista</p>
-          </div>
-        </div>
-      </section>
-
-      {alertLines.length > 0 ? (
-        <div className={signalsPanel}>
-          <p className={signalsTitle}>Señales operativas</p>
-          <ul className="space-y-2">
-            {alertLines.map((a) => (
-              <li
-                key={a.key}
+      <Card id="repallet-origenes" className={contentCard}>
+        <CardHeader className="space-y-3 pb-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <CardTitle className={sectionTitle}>Nuevo repaletizaje</CardTitle>
+              <CardDescription className="text-[13px] text-slate-500">
+                Orígenes (FIFO por líneas). Los filtros y la tabla de abajo usan el mismo universo (solo depósito). Las
+                cajas a mover no pueden superar lo disponible por pallet.
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+              <div
                 className={cn(
-                  'rounded-xl border px-3 py-2 text-[13px] leading-snug',
-                  a.tone === 'warn'
-                    ? 'border-amber-200/90 bg-white text-amber-950'
-                    : 'border-slate-200/90 bg-white text-slate-700',
+                  kpiCardSm,
+                  'flex min-w-[200px] flex-row items-center justify-between gap-3 border-sky-200/80 bg-sky-50/50 py-2.5 sm:min-w-[240px]',
                 )}
+                title="Suma de todas las cajas que estás asignando a mover en los orígenes"
               >
-                {a.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Boxes className="h-4 w-4 text-sky-700" aria-hidden />
+                  <span className="text-xs font-medium text-slate-700">Total cajas a mover</span>
+                </div>
+                <span className="text-xl font-semibold tabular-nums text-sky-950">{formatCount(totalCajasAMover)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+            <div className="grid min-w-[160px] flex-1 gap-1.5 sm:max-w-[220px]">
+              <Label className="text-[11px] text-slate-500">Formato (orígenes)</Label>
+              <select
+                className={filterSelectClass}
+                value={filterFormatId}
+                onChange={(e) => setFilterFormatId(Number(e.target.value))}
+              >
+                <option value={0}>Todos los formatos</option>
+                {formatOptions.map(([id, code]) => (
+                  <option key={id} value={id}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="max-w-md flex-1 text-[11px] leading-snug text-slate-500">
+              Repaletizá dentro del mismo formato: al elegir uno, la lista y la tabla quedan alineadas. Los pallets con
+              menos cajas que el tope del formato aparecen como parciales abajo.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {sources.map((row, idx) => {
+            const meta = row.palletId > 0 ? byId.get(row.palletId) : undefined;
+            const max = meta?.boxes ?? 0;
+            const over = meta && row.boxes ? Number.parseInt(row.boxes, 10) > max : false;
+            const partial = meta ? isPartialPallet(meta) : false;
+            return (
+              <div
+                key={row.key}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end"
+              >
+                <div className="grid min-w-0 flex-1 gap-2">
+                  <Label className="text-xs text-slate-500">Pallet origen #{idx + 1}</Label>
+                  <select
+                    className={filterSelectClass}
+                    value={row.palletId || ''}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setSources((prev) => prev.map((r) => (r.key === row.key ? { ...r, palletId: v } : r)));
+                    }}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {sortedOriginsForSelect.map((r) => {
+                      const par = isPartialPallet(r);
+                      const label = `${par ? '◐ ' : ''}${palletDisplay(r)} · ${r.format_code ?? '—'} · ${r.boxes} cajas`;
+                      return (
+                        <option key={r.id} value={r.id}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {meta ? (
+                    <p
+                      className={cn(
+                        'text-[11px]',
+                        partial ? 'font-medium text-amber-900' : 'text-slate-500',
+                      )}
+                    >
+                      {partial ? (
+                        <span title="Menos cajas que el tope del formato en maestro">Pallet parcial · </span>
+                      ) : null}
+                      Disponible: {meta.boxes} cajas · {meta.variedades_label}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="grid w-full gap-2 sm:w-40">
+                  <Label className="text-xs text-slate-500">Cajas a mover</Label>
+                  <Input
+                    className={filterInputClass}
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={row.boxes}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSources((prev) => prev.map((r) => (r.key === row.key ? { ...r, boxes: v } : r)));
+                    }}
+                  />
+                  {meta && row.boxes ? (
+                    <p className="text-[11px] text-slate-500">
+                      Máx. sugerido: {max}
+                      {over ? <span className="text-destructive"> · supera disponible</span> : null}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 shrink-0 rounded-xl border-slate-200"
+                  disabled={sources.length <= 1}
+                  onClick={() => setSources((prev) => prev.filter((r) => r.key !== row.key))}
+                >
+                  Quitar
+                </Button>
+              </div>
+            );
+          })}
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-9 rounded-xl"
+            onClick={() => setSources((p) => [...p, newRow()])}
+          >
+            Agregar origen
+          </Button>
+
+          <div className="grid gap-2">
+            <Label className="text-xs text-slate-500">Notas (opcional)</Label>
+            <Input
+              className={filterInputClass}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Referencia interna del movimiento"
+            />
+          </div>
+
+          {mut.isError ? (
+            <div role="alert" className={errorStatePanel}>
+              {(mut.error as Error)?.message ?? 'Error'}
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
+              {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className={filterPanel}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -555,10 +601,10 @@ export function RepalletPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="repallet-tabla" className={sectionTitle}>
-              Inventario depósito (referencia)
+              Existencia en cámara (vista rápida)
             </h2>
             <p className={sectionHint}>
-              {filteredRows.length} pallet(s) · mismos datos que el selector de orígenes
+              {filteredRows.length} pallet(s) · mismo universo que los orígenes
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
@@ -574,57 +620,62 @@ export function RepalletPage() {
         ) : !filteredRows.length ? (
           <p className={emptyStatePanel}>Sin coincidencias con el filtro.</p>
         ) : (
-          <div className={tableShell}>
-            <Table className="min-w-[1100px]">
+          <div className={cn(tableShell, 'max-h-[min(52vh,520px)] overflow-auto')}>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[120px]">Estado pallet</TableHead>
-                  <TableHead className="whitespace-nowrap text-slate-500">Fecha</TableHead>
-                  <TableHead className="min-w-[100px]">Origen</TableHead>
-                  <TableHead className="min-w-[100px]">Destino</TableHead>
-                  <TableHead className="min-w-[120px]">Productor</TableHead>
-                  <TableHead className="min-w-[140px]">Variedad</TableHead>
-                  <TableHead className="min-w-[88px]">Formato</TableHead>
+                  <TableHead className="min-w-[160px]">Código · estado</TableHead>
+                  <TableHead className="min-w-[72px]">Formato</TableHead>
+                  <TableHead className="min-w-[120px]">Cliente</TableHead>
+                  <TableHead className="min-w-[100px]">Marca</TableHead>
                   <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                  <TableHead className="text-right tabular-nums">Peso (lb)</TableHead>
-                  <TableHead className="min-w-[120px]">Resultado</TableHead>
-                  <TableHead className="w-[108px] text-right">Acciones</TableHead>
+                  <TableHead className="min-w-[100px]">BOL</TableHead>
+                  <TableHead className="w-[72px] text-right"> </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.map((r) => (
-                  <TableRow key={r.id} className={tableBodyRow}>
-                    <TableCell className="max-w-[200px] py-3.5 align-top">
+                  <TableRow
+                    key={r.id}
+                    className={cn(tableBodyRow, isPartialPallet(r) ? 'bg-amber-50/35' : '')}
+                  >
+                    <TableCell className="max-w-[220px] py-2.5 align-middle">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-[12px] font-medium text-slate-900">{palletDisplay(r)}</span>
                         <PalletStatusBadge status={r.status} />
                         <RepalletRoleBadge r={r} />
                       </div>
                     </TableCell>
-                    <TableCell className="align-top text-xs text-slate-400">—</TableCell>
-                    <OrigenDestinoCells r={r} />
-                    <TableCell className="max-w-[160px] align-top">
+                    <TableCell className="align-middle font-mono text-xs text-slate-800">
+                      {r.format_code?.trim() || '—'}
+                    </TableCell>
+                    <TableCell className="max-w-[140px] align-middle">
                       <p className="truncate text-xs text-slate-800" title={r.client_nombre ?? ''}>
                         {r.client_nombre?.trim() || '—'}
                       </p>
                     </TableCell>
-                    <TableCell className="max-w-[200px] align-top">
-                      <p className="text-xs leading-snug text-slate-700" title={r.variedades_label}>
-                        {r.variedades_label || '—'}
+                    <TableCell className="max-w-[120px] align-middle">
+                      <p className="truncate text-xs text-slate-600" title={r.brand_nombre ?? ''}>
+                        {r.brand_nombre?.trim() || '—'}
                       </p>
                     </TableCell>
-                    <TableCell className="align-top font-mono text-xs text-slate-800">
-                      {r.format_code?.trim() || '—'}
+                    <TableCell className="align-middle text-right text-sm tabular-nums text-slate-900">
+                      <span className="inline-flex items-center justify-end gap-1.5">
+                        {isPartialPallet(r) ? (
+                          <span
+                            className="inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-950"
+                            title="Menos cajas que el tope del formato (pallet parcial)"
+                          >
+                            Parcial
+                          </span>
+                        ) : null}
+                        {formatCount(r.boxes)}
+                      </span>
                     </TableCell>
-                    <TableCell className="align-top text-right text-sm tabular-nums text-slate-900">
-                      {formatCount(r.boxes)}
+                    <TableCell className="max-w-[120px] align-middle font-mono text-[11px] text-slate-700">
+                      {r.bol?.trim() || '—'}
                     </TableCell>
-                    <TableCell className="align-top text-right text-sm tabular-nums text-slate-900">
-                      {formatLb(r.pounds, 2)}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <DiferenciaCell r={r} />
-                    </TableCell>
-                    <TableCell className="align-top text-right">
+                    <TableCell className="align-middle text-right">
                       <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-slate-700">
                         <Link to={`/existencias-pt/detalle/${r.id}`}>Ver</Link>
                       </Button>
@@ -637,113 +688,62 @@ export function RepalletPage() {
         )}
       </section>
 
-      <Card id="repallet-origenes" className={contentCard}>
-        <CardHeader className="space-y-1 pb-2">
-          <CardTitle className={sectionTitle}>Nuevo repaletizaje</CardTitle>
-          <CardDescription className="text-[13px] text-slate-500">
-            Orígenes (FIFO por líneas de cada pallet). Elegí pallets del listado actual; las cajas no pueden superar lo
-            disponible por pallet.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {sources.map((row, idx) => {
-            const meta = row.palletId > 0 ? byId.get(row.palletId) : undefined;
-            const max = meta?.boxes ?? 0;
-            const over = meta && row.boxes ? Number.parseInt(row.boxes, 10) > max : false;
-            return (
-              <div
-                key={row.key}
-                className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end"
+      {alertLines.length > 0 ? (
+        <div className={signalsPanel}>
+          <p className={signalsTitle}>Señales operativas</p>
+          <ul className="space-y-2">
+            {alertLines.map((a) => (
+              <li
+                key={a.key}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-[13px] leading-snug',
+                  a.tone === 'warn'
+                    ? 'border-amber-200/90 bg-white text-amber-950'
+                    : 'border-slate-200/90 bg-white text-slate-700',
+                )}
               >
-                <div className="grid min-w-0 flex-1 gap-2">
-                  <Label className="text-xs text-slate-500">Pallet origen #{idx + 1}</Label>
-                  <select
-                    className={filterSelectClass}
-                    value={row.palletId || ''}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setSources((prev) => prev.map((r) => (r.key === row.key ? { ...r, palletId: v } : r)));
-                    }}
-                  >
-                    <option value="">Seleccionar…</option>
-                    {(rows ?? []).map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {palletDisplay(r)} · {r.format_code ?? '—'} · {r.boxes} cajas
-                      </option>
-                    ))}
-                  </select>
-                  {meta ? (
-                    <p className="text-[11px] text-slate-500">
-                      Disponible: {meta.boxes} cajas · {meta.variedades_label}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="grid w-full gap-2 sm:w-40">
-                  <Label className="text-xs text-slate-500">Cajas a mover</Label>
-                  <Input
-                    className={filterInputClass}
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={row.boxes}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setSources((prev) => prev.map((r) => (r.key === row.key ? { ...r, boxes: v } : r)));
-                    }}
-                  />
-                  {meta && row.boxes ? (
-                    <p className="text-[11px] text-slate-500">
-                      Máx. sugerido: {max}
-                      {over ? <span className="text-destructive"> · supera disponible</span> : null}
-                    </p>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 shrink-0 rounded-xl border-slate-200"
-                  disabled={sources.length <= 1}
-                  onClick={() => setSources((prev) => prev.filter((r) => r.key !== row.key))}
-                >
-                  Quitar
-                </Button>
-              </div>
-            );
-          })}
+                {a.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="h-9 rounded-xl"
-            onClick={() => setSources((p) => [...p, newRow()])}
+      <section aria-labelledby="repallet-kpis-resumen" className="space-y-3">
+        <h2 id="repallet-kpis-resumen" className="sr-only">
+          Resumen
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Pallets en vista</p>
+            <p className={kpiValueMd}>{formatCount(kpis.total)}</p>
+            <p className={kpiFootnote}>Filtros actuales</p>
+          </div>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
+            <p className={kpiFootnote}>Suma en vista</p>
+          </div>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>Peso (lb)</p>
+            <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
+            <p className={kpiFootnote}>Suma en vista</p>
+          </div>
+          <div
+            className={cn(
+              kpiCardSm,
+              kpis.sinCajas > 0 ? 'border-amber-200/90 bg-amber-50/35' : '',
+            )}
           >
-            Agregar origen
-          </Button>
-
-          <div className="grid gap-2">
-            <Label className="text-xs text-slate-500">Notas (opcional)</Label>
-            <Input
-              className={filterInputClass}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Referencia interna del movimiento"
-            />
+            <p className={kpiLabel}>Repallet / huecos</p>
+            <p className={cn(kpiValueMd, kpis.sinCajas > 0 ? 'text-amber-950' : '')}>
+              {formatCount(kpis.origen)} orig. · {formatCount(kpis.resultado)} res. ·{' '}
+              {formatCount(kpis.sinCajas)} sin cajas
+            </p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>Trazas y anomalías</p>
           </div>
-
-          {mut.isError ? (
-            <div role="alert" className={errorStatePanel}>
-              {(mut.error as Error)?.message ?? 'Error'}
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
-              {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

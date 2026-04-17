@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PtTag } from '../process/process.entities';
 import { MaterialCategory } from '../traceability/catalog.entities';
+import { Brand, Client } from '../traceability/operational.entities';
 import { PresentationFormat } from '../traceability/traceability.entities';
 import {
   PackagingCostBreakdown,
@@ -17,6 +19,9 @@ import { PackagingService } from './packaging.service';
   imports: [
     TypeOrmModule.forFeature([
       MaterialCategory,
+      PtTag,
+      Brand,
+      Client,
       PresentationFormat,
       PackagingMaterial,
       PackagingRecipe,

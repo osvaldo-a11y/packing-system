@@ -67,6 +67,21 @@ export class PtPackingListController {
     return this.service.reverseConfirmed(id, username, dto?.notes);
   }
 
+  /**
+   * Reversa un PL confirmado aunque esté vinculado a un despacho: primero desvincula (y elimina el despacho si queda vacío).
+   * Destructivo; solo administración.
+   */
+  @Post(':id/reverse-master')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  reverseMaster(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ReversePtPackingListDto,
+    @Req() req: Request & { user?: { username?: string } },
+  ) {
+    const username = req.user?.username ?? 'unknown';
+    return this.service.reverseConfirmed(id, username, dto?.notes, { unlinkDispatchFirst: true });
+  }
+
   @Delete(':id')
   @HttpCode(204)
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)

@@ -42,6 +42,7 @@ import { DocumentState, Mercado, ReceptionType } from './catalog.entities';
 import { MasterUsageService } from './master-usage.service';
 
 const FORMAT_CODE_RE = /^(\d+)x(\d+)oz$/i;
+const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
 
 const WEIGHT_BASIS = new Set(['net_lb', 'gross_lb']);
 const QUALITY_INTENTS = new Set(['exportacion', 'proceso']);
@@ -201,6 +202,21 @@ export class TraceabilityService {
     return this.resultComponentRepo.save(row);
   }
 
+  async deleteProcessResultComponent(id: number) {
+    const row = await this.resultComponentRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Componente de resultado no encontrado');
+    await this.masterUsage.assertCanDeactivateProcessResultComponent(id);
+    try {
+      await this.resultComponentRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este componente porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   async listSpeciesProcessResultComponents(speciesId: number, includeInactive = false) {
     const species = await this.speciesRepo.findOne({ where: { id: speciesId } });
     if (!species) throw new NotFoundException('Especie no encontrada');
@@ -310,8 +326,27 @@ export class TraceabilityService {
     return this.processMachineRepo.save(row);
   }
 
+  async deleteProcessMachine(id: number) {
+    const row = await this.processMachineRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Máquina / línea de proceso no encontrada');
+    await this.masterUsage.assertCanDeactivateProcessMachine(id);
+    try {
+      await this.processMachineRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta línea de proceso porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   private isPgUniqueViolation(err: unknown): boolean {
     return err instanceof QueryFailedError && (err as { driverError?: { code?: string } }).driverError?.code === '23505';
+  }
+
+  private isPgForeignKeyViolation(err: unknown): boolean {
+    return err instanceof QueryFailedError && (err as { driverError?: { code?: string } }).driverError?.code === '23503';
   }
 
   private parseInsertedRowId(result: unknown): number {
@@ -359,6 +394,9 @@ export class TraceabilityService {
     lines: CreateReceptionLineDto[],
     receptionReference: string,
   ): Promise<{ sumGross: number; sumNet: number }> {
+    if (!Number.isFinite(receptionId) || receptionId < 1) {
+      throw new BadRequestException('reception_id inválido al guardar líneas.');
+    }
     const ref = receptionReference?.trim();
     if (!ref) {
       throw new BadRequestException('Falta referencia de recepción para generar el lote de cada línea.');
@@ -441,9 +479,166 @@ export class TraceabilityService {
     return { sumGross, sumNet };
   }
 
+  private async updateReceptionLinesInPlace(
+    em: EntityManager,
+    receptionId: number,
+    existingLines: ReceptionLine[],
+    lines: CreateReceptionLineDto[],
+    receptionReference: string,
+  ): Promise<{ sumGross: number; sumNet: number }> {
+    const ref = receptionReference?.trim();
+    if (!ref) {
+      throw new BadRequestException('Falta referencia de recepción para generar el lote de cada línea.');
+    }
+    if (existingLines.length !== lines.length) {
+      throw new BadRequestException(
+        'Esta recepción ya está vinculada a procesos. Solo podés editar las líneas existentes, sin agregar ni quitar líneas.',
+      );
+    }
+
+    const ordered = [...existingLines].sort((a, b) => Number(a.line_order) - Number(b.line_order) || a.id - b.id);
+    let sumGross = 0;
+    let sumNet = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      const lineNum = i + 1;
+      const row = ordered[i];
+      if (!row) throw new BadRequestException(`Línea ${lineNum}: no existe línea base para actualizar`);
+
+      const sp = await em.findOne(Species, { where: { id: ln.species_id } });
+      const v = await em.findOne(Variety, { where: { id: ln.variety_id } });
+      if (!sp || !v) throw new BadRequestException(`Línea ${lineNum}: especie o variedad inválida`);
+      if (v.species_id !== ln.species_id) {
+        throw new BadRequestException(`Línea ${lineNum}: la variedad no corresponde a la especie seleccionada`);
+      }
+      const q = await em.findOne(QualityGrade, { where: { id: ln.quality_grade_id } });
+      if (!q) throw new BadRequestException(`Línea ${lineNum}: calidad inválida`);
+      const net = Number(ln.net_lb);
+      if (!Number.isFinite(net) || net <= 0) {
+        throw new BadRequestException(`Línea ${lineNum}: neto lb es obligatorio y debe ser mayor que 0`);
+      }
+      const qty = Number(ln.quantity);
+      if (!Number.isInteger(qty) || qty < 1) {
+        throw new BadRequestException(`Línea ${lineNum}: cantidad (lugs/envases) es obligatoria y debe ser un entero ≥ 1`);
+      }
+      const rcId = Number(ln.returnable_container_id);
+      if (!Number.isFinite(rcId) || rcId < 1) {
+        throw new BadRequestException(`Línea ${lineNum}: envase es obligatorio`);
+      }
+      const rc = await em.findOne(ReturnableContainer, { where: { id: rcId } });
+      if (!rc) throw new BadRequestException(`Línea ${lineNum}: envase inválido`);
+
+      const grossPart = ln.gross_lb != null ? Number(ln.gross_lb) : 0;
+      const tarePart = ln.tare_lb != null ? Number(ln.tare_lb) : 0;
+      if (grossPart > 0) sumGross += grossPart;
+      sumNet += net;
+      const formatCode = [rc.tipo, rc.capacidad].filter(Boolean).join(' · ') || rc.tipo;
+      const lotCode = `${ref}-L${lineNum}`;
+
+      await em.update(
+        ReceptionLine,
+        { id: row.id, reception_id: receptionId },
+        {
+          reception_id: receptionId,
+          line_order: i,
+          lot_code: lotCode,
+          species_id: ln.species_id,
+          variety_id: ln.variety_id,
+          quality_grade_id: ln.quality_grade_id,
+          multivariety_note: ln.multivariety_note?.trim() ?? null,
+          format_code: formatCode,
+          returnable_container_id: rcId,
+          quantity: qty,
+          gross_lb: grossPart.toFixed(3),
+          tare_lb: tarePart.toFixed(3),
+          net_lb: net.toFixed(3),
+          temperature_f: ln.temperature_f != null ? ln.temperature_f.toFixed(2) : null,
+        },
+      );
+
+      const existingMov = await em.findOne(RawMaterialMovement, {
+        where: {
+          reception_line_id: row.id,
+          movement_kind: 'reception_in',
+          ref_type: 'reception',
+          ref_id: receptionId,
+        },
+        order: { id: 'ASC' },
+      });
+      if (existingMov) {
+        existingMov.quantity_delta_lb = net.toFixed(3);
+        await em.save(RawMaterialMovement, existingMov);
+      } else {
+        await em.save(
+          RawMaterialMovement,
+          em.create(RawMaterialMovement, {
+            reception_line_id: row.id,
+            fruit_process_id: null,
+            quantity_delta_lb: net.toFixed(3),
+            movement_kind: 'reception_in',
+            ref_type: 'reception',
+            ref_id: receptionId,
+          }),
+        );
+      }
+    }
+    return { sumGross, sumNet };
+  }
+
+  private async syncProcessVarietyForReceptionLines(em: EntityManager, lineIds: number[]) {
+    if (!lineIds.length) return;
+    const processRows = (await em.query(
+      `SELECT DISTINCT process_id FROM fruit_process_line_allocations WHERE reception_line_id = ANY($1::bigint[])
+       UNION
+       SELECT id AS process_id FROM fruit_processes WHERE reception_line_id = ANY($1::bigint[]) AND deleted_at IS NULL`,
+      [lineIds],
+    )) as { process_id: string | number }[];
+    for (const pr of processRows) {
+      const processId = Number(pr.process_id);
+      if (!Number.isFinite(processId) || processId < 1) continue;
+      const agg = (await em.query(
+        `SELECT COUNT(DISTINCT rl.variety_id)::int AS variety_count,
+                MIN(rl.variety_id)::bigint AS single_variety_id
+         FROM fruit_process_line_allocations a
+         JOIN reception_lines rl ON rl.id = a.reception_line_id
+         WHERE a.process_id = $1`,
+        [processId],
+      )) as { variety_count: number | string; single_variety_id: number | string | null }[];
+      const primary = (await em.query(
+        `SELECT rl.variety_id
+         FROM fruit_processes fp
+         LEFT JOIN reception_lines rl ON rl.id = fp.reception_line_id
+         WHERE fp.id = $1 AND fp.deleted_at IS NULL`,
+        [processId],
+      )) as { variety_id: number | string | null }[];
+
+      let nextVarietyId: number | null = null;
+      const varietyCount = Number(agg[0]?.variety_count ?? 0);
+      const singleVariety = agg[0]?.single_variety_id != null ? Number(agg[0]?.single_variety_id) : null;
+      if (varietyCount === 1 && singleVariety != null && Number.isFinite(singleVariety)) {
+        nextVarietyId = singleVariety;
+      } else {
+        const primaryVariety = primary[0]?.variety_id != null ? Number(primary[0].variety_id) : null;
+        if (primaryVariety != null && Number.isFinite(primaryVariety)) {
+          nextVarietyId = primaryVariety;
+        }
+      }
+      if (nextVarietyId != null) {
+        await em.query(`UPDATE fruit_processes SET variedad_id = $2 WHERE id = $1 AND deleted_at IS NULL`, [
+          processId,
+          nextVarietyId,
+        ]);
+      }
+    }
+  }
+
   private assertFormatCode(code: string) {
-    if (!FORMAT_CODE_RE.test(code.trim())) {
-      throw new BadRequestException('format_code debe ser NxMoz, ej. 4x16oz');
+    const c = code.trim();
+    if (!FORMAT_CODE_RE.test(c) && !FORMAT_ALIAS_RE.test(c)) {
+      throw new BadRequestException(
+        'format_code debe ser NxMoz (ej. 4x16oz) o uno explícito permitido (PINTA REGULAR / PINTA LOW PROFILE).',
+      );
     }
   }
 
@@ -496,6 +691,21 @@ export class TraceabilityService {
     return this.qualityRepo.save(row);
   }
 
+  async deleteQualityGrade(id: number) {
+    const row = await this.qualityRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Calidad no encontrada');
+    await this.masterUsage.assertCanDeactivateQualityGrade(id);
+    try {
+      await this.qualityRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta calidad porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   // --- Species ---
   listSpecies(includeInactive = false) {
     return this.speciesRepo.find({
@@ -533,6 +743,27 @@ export class TraceabilityService {
     return this.speciesRepo.save(row);
   }
 
+  async deleteSpecies(id: number) {
+    const row = await this.speciesRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Especie no encontrada');
+    await this.masterUsage.assertCanDeactivateSpecies(id);
+    const varietyCount = await this.varietyRepo.count({ where: { species_id: id } });
+    if (varietyCount > 0) {
+      throw new BadRequestException(
+        `No se puede borrar esta especie: tiene ${varietyCount} variedad(es) asociada(s).`,
+      );
+    }
+    try {
+      await this.speciesRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta especie porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   // --- Producers ---
   listProducers(includeInactive = false) {
     return this.producerRepo.find({
@@ -568,6 +799,21 @@ export class TraceabilityService {
     if (dto.nombre != null) row.nombre = nextNombre;
     if (dto.activo != null) row.activo = dto.activo;
     return this.producerRepo.save(row);
+  }
+
+  async deleteProducer(id: number) {
+    const row = await this.producerRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Productor no encontrado');
+    await this.masterUsage.assertCanDeactivateProducer(id);
+    try {
+      await this.producerRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este productor porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
   }
 
   // --- Varieties ---
@@ -619,6 +865,21 @@ export class TraceabilityService {
     return this.varietyRepo.save(row);
   }
 
+  async deleteVariety(id: number) {
+    const row = await this.varietyRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Variedad no encontrada');
+    await this.masterUsage.assertCanDeactivateVariety(id);
+    try {
+      await this.varietyRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar esta variedad porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
+  }
+
   // --- Presentation formats ---
   listPresentationFormats(includeInactive = false) {
     return this.formatRepo.find({
@@ -631,9 +892,11 @@ export class TraceabilityService {
   async createPresentationFormat(dto: CreatePresentationFormatDto) {
     const code = dto.format_code.trim();
     this.assertFormatCode(code);
-    const lc = code.toLowerCase();
-    const dupFc = await this.formatRepo.findOne({ where: { format_code: lc } });
-    if (dupFc) throw new BadRequestException(`Ya existe un formato con código ${lc}`);
+    const dupFc = await this.formatRepo
+      .createQueryBuilder('f')
+      .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code })
+      .getOne();
+    if (dupFc) throw new BadRequestException(`Ya existe un formato con código ${dupFc.format_code}`);
     if (dto.species_id != null) {
       const sp = await this.speciesRepo.findOne({ where: { id: dto.species_id } });
       if (!sp) throw new BadRequestException('species_id inválido');
@@ -650,7 +913,7 @@ export class TraceabilityService {
     }
     return this.formatRepo.save(
       this.formatRepo.create({
-        format_code: lc,
+        format_code: code,
         species_id: dto.species_id ?? null,
         descripcion,
         net_weight_lb_per_box: dto.net_weight_lb_per_box.toFixed(4),
@@ -670,10 +933,12 @@ export class TraceabilityService {
     if (dto.format_code != null) {
       const code = dto.format_code.trim();
       this.assertFormatCode(code);
-      const lc = code.toLowerCase();
-      const dup = await this.formatRepo.findOne({ where: { format_code: lc } });
-      if (dup && dup.id !== id) throw new BadRequestException(`Ya existe otro formato con código ${lc}`);
-      row.format_code = lc;
+      const dup = await this.formatRepo
+        .createQueryBuilder('f')
+        .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code })
+        .getOne();
+      if (dup && dup.id !== id) throw new BadRequestException(`Ya existe otro formato con código ${dup.format_code}`);
+      row.format_code = code;
     }
     if (dto.species_id !== undefined) {
       if (dto.species_id != null) {
@@ -706,6 +971,21 @@ export class TraceabilityService {
       if (await qb.getOne()) throw new BadRequestException('Ya existe otro formato con la misma descripción para esta especie.');
     }
     return this.formatRepo.save(row);
+  }
+
+  async deletePresentationFormat(id: number) {
+    const row = await this.formatRepo.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Formato no encontrado');
+    await this.masterUsage.assertCanDeactivatePresentationFormat(id);
+    try {
+      await this.formatRepo.delete({ id });
+    } catch (e) {
+      if (this.isPgForeignKeyViolation(e)) {
+        throw new BadRequestException('No se puede borrar este formato porque está en uso.');
+      }
+      throw e;
+    }
+    return { ok: true };
   }
 
   // --- Receptions ---
@@ -893,11 +1173,20 @@ export class TraceabilityService {
     }
 
     return this.receptionRepo.manager.transaction(async (em) => {
-      const lineIds = (existing.lines ?? []).map((l) => l.id);
+      const existingLinesSnapshot = [...(existing.lines ?? [])];
+      const lineIds = existingLinesSnapshot.map((l) => l.id);
+      const linkedLineIds = new Set<number>();
       if (lineIds.length) {
-        await em.delete(RawMaterialMovement, { reception_line_id: In(lineIds) });
-        await em.delete(ReceptionLine, { reception_id: id });
+        const linkedRows = (await em.query(
+          `SELECT DISTINCT reception_line_id
+           FROM fruit_processes
+           WHERE reception_line_id = ANY($1::bigint[])`,
+          [lineIds],
+        )) as { reception_line_id: string | number }[];
+        for (const row of linkedRows) linkedLineIds.add(Number(row.reception_line_id));
       }
+      /** Si dejamos `lines` en el entity, un `save(Reception)` puede intentar insertar hijos huérfanos tras DELETE+INSERT. */
+      delete (existing as Reception & { lines?: ReceptionLine[] }).lines;
 
       existing.received_at = new Date(dto.received_at);
       existing.document_number = dto.document_number?.trim() || null;
@@ -939,16 +1228,37 @@ export class TraceabilityService {
       }
 
       if (lines.length > 0) {
-        const { sumGross, sumNet } = await this.insertReceptionLinesAndMovements(
-          em,
-          saved.id,
-          lines,
-          finalRef!,
-        );
+        const receptionId = Number(saved.id ?? id);
+        if (!Number.isFinite(receptionId) || receptionId < 1) {
+          throw new BadRequestException('No se pudo resolver el ID de recepción para guardar líneas.');
+        }
+        let sumGross = 0;
+        let sumNet = 0;
+        if (linkedLineIds.size > 0) {
+          const totals = await this.updateReceptionLinesInPlace(em, receptionId, existingLinesSnapshot, lines, finalRef!);
+          await this.syncProcessVarietyForReceptionLines(em, Array.from(linkedLineIds));
+          sumGross = totals.sumGross;
+          sumNet = totals.sumNet;
+        } else {
+          if (lineIds.length) {
+            await em.delete(RawMaterialMovement, { reception_line_id: In(lineIds) });
+            await em.delete(ReceptionLine, { reception_id: id });
+          }
+          const totals = await this.insertReceptionLinesAndMovements(em, receptionId, lines, finalRef!);
+          sumGross = totals.sumGross;
+          sumNet = totals.sumNet;
+        }
         saved.gross_weight_lb = sumGross > 0 ? sumGross.toFixed(2) : null;
         saved.net_weight_lb = sumNet.toFixed(2);
         await em.save(Reception, saved);
       } else {
+        if (linkedLineIds.size > 0) {
+          throw new BadRequestException('No se pueden quitar todas las líneas: esta recepción ya tiene procesos vinculados.');
+        }
+        if (lineIds.length) {
+          await em.delete(RawMaterialMovement, { reception_line_id: In(lineIds) });
+          await em.delete(ReceptionLine, { reception_id: id });
+        }
         saved.gross_weight_lb = dto.gross_weight_lb != null ? dto.gross_weight_lb.toFixed(2) : null;
         saved.net_weight_lb = dto.net_weight_lb != null ? dto.net_weight_lb.toFixed(2) : null;
         await em.save(Reception, saved);

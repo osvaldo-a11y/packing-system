@@ -1,10 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, type EntityManager } from 'typeorm';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService } from '../final-pallet/final-pallet.service';
 import { CreatePtPackingListDto, UpdatePtPackingListBolDto } from './pt-packing-list.dto';
-import { Dispatch, DispatchPtPackingList, SalesOrder } from '../dispatch/dispatch.entities';
+import {
+  Dispatch,
+  DispatchPtPackingList,
+  DispatchTagItem,
+  Invoice,
+  InvoiceItem,
+  PackingList,
+  SalesOrder,
+} from '../dispatch/dispatch.entities';
 import { PtPackingList, PtPackingListItem, PtPackingListReversalEvent } from './pt-packing-list.entities';
 
 @Injectable()
@@ -21,6 +29,61 @@ export class PtPackingListService {
     @InjectRepository(SalesOrder) private readonly salesOrderRepo: Repository<SalesOrder>,
     private readonly finalPalletService: FinalPalletService,
   ) {}
+
+  /**
+   * Desvincula el PL del despacho y, si el despacho queda vacío, elimina factura / documentos asociados y el despacho.
+   * Solo para reversa «maestro» (admin). No aplica si el despacho está «despachado».
+   */
+  private async adminUnlinkDispatchBeforePlReverse(em: EntityManager, plId: number): Promise<void> {
+    const dispatchPlRepo = em.getRepository(DispatchPtPackingList);
+    const dispatchRepo = em.getRepository(Dispatch);
+    const invRepo = em.getRepository(Invoice);
+    const invItemRepo = em.getRepository(InvoiceItem);
+    const plDocRepo = em.getRepository(PackingList);
+    const dtiRepo = em.getRepository(DispatchTagItem);
+    const fpRepo = em.getRepository(FinalPallet);
+
+    const plLink = await dispatchPlRepo.findOne({ where: { pt_packing_list_id: plId } });
+    if (!plLink) return;
+
+    const dispatchId = Number(plLink.dispatch_id);
+    const d = await dispatchRepo.findOne({ where: { id: dispatchId } });
+    if (!d) throw new NotFoundException('Despacho no encontrado');
+    if (d.status === 'despachado') {
+      throw new BadRequestException(
+        'El despacho está «despachado». Deshacé primero la salida física en Despachos (Acciones → Deshacer salida) y reintentá.',
+      );
+    }
+
+    const allLinks = await dispatchPlRepo.find({ where: { dispatch_id: dispatchId } });
+    if (allLinks.length > 1 && d.status !== 'borrador') {
+      throw new BadRequestException(
+        `El despacho #${dispatchId} agrupa varios packing lists y ya está confirmado. No se puede desvincular automáticamente; operá desde Despachos o contactá soporte.`,
+      );
+    }
+
+    await dispatchPlRepo.delete({ dispatch_id: dispatchId, pt_packing_list_id: plId });
+
+    const remaining = await dispatchPlRepo.count({ where: { dispatch_id: dispatchId } });
+    if (remaining > 0) {
+      return;
+    }
+
+    const inv = await invRepo.findOne({ where: { dispatch_id: dispatchId } });
+    if (inv) {
+      await invItemRepo.delete({ invoice_id: inv.id });
+      await invRepo.delete({ id: inv.id });
+    }
+    await plDocRepo.delete({ dispatch_id: dispatchId });
+    await dtiRepo.delete({ dispatch_id: dispatchId });
+    await fpRepo
+      .createQueryBuilder()
+      .update(FinalPallet)
+      .set({ dispatch_id: null })
+      .where('dispatch_id = :did', { did: dispatchId })
+      .execute();
+    await dispatchRepo.delete({ id: dispatchId });
+  }
 
   private listCodeFromId(id: number) {
     return `PL-${id}`;
@@ -361,11 +424,21 @@ export class PtPackingListService {
   /**
    * Reversa operativa: packing list confirmado → anulado; pallets vuelven a definitivo y stock PT se repone.
    * No aplica si algún pallet ya está en un despacho.
+   * @param opts.unlinkDispatchFirst solo admin: desvincula PL↔despacho antes de revertir (ver `adminUnlinkDispatchBeforePlReverse`).
    */
-  async reverseConfirmed(id: number, username: string, notes?: string | null) {
+  async reverseConfirmed(
+    id: number,
+    username: string,
+    notes?: string | null,
+    opts?: { unlinkDispatchFirst?: boolean },
+  ) {
     let palletIds: number[] = [];
 
     await this.plRepo.manager.transaction(async (em) => {
+      if (opts?.unlinkDispatchFirst) {
+        await this.adminUnlinkDispatchBeforePlReverse(em, id);
+      }
+
       const plRepo = em.getRepository(PtPackingList);
       const palletRepo = em.getRepository(FinalPallet);
       const revRepo = em.getRepository(PtPackingListReversalEvent);

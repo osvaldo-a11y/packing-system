@@ -21,6 +21,8 @@ import {
   AddManualInvoiceLineDto,
   AttachFinalPalletsDto,
   CreateDispatchDto,
+  UpdateDispatchMetaDto,
+  UpdateDispatchOrderLinkDto,
   UpdateDispatchBolDto,
   UpdateDispatchUnitPricesDto,
   CreateSalesOrderDto,
@@ -113,7 +115,7 @@ export class DispatchBillingController {
 
   @Post('dispatches/:id/revert-despachado')
   @HttpCode(201)
-  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   revertDespachado(@Param('id', ParseIntPipe) id: number) {
     return this.service.revertDespachado(id);
   }
@@ -140,6 +142,18 @@ export class DispatchBillingController {
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   updateDispatchBol(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDispatchBolDto) {
     return this.service.updateDispatchBol(id, dto);
+  }
+
+  @Patch('dispatches/:id/meta')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  updateDispatchMeta(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDispatchMetaDto) {
+    return this.service.updateDispatchMeta(id, dto);
+  }
+
+  @Patch('dispatches/:id/order-link')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  updateDispatchOrderLink(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDispatchOrderLinkDto) {
+    return this.service.updateDispatchOrderLink(id, dto);
   }
 
   @Post('dispatches/:id/packing-list/generate')

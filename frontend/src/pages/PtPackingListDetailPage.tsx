@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson, downloadPdf, downloadPdfPost } from '@/api';
+import { useAuth } from '@/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,6 +55,8 @@ type PtPlDetail = {
 };
 
 export function PtPackingListDetailPage() {
+  const { role } = useAuth();
+  const canReverseMaster = role === 'admin' || role === 'supervisor';
   const { id: idParam } = useParams<{ id: string }>();
   const id = Number(idParam);
   const qc = useQueryClient();
@@ -131,6 +134,26 @@ export function PtPackingListDetailPage() {
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['existencias-pt'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reverseMasterMut = useMutation({
+    mutationFn: (notes?: string) =>
+      apiJson<PtPlDetail>(`/api/pt-packing-lists/${id}/reverse-master`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notes?.trim() ? notes.trim() : undefined }),
+      }),
+    onSuccess: () => {
+      toast.success('Reversa aplicada: despacho desvinculado o eliminado, pallets en definitivo y stock PT repuesto.');
+      setReverseOpen(false);
+      setReverseNotes('');
+      qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
+      qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
+      qc.invalidateQueries({ queryKey: ['existencias-pt'] });
+      qc.invalidateQueries({ queryKey: ['dispatches'] });
+      qc.invalidateQueries({ queryKey: ['dispatches', 'linkable-pt-packing-lists'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -353,8 +376,29 @@ export function PtPackingListDetailPage() {
                 <DialogTitle>Revertir packing list</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Los pallets vuelven a estado definitivo en depósito y se repone el stock PT. No se puede revertir si algún pallet
-                ya está asignado a un despacho.
+                Los pallets vuelven a estado definitivo en depósito y se repone el stock PT.
+                {data.linked_dispatch_id != null ? (
+                  <>
+                    {' '}
+                    Este listado está vinculado al despacho <span className="font-mono">#{data.linked_dispatch_id}</span>.
+                    {canReverseMaster ? (
+                      <>
+                        {' '}
+                        Como supervisor o administrador podés usar la reversión maestra: desvincula el despacho (y lo elimina si era el único
+                        packing list) y luego aplica la reversa. Si el despacho está «despachado», primero deshacé la salida en
+                        Despachos.
+                      </>
+                    ) : (
+                      <>
+                        {' '}
+                        Pedí a un supervisor o administrador que use «Revertir (admin)» aquí, o desvinculá manualmente desde
+                        Despachos antes de revertir.
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <> No se puede revertir si algún pallet ya tiene otro despacho asignado por otro camino.</>
+                )}
               </p>
               <div className="grid gap-2">
                 <Label htmlFor="reverse-notes">Notas (opcional)</Label>
@@ -366,13 +410,37 @@ export function PtPackingListDetailPage() {
                   placeholder="Motivo u observación de la reversa"
                 />
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={() => setReverseOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="button" variant="destructive" disabled={reverseMut.isPending} onClick={() => reverseMut.mutate(reverseNotes)}>
-                  {reverseMut.isPending ? '…' : 'Revertir'}
-                </Button>
+                {data.linked_dispatch_id != null && canReverseMaster ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={reverseMasterMut.isPending}
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          '¿Revertir con desvinculo de despacho? Se eliminará el vínculo al despacho (y el despacho si quedara vacío). Los pallets volverán a depósito.',
+                        )
+                      ) {
+                        return;
+                      }
+                      reverseMasterMut.mutate(reverseNotes);
+                    }}
+                  >
+                    {reverseMasterMut.isPending ? '…' : 'Revertir (admin — desvincula despacho)'}
+                  </Button>
+                ) : data.linked_dispatch_id != null && !canReverseMaster ? (
+                  <Button type="button" variant="secondary" disabled title="Solo un administrador puede revertir con despacho vinculado">
+                    Revertir no disponible
+                  </Button>
+                ) : (
+                  <Button type="button" variant="destructive" disabled={reverseMut.isPending} onClick={() => reverseMut.mutate(reverseNotes)}>
+                    {reverseMut.isPending ? '…' : 'Revertir'}
+                  </Button>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>

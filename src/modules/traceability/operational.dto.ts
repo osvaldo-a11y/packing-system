@@ -90,6 +90,16 @@ export class UpdatePackingSupplierDto {
 export class LinkMaterialSupplierDto {
   @Type(() => Number) @IsInt() material_id: number;
   @Type(() => Number) @IsInt() supplier_id: number;
+  @IsOptional() @IsString() @MaxLength(80) supplier_item_code?: string | null;
+  @IsOptional() @IsString() @MaxLength(300) supplier_item_name?: string | null;
+}
+
+/** Actualizar solo texto de guía en un vínculo ya existente (operadores pueden editar alias). */
+export class UpdatePackingMaterialLinkDto {
+  @Type(() => Number) @IsInt() material_id: number;
+  @Type(() => Number) @IsInt() supplier_id: number;
+  @IsOptional() @IsString() @MaxLength(80) supplier_item_code?: string | null;
+  @IsOptional() @IsString() @MaxLength(300) supplier_item_name?: string | null;
 }
 
 export class CreateReturnableContainerDto {

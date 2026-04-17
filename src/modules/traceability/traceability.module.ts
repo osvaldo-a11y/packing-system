@@ -28,6 +28,7 @@ import {
   Variety,
 } from './traceability.entities';
 import { MasterUsageService } from './master-usage.service';
+import { MasterForceDeleteService } from './master-force-delete.service';
 import { OperationalService } from './operational.service';
 import { TraceabilityService } from './traceability.service';
 
@@ -59,7 +60,7 @@ import { TraceabilityService } from './traceability.service';
     ]),
   ],
   controllers: [MastersController, ReceptionController, TraceabilityDashboardController],
-  providers: [TraceabilityService, TraceabilityDashboardService, OperationalService, MasterUsageService],
-  exports: [TypeOrmModule, TraceabilityService, OperationalService, MasterUsageService],
+  providers: [TraceabilityService, TraceabilityDashboardService, OperationalService, MasterUsageService, MasterForceDeleteService],
+  exports: [TypeOrmModule, TraceabilityService, OperationalService, MasterUsageService, MasterForceDeleteService],
 })
 export class TraceabilityModule {}

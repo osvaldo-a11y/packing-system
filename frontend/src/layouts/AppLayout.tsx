@@ -239,10 +239,10 @@ export function AppLayout() {
           </DropdownMenu>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-4 py-4 md:px-5 md:py-5 lg:px-6 lg:py-6">
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-4 md:px-4 md:py-5 lg:px-5 lg:py-6">
           <div
             key={pathname}
-            className="animate-route-content mx-auto w-full max-w-[1400px] pb-6 md:pb-8"
+            className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8"
           >
             <Outlet />
           </div>

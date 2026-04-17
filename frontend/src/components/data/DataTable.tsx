@@ -17,6 +17,12 @@ type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchPlaceholder?: string;
+  /** Oculta el buscador (si el padre controla el filtro). */
+  hideSearch?: boolean;
+  /** Filtro global custom (recibe texto en minúsculas). */
+  customGlobalFilter?: (row: TData, filterLower: string) => boolean;
+  /** Tamaño de página inicial. */
+  initialPageSize?: number;
   /** Nombre de accessorKey a filtrar con búsqueda global (primer match en filas) */
   globalFilterColumnId?: string;
   /** Salta a la página que contiene la fila con este `id` (compara `row.original.id`). */
@@ -24,6 +30,8 @@ type DataTableProps<TData, TValue> = {
   getRowClassName?: (row: TData) => string | undefined;
   /** Clases extra para el contenedor principal (búsqueda + tabla + paginación). */
   containerClassName?: string;
+  /** Clases extra para el input de búsqueda (p. ej. tokens de `page-ui`). */
+  searchInputClassName?: string;
   /** Clases extra para el elemento `<table>`. */
   tableClassName?: string;
 };
@@ -32,10 +40,14 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder = 'Buscar…',
+  hideSearch = false,
+  customGlobalFilter,
+  initialPageSize = 10,
   globalFilterColumnId,
   scrollToRowId,
   getRowClassName,
   containerClassName,
+  searchInputClassName,
   tableClassName,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState('');
@@ -48,6 +60,9 @@ export function DataTable<TData, TValue>({
     globalFilterFn: (row, _columnId, filterValue) => {
       const s = String(filterValue).toLowerCase();
       if (!s) return true;
+      if (customGlobalFilter) {
+        return customGlobalFilter(row.original as TData, s);
+      }
       if (globalFilterColumnId) {
         return String(row.getValue(globalFilterColumnId) ?? '')
           .toLowerCase()
@@ -61,7 +76,7 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
+    initialState: { pagination: { pageSize: initialPageSize } },
   });
 
   useEffect(() => {
@@ -74,17 +89,24 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn('space-y-4', containerClassName)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-9"
-            aria-label="Buscar en tabla"
-          />
-        </div>
+      <div
+        className={cn(
+          'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+          hideSearch && 'sm:justify-end',
+        )}
+      >
+        {!hideSearch ? (
+          <div className="relative max-w-full flex-1 sm:max-w-md lg:max-w-xl">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className={cn('pl-9', searchInputClassName)}
+              aria-label="Buscar en tabla"
+            />
+          </div>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} fila(s)
         </p>

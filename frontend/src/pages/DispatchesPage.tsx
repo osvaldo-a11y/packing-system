@@ -245,7 +245,10 @@ function dispatchClienteLabel(d: DispatchApi) {
 }
 
 function dispatchTotalCajas(d: DispatchApi) {
-  return d.items.reduce((s, i) => s + i.cajas_despachadas, 0);
+  const byItems = d.items.reduce((s, i) => s + i.cajas_despachadas, 0);
+  if (byItems > 0) return byItems;
+  const byInvoiceLines = (d.invoice?.lines ?? []).reduce((s, ln) => s + (Number(ln.cajas) || 0), 0);
+  return byInvoiceLines > 0 ? byInvoiceLines : 0;
 }
 
 /** En listado: no confundir 0 cajas con “dato ausente” cuando el origen no aporta cajas. */
@@ -385,7 +388,7 @@ type LinkablePtPl = {
 
 export function DispatchesPage() {
   const { role } = useAuth();
-  const canRevertSalida = role === 'admin' || role === 'supervisor';
+  const canRevertSalida = role === 'admin' || role === 'supervisor' || role === 'operator';
   const queryClient = useQueryClient();
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [addTagDispatchId, setAddTagDispatchId] = useState<number | null>(null);
@@ -405,6 +408,15 @@ export function DispatchesPage() {
   const [bolDialogDispatchId, setBolDialogDispatchId] = useState<number | null>(null);
   const [bolEditValue, setBolEditValue] = useState('');
   const [bolApplyToPls, setBolApplyToPls] = useState(false);
+  const [metaDialogDispatchId, setMetaDialogDispatchId] = useState<number | null>(null);
+  const [metaFechaDespacho, setMetaFechaDespacho] = useState('');
+  const [metaTemperaturaF, setMetaTemperaturaF] = useState('');
+  const [metaThermographSerial, setMetaThermographSerial] = useState('');
+  const [metaThermographNotes, setMetaThermographNotes] = useState('');
+  const [orderLinkDialogDispatchId, setOrderLinkDialogDispatchId] = useState<number | null>(null);
+  const [orderLinkOrderId, setOrderLinkOrderId] = useState(0);
+  const [orderLinkClientId, setOrderLinkClientId] = useState(0);
+  const [orderLinkCommercialClientId, setOrderLinkCommercialClientId] = useState(0);
   const [confirmDispatchId, setConfirmDispatchId] = useState<number | null>(null);
 
   const { data: dispatches, isPending, isError, error } = useQuery({
@@ -495,6 +507,7 @@ export function DispatchesPage() {
 
   const invoicePricesDispatch = dispatches?.find((x) => x.id === invoicePricesDispatchId);
   const invoicePricesLocked = invoicePricesDispatch?.status === 'despachado';
+  const orderLinkDispatch = dispatches?.find((x) => x.id === orderLinkDialogDispatchId);
 
   const tagForm = useForm<AddTagForm>({
     resolver: zodResolver(addTagSchema),
@@ -633,6 +646,65 @@ export function DispatchesPage() {
       toast.success('BOL actualizado');
       setBolDialogDispatchId(null);
       setBolApplyToPls(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateDispatchMetaMut = useMutation({
+    mutationFn: async ({
+      dispatchId,
+      fecha_despacho,
+      temperatura_f,
+      thermograph_serial,
+      thermograph_notes,
+    }: {
+      dispatchId: number;
+      fecha_despacho: string;
+      temperatura_f: number;
+      thermograph_serial: string;
+      thermograph_notes: string;
+    }) =>
+      apiJson(`/api/dispatches/${dispatchId}/meta`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          fecha_despacho,
+          temperatura_f,
+          thermograph_serial,
+          thermograph_notes,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dispatches'] });
+      toast.success('Datos operativos del despacho actualizados');
+      setMetaDialogDispatchId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateDispatchOrderLinkMut = useMutation({
+    mutationFn: async ({
+      dispatchId,
+      orden_id,
+      cliente_id,
+      client_id,
+    }: {
+      dispatchId: number;
+      orden_id: number;
+      cliente_id: number;
+      client_id: number;
+    }) =>
+      apiJson(`/api/dispatches/${dispatchId}/order-link`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          orden_id,
+          cliente_id,
+          client_id: client_id > 0 ? client_id : 0,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dispatches'] });
+      toast.success('Pedido del despacho corregido');
+      setOrderLinkDialogDispatchId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1536,6 +1608,28 @@ export function DispatchesPage() {
                           >
                             PDF packing list
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const so = salesOrders?.find((s) => s.id === d.orden_id);
+                              setOrderLinkDialogDispatchId(d.id);
+                              setOrderLinkOrderId(d.orden_id);
+                              setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
+                              setOrderLinkCommercialClientId(d.client_id ?? 0);
+                            }}
+                          >
+                            Corregir pedido vinculado
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setMetaDialogDispatchId(d.id);
+                              setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
+                              setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
+                              setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
+                              setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                            }}
+                          >
+                            Editar datos despacho
+                          </DropdownMenuItem>
                           {d.kind === 'packing_lists' && d.status === 'borrador' ? (
                             <DropdownMenuItem
                               onClick={() => {
@@ -1702,9 +1796,7 @@ export function DispatchesPage() {
                             <li>Stock PT no cambia en este estado.</li>
                             <li>① Precios queda bloqueado.</li>
                             <li className="md:col-span-2">
-                              {canRevertSalida
-                                ? 'Supervisor/admin puede usar «Deshacer salida» en Acciones.'
-                                : 'Para deshacer salida, solicitá supervisor/admin.'}
+                              Podés usar «Deshacer salida» en Acciones para volver a «confirmado» si la salida se registró por error.
                             </li>
                           </ul>
                         </details>
@@ -2113,6 +2205,170 @@ export function DispatchesPage() {
               }}
             >
               {updateDispatchBolMut.isPending ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={metaDialogDispatchId != null}
+        onOpenChange={(o) => {
+          if (!o) setMetaDialogDispatchId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar datos de despacho #{metaDialogDispatchId ?? '—'}</DialogTitle>
+          </DialogHeader>
+          {dispatches?.find((x) => x.id === metaDialogDispatchId)?.status === 'despachado' ? (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+              Ajuste post-salida: se guarda una traza automática en notas del termógrafo.
+            </p>
+          ) : null}
+          <div className="grid gap-3 py-1">
+            <div className="grid gap-1.5">
+              <Label htmlFor="dispatch-meta-fecha">Fecha despacho</Label>
+              <Input
+                id="dispatch-meta-fecha"
+                type="datetime-local"
+                value={metaFechaDespacho}
+                onChange={(e) => setMetaFechaDespacho(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="dispatch-meta-temp">Temperatura (F)</Label>
+              <Input
+                id="dispatch-meta-temp"
+                type="number"
+                step="0.01"
+                value={metaTemperaturaF}
+                onChange={(e) => setMetaTemperaturaF(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="dispatch-meta-serial">N° termógrafo</Label>
+              <Input
+                id="dispatch-meta-serial"
+                value={metaThermographSerial}
+                onChange={(e) => setMetaThermographSerial(e.target.value)}
+                placeholder="Serie / identificador"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="dispatch-meta-notes">Observaciones termógrafo / destino</Label>
+              <Input
+                id="dispatch-meta-notes"
+                value={metaThermographNotes}
+                onChange={(e) => setMetaThermographNotes(e.target.value)}
+                placeholder="Notas operativas"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMetaDialogDispatchId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={!metaFechaDespacho || !metaTemperaturaF || updateDispatchMetaMut.isPending}
+              onClick={() => {
+                if (metaDialogDispatchId == null) return;
+                const temp = Number(metaTemperaturaF);
+                if (!Number.isFinite(temp)) {
+                  toast.error('Temperatura inválida');
+                  return;
+                }
+                const iso = new Date(metaFechaDespacho).toISOString();
+                updateDispatchMetaMut.mutate({
+                  dispatchId: metaDialogDispatchId,
+                  fecha_despacho: iso,
+                  temperatura_f: temp,
+                  thermograph_serial: metaThermographSerial.trim(),
+                  thermograph_notes: metaThermographNotes.trim(),
+                });
+              }}
+            >
+              {updateDispatchMetaMut.isPending ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={orderLinkDialogDispatchId != null}
+        onOpenChange={(o) => {
+          if (!o) setOrderLinkDialogDispatchId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Corregir pedido vinculado — despacho #{orderLinkDialogDispatchId ?? '—'}</DialogTitle>
+          </DialogHeader>
+          {orderLinkDispatch?.status === 'despachado' ? (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+              Corrección post-salida: se mantiene traza automática en notas operativas.
+            </p>
+          ) : null}
+          <div className="grid gap-3 py-1">
+            <div className="grid gap-1.5">
+              <Label htmlFor="order-link-order">Pedido</Label>
+              <select
+                id="order-link-order"
+                className={filterSelectClass}
+                value={String(orderLinkOrderId)}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setOrderLinkOrderId(id);
+                  const so = salesOrders?.find((s) => s.id === id);
+                  if (so) setOrderLinkClientId(so.cliente_id);
+                }}
+              >
+                {(salesOrders ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.order_number} · #{s.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="order-link-client">Cliente pedido</Label>
+              <Input id="order-link-client" value={String(orderLinkClientId)} readOnly />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="order-link-commercial">Cliente comercial (opcional)</Label>
+              <select
+                id="order-link-commercial"
+                className={filterSelectClass}
+                value={String(orderLinkCommercialClientId)}
+                onChange={(e) => setOrderLinkCommercialClientId(Number(e.target.value))}
+              >
+                <option value={0}>Sin cliente comercial</option>
+                {(commercialClients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOrderLinkDialogDispatchId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={orderLinkOrderId <= 0 || orderLinkClientId <= 0 || updateDispatchOrderLinkMut.isPending}
+              onClick={() => {
+                if (orderLinkDialogDispatchId == null) return;
+                updateDispatchOrderLinkMut.mutate({
+                  dispatchId: orderLinkDialogDispatchId,
+                  orden_id: orderLinkOrderId,
+                  cliente_id: orderLinkClientId,
+                  client_id: orderLinkCommercialClientId,
+                });
+              }}
+            >
+              {updateDispatchOrderLinkMut.isPending ? 'Guardando…' : 'Guardar'}
             </Button>
           </DialogFooter>
         </DialogContent>

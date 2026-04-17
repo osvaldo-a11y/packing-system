@@ -86,10 +86,18 @@ const lineSchema = z.object({
 
 const createSchema = z.object({
   cliente_id: z.coerce.number().int().positive(),
+  /** Referencia opcional: BOL, código interno, etc. Si se deja vacío, se genera SO-#####. */
+  order_number: z.string().trim().max(40, 'Máximo 40 caracteres').optional(),
   lines: z.array(lineSchema).min(1),
 });
 
 const modifySchema = z.object({
+  /** Referencia visible (SO-…, BOL, etc.); única en el sistema. */
+  order_number: z
+    .string()
+    .trim()
+    .min(1, 'Indicá un nombre o referencia para el pedido')
+    .max(40, 'Máximo 40 caracteres'),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -214,6 +222,7 @@ export function SalesOrdersPage() {
     resolver: zodResolver(createSchema),
     defaultValues: {
       cliente_id: 1,
+      order_number: '',
       lines: [defaultLine(firstFmtId || 1)],
     },
   });
@@ -254,10 +263,11 @@ export function SalesOrdersPage() {
 
   const editForm = useForm<ModifyForm>({
     resolver: zodResolver(modifySchema),
-    defaultValues: { lines: [defaultLine(1)] },
+    defaultValues: { order_number: '', lines: [defaultLine(1)] },
   });
 
   const editLines = useFieldArray({ control: editForm.control, name: 'lines' });
+  const editOrderNumberWatch = useWatch({ control: editForm.control, name: 'order_number' });
 
   useEffect(() => {
     if (createOpen && firstFmtId > 0) {
@@ -272,7 +282,11 @@ export function SalesOrdersPage() {
     mutationFn: (body: CreateForm) =>
       apiJson('/api/sales-orders', {
         method: 'POST',
-        body: JSON.stringify({ cliente_id: body.cliente_id, lines: toApiLines(body.lines) }),
+        body: JSON.stringify({
+          cliente_id: body.cliente_id,
+          order_number: body.order_number?.trim() || undefined,
+          lines: toApiLines(body.lines),
+        }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
@@ -280,6 +294,7 @@ export function SalesOrdersPage() {
       setCreateOpen(false);
       createForm.reset({
         cliente_id: firstClientId || 1,
+        order_number: '',
         lines: [defaultLine(firstFmtId || 1)],
       });
     },
@@ -298,7 +313,10 @@ export function SalesOrdersPage() {
               variety_id: l.variety_id ?? 0,
             }))
           : [defaultLine(firstFmtId || 1)];
-      editForm.reset({ lines });
+      editForm.reset({
+        order_number: editRow.order_number.trim(),
+        lines,
+      });
     }
   }, [editRow, editForm, firstFmtId]);
 
@@ -318,7 +336,10 @@ export function SalesOrdersPage() {
     mutationFn: ({ id, body }: { id: number; body: ModifyForm }) =>
       apiJson(`/api/sales-orders/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ lines: toApiLines(body.lines) }),
+        body: JSON.stringify({
+          order_number: body.order_number.trim(),
+          lines: toApiLines(body.lines),
+        }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
@@ -496,7 +517,7 @@ export function SalesOrdersPage() {
                 </DialogHeader>
                 <form onSubmit={createForm.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3 py-2">
                   <div className="grid gap-2">
-                    <Label htmlFor="c_cliente">Cliente</Label>
+                    <Label htmlFor="c_cliente">Cliente comercial</Label>
                     {clientsMaster === undefined ? (
                       <p className="text-sm text-muted-foreground">Cargando maestro de clientes…</p>
                     ) : clientsMaster.length === 0 ? (
@@ -524,10 +545,26 @@ export function SalesOrdersPage() {
                       </select>
                     )}
                   </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="c_order_number">Núm. referencia / código (opcional)</Label>
+                    <Input
+                      id="c_order_number"
+                      className={filterInputClass}
+                      placeholder="Ej. SO-00001, BOL-12345, REF-CL-88"
+                      autoComplete="off"
+                      {...createForm.register('order_number')}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Si lo dejás vacío, el sistema genera automáticamente <strong>SO-#####</strong>.
+                    </p>
+                    {createForm.formState.errors.order_number ? (
+                      <p className="text-sm text-destructive">{createForm.formState.errors.order_number.message}</p>
+                    ) : null}
+                  </div>
                   {clientsMaster?.length ? (
                     <p className="text-xs text-slate-500">
-                      Las marcas por línea se listan según el <strong>cliente</strong> elegido (marcas asignadas a ese cliente en Maestros, más
-                      marcas <strong>sin cliente</strong> — uso general).
+                      Las marcas por línea se listan según el <strong>cliente comercial</strong> elegido (marcas asignadas a ese cliente en
+                      Maestros, más marcas <strong>sin cliente</strong> — uso general).
                     </p>
                   ) : null}
                   <div className="flex items-center justify-between gap-2">
@@ -894,8 +931,8 @@ export function SalesOrdersPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-slate-600">Nota de alcance</CardTitle>
           <CardDescription className="text-[13px] text-slate-500">
-            Número de orden tipo SO-#####. Estados de despacho/PL y peso consolidado figuran en la vista de avance y en módulos Despachos / Packing
-            Lists.
+            Referencia del pedido (por defecto SO-#####); podés cambiarla al editar (p. ej. BOL). Estados de despacho/PL y peso
+            consolidado figuran en la vista de avance y en módulos Despachos / Packing Lists.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0" />
@@ -909,7 +946,12 @@ export function SalesOrdersPage() {
       >
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Editar {editRow?.order_number}</DialogTitle>
+            <DialogTitle>
+              Editar pedido{' '}
+              <span className="font-mono text-base font-semibold text-primary">
+                {editOrderNumberWatch?.trim() || editRow?.order_number}
+              </span>
+            </DialogTitle>
             {editRow ? (
               <p className="pt-1 text-xs text-slate-500">
                 Cliente:{' '}
@@ -926,6 +968,22 @@ export function SalesOrdersPage() {
               className="grid gap-3 py-2"
               key={editRow.id}
             >
+              <div className="grid gap-1.5">
+                <Label htmlFor="edit-order-number">Nombre / referencia del pedido</Label>
+                <Input
+                  id="edit-order-number"
+                  className={filterInputClass}
+                  placeholder="Ej. SO-00001, BOL-12345…"
+                  autoComplete="off"
+                  {...editForm.register('order_number')}
+                />
+                <p className="text-[11px] text-slate-500">
+                  Podés usar el BOL u otra clave para contrastar con documentos. Debe ser única (no repetir otro pedido).
+                </p>
+                {editForm.formState.errors.order_number ? (
+                  <p className="text-sm text-destructive">{editForm.formState.errors.order_number.message}</p>
+                ) : null}
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <Label>Líneas del pedido</Label>
                 <Button

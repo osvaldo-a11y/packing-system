@@ -79,6 +79,8 @@ export type ExistenciaPtRow = {
   format_code: string | null;
   client_id: number | null;
   client_nombre: string | null;
+  /** Marca / submarca (cabecera pallet), si existe. */
+  brand_nombre?: string | null;
   boxes: number;
   pounds: number;
   status: string;
@@ -90,6 +92,8 @@ export type ExistenciaPtRow = {
   dispatch_bol: string | null;
   /** Pedido vinculado al despacho cuando el pallet ya salió. */
   sales_order_number: string | null;
+  /** Máx. cajas por pallet según formato de presentación (si aplica). */
+  max_boxes_per_pallet?: number | null;
 };
 
 function canBulkBol(r: ExistenciaPtRow): boolean {
@@ -99,6 +103,42 @@ function canBulkBol(r: ExistenciaPtRow): boolean {
 function fmtLb(v: number) {
   if (!Number.isFinite(v)) return '—';
   return formatLb(v, 2);
+}
+
+function BoxesHighlightCell({ r }: { r: ExistenciaPtRow }) {
+  const max = r.max_boxes_per_pallet != null ? Number(r.max_boxes_per_pallet) : null;
+  const hasCap = max != null && Number.isFinite(max) && max > 0;
+  const full = hasCap && r.boxes >= max!;
+  const partial = hasCap && r.boxes > 0 && r.boxes < max!;
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span
+        className={cn(
+          'inline-flex min-w-[2.5rem] justify-end rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums',
+          !hasCap
+            ? 'bg-slate-100/90 text-slate-900'
+            : full
+              ? 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200/90'
+              : 'bg-orange-50 text-orange-950 ring-1 ring-orange-200/90',
+        )}
+        title={hasCap ? `Formato: máx. ${max} cajas / pallet` : 'Sin tope de cajas en maestro'}
+      >
+        {r.boxes}
+      </span>
+      {hasCap ? (
+        <span
+          className={cn(
+            'text-[10px] font-bold uppercase tracking-wide',
+            full ? 'text-emerald-800' : partial ? 'text-orange-800' : 'text-slate-500',
+          )}
+        >
+          {full ? 'Completo' : partial ? 'Parcial' : '—'}
+        </span>
+      ) : (
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">—</span>
+      )}
+    </div>
+  );
 }
 
 function PalletStatusBadge({ status }: { status: string }) {
@@ -830,15 +870,15 @@ export function ExistenciasPtPage() {
                         title="Seleccionar filas elegibles (definitivo, sin despacho)"
                       />
                     </TableHead>
-                    <TableHead className="whitespace-nowrap">Estado</TableHead>
-                    <TableHead className="min-w-[88px]">Ubicación</TableHead>
                     <TableHead className="min-w-[120px]">Código / unidad</TableHead>
+                    <TableHead className="whitespace-nowrap">Estado</TableHead>
+                    <TableHead className="whitespace-nowrap">Formato</TableHead>
+                    <TableHead className="text-right tabular-nums">Cajas</TableHead>
+                    <TableHead className="whitespace-nowrap text-right tabular-nums">Peso (lb)</TableHead>
+                    <TableHead className="min-w-[100px]">Cliente</TableHead>
+                    <TableHead className="min-w-[88px]">Ubicación</TableHead>
                     <TableHead className="min-w-[120px]">Productor</TableHead>
                     <TableHead className="min-w-[100px]">Variedad</TableHead>
-                    <TableHead className="whitespace-nowrap">Formato</TableHead>
-                    <TableHead className="min-w-[100px]">Cliente</TableHead>
-                    <TableHead className="whitespace-nowrap text-right tabular-nums">Cajas</TableHead>
-                    <TableHead className="whitespace-nowrap text-right tabular-nums">Peso (lb)</TableHead>
                     <TableHead className="min-w-[100px]">Condición</TableHead>
                     <TableHead className="min-w-[120px]">Logística</TableHead>
                     <TableHead className="whitespace-nowrap">Repallet</TableHead>
@@ -870,17 +910,6 @@ export function ExistenciasPtPage() {
                             }
                           />
                         </TableCell>
-                        <TableCell className="py-3.5">
-                          <PalletStatusBadge status={r.status} />
-                        </TableCell>
-                        <TableCell className="max-w-[120px] py-3.5">
-                          <span
-                            className="font-mono text-xs text-slate-700"
-                            title={r.corner_board_code ? `ID interno: ${r.id}` : `PF-${r.id}`}
-                          >
-                            {r.corner_board_code?.trim() || '—'}
-                          </span>
-                        </TableCell>
                         <TableCell className="max-w-[200px] py-3.5">
                           <Link
                             to={`/existencias-pt/detalle/${r.id}`}
@@ -893,6 +922,34 @@ export function ExistenciasPtPage() {
                           >
                             {codeDisplay}
                           </Link>
+                          <div className="mt-0.5 font-mono text-[10px] text-slate-400">
+                            {r.corner_board_code?.trim() || '—'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3.5">
+                          <PalletStatusBadge status={r.status} />
+                        </TableCell>
+                        <TableCell className="py-3.5">
+                          <span className="font-mono text-sm font-medium text-slate-800">{r.format_code ?? '—'}</span>
+                        </TableCell>
+                        <TableCell className="py-3.5">
+                          <BoxesHighlightCell r={r} />
+                        </TableCell>
+                        <TableCell className="py-3.5 text-right text-sm tabular-nums text-slate-900">{fmtLb(r.pounds)}</TableCell>
+                        <TableCell className="max-w-[130px] py-3.5 text-sm text-slate-700">
+                          {r.client_id != null && r.client_id > 0 && r.client_nombre?.trim() ? (
+                            r.client_nombre
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[120px] py-3.5">
+                          <span
+                            className="font-mono text-xs text-slate-700"
+                            title={r.corner_board_code ? `ID interno: ${r.id}` : `PF-${r.id}`}
+                          >
+                            {r.corner_board_code?.trim() || '—'}
+                          </span>
                         </TableCell>
                         <TableCell className="max-w-[200px] py-3.5 text-sm text-slate-700" title={producerCell}>
                           {producerCell}
@@ -903,18 +960,6 @@ export function ExistenciasPtPage() {
                             <div className="mt-0.5 text-[11px] text-slate-400">{r.species_nombre}</div>
                           ) : null}
                         </TableCell>
-                        <TableCell className="py-3.5">
-                          <span className="font-mono text-sm font-medium text-slate-800">{r.format_code ?? '—'}</span>
-                        </TableCell>
-                        <TableCell className="max-w-[130px] py-3.5 text-sm text-slate-700">
-                          {r.client_id != null && r.client_id > 0 && r.client_nombre?.trim() ? (
-                            r.client_nombre
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-3.5 text-right text-sm tabular-nums text-slate-900">{r.boxes}</TableCell>
-                        <TableCell className="py-3.5 text-right text-sm tabular-nums text-slate-900">{fmtLb(r.pounds)}</TableCell>
                         <TableCell className="py-3.5">
                           <DisponibilidadBadge r={r} />
                         </TableCell>
