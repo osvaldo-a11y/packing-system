@@ -1,11 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  Banknote,
   BarChart3,
-  Box,
   Download,
-  FileCheck,
   FileDown,
   FolderOpen,
   Info,
@@ -14,8 +11,6 @@ import {
   RefreshCw,
   Save,
   Trash2,
-  Truck,
-  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -36,14 +31,12 @@ import {
   btnToolbarOutline,
   btnToolbarPrimary,
   contentCard,
-  emptyStateBanner,
   emptyStateInset,
   emptyStatePanel,
   errorStateCard,
   filterInputClass,
   filterLabel,
   filterPanel,
-  filterSelectClass,
   kpiCardSm,
   kpiFootnote,
   kpiFootnoteLead,
@@ -57,8 +50,6 @@ import {
   pageTitle,
   sectionHint,
   sectionTitle,
-  signalsPanel,
-  signalsTitle,
   tableBodyRow,
   tableHeaderRow,
   tableShell,
@@ -164,8 +155,6 @@ type GenerateResponse = {
   clientMarginDetail?: PaginatedSection;
 };
 
-type ClientMasterRow = { id: number; nombre: string; activo: boolean };
-
 type SpeciesRow = { id: number; nombre: string };
 type PackingCostRow = {
   id: number;
@@ -184,7 +173,7 @@ type SavedReportRow = {
   created_at: string;
 };
 
-type ReportModuleTab = 'operativo' | 'financiero' | 'entregables';
+type ReportModuleTab = 'operativo' | 'decision' | 'cierre' | 'documentos';
 
 const REPORT_MODULE_TABS: {
   id: ReportModuleTab;
@@ -199,47 +188,38 @@ const REPORT_MODULE_TABS: {
     label: 'Operativo',
     subtitle: 'Producción, inventario y movimiento de planta',
     activeBlurb:
-      'Tablas de cajas PT, despacho, rendimiento y empaque. El Excel incluye todas las hojas del informe; acá navegás el bloque operativo.',
-    filterNote: 'Suelen ser clave: fechas, productor, variedad y unidad PT.',
+      'Tablas de cajas PT, despacho, rendimiento y empaque.',
+    filterNote: 'Filtros principales: Desde / Hasta.',
     excelCtaHint: 'Libro .xlsx con todas las secciones del informe (mismos filtros aplicados).',
   },
   {
-    id: 'financiero',
-    label: 'Financiero',
-    subtitle: 'Ventas, precios y valores para análisis interno',
+    id: 'decision',
+    label: 'Decisión',
+    subtitle: 'Señales para decisión comercial y operativa',
     activeBlurb:
-      'Liquidación, costos por formato, ventas por despacho y margen por cliente. El Excel es el informe completo; acá abrís el detalle y PDFs de liquidación.',
-    filterNote: 'Suelen pesar: cliente, formato, precio packing y fechas.',
+      'Resumen ejecutivo para tomar decisiones rápidas sin bajar al detalle completo.',
+    filterNote: 'Filtros principales: Desde / Hasta.',
     excelCtaHint: 'Mismo libro completo: útil para cruzar cifras y liquidación en Excel.',
   },
   {
-    id: 'entregables',
-    label: 'Documentos',
-    subtitle: 'Entregables y salidas en formato documento',
+    id: 'cierre',
+    label: 'Cierre',
+    subtitle: 'Cierre financiero, auditoría y liquidación por productor',
     activeBlurb:
-      'Guía para PDFs (liquidación al productor, facturas/pl en Despachos). El Excel sigue trayendo el informe íntegro; esta vista indica qué descargar.',
-    filterNote: 'Alineá fechas y cliente con el documento que querés respaldar.',
+      'Estado del cierre, tarjetas de resumen, tablas por productor y diagnóstico técnico.',
+    filterNote: 'Filtros principales: Desde / Hasta.',
+    excelCtaHint: 'Libro .xlsx con cierre completo, detalle y trazabilidad.',
+  },
+  {
+    id: 'documentos',
+    label: 'Documentos / Exportaciones',
+    subtitle: 'PDF y salidas de exportación',
+    activeBlurb:
+      'Entregables y enlaces de exportación documental.',
+    filterNote: 'Filtros principales: Desde / Hasta.',
     excelCtaHint: 'Informe completo en .xlsx; los PDFs se generan desde los enlaces de esta pestaña o Despachos.',
   },
 ];
-
-const REPORT_CATEGORY_ICON: Record<ReportModuleTab, LucideIcon> = {
-  operativo: Box,
-  financiero: Banknote,
-  entregables: FileCheck,
-};
-
-/** Resalta filtros más útiles por categoría (solo UX; no cambia el backend). */
-function reportFilterFieldClass(tab: ReportModuleTab, field: string): string {
-  const op = ['productor', 'variedad', 'tarja', 'desde', 'hasta', 'calidad'];
-  const fin = ['cliente', 'formato', 'precio', 'desde', 'hasta'];
-  const doc = ['cliente', 'desde', 'hasta'];
-  const hit =
-    (tab === 'operativo' && op.includes(field)) ||
-    (tab === 'financiero' && fin.includes(field)) ||
-    (tab === 'entregables' && doc.includes(field));
-  return hit ? 'rounded-xl p-0.5 ring-1 ring-primary/20' : '';
-}
 
 const PACKING_HIDDEN_SPECIES_LS = 'reporting.packingHiddenSpeciesIds';
 
@@ -1346,7 +1326,7 @@ export function ReportingPage() {
   const [packingSeason, setPackingSeason] = useState('');
   const [packingPrice, setPackingPrice] = useState('');
   const [packingActive, setPackingActive] = useState(true);
-  const [reportTab, setReportTab] = useState<ReportModuleTab>('operativo');
+  const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
   /** null = resumen ejecutivo con KPIs; si no null, solo esa vista de detalle. */
   const [detailId, setDetailId] = useState<ReportDetailId>(null);
   /** Costo por formato: ocultar filas con cajas = 0 por defecto (misma fuente que facturación del período). */
@@ -1371,11 +1351,6 @@ export function ReportingPage() {
   const { data: species } = useQuery({
     queryKey: ['masters', 'species'],
     queryFn: () => apiJson<SpeciesRow[]>('/api/masters/species'),
-  });
-
-  const { data: clientsMaster } = useQuery({
-    queryKey: ['masters', 'clients', 'reporting'],
-    queryFn: () => apiJson<ClientMasterRow[]>('/api/masters/clients'),
   });
 
   const { data: packingCosts } = useQuery({
@@ -1603,7 +1578,7 @@ export function ReportingPage() {
               <Info className="h-4 w-4" aria-hidden />
             </button>
           </div>
-          <p className={cn(pageSubtitle, 'mt-1')}>Exportación y análisis operativo.</p>
+          <p className={cn(pageSubtitle, 'mt-1')}>Panel operativo, financiero y documental para cierre de período.</p>
           <Link
             to="/guide/sistema"
             className="mt-2 inline-block text-[13px] text-slate-600 underline-offset-2 hover:underline"
@@ -1636,154 +1611,35 @@ export function ReportingPage() {
       ) : null}
 
       <div className={cn(contentCard, 'p-4 sm:p-5')}>
-        <p className={sectionTitle}>Tipo de reporte</p>
-        <p className={sectionHint}>Misma data generada: la categoría solo cambia qué bloques y ayudas ves en pantalla.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="flex flex-wrap items-center gap-2">
           {REPORT_MODULE_TABS.map((t) => {
-            const Icon = REPORT_CATEGORY_ICON[t.id];
             const active = reportTab === t.id;
             return (
-              <button
+              <Button
                 key={t.id}
                 type="button"
+                variant={active ? 'default' : 'outline'}
+                size="sm"
+                className={cn('h-8 rounded-lg text-xs', active && 'shadow-sm')}
                 onClick={() => {
                   setReportTab(t.id);
                   setDetailId(null);
                 }}
-                className={cn(
-                  'flex flex-col gap-2 rounded-2xl border p-4 text-left shadow-sm transition-all',
-                  active
-                    ? 'border-primary bg-primary/[0.04] ring-2 ring-primary/20'
-                    : 'border-slate-200 bg-white hover:border-slate-300',
-                )}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                      active ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-600',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900">{t.label}</span>
-                </div>
-                <p className="text-[13px] leading-snug text-slate-600">{t.subtitle}</p>
-                {t.id === 'operativo' ? (
-                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                      <Link to="/sales-orders">Pedidos</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                      <Link to="/existencias-pt/inventario">Inventario</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                      <Link to="/processes">Procesos</Link>
-                    </Button>
-                  </div>
-                ) : null}
-                {t.id === 'entregables' ? (
-                  <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-                    <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-                      <Link to="/dispatches">
-                        <Truck className="h-3 w-3" />
-                        Despachos
-                      </Link>
-                    </Button>
-                  </div>
-                ) : null}
-              </button>
+                {t.label}
+              </Button>
             );
           })}
         </div>
-        {(() => {
-          const active = REPORT_MODULE_TABS.find((x) => x.id === reportTab);
-          if (!active) return null;
-          return (
-            <div className={cn(signalsPanel, 'mt-4')}>
-              <p className={signalsTitle}>Qué verás en esta categoría</p>
-              <p className="text-[13px] leading-snug text-slate-700">{active.activeBlurb}</p>
-            </div>
-          );
-        })()}
       </div>
 
       <div className={filterPanel}>
-        <p className={sectionTitle}>Filtros</p>
-        <p className={sectionHint}>
-          Los valores que apliques con «Vista previa» son los que usa el archivo al exportar (Excel, CSV, PDF).
-        </p>
-        <p className="mt-1 text-[13px] text-slate-600">
-          Paginación compartida · límite máx. 100 por sección.
-        </p>
-        {(() => {
-          const active = REPORT_MODULE_TABS.find((x) => x.id === reportTab);
-          if (!active) return null;
-          return (
-            <div className={cn(signalsPanel, 'mt-3')}>
-              <p className={signalsTitle}>Filtros para esta vista</p>
-              <p className="text-[13px] leading-snug text-slate-700">{active.filterNote}</p>
-            </div>
-          );
-        })()}
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
-          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'productor'))}>
-            <label className={filterLabel} htmlFor="rep-productor">
-              Productor ID
-            </label>
-            <Input
-              id="rep-productor"
-              type="number"
-              placeholder="Todos"
-              className={filterInputClass}
-              value={draft.productor_id ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  productor_id: e.target.value ? Number(e.target.value) : undefined,
-                }))
-              }
-            />
-          </div>
-          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'variedad'))}>
-            <label className={filterLabel} htmlFor="rep-variedad">
-              Variedad ID
-            </label>
-            <Input
-              id="rep-variedad"
-              type="number"
-              placeholder="Todas"
-              className={filterInputClass}
-              value={draft.variedad_id ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  variedad_id: e.target.value ? Number(e.target.value) : undefined,
-                }))
-              }
-            />
-          </div>
-          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'tarja'))}>
-            <label className={filterLabel} htmlFor="rep-tarja">
-              Unidad PT (ID)
-            </label>
-            <Input
-              id="rep-tarja"
-              type="number"
-              placeholder="Todas"
-              className={filterInputClass}
-              value={draft.tarja_id ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  tarja_id: e.target.value ? Number(e.target.value) : undefined,
-                }))
-              }
-            />
-          </div>
-          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'desde'))}>
+        <p className={sectionTitle}>Filtros del cierre</p>
+        <p className={sectionHint}>Definí período y actualizá cierre para refrescar tablas y exportaciones.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="grid min-w-[160px] flex-1 gap-1.5">
             <label className={filterLabel} htmlFor="rep-desde">
-              Fecha desde
+              Desde
             </label>
             <Input
               id="rep-desde"
@@ -1793,9 +1649,9 @@ export function ReportingPage() {
               onChange={(e) => setDraft((d) => ({ ...d, fecha_desde: e.target.value || undefined }))}
             />
           </div>
-          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'hasta'))}>
+          <div className="grid min-w-[160px] flex-1 gap-1.5">
             <label className={filterLabel} htmlFor="rep-hasta">
-              Fecha hasta
+              Hasta
             </label>
             <Input
               id="rep-hasta"
@@ -1805,133 +1661,6 @@ export function ReportingPage() {
               onChange={(e) => setDraft((d) => ({ ...d, fecha_hasta: e.target.value || undefined }))}
             />
           </div>
-          <div className={cn('grid min-w-[160px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'calidad'))}>
-            <label className={filterLabel} htmlFor="rep-calidad">
-              Calidad (texto)
-            </label>
-            <Input
-              id="rep-calidad"
-              placeholder="Opcional"
-              className={filterInputClass}
-              value={draft.calidad ?? ''}
-              onChange={(e) => setDraft((d) => ({ ...d, calidad: e.target.value || undefined }))}
-            />
-          </div>
-          <div className={cn('grid min-w-[220px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'cliente'))}>
-            <label className={filterLabel} htmlFor="rep-cliente">
-              Cliente (despacho)
-            </label>
-            <select
-              id="rep-cliente"
-              className={filterSelectClass}
-              value={draft.cliente_id != null && draft.cliente_id > 0 ? String(draft.cliente_id) : ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  cliente_id: e.target.value ? Number(e.target.value) : undefined,
-                }))
-              }
-            >
-              <option value="">Todos</option>
-              {(clientsMaster ?? [])
-                .filter((c) => c.activo)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-            </select>
-            <p className={sectionHint}>Facturación por cliente (despacho.cliente_id).</p>
-          </div>
-          <div className={cn('grid min-w-[180px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'formato'))}>
-            <label className={filterLabel} htmlFor="rep-format">
-              Formato (código receta)
-            </label>
-            <Input
-              id="rep-format"
-              placeholder="Ej. 12x18oz"
-              className={filterInputClass}
-              value={draft.format_code ?? ''}
-              onChange={(e) => setDraft((d) => ({ ...d, format_code: e.target.value || undefined }))}
-            />
-            <p className={sectionHint}>Líneas con ese packaging_code.</p>
-          </div>
-          <div className={cn('grid min-w-[140px] flex-1 gap-1.5', reportFilterFieldClass(reportTab, 'precio'))}>
-            <label className={filterLabel} htmlFor="rep-precio-pack">
-              Precio packing por lb
-            </label>
-            <Input
-              id="rep-precio-pack"
-              type="number"
-              step="0.0001"
-              min={0}
-              placeholder="0"
-              className={filterInputClass}
-              value={draft.precio_packing_por_lb ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  precio_packing_por_lb: e.target.value === '' ? undefined : Number(e.target.value),
-                }))
-              }
-            />
-          </div>
-          <div className="grid min-w-[100px] flex-1 gap-1.5">
-            <label className={filterLabel} htmlFor="rep-page">
-              Página
-            </label>
-            <Input
-              id="rep-page"
-              type="number"
-              min={1}
-              className={filterInputClass}
-              value={draft.page ?? filters.page}
-              onChange={(e) => setDraft((d) => ({ ...d, page: Number(e.target.value) || 1 }))}
-            />
-          </div>
-          <div className="grid min-w-[120px] flex-1 gap-1.5">
-            <label className={filterLabel} htmlFor="rep-limit">
-              Límite (máx. 100)
-            </label>
-            <Input
-              id="rep-limit"
-              type="number"
-              min={1}
-              max={100}
-              className={filterInputClass}
-              value={draft.limit ?? filters.limit}
-              onChange={(e) => setDraft((d) => ({ ...d, limit: Math.min(100, Number(e.target.value) || 20) }))}
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4">
-          <div className={cn(emptyStateBanner, 'text-left')}>
-            <p className={signalsTitle}>Antes de exportar</p>
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1.5 text-[13px] text-slate-700">
-              <span>
-                <span className="text-slate-500">Categoría · </span>
-                <strong>{REPORT_MODULE_TABS.find((x) => x.id === reportTab)?.label ?? '—'}</strong>
-              </span>
-              <span>
-                <span className="text-slate-500">Período en el archivo · </span>
-                <strong>{(filters.fecha_desde ?? '—') + ' → ' + (filters.fecha_hasta ?? '—')}</strong>
-              </span>
-              <span>
-                <span className="text-slate-500">Registros (cajas PT) · </span>
-                <strong>
-                  {reportData ? String(reportData.boxesByProducer?.total ?? 0) : '—'}
-                  {!reportData ? <span className="font-normal text-slate-500"> (tras vista previa)</span> : null}
-                </strong>
-              </span>
-              <span>
-                <span className="text-slate-500">Vista previa · </span>
-                <strong>{reportData ? 'Lista' : 'Pendiente'}</strong>
-              </span>
-            </div>
-            <p className="mt-2 text-[12px] leading-snug text-slate-500">
-              Los archivos usan los filtros ya aplicados con «Vista previa». El Excel contiene el informe completo; la categoría
-              define qué bloques ves en pantalla.
-            </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
@@ -1951,7 +1680,7 @@ export function ReportingPage() {
               disabled={generateMut.isPending}
             >
               <BarChart3 className="h-4 w-4" />
-              {generateMut.isPending ? 'Generando…' : 'Vista previa'}
+              {generateMut.isPending ? 'Actualizando…' : 'Actualizar cierre'}
             </Button>
             <Button
               type="button"
@@ -1981,7 +1710,7 @@ export function ReportingPage() {
               title="Resumen para entrega: menos detalle operativo"
               onClick={() => void downloadExport('pdf', { pdfProfile: 'external' })}
             >
-              PDF resumen
+              PDF productor
             </Button>
             {canSave && (
               <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
@@ -2023,14 +1752,13 @@ export function ReportingPage() {
                 onClick={() => downloadExport('xlsx')}
               >
                 <Download className="h-4 w-4" />
-                Generar Excel
+                Excel completo
               </Button>
               <span className="max-w-[22rem] text-right text-[11px] leading-snug text-slate-500">
                 {REPORT_MODULE_TABS.find((x) => x.id === reportTab)?.excelCtaHint}
               </span>
             </div>
           </div>
-        </div>
       </div>
 
       {reportData && !generateMut.isPending && detailId === null ? (
@@ -2047,13 +1775,13 @@ export function ReportingPage() {
         <UnifiedDatasetTechPreview data={reportData} />
       </div>
 
-      {reportTab === 'financiero' && detailId === null ? (
-        <Card className="border-slate-200/90 bg-white shadow-sm">
+      {reportTab === 'cierre' && detailId === null ? (
+          <Card className="border-slate-200/90 bg-white shadow-sm">
           <CardHeader>
             <div className="mb-1">
               <ReportCategoryBadge kind="financiero" />
             </div>
-            <CardTitle className="text-base">Costos de packing por especie</CardTitle>
+              <CardTitle className="text-base">Tarifas packing por especie</CardTitle>
             <CardDescription>
               Parametría usada en <strong>costo por formato</strong> cuando no forzás precio manual en filtros: costo_packing
               ≈ lb × precio_por_lb según especie del formato. Podés ocultar filas de prueba solo en esta pantalla (no borra
@@ -2231,7 +1959,7 @@ export function ReportingPage() {
 
       {reportData && !generateMut.isPending && (
         <div className="space-y-4">
-          {detailId === null && reportTab === 'operativo' && executiveKpis ? (
+          {detailId === null && (reportTab === 'operativo' || reportTab === 'decision') && executiveKpis ? (
             <>
               <Card className="border-slate-200/90 bg-white shadow-sm">
                 <CardHeader className="pb-2">
@@ -2291,15 +2019,15 @@ export function ReportingPage() {
             </>
           ) : null}
 
-          {detailId === null && reportTab === 'financiero' && executiveKpis ? (
+          {detailId === null && reportTab === 'cierre' && executiveKpis ? (
             <Card className="border-slate-200/90 bg-white shadow-sm">
               <CardHeader className="pb-2">
                 <div className="mb-1">
                   <ReportCategoryBadge kind="financiero" />
                 </div>
-                <CardTitle className="text-base text-slate-900">Financiero — resumen ejecutivo</CardTitle>
+                <CardTitle className="text-base text-slate-900">Cierre — resumen ejecutivo</CardTitle>
                 <CardDescription>
-                  Cifras agregadas del período (mismos filtros). Los informes detallados se abren por separado.
+                  Estado del cierre, auditoría y cifras agregadas del período (mismos filtros).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2319,7 +2047,7 @@ export function ReportingPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setDetailId('liquidacion-interna')}>
-                    Liquidación por productor (interna)
+                    Estado del cierre / auditor de liquidación
                   </Button>
                   <Button type="button" variant="secondary" size="sm" onClick={() => setDetailId('costo-formato-facturado')}>
                     Costo por formato facturado
@@ -2335,7 +2063,7 @@ export function ReportingPage() {
             </Card>
           ) : null}
 
-          {detailId === null && reportTab === 'entregables' && executiveKpis ? (
+          {detailId === null && reportTab === 'documentos' && executiveKpis ? (
             <Card className="border-slate-200/90 bg-white shadow-sm">
               <CardHeader className="pb-2">
                 <div className="mb-1">
@@ -2414,7 +2142,7 @@ export function ReportingPage() {
             </DetailChrome>
           ) : null}
 
-          {reportTab === 'financiero' && detailId != null && reportData ? (
+          {reportTab === 'cierre' && detailId != null && reportData ? (
             <DetailChrome
               title={REPORT_DETAIL_TITLES[detailId]}
               onBack={() => setDetailId(null)}
@@ -2575,7 +2303,7 @@ export function ReportingPage() {
             </DetailChrome>
           ) : null}
 
-          {reportTab === 'entregables' && detailId === 'documentos' && reportData ? (
+          {reportTab === 'documentos' && detailId === 'documentos' && reportData ? (
             <DetailChrome title={REPORT_DETAIL_TITLES.documentos} onBack={() => setDetailId(null)} helpId="documentos">
               <div className="space-y-4">
                 <Card className="border-slate-200/90 bg-white shadow-sm">
@@ -2624,7 +2352,7 @@ export function ReportingPage() {
                       variant="secondary"
                       size="sm"
                       onClick={() => {
-                        setReportTab('financiero');
+                              setReportTab('cierre');
                         setDetailId('liquidacion-interna');
                       }}
                     >
@@ -2664,7 +2392,7 @@ export function ReportingPage() {
         <div className={cn(emptyStateInset, 'py-8 text-center')}>Selecciona filtros para generar reporte</div>
       )}
 
-      {reportTab === 'financiero' &&
+      {reportTab === 'cierre' &&
         detailId === null &&
         reportData &&
         !generateMut.isPending &&
