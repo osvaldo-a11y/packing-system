@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, Loader2, Pencil, Plus, PlusCircle, Trash2, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
@@ -359,6 +360,18 @@ function clientScopeIdsFromRow(row: PackagingMaterialRow): number[] {
   if (scope && scope.length > 0) return [...scope];
   if (row.client_id != null && row.client_id > 0) return [row.client_id];
   return [];
+}
+
+function formatQty(v: string | number): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', { maximumFractionDigits: 3 });
+}
+
+function formatMoneySimple(v: string | number): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function MaterialsPage() {
@@ -737,6 +750,37 @@ export function MaterialsPage() {
         (m.client?.nombre ?? '').toLowerCase().includes(q),
     );
   }, [data, tableSearch]);
+
+  const inventorySummary = useMemo(() => {
+    const rows = (data ?? []).filter((r) => r.activo);
+    const categories = new Set<number>();
+    let stockLines = 0;
+    let stockValue = 0;
+    for (const r of rows) {
+      categories.add(r.material_category_id);
+      const qty = Number(r.cantidad_disponible);
+      const cost = Number(r.costo_unitario);
+      if (Number.isFinite(qty) && Math.abs(qty) > 0) stockLines += 1;
+      if (Number.isFinite(qty) && Number.isFinite(cost)) stockValue += qty * cost;
+    }
+    return { activeMaterials: rows.length, categories: categories.size, stockLines, stockValue };
+  }, [data]);
+
+  const groupedInventory = useMemo(() => {
+    const rows = (data ?? []).filter((r) => r.activo);
+    const byCategory = new Map<number, PackagingMaterialRow[]>();
+    for (const row of rows) {
+      const arr = byCategory.get(row.material_category_id) ?? [];
+      arr.push(row);
+      byCategory.set(row.material_category_id, arr);
+    }
+    return (materialCategories ?? [])
+      .filter((c) => byCategory.has(c.id))
+      .map((cat) => ({
+        category: cat,
+        items: (byCategory.get(cat.id) ?? []).sort((a, b) => a.nombre_material.localeCompare(b.nombre_material)),
+      }));
+  }, [data, materialCategories]);
 
   const savingId = updateMut.isPending && updateMut.variables ? updateMut.variables.id : null;
 
@@ -1154,6 +1198,112 @@ export function MaterialsPage() {
           </Dialog>
         </div>
       </div>
+
+      <Card className={contentCard}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">Resumen de inventario</CardTitle>
+          <CardDescription>Vista operativa de stock y costo maestro de materiales activos.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Materiales activos</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.activeMaterials}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categorías con inventario</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.categories}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Con stock visible</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.stockLines}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Valor referencial stock</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">${formatMoneySimple(inventorySummary.stockValue)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={contentCard}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">Inventario agrupado por categoría</CardTitle>
+          <CardDescription>Materiales activos con stock, costo maestro y accesos rápidos de operación.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {groupedInventory.length === 0 ? (
+            <p className="text-sm text-slate-500">Sin materiales activos para mostrar.</p>
+          ) : (
+            groupedInventory.map((group) => (
+              <section key={group.category.id} className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {group.category.nombre} <span className="text-slate-400">({group.category.codigo})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">{group.items.length} material(es)</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {group.items.map((row) => (
+                    <article key={`card-${row.id}`} className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                      <p className="text-sm font-semibold text-slate-900">{row.nombre_material}</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                          <p className="uppercase tracking-wide text-slate-500">Stock</p>
+                          <p className="mt-1 font-semibold tabular-nums text-slate-900">
+                            {formatQty(row.cantidad_disponible)} {row.unidad_medida}
+                          </p>
+                        </div>
+                        <div className="rounded-md bg-slate-50 px-2 py-1.5">
+                          <p className="uppercase tracking-wide text-slate-500">Costo maestro</p>
+                          <p className="mt-1 font-semibold tabular-nums text-slate-900">${formatMoneySimple(row.costo_unitario)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setKardexMaterialId(row.id);
+                            setMoveRefType('compra');
+                            setMoveDelta('');
+                            setMoveGuideRef('');
+                            setMoveSupplierId(0);
+                            setMoveNota('');
+                            setKardexOpen(true);
+                          }}
+                        >
+                          Compra
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setKardexMaterialId(row.id);
+                            setMoveRefType('manual');
+                            setMoveDelta('');
+                            setMoveGuideRef('');
+                            setMoveSupplierId(0);
+                            setMoveNota('');
+                            setKardexOpen(true);
+                          }}
+                        >
+                          Corregir
+                        </Button>
+                        <Button asChild type="button" size="sm">
+                          <Link to={`/packaging/kardex?material=${row.id}`}>Kardex</Link>
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card className={contentCard}>
         <CardHeader className="pb-2">
