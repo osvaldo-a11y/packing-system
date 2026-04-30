@@ -35,7 +35,18 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCount, formatLb } from '@/lib/number-format';
-import { downloadZplFile, fetchTarjaZpl, printTarjaZplOrDownload } from '@/lib/tarja-zpl-print';
+import {
+  downloadZplFile,
+  fetchTarjaZpl,
+  getLocalPrinters,
+  loadLastPrintPayload,
+  printTarjaZplOrDownload,
+  saveLastPrintPayload,
+  TARJA_LABEL_TEMPLATE_OPTIONS,
+  tarjaTemplateHelp,
+  type LocalPrinterInfo,
+  type TarjaLabelTemplate,
+} from '@/lib/tarja-zpl-print';
 import {
   contentCard,
   emptyStatePanel,
@@ -414,6 +425,14 @@ export function PtTagsPage() {
   const [search, setSearch] = useState('');
   const [lineageOpen, setLineageOpen] = useState(false);
   const [lineageData, setLineageData] = useState<TagLineageApi | null>(null);
+  const [printTag, setPrintTag] = useState<PtTagApi | null>(null);
+  const [printTemplate, setPrintTemplate] = useState<TarjaLabelTemplate>('standard');
+  const [printCopies, setPrintCopies] = useState(1);
+  const [printPrinterName, setPrintPrinterName] = useState('');
+  const [localPrinters, setLocalPrinters] = useState<LocalPrinterInfo[]>([]);
+  const [localServiceState, setLocalServiceState] = useState<'idle' | 'ok' | 'unavailable' | 'error'>('idle');
+  const [printingTag, setPrintingTag] = useState(false);
+  const [zebraDisponible, setZebraDisponible] = useState<boolean | null>(null);
   const [detailTag, setDetailTag] = useState<PtTagApi | null>(null);
   const prevTagOpenRef = useRef(false);
   /** Evita condición de carrera: al abrir con el trigger «Nueva», Radix llama onOpenChange(true) antes que setEditTag(null) del botón y el modal quedaba en modo edición. */
@@ -1114,9 +1133,13 @@ export function PtTagsPage() {
     }
   }
 
-  async function printPtTagLabel(tag: PtTagApi) {
+  async function printPtTagLabel(tag: PtTagApi, options?: { template?: TarjaLabelTemplate; printerName?: string; copies?: number }) {
     try {
-      const result = await printTarjaZplOrDownload(tag.id, { template: 'standard', copies: 1 });
+      const result = await printTarjaZplOrDownload(tag.id, {
+        template: options?.template ?? 'standard',
+        copies: options?.copies ?? 1,
+        printerName: options?.printerName,
+      });
       if (result.mode === 'sent_to_local_service') {
         toast.success(
           `Etiqueta enviada${result.printer ? ` a ${result.printer}` : ''}${result.jobId ? ` · job ${result.jobId}` : ''}`,
@@ -1129,14 +1152,41 @@ export function PtTagsPage() {
     }
   }
 
-  async function downloadPtTagZpl(tag: PtTagApi) {
+  async function downloadPtTagZpl(tag: PtTagApi, template: TarjaLabelTemplate = 'standard') {
     try {
-      const zpl = await fetchTarjaZpl(tag.id, 'standard');
+      const zpl = await fetchTarjaZpl(tag.id, template);
       downloadZplFile(`unidad-pt-${tag.id}.zpl`, zpl);
       toast.success('Archivo ZPL descargado');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo descargar ZPL');
     }
+  }
+
+  function openPrintDialog(tag: PtTagApi) {
+    const last = loadLastPrintPayload();
+    setPrintTag(tag);
+    setPrintTemplate(last?.template ?? 'standard');
+    setPrintCopies(last?.copies ?? 1);
+    setPrintPrinterName(last?.printerName ?? '');
+    setLocalServiceState('idle');
+    setLocalPrinters([]);
+    if (zebraDisponible === false) {
+      setLocalServiceState('unavailable');
+      return;
+    }
+    void (async () => {
+      const resp = await getLocalPrinters();
+      if (resp.status === 'ok') {
+        setZebraDisponible(true);
+        setLocalServiceState('ok');
+        setLocalPrinters(resp.printers);
+        if (!last?.printerName && resp.defaultPrinter) setPrintPrinterName(resp.defaultPrinter);
+        return;
+      }
+      setZebraDisponible(false);
+      setLocalServiceState(resp.status);
+      setLocalPrinters([]);
+    })();
   }
 
   if (isPending) {
@@ -1995,11 +2045,7 @@ export function PtTagsPage() {
                               <Waypoints className="mr-2 h-4 w-4" />
                               Ver trazabilidad
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                void printPtTagLabel(tag);
-                              }}
-                            >
+                            <DropdownMenuItem onClick={() => openPrintDialog(tag)}>
                               <Printer className="mr-2 h-4 w-4" />
                               Imprimir etiqueta PT
                             </DropdownMenuItem>
@@ -2225,6 +2271,102 @@ export function PtTagsPage() {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDetailTag(null)}>
               Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={printTag != null}
+        onOpenChange={(o) => {
+          if (!o) setPrintTag(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Impresión de etiqueta PT</DialogTitle>
+            <DialogDescription>
+              {printTag ? `${printTag.tag_code} · ${printTag.format_code}` : 'Seleccioná plantilla y destino de impresión.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label>Tipo de etiqueta</Label>
+              <select
+                className={filterSelectClass}
+                value={printTemplate}
+                onChange={(e) => setPrintTemplate(e.target.value as TarjaLabelTemplate)}
+              >
+                {TARJA_LABEL_TEMPLATE_OPTIONS.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">{tarjaTemplateHelp(printTemplate)}</p>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Copias</Label>
+              <Input
+                type="number"
+                min={1}
+                max={99}
+                className={filterInputClass}
+                value={printCopies}
+                onChange={(e) => setPrintCopies(Math.min(99, Math.max(1, Number(e.target.value) || 1)))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Impresora</Label>
+              <select
+                className={filterSelectClass}
+                value={printPrinterName}
+                onChange={(e) => setPrintPrinterName(e.target.value)}
+                disabled={localServiceState !== 'ok'}
+              >
+                <option value="">Predeterminada del sistema</option>
+                {localPrinters.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {localServiceState !== 'ok' ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Servicio local Zebra no disponible. Puedes descargar ZPL o iniciar el servicio local.
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!printTag}
+              onClick={() => {
+                if (!printTag) return;
+                void downloadPtTagZpl(printTag, printTemplate);
+              }}
+            >
+              Descargar ZPL
+            </Button>
+            <Button
+              type="button"
+              disabled={!printTag || printingTag}
+              onClick={() => {
+                if (!printTag) return;
+                setPrintingTag(true);
+                const payload = {
+                  tarjaId: printTag.id,
+                  template: printTemplate,
+                  printerName: printPrinterName || undefined,
+                  copies: printCopies,
+                };
+                saveLastPrintPayload(payload);
+                void printPtTagLabel(printTag, payload).finally(() => setPrintingTag(false));
+              }}
+            >
+              {printingTag ? 'Imprimiendo…' : 'Imprimir'}
             </Button>
           </DialogFooter>
         </DialogContent>
