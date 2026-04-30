@@ -333,10 +333,10 @@ export function RepalletPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Repaletizaje</h2>
+          <h2 className={pageTitle}>Existencias PT · Repaletizaje</h2>
           <div className="flex flex-wrap items-center gap-2">
             <p className={pageSubtitle}>
-              Reorganizá cajas entre pallets en depósito y generá un pallet resultado con trazabilidad.
+              Reorganizá cajas entre pallets PT en depósito y generá un pallet resultado con trazabilidad.
             </p>
             <button type="button" className={pageInfoButton} title={helpBody} aria-label="Ayuda repaletizaje">
               <Info className="h-4 w-4" />
@@ -347,7 +347,7 @@ export function RepalletPage() {
               to="/existencias-pt/inventario"
               className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
             >
-              Volver a inventario cámara
+              Volver a Existencias PT (inventario cámara)
             </Link>
           </p>
         </div>

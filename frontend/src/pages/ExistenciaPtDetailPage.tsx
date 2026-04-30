@@ -218,6 +218,9 @@ export function ExistenciaPtDetailPage() {
       ) : data ? (
         <>
           <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Detalle existencia PT</h2>
+          </div>
+          <div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl font-mono">
               {data.pallet.codigo_unidad_pt_display?.trim() ||
                 data.pallet.tag_code?.trim() ||

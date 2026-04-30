@@ -580,9 +580,9 @@ export function ExistenciasPtPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Inventario cámara</h2>
+          <h2 className={pageTitle}>Existencias PT · Inventario cámara</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>Stock en depósito, BOL, despacho y packing lists.</p>
+            <p className={pageSubtitle}>Stock PT en cámara, BOL, despacho y packing lists.</p>
             <button
               type="button"
               className={pageInfoButton}
@@ -603,7 +603,7 @@ export function ExistenciasPtPage() {
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/packing-lists" className="gap-2">
               <ListOrdered className="h-4 w-4" />
-              Packing lists
+              Packing Lists PT
             </Link>
           </Button>
           <Button asChild size="sm" className={cn(btnToolbarPrimary, 'px-4')}>
@@ -814,7 +814,7 @@ export function ExistenciasPtPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h3 id="ex-inventario" className={sectionTitle}>
-              Inventario operativo
+              Inventario cámara
             </h3>
             <p className={sectionHint}>
               {rows?.length ?? 0} fila(s) · máx. 500 · prefetch productor: {TRACE_PREFETCH} primeras filas

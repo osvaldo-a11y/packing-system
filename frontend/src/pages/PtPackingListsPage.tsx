@@ -240,9 +240,9 @@ export function PtPackingListsPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Packing Lists PT</h2>
+          <h2 className={pageTitle}>Existencias PT · Packing Lists PT</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>Preparación comercial, BOL y stock PT — antes del despacho.</p>
+            <p className={pageSubtitle}>Preparación comercial, BOL y stock PT antes del despacho.</p>
             <button type="button" className={pageInfoButton} title={helpTitle} aria-label="Ayuda packing lists PT">
               <Info className="h-4 w-4" />
             </button>

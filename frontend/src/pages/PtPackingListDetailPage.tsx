@@ -211,6 +211,10 @@ export function PtPackingListDetailPage() {
         </div>
       ) : data ? (
         <>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Detalle Packing List PT</h1>
+            <p className="text-sm text-slate-500">Seguimiento comercial y logístico del listado seleccionado.</p>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold font-mono tracking-tight">{data.list_code}</h1>
