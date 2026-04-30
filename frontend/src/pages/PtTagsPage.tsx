@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Printer,
   Waypoints,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -34,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCount, formatLb } from '@/lib/number-format';
+import { downloadZplFile, fetchTarjaZpl, printTarjaZplOrDownload } from '@/lib/tarja-zpl-print';
 import {
   contentCard,
   emptyStatePanel,
@@ -1112,6 +1114,31 @@ export function PtTagsPage() {
     }
   }
 
+  async function printPtTagLabel(tag: PtTagApi) {
+    try {
+      const result = await printTarjaZplOrDownload(tag.id, { template: 'standard', copies: 1 });
+      if (result.mode === 'sent_to_local_service') {
+        toast.success(
+          `Etiqueta enviada${result.printer ? ` a ${result.printer}` : ''}${result.jobId ? ` · job ${result.jobId}` : ''}`,
+        );
+        return;
+      }
+      toast.info('Servicio local no disponible; se descargó ZPL para imprimir manualmente.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo imprimir etiqueta');
+    }
+  }
+
+  async function downloadPtTagZpl(tag: PtTagApi) {
+    try {
+      const zpl = await fetchTarjaZpl(tag.id, 'standard');
+      downloadZplFile(`unidad-pt-${tag.id}.zpl`, zpl);
+      toast.success('Archivo ZPL descargado');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo descargar ZPL');
+    }
+  }
+
   if (isPending) {
     return (
       <div className="font-inter space-y-8">
@@ -1967,6 +1994,22 @@ export function PtTagsPage() {
                             >
                               <Waypoints className="mr-2 h-4 w-4" />
                               Ver trazabilidad
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                void printPtTagLabel(tag);
+                              }}
+                            >
+                              <Printer className="mr-2 h-4 w-4" />
+                              Imprimir etiqueta PT
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                void downloadPtTagZpl(tag);
+                              }}
+                            >
+                              <FileDown className="mr-2 h-4 w-4" />
+                              Descargar ZPL etiqueta
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
