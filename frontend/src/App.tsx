@@ -16,6 +16,7 @@ import { PtPackingListsPage } from './pages/PtPackingListsPage';
 import { RepalletPage } from './pages/RepalletPage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { LoginPage } from './pages/LoginPage';
+import { KardexPage } from './pages/KardexPage';
 import { MastersPage } from './pages/MastersPage';
 import { MaterialsPage } from './pages/MaterialsPage';
 import { PlantPage } from './pages/PlantPage';
@@ -78,6 +79,7 @@ function AppRoutes() {
           <Route path="/masters" element={<MastersPage />} />
           <Route path="/receptions" element={<ReceptionPage />} />
           <Route path="/packaging/materials" element={<MaterialsPage />} />
+          <Route path="/packaging/kardex" element={<KardexPage />} />
           <Route path="/packaging/recipes" element={<RecipesPage />} />
           <Route path="/packaging/consumptions" element={<ConsumptionsPage />} />
           <Route path="/forbidden" element={<ForbiddenPage />} />

@@ -47,6 +47,18 @@ export function formatTechnical(value: number, maxDecimals: number): string {
   return s;
 }
 
+/** Inventario: alias semántico para cantidades de materiales (sin decimales). */
+export function formatInventoryQty(value: number): string {
+  return formatCount(value);
+}
+
+/** Inventario desde string numérico (API legacy). */
+export function formatInventoryQtyFromString(value: string | number | null | undefined): string {
+  const n = parseNumeric(value);
+  if (n == null) return '—';
+  return formatInventoryQty(n);
+}
+
 export function parseNumeric(v: unknown): number | null {
   if (v == null || v === '') return null;
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;

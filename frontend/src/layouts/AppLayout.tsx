@@ -58,6 +58,7 @@ const navGroups: NavGroup[] = [
     label: 'Packaging',
     items: [
       { to: '/packaging/materials', label: 'Materiales', icon: Package },
+      { to: '/packaging/kardex', label: 'Kardex', icon: ScrollText },
       { to: '/packaging/recipes', label: 'Recetas', icon: ScrollText },
       { to: '/packaging/consumptions', label: 'Consumos', icon: ClipboardList },
     ],

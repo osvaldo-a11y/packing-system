@@ -7,3 +7,7 @@
 /dist
 /frontend/dist
 *.tsbuildinfo
+local-zebra-print-service/node_modules/
+module-images/
+.cursor/
+.vscode/
