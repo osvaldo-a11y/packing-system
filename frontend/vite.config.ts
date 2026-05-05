@@ -24,6 +24,15 @@ export default defineConfig({
     host: true,
     strictPort: true,
     proxy: {
+      /**
+       * Servicio Zebra local (Node en :3001). Mismo origen que Vite → evita bloqueo mixed-content
+       * si abrís el front por https o por otro host y el navegador no deja pegarle a http://127.0.0.1:3001.
+       */
+      '/local-zebra-print': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/local-zebra-print/, '') || '/',
+      },
       '/api': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,

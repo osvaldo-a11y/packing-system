@@ -1,11 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Clipboard,
   ChevronDown,
   FileDown,
   Info,
-  MapPin,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -14,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
@@ -37,12 +35,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   downloadZplFile,
+  fetchTarjaTemplateCatalog,
   fetchTarjaZpl,
+  getConfiguredZebraPrinterName,
+  getLastPrintServiceProbeSummary,
   getLocalPrinters,
   loadLastPrintPayload,
   printTarjaZplOrDownload,
+  resolvePrinterForLocalJob,
   saveLastPrintPayload,
+  suggestPrinterNameForTarjaPrint,
   TARJA_LABEL_TEMPLATE_OPTIONS,
+  TARJA_TEMPLATE_UI,
   tarjaTemplateHelp,
   type LocalPrinterInfo,
   type TarjaLabelTemplate,
@@ -58,6 +62,18 @@ import {
   kpiLabel,
   kpiValueLg,
   kpiValueMd,
+  operationalModalBodyClass,
+  operationalModalContentClass,
+  operationalModalDescriptionClass,
+  operationalModalFooterClass,
+  operationalModalFormClass,
+  operationalModalHeaderClass,
+  operationalModalSectionCard,
+  operationalModalSectionHeadingRow,
+  operationalModalSectionMuted,
+  operationalModalStepBadge,
+  operationalModalStepTitle,
+  operationalModalTitleClass,
   pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
@@ -369,6 +385,47 @@ function tagProducerLabel(t: PtTagApi, producerById: Map<number, string>) {
   return `Varios (${ids.length})`;
 }
 
+function compactTagStateTone(tag: PtTagApi): {
+  label: string;
+  badge: string;
+  bar: string;
+} {
+  const assignment = commercialAssignment(tag);
+  if (tag.total_cajas <= 0) {
+    return {
+      label: 'Pendiente',
+      badge: 'border-amber-200 bg-amber-50 text-amber-900',
+      bar: 'bg-amber-400',
+    };
+  }
+  if (assignment === 'full') {
+    return {
+      label: 'Definitiva',
+      badge: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      bar: 'bg-emerald-400',
+    };
+  }
+  if (assignment === 'partial') {
+    return {
+      label: 'Incompleta',
+      badge: 'border-amber-200 bg-amber-50 text-amber-900',
+      bar: 'bg-amber-400',
+    };
+  }
+  return {
+    label: 'Pendiente',
+    badge: 'border-slate-200 bg-slate-50 text-slate-700',
+    bar: 'bg-slate-300',
+  };
+}
+
+function compactTagTraceability(tag: PtTagApi, dispatchedTagIds: Set<number>): string {
+  if (dispatchedTagIds.has(tag.id)) return 'Despacho';
+  if (tag.es_union_tarjas || tag.excluida_suma_packout) return 'Repaletizaje';
+  if ((tag.bol ?? '').trim()) return 'Packing list / BOL';
+  return 'Proceso directo';
+}
+
 /** Asignación comercial temprana (solo datos ya guardados en la unidad PT). */
 type CommercialAssignment = 'none' | 'partial' | 'full';
 
@@ -414,7 +471,6 @@ function CommercialStatusBadge({ state }: { state: CommercialAssignment }) {
 }
 
 export function PtTagsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
   const canEditTag = role === 'admin' || role === 'supervisor';
@@ -431,8 +487,13 @@ export function PtTagsPage() {
   const [printPrinterName, setPrintPrinterName] = useState('');
   const [localPrinters, setLocalPrinters] = useState<LocalPrinterInfo[]>([]);
   const [localServiceState, setLocalServiceState] = useState<'idle' | 'ok' | 'unavailable' | 'error'>('idle');
+  const [localServiceMessage, setLocalServiceMessage] = useState('');
   const [printingTag, setPrintingTag] = useState(false);
-  const [zebraDisponible, setZebraDisponible] = useState<boolean | null>(null);
+  const [printRememberPrinter, setPrintRememberPrinter] = useState(true);
+  const [printRememberTemplate, setPrintRememberTemplate] = useState(true);
+  /** Por defecto el combo solo lista Zebras; al activar muestra Fax/PDF/etc. */
+  const [showAllPrinters, setShowAllPrinters] = useState(false);
+  const [localDefaultPrinter, setLocalDefaultPrinter] = useState<string | undefined>(undefined);
   const [detailTag, setDetailTag] = useState<PtTagApi | null>(null);
   const prevTagOpenRef = useRef(false);
   /** Evita condición de carrera: al abrir con el trigger «Nueva», Radix llama onOpenChange(true) antes que setEditTag(null) del botón y el modal quedaba en modo edición. */
@@ -442,11 +503,18 @@ export function PtTagsPage() {
   const [filterFormat, setFilterFormat] = useState('');
   const [filterClient, setFilterClient] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<'todas' | 'disponible' | 'sin_cajas'>('todas');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [opsDayKey, setOpsDayKey] = useState<string>(() => toLocalDayKey(new Date()));
 
   const { data: tags, isPending, isError, error } = useQuery({
     queryKey: ['pt-tags'],
     queryFn: fetchPtTags,
+  });
+
+  const { data: tarjaTemplateCatalog } = useQuery({
+    queryKey: ['labels', 'templates'],
+    queryFn: fetchTarjaTemplateCatalog,
+    staleTime: 10 * 60_000,
   });
 
   const { data: processes } = useQuery({
@@ -525,6 +593,23 @@ export function PtTagsPage() {
     }
     return m;
   }, [presFormats]);
+
+  const tarjaPrintTemplateChoices = useMemo(() => {
+    const rows =
+      tarjaTemplateCatalog ??
+      TARJA_LABEL_TEMPLATE_OPTIONS.map((t) => ({
+        id: t.id,
+        title: t.label,
+        description: tarjaTemplateHelp(t.id),
+      }));
+    return rows.map((row) => ({
+      id: row.id,
+      title: TARJA_TEMPLATE_UI[row.id].title,
+      description: TARJA_TEMPLATE_UI[row.id].blurb,
+    }));
+  }, [tarjaTemplateCatalog]);
+
+  const zebraPrinterList = useMemo(() => localPrinters.filter((p) => p.isZebra), [localPrinters]);
 
   /** Procesos abiertos: primera unidad PT, o una adicional si el API indica lb restante (`puede_nueva_unidad_pt`). */
   const availableProcesses = useMemo(() => {
@@ -650,6 +735,74 @@ export function PtTagsPage() {
       sinCajas,
       uniones,
     };
+  }, [filteredTags]);
+
+  const dispatchedTagIds = useMemo(() => {
+    const set = new Set<number>();
+    for (const d of dispatchesList ?? []) {
+      const ts = d.despachado_at || d.fecha_despacho;
+      if (!ts) continue;
+      for (const it of d.items ?? []) {
+        const tid = Number(it.tarja_id);
+        if (Number.isFinite(tid) && tid > 0) set.add(tid);
+      }
+      for (const ln of d.invoice?.lines ?? []) {
+        const tid = Number(ln.tarja_id);
+        if (Number.isFinite(tid) && tid > 0) set.add(tid);
+      }
+    }
+    return set;
+  }, [dispatchesList]);
+
+  const groupedTagsByFormat = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        format: string;
+        tags: PtTagApi[];
+        totalCajas: number;
+        totalLb: number;
+        definitivas: number;
+        pendientes: number;
+        clientSummary: string;
+      }
+    >();
+    for (const t of filteredTags) {
+      const key = t.format_code?.trim() || '—';
+      const cur = map.get(key) ?? {
+        format: key,
+        tags: [],
+        totalCajas: 0,
+        totalLb: 0,
+        definitivas: 0,
+        pendientes: 0,
+        clientSummary: '—',
+      };
+      cur.tags.push(t);
+      cur.totalCajas += Number.isFinite(t.total_cajas) ? t.total_cajas : 0;
+      const lb = Number(t.net_weight_lb);
+      if (Number.isFinite(lb)) cur.totalLb += lb;
+      const assignment = commercialAssignment(t);
+      if (t.total_cajas > 0 && assignment !== 'none') cur.definitivas += 1;
+      else cur.pendientes += 1;
+      map.set(key, cur);
+    }
+    return [...map.values()]
+      .map((g) => {
+        const clientSet = new Set<string>();
+        for (const t of g.tags) {
+          const c = clientLabel(t);
+          if (c && c !== 'Sin cliente') clientSet.add(c);
+        }
+        const arr = [...clientSet];
+        const clientSummary = arr.length === 0 ? 'Sin cliente' : arr.length === 1 ? arr[0] : 'Varios clientes';
+        return {
+          ...g,
+          clientSummary,
+          tags: g.tags.slice().sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id - a.id),
+        };
+      })
+      .sort((a, b) => b.totalCajas - a.totalCajas);
   }, [filteredTags]);
 
   const operationalDaily = useMemo(() => {
@@ -1139,17 +1292,58 @@ export function PtTagsPage() {
         template: options?.template ?? 'standard',
         copies: options?.copies ?? 1,
         printerName: options?.printerName,
+        onPrintQueued: () => toast.success('Enviado a impresión'),
       });
       if (result.mode === 'sent_to_local_service') {
-        toast.success(
-          `Etiqueta enviada${result.printer ? ` a ${result.printer}` : ''}${result.jobId ? ` · job ${result.jobId}` : ''}`,
-        );
         return;
       }
-      toast.info('Servicio local no disponible; se descargó ZPL para imprimir manualmente.');
+      const archivo = result.filename;
+      const descRespaldo = `Se descargó ${archivo} como respaldo. Podés imprimirlo manualmente desde el equipo de planta.`;
+      if (result.reason === 'service_unavailable') {
+        toast.warning('No se detectó el servicio local de impresión Zebra en este equipo.', {
+          description: descRespaldo,
+          duration: 10_000,
+        });
+        return;
+      }
+      toast.error('Error al enviar a impresión', {
+        description: [result.message, descRespaldo].filter(Boolean).join(' · '),
+        duration: 10_000,
+      });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo imprimir etiqueta');
+      toast.error('Error al enviar a impresión', {
+        description: e instanceof Error ? e.message : 'No se pudo imprimir etiqueta',
+      });
     }
+  }
+
+  async function reprintLastPtTagPayload() {
+    const last = loadLastPrintPayload();
+    if (!last) {
+      toast.error('No hay una impresión previa registrada en este navegador.');
+      return;
+    }
+    const tag = (tags ?? []).find((t) => t.id === last.tarjaId);
+    if (!tag) {
+      toast.error('La última tarja no aparece en la lista cargada; buscala y volvé a imprimir desde la fila.');
+      return;
+    }
+    const printersResp = await getLocalPrinters();
+    const list = printersResp.status === 'ok' ? printersResp.printers : [];
+    const def = printersResp.status === 'ok' ? printersResp.defaultPrinter : undefined;
+    const zebras = list.filter((p) => p.isZebra);
+    const resolved = resolvePrinterForLocalJob({
+      selectedName: last.printerName ?? '',
+      allPrinters: list,
+      zebraOnlyMode: zebras.length > 0,
+      defaultPrinter: def,
+      envPreferredPrinter: getConfiguredZebraPrinterName(),
+    });
+    void printPtTagLabel(tag, {
+      template: last.template,
+      copies: last.copies,
+      printerName: resolved.trim() ? resolved : undefined,
+    });
   }
 
   async function downloadPtTagZpl(tag: PtTagApi, template: TarjaLabelTemplate = 'standard') {
@@ -1164,30 +1358,86 @@ export function PtTagsPage() {
 
   function openPrintDialog(tag: PtTagApi) {
     const last = loadLastPrintPayload();
+    const rememberP = last?.rememberPrinter !== false;
+    const rememberT = last?.rememberTemplate !== false;
+    const persistedPrinter = rememberP ? last?.printerName : undefined;
+    setPrintRememberPrinter(rememberP);
+    setPrintRememberTemplate(rememberT);
     setPrintTag(tag);
-    setPrintTemplate(last?.template ?? 'standard');
+    setShowAllPrinters(false);
+    setLocalDefaultPrinter(undefined);
+    setPrintTemplate(rememberT && last?.template ? last.template : 'standard');
     setPrintCopies(last?.copies ?? 1);
-    setPrintPrinterName(last?.printerName ?? '');
+    setPrintPrinterName(persistedPrinter?.trim() ? persistedPrinter.trim() : '');
     setLocalServiceState('idle');
+    setLocalServiceMessage('');
     setLocalPrinters([]);
-    if (zebraDisponible === false) {
-      setLocalServiceState('unavailable');
-      return;
-    }
     void (async () => {
       const resp = await getLocalPrinters();
       if (resp.status === 'ok') {
-        setZebraDisponible(true);
         setLocalServiceState('ok');
+        setLocalServiceMessage('');
         setLocalPrinters(resp.printers);
-        if (!last?.printerName && resp.defaultPrinter) setPrintPrinterName(resp.defaultPrinter);
+        setLocalDefaultPrinter(resp.defaultPrinter);
+        const zebras = resp.printers.filter((p) => p.isZebra);
+        const pool = zebras.length > 0 ? zebras : resp.printers;
+        const pPersist = persistedPrinter?.trim();
+        const validPersisted =
+          pPersist && pool.some((p) => p.name === pPersist) ? pPersist : undefined;
+        setPrintPrinterName(
+          suggestPrinterNameForTarjaPrint({
+            printers: pool,
+            defaultPrinter: resp.defaultPrinter,
+            persistedPrinterName: validPersisted,
+            envPreferredPrinter: getConfiguredZebraPrinterName(),
+          }),
+        );
         return;
       }
-      setZebraDisponible(false);
       setLocalServiceState(resp.status);
+      setLocalServiceMessage(
+        resp.status === 'unavailable' || resp.status === 'error'
+          ? resp.message?.trim() || getLastPrintServiceProbeSummary()
+          : '',
+      );
       setLocalPrinters([]);
     })();
   }
+
+  useEffect(() => {
+    if (printTag == null || localServiceState !== 'ok') return;
+    if (zebraPrinterList.length !== 1) return;
+    setPrintPrinterName(zebraPrinterList[0].name);
+  }, [printTag, localServiceState, zebraPrinterList]);
+
+  useEffect(() => {
+    if (printTag == null || localServiceState !== 'ok' || showAllPrinters) return;
+    if (zebraPrinterList.length <= 1) return;
+    const raw = printPrinterName.trim();
+    if (!raw) return;
+    if (zebraPrinterList.some((z) => z.name === raw)) return;
+    setPrintPrinterName(
+      suggestPrinterNameForTarjaPrint({
+        printers: zebraPrinterList,
+        defaultPrinter: localDefaultPrinter,
+        envPreferredPrinter: getConfiguredZebraPrinterName(),
+      }),
+    );
+  }, [
+    printTag,
+    printPrinterName,
+    localServiceState,
+    showAllPrinters,
+    zebraPrinterList,
+    localDefaultPrinter,
+  ]);
+
+  useEffect(() => {
+    if (printTag == null) {
+      setShowAllPrinters(false);
+      setLocalDefaultPrinter(undefined);
+    }
+  }, [printTag]);
 
   if (isPending) {
     return (
@@ -1255,21 +1505,40 @@ export function PtTagsPage() {
                 Nueva unidad PT
               </Button>
             </DialogTrigger>
-            <DialogContent className="flex max-h-[min(92vh,900px)] w-full max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]">
-              <DialogHeader className="shrink-0 space-y-1.5 border-b border-border px-6 pb-3.5 pt-5 pr-14 text-left">
-                <DialogTitle className="text-lg">{editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}</DialogTitle>
-                <DialogDescription className="text-pretty text-[13px] leading-snug text-muted-foreground">
-                  {editTag ? (
-                    <>
-                      Cambiá fecha, tipo, formato, proceso y cajas (una sola línea) o datos comerciales. Unidades unidas: no se editan líneas
-                      aquí.
-                    </>
-                  ) : (
-                    <>
-                      Crear nueva unidad de producto terminado. Definí formato, origen y cantidad. El sistema calcula el resto automáticamente.
-                    </>
-                  )}
+            <DialogContent
+              className={cn(
+                operationalModalContentClass,
+                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+              )}
+            >
+              <DialogHeader className={operationalModalHeaderClass}>
+                <DialogTitle className={operationalModalTitleClass}>{editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}</DialogTitle>
+                <DialogDescription className={operationalModalDescriptionClass}>
+                  {editTag
+                    ? 'Fecha, tipo, formato, proceso y cajas (una línea) o datos comerciales.'
+                    : 'Formato, proceso origen y cajas a cargar; destino comercial opcional.'}
                 </DialogDescription>
+                <details className="group text-[13px] text-muted-foreground">
+                  <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                      <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                      Flujo completo y edición avanzada
+                    </span>
+                  </summary>
+                  <p className="mt-2 max-w-prose text-pretty leading-snug">
+                    {editTag ? (
+                      <>
+                        Cambiá fecha, tipo, formato, proceso y cajas (una sola línea) o datos comerciales. Unidades unidas: no se editan
+                        líneas aquí.
+                      </>
+                    ) : (
+                      <>
+                        Crear nueva unidad de producto terminado. Definí formato, origen y cantidad. El sistema calcula el resto
+                        automáticamente. Alta de tarja TAR-… y vínculo a proceso; genera pallet PF-… y stock en Existencias PT.
+                      </>
+                    )}
+                  </p>
+                </details>
               </DialogHeader>
               <form
                 onSubmit={tagForm.handleSubmit((v) => {
@@ -1302,17 +1571,16 @@ export function PtTagsPage() {
                   }
                   createTagMut.mutate(v);
                 })}
-                className="flex min-h-0 flex-1 flex-col"
+                className={operationalModalFormClass}
               >
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-                  <div className="space-y-4">
+                <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(320px,100%),min(480px,44vw))_minmax(0,1fr)] lg:gap-6 lg:overflow-hidden">
+                    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:min-h-0 lg:overflow-hidden lg:pr-1">
                     {/* 1 · Formato */}
-                    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
-                          1
-                        </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Formato</h3>
+                    <section className={operationalModalSectionCard}>
+                      <div className={operationalModalSectionHeadingRow}>
+                        <span className={operationalModalStepBadge}>1</span>
+                        <h3 className={operationalModalStepTitle}>Formato</h3>
                       </div>
                       <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
                         <div className="grid gap-1.5">
@@ -1344,7 +1612,7 @@ export function PtTagsPage() {
                           {activePresFormats.length > 0 ? (
                             <select
                               id="format_code"
-                              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="min-w-0 flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               value={tagForm.watch('format_code')}
                               onChange={(e) => tagForm.setValue('format_code', e.target.value, { shouldValidate: true })}
                             >
@@ -1379,14 +1647,12 @@ export function PtTagsPage() {
                     </section>
 
                     {/* 2 · Proceso origen */}
-                    <section className="rounded-xl border border-border bg-muted/15 p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
-                          2
-                        </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Proceso origen</h3>
+                    <section className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
+                      <div className={operationalModalSectionHeadingRow}>
+                        <span className={operationalModalStepBadge}>2</span>
+                        <h3 className={operationalModalStepTitle}>Proceso origen</h3>
                       </div>
-                      <div className="grid gap-3">
+                      <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto">
                         <div className="grid gap-1.5">
                           <Label className="text-xs" htmlFor="tag-process">
                             Proceso *
@@ -1394,7 +1660,7 @@ export function PtTagsPage() {
                           <select
                             id="tag-process"
                             disabled={!!editTag && editTag.items.length > 1}
-                            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70"
+                            className="min-w-0 flex h-auto min-h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70 sm:text-sm"
                             {...tagForm.register('process_id', { valueAsNumber: true })}
                           >
                             <option value={0}>Elegir proceso…</option>
@@ -1485,14 +1751,14 @@ export function PtTagsPage() {
                         ) : null}
                       </div>
                     </section>
+                    </div>
 
+                    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain lg:min-h-0 lg:pr-1">
                     {/* 3 · Cantidad (cajas) */}
-                    <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
-                          3
-                        </span>
-                        <h3 className="text-sm font-semibold tracking-tight">Cantidad</h3>
+                    <section className={operationalModalSectionCard}>
+                      <div className={operationalModalSectionHeadingRow}>
+                        <span className={operationalModalStepBadge}>3</span>
+                        <h3 className={operationalModalStepTitle}>Cantidad</h3>
                       </div>
                       <div className="grid max-w-md gap-2">
                         <Label htmlFor="cajas_generadas" className="text-xs font-medium">
@@ -1538,8 +1804,9 @@ export function PtTagsPage() {
                     </section>
 
                     {/* 4 · Comercial (opcional) */}
-                    <section className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                    <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
                       <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                        <span className={operationalModalStepBadge}>4</span>
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Comercial</span>
                         <span className="text-[10px] text-muted-foreground/80">opcional</span>
                       </div>
@@ -1588,7 +1855,7 @@ export function PtTagsPage() {
 
                     {/* 5 · Varias unidades (solo alta; peso bajo) */}
                     {!editTag && (
-                      <section className="rounded-lg border border-dashed border-border/70 bg-muted/10 p-3">
+                      <section className="shrink-0 rounded-lg border border-dashed border-border/70 bg-muted/10 p-3">
                         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                           <span className="text-[11px] font-medium text-muted-foreground">Varias unidades a la vez</span>
                           <span className="text-[10px] text-muted-foreground/90">Mismo dato que arriba · secuencial</span>
@@ -1617,7 +1884,7 @@ export function PtTagsPage() {
                     )}
 
                     {/* Lectura mantenedor: colapsable */}
-                    <details className="group rounded-lg border border-border/60 bg-muted/15 [&_summary::-webkit-details-marker]:hidden">
+                    <details className="group shrink-0 rounded-lg border border-border/60 bg-muted/15 [&_summary::-webkit-details-marker]:hidden">
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium text-muted-foreground transition hover:bg-muted/30">
                         <span>Mantenedor (solo lectura)</span>
                         <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
@@ -1645,10 +1912,11 @@ export function PtTagsPage() {
                         </div>
                       </div>
                     </details>
+                    </div>
                   </div>
                 </div>
 
-                <DialogFooter className="shrink-0 gap-2 border-t border-border bg-muted/15 px-6 py-3">
+                <DialogFooter className={cn(operationalModalFooterClass, 'gap-2')}>
                   <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
                     Cancelar
                   </Button>
@@ -1679,99 +1947,11 @@ export function PtTagsPage() {
         </div>
       </div>
 
-      <section
-        className="grid gap-3 xl:grid-cols-2 xl:gap-5 @container/daily"
-        aria-labelledby="pt-daily-ops"
-      >
-        <h2 id="pt-daily-ops" className="sr-only">
-          Operación del día
-        </h2>
-        <div className={cn(contentCard, 'px-3 py-3 sm:px-5 sm:py-4')}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen del día (operación)</p>
-            <div className="flex items-center gap-2">
-              <Label className="text-[11px] text-slate-500">Fecha</Label>
-              <Input
-                type="date"
-                className="h-8 w-[150px] bg-white"
-                value={opsDayKey}
-                onChange={(e) => setOpsDayKey(e.target.value || toLocalDayKey(new Date()))}
-              />
-            </div>
-          </div>
-          <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
-            Packed y despachado: fecha seleccionada. Saldo: packed - shipped del mismo día (sin arrastre de días anteriores).
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
-            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-              <p className={kpiLabel}>Packed día</p>
-              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
-              <p className={kpiFootnote}>Cajas</p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-              <p className={kpiLabel}>Saldo del día</p>
-              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
-              <p className={kpiFootnote}>Packed - Shipped</p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-              <p className={kpiLabel}>Shipped día</p>
-              <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.shippedToday)}</p>
-              <p className={kpiFootnote}>Cajas (factura o ítems)</p>
-            </div>
-          </div>
-        </div>
-        <div className={cn(contentCard, 'flex flex-col px-3 py-3 sm:px-5 sm:py-4')}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día por cliente</p>
-              <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
-                Fecha seleccionada ({opsDayKey}). Formatos unificados con maestros; línea: cantidad · formato. Pegá en WhatsApp, Excel o correo.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 gap-1.5"
-              onClick={() => {
-                void navigator.clipboard.writeText(endOfDayPlainText);
-                toast.success('Resumen copiado al portapapeles');
-              }}
-            >
-              <Clipboard className="h-3.5 w-3.5" />
-              Copiar resumen
-            </Button>
-          </div>
-          <pre className="mt-3 max-h-[min(48vh,320px)] max-xl:max-h-[38vh] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 font-mono text-[10px] leading-relaxed text-slate-800 sm:p-3 sm:text-[11px]">
-            {endOfDayPlainText || `Sin datos para ${opsDayKey}.`}
-          </pre>
-        </div>
-      </section>
-
-      <div
-        className={cn(
-          contentCard,
-          'flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5',
-        )}
-      >
-        <p className="text-sm font-medium text-slate-800">Proyección · pendiente por embalar</p>
-        <div className="text-left sm:text-right">
-          <p className="text-base font-semibold tabular-nums text-slate-900 sm:text-lg">
-            Pendiente mañana: {formatLb(operationalDaily.pendingLb, 2)} lb
-          </p>
-          {pendingCajasEst != null ? (
-            <p className="text-[11px] text-slate-500">
-              ~{formatCount(pendingCajasEst)} cajas (estim. lb ÷ neto medio formatos activos)
-            </p>
-          ) : null}
-        </div>
-      </div>
-
       <section aria-labelledby="pt-kpis" className="space-y-4">
         <h2 id="pt-kpis" className="sr-only">
           Indicadores del listado filtrado
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className={kpiCard}>
             <p className={kpiLabel}>Unidades (listado)</p>
             <p className={kpiValueLg}>{formatCount(listKpis.unidades)}</p>
@@ -1782,61 +1962,113 @@ export function PtTagsPage() {
             <p className={kpiValueLg}>{formatCount(listKpis.cajas)}</p>
             <p className={kpiFootnote}>Sin doble conteo repallet</p>
           </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>Peso total (lb)</p>
-            <p className={kpiValueLg}>{formatLb(listKpis.lb, 2)}</p>
-            <p className={kpiFootnote}>Neto declarado</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              listKpis.sinCliente > 0 ? 'border-amber-200/80 bg-amber-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>Sin cliente</p>
-            <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-950' : '')}>
-              {formatCount(listKpis.sinCliente)}
-            </p>
-            <p className={kpiFootnote}>Comercial pendiente</p>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Con cajas</p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.conCajas)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Sin cajas</p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.sinCajas)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Uniones</p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.uniones)}</p>
-          </div>
         </div>
       </section>
 
-      {unassignedPtCount > 0 ? (
-        <div className="rounded-2xl border border-amber-100/90 bg-amber-50/35 px-4 py-3 text-sm text-amber-950">
-          <span className="font-medium">Global:</span>{' '}
-          {unassignedPtCount} unidad{unassignedPtCount === 1 ? '' : 'es'} sin cliente previsto en todo el sistema.
+      <details className={cn(contentCard, 'group')}>
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700 marker:content-none">
+          Más paneles operativos
+        </summary>
+        <div className="space-y-3 border-t border-slate-200/70 px-4 py-3">
+          <section className="grid gap-3 xl:grid-cols-2 xl:gap-5 @container/daily" aria-labelledby="pt-daily-ops">
+            <h2 id="pt-daily-ops" className="sr-only">
+              Operación del día
+            </h2>
+            <div className={cn(contentCard, 'px-3 py-3 sm:px-5 sm:py-4')}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen del día (operación)</p>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] text-slate-500">Fecha</Label>
+                  <Input
+                    type="date"
+                    className="h-8 w-[150px] bg-white"
+                    value={opsDayKey}
+                    onChange={(e) => setOpsDayKey(e.target.value || toLocalDayKey(new Date()))}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
+                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+                  <p className={kpiLabel}>Packed día</p>
+                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
+                  <p className={kpiFootnote}>Cajas</p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+                  <p className={kpiLabel}>Saldo del día</p>
+                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
+                  <p className={kpiFootnote}>Packed - Shipped</p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+                  <p className={kpiLabel}>Shipped día</p>
+                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.shippedToday)}</p>
+                  <p className={kpiFootnote}>Cajas (factura o ítems)</p>
+                </div>
+              </div>
+            </div>
+            <div className={cn(contentCard, 'flex flex-col px-3 py-3 sm:px-5 sm:py-4')}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día por cliente</p>
+                  <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
+                    Fecha seleccionada ({opsDayKey}). Formatos unificados con maestros; línea: cantidad · formato.
+                  </p>
+                </div>
+              </div>
+              <pre className="mt-3 max-h-[min(48vh,320px)] max-xl:max-h-[38vh] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 font-mono text-[10px] leading-relaxed text-slate-800 sm:p-3 sm:text-[11px]">
+                {endOfDayPlainText || `Sin datos para ${opsDayKey}.`}
+              </pre>
+            </div>
+          </section>
+          <div className={cn(contentCard, 'flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5')}>
+            <p className="text-sm font-medium text-slate-800">Proyección · pendiente por embalar</p>
+            <div className="text-left sm:text-right">
+              <p className="text-base font-semibold tabular-nums text-slate-900 sm:text-lg">
+                Pendiente mañana: {formatLb(operationalDaily.pendingLb, 2)} lb
+              </p>
+              {pendingCajasEst != null ? (
+                <p className="text-[11px] text-slate-500">
+                  ~{formatCount(pendingCajasEst)} cajas (estim. lb ÷ neto medio formatos activos)
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={kpiCard}>
+              <p className={kpiLabel}>Peso total (lb)</p>
+              <p className={kpiValueLg}>{formatLb(listKpis.lb, 2)}</p>
+              <p className={kpiFootnote}>Neto declarado</p>
+            </div>
+            <div className={cn(kpiCard, listKpis.sinCliente > 0 ? 'border-amber-200/80 bg-amber-50/40' : '')}>
+              <p className={kpiLabel}>Sin cliente</p>
+              <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-950' : '')}>
+                {formatCount(listKpis.sinCliente)}
+              </p>
+              <p className={kpiFootnote}>Comercial pendiente</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Sin cajas</p>
+              <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.sinCajas)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Uniones</p>
+              <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.uniones)}</p>
+            </div>
+          </div>
+          {unassignedPtCount > 0 ? (
+            <div className="rounded-2xl border border-amber-100/90 bg-amber-50/35 px-4 py-3 text-sm text-amber-950">
+              <span className="font-medium">Global:</span>{' '}
+              {unassignedPtCount} unidad{unassignedPtCount === 1 ? '' : 'es'} sin cliente previsto en todo el sistema.
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </details>
 
       <div className={filterPanel}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Filtros</span>
-          <button
-            type="button"
-            className={pageInfoButton}
-            title="Filtrá por productor, formato, cliente previsto o estado de cajas."
-            aria-label="Ayuda filtros"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
         </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          <div className="grid min-w-0 flex-1 gap-1.5 lg:min-w-[220px] lg:max-w-sm">
+        <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid min-w-0 gap-1.5">
             <Label className="text-[11px] font-medium text-slate-500">Buscar</Label>
             <Input
               className={filterInputClass}
@@ -1845,7 +2077,7 @@ export function PtTagsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="grid min-w-0 gap-1.5 lg:w-[200px]">
+          <div className="grid min-w-0 gap-1.5">
             <Label className="text-[11px] font-medium text-slate-500">Productor</Label>
             <select
               className={filterSelectClass}
@@ -1861,7 +2093,7 @@ export function PtTagsPage() {
               ))}
             </select>
           </div>
-          <div className="grid min-w-0 gap-1.5 lg:w-[200px]">
+          <div className="grid min-w-0 gap-1.5">
             <Label className="text-[11px] font-medium text-slate-500">Formato</Label>
             <select
               className={filterSelectClass}
@@ -1876,28 +2108,7 @@ export function PtTagsPage() {
               ))}
             </select>
           </div>
-          <div className="grid min-w-0 gap-1.5 lg:min-w-[220px] lg:max-w-[260px]">
-            <Label className="text-[11px] font-medium text-slate-500">Cliente previsto</Label>
-            <select
-              className={filterSelectClass}
-              value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '') setFilterClient(null);
-                else if (v === '-1') setFilterClient(-1);
-                else setFilterClient(Number(v));
-              }}
-            >
-              <option value="">Todos</option>
-              <option value="-1">Sin cliente</option>
-              {(commercialClients ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.codigo} — {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid min-w-0 gap-1.5 lg:w-[200px]">
+          <div className="grid min-w-0 gap-1.5">
             <Label className="text-[11px] font-medium text-slate-500">Estado cajas</Label>
             <select
               className={filterSelectClass}
@@ -1910,20 +2121,206 @@ export function PtTagsPage() {
             </select>
           </div>
         </div>
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-medium text-slate-500">Más filtros</summary>
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div className="grid min-w-0 gap-1.5">
+              <Label className="text-[11px] font-medium text-slate-500">Cliente previsto</Label>
+              <select
+                className={filterSelectClass}
+                value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '') setFilterClient(null);
+                  else if (v === '-1') setFilterClient(-1);
+                  else setFilterClient(Number(v));
+                }}
+              >
+                <option value="">Todos</option>
+                <option value="-1">Sin cliente</option>
+                {(commercialClients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.codigo} — {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </details>
       </div>
 
       <section className="space-y-3" aria-labelledby="pt-listado">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 id="pt-listado" className={sectionTitle}>
-            Unidades PT
-          </h2>
-          <span className={cn(sectionHint, '!mt-0')}>Click en fila para detalle</span>
+          <div>
+            <h2 id="pt-listado" className={sectionTitle}>
+              Unidades PT
+            </h2>
+            <span className={cn(sectionHint, '!mt-0')}>Compacta por formato · detallada completa</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('compact')}
+              >
+                Compacta
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('detailed')}
+              >
+                Detallada
+              </Button>
+            </div>
+            <details className="group">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+                Ver criterios
+              </summary>
+              <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+                <p><span className="font-semibold text-emerald-700">Definitivo:</span> unidad lista/confirmada</p>
+                <p><span className="font-semibold text-amber-700">Pendiente:</span> unidad no cerrada o incompleta</p>
+                <p><span className="font-semibold text-violet-700">Repaletizaje:</span> unión o movimiento entre pallets</p>
+                <p><span className="font-semibold text-sky-700">Proceso directo:</span> unidad viene desde proceso</p>
+                <p><span className="font-semibold text-slate-700">Con BOL:</span> vinculada a documento comercial</p>
+                <p><span className="font-semibold text-slate-700">Sin ruta:</span> sin señal clara comercial/logística</p>
+              </div>
+            </details>
+          </div>
         </div>
         {filteredTags.length === 0 ? (
           <div className={cn(emptyStatePanel, 'py-14')}>No hay resultados. Creá una unidad o ajustá filtros.</div>
+        ) : viewMode === 'compact' ? (
+          <div className="space-y-2.5">
+            {groupedTagsByFormat.map((group) => (
+              <div key={group.format} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/85">
+                  <div className="min-w-0">
+                    <p className="font-mono text-sm font-semibold text-slate-900">{group.format}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {formatCount(group.totalCajas)} cajas · {formatLb(group.totalLb, 2)} lb · {formatCount(group.tags.length)} unidad(es)
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-900">
+                      Definitivas: {formatCount(group.definitivas)}
+                    </span>
+                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                      Pendientes: {formatCount(group.pendientes)}
+                    </span>
+                    <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                      {group.clientSummary}
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[980px]">
+                    <TableHeader>
+                      <TableRow className={tableHeaderRow}>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Código / Tarja</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Productor</TableHead>
+                        <TableHead>Variedad</TableHead>
+                        <TableHead className="text-right">Cajas</TableHead>
+                        <TableHead className="text-right">Lb</TableHead>
+                        <TableHead>Trazabilidad</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.tags.map((tag) => {
+                        const tone = compactTagStateTone(tag);
+                        const trace = compactTagTraceability(tag, dispatchedTagIds);
+                        return (
+                          <TableRow key={tag.id} className={cn(tableBodyRow, 'cursor-pointer hover:bg-slate-50/70')} onClick={() => setDetailTag(tag)}>
+                            <TableCell className="py-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className={cn('h-5 w-1.5 rounded-full', tone.bar)} />
+                                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.badge)}>
+                                  {tone.label}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <p className="font-mono text-sm font-semibold text-slate-900">{tag.tag_code}</p>
+                              <p className="text-[10px] text-slate-500">#{tag.id} · {formatTagDateShort(tag.fecha)}</p>
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-700">{clientLabel(tag)}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-800">{tagProducerLabel(tag, producerById)}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-700">{tagVarietyLabel(tag, processById)}</TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{formatCount(tag.total_cajas)}</TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm font-semibold text-slate-900">{fmtLbCell(tag.net_weight_lb)}</TableCell>
+                            <TableCell className="py-2.5">
+                              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                                {trace}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setDetailTag(tag)}>
+                                  Ver detalle
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => openPrintDialog(tag)}>
+                                  Imprimir
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                      <span className="sr-only">Acciones</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56">
+                                    {canEditTag && (
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          openPtModalForEditRef.current = true;
+                                          setEditTag(tag);
+                                          setTagOpen(true);
+                                        }}
+                                      >
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Editar
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => openLineage(tag)}>
+                                      <Waypoints className="mr-2 h-4 w-4" />
+                                      Ver trazabilidad
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      Descargar ZPL etiqueta
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      PDF detalle / trazabilidad
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      PDF etiqueta pallet
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className={cn(tableShell, 'overflow-x-auto')}>
-            <Table className="min-w-[1180px] [&_td]:py-3.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-3 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right">
+            <Table className="min-w-[1140px] [&_td]:py-2.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
                   <TableHead>Estado</TableHead>
@@ -2001,25 +2398,9 @@ export function PtTagsPage() {
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        {commercialAssignment(tag) === 'none' ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mr-1 h-8 gap-1 rounded-lg border-amber-200/90 bg-amber-50/80 px-2 text-[11px] font-medium text-amber-950 hover:bg-amber-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate('/existencias-pt/inventario');
-                              toast.info('Existencias PT: inventario, repalet o packing lists.', { duration: 7000 });
-                            }}
-                          >
-                            <MapPin className="h-3.5 w-3.5" />
-                            Destino
-                          </Button>
-                        ) : null}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-slate-600 hover:bg-slate-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Acciones</span>
                             </Button>
@@ -2037,11 +2418,7 @@ export function PtTagsPage() {
                                 Editar
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                              onClick={() => {
-                                openLineage(tag);
-                              }}
-                            >
+                            <DropdownMenuItem onClick={() => openLineage(tag)}>
                               <Waypoints className="mr-2 h-4 w-4" />
                               Ver trazabilidad
                             </DropdownMenuItem>
@@ -2049,27 +2426,15 @@ export function PtTagsPage() {
                               <Printer className="mr-2 h-4 w-4" />
                               Imprimir etiqueta PT
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                void downloadPtTagZpl(tag);
-                              }}
-                            >
+                            <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
                               <FileDown className="mr-2 h-4 w-4" />
                               Descargar ZPL etiqueta
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                void downloadPtPdf(tag, 'detalle');
-                              }}
-                            >
+                            <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
                               <FileDown className="mr-2 h-4 w-4" />
                               PDF detalle / trazabilidad
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                void downloadPtPdf(tag, 'etiqueta');
-                              }}
-                            >
+                            <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
                               <FileDown className="mr-2 h-4 w-4" />
                               PDF etiqueta pallet
                             </DropdownMenuItem>
@@ -2297,13 +2662,113 @@ export function PtTagsPage() {
                 value={printTemplate}
                 onChange={(e) => setPrintTemplate(e.target.value as TarjaLabelTemplate)}
               >
-                {TARJA_LABEL_TEMPLATE_OPTIONS.map((t) => (
+                {tarjaPrintTemplateChoices.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.label}
+                    {t.title}
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500">{tarjaTemplateHelp(printTemplate)}</p>
+              <p className="text-xs text-slate-500">
+                {tarjaPrintTemplateChoices.find((t) => t.id === printTemplate)?.description}
+              </p>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={printRememberTemplate}
+                  onChange={(e) => setPrintRememberTemplate(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Recordar esta plantilla
+              </label>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Impresora</Label>
+              {localServiceState === 'ok' && zebraPrinterList.length === 1 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-800">
+                  <span className="text-slate-600">Única Zebra detectada:</span>{' '}
+                  <strong className="font-medium">{zebraPrinterList[0].name}</strong>
+                  {zebraPrinterList[0].isDefault ? <span className="text-slate-500"> · predeterminada</span> : null}
+                </div>
+              ) : null}
+              {localServiceState === 'ok' && zebraPrinterList.length === 0 && !showAllPrinters ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-800">
+                  No se detectó ninguna impresora Zebra en este equipo.{' '}
+                  <button
+                    type="button"
+                    className="font-medium text-sky-700 underline decoration-sky-700/50 underline-offset-2 hover:text-sky-800"
+                    onClick={() => setShowAllPrinters(true)}
+                  >
+                    Mostrar todas las impresoras
+                  </button>
+                </div>
+              ) : null}
+              {localServiceState === 'ok' &&
+              zebraPrinterList.length !== 1 &&
+              (zebraPrinterList.length >= 2 || showAllPrinters) ? (
+                <>
+                  <select
+                    className={filterSelectClass}
+                    value={printPrinterName}
+                    onChange={(e) => setPrintPrinterName(e.target.value)}
+                    disabled={localServiceState !== 'ok'}
+                  >
+                    <option value="">
+                      {showAllPrinters
+                        ? 'Predeterminada del equipo'
+                        : 'Elegida automáticamente (recomendada)'}
+                    </option>
+                    {(showAllPrinters ? localPrinters : zebraPrinterList).map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.name}
+                        {p.isDefault ? ' · predeterminada' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="w-fit text-left text-xs font-medium text-sky-700 underline decoration-sky-700/40 underline-offset-2 hover:text-sky-900"
+                    onClick={() =>
+                      setShowAllPrinters((v) => {
+                        const next = !v;
+                        if (!next && printPrinterName && !zebraPrinterList.some((z) => z.name === printPrinterName)) {
+                          setPrintPrinterName(
+                            suggestPrinterNameForTarjaPrint({
+                              printers: zebraPrinterList.length > 0 ? zebraPrinterList : localPrinters,
+                              defaultPrinter: localDefaultPrinter,
+                              envPreferredPrinter: getConfiguredZebraPrinterName(),
+                            }),
+                          );
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    {showAllPrinters ? 'Mostrar solo impresoras Zebra' : 'Mostrar todas las impresoras'}
+                  </button>
+                </>
+              ) : null}
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={printRememberPrinter}
+                  onChange={(e) => setPrintRememberPrinter(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Recordar esta impresora en este equipo
+              </label>
+              {localServiceState !== 'ok' ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <p>
+                    No se detectó el servicio local en este equipo. Podés usar «Descargar ZPL» o iniciar el servicio en el PC
+                    de planta y volver a abrir este diálogo.
+                  </p>
+                  {localServiceMessage ? (
+                    <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">
+                      {localServiceMessage}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="grid gap-1.5">
               <Label>Copias</Label>
@@ -2315,27 +2780,9 @@ export function PtTagsPage() {
                 value={printCopies}
                 onChange={(e) => setPrintCopies(Math.min(99, Math.max(1, Number(e.target.value) || 1)))}
               />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Impresora</Label>
-              <select
-                className={filterSelectClass}
-                value={printPrinterName}
-                onChange={(e) => setPrintPrinterName(e.target.value)}
-                disabled={localServiceState !== 'ok'}
-              >
-                <option value="">Predeterminada del sistema</option>
-                {localPrinters.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {localServiceState !== 'ok' ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Servicio local Zebra no disponible. Puedes descargar ZPL o iniciar el servicio local.
-                </div>
-              ) : null}
+              <p className="text-xs text-slate-500">
+                Por defecto 1 copia por etiqueta enviada al servicio local.
+              </p>
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -2356,19 +2803,41 @@ export function PtTagsPage() {
               onClick={() => {
                 if (!printTag) return;
                 setPrintingTag(true);
-                const payload = {
+                const zebraOnlyMode = !showAllPrinters && zebraPrinterList.length > 0;
+                const resolvedPrinter = resolvePrinterForLocalJob({
+                  selectedName: printPrinterName,
+                  allPrinters: localPrinters,
+                  zebraOnlyMode,
+                  defaultPrinter: localDefaultPrinter,
+                  envPreferredPrinter: getConfiguredZebraPrinterName(),
+                });
+                saveLastPrintPayload({
                   tarjaId: printTag.id,
                   template: printTemplate,
-                  printerName: printPrinterName || undefined,
+                  printerName: printRememberPrinter ? (printPrinterName.trim() || undefined) : undefined,
                   copies: printCopies,
-                };
-                saveLastPrintPayload(payload);
-                void printPtTagLabel(printTag, payload).finally(() => setPrintingTag(false));
+                  rememberPrinter: printRememberPrinter,
+                  rememberTemplate: printRememberTemplate,
+                });
+                void printPtTagLabel(printTag, {
+                  template: printTemplate,
+                  printerName: resolvedPrinter,
+                  copies: printCopies,
+                }).finally(() => setPrintingTag(false));
               }}
             >
               {printingTag ? 'Imprimiendo…' : 'Imprimir'}
             </Button>
           </DialogFooter>
+          {loadLastPrintPayload() != null ? (
+            <button
+              type="button"
+              className="-mt-2 w-full px-6 text-center text-xs font-medium text-sky-700 underline decoration-sky-700/35 underline-offset-2 hover:text-sky-900"
+              onClick={() => void reprintLastPtTagPayload()}
+            >
+              Reimprimir última tarja
+            </button>
+          ) : null}
         </DialogContent>
       </Dialog>
 

@@ -268,25 +268,27 @@ export function CommercialOfferCalculatorBlock({
     >
       <div className="border-b border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-white px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div id="rep-decision-planificacion" className="scroll-mt-24 min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-indigo-800/90">Oferta comercial</p>
             <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Planificación rápida</h3>
             <p className="mt-0.5 text-[12px] text-slate-500">Formato, pallets y rendimiento. No modifica Packed, En cámara ni Shipped.</p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 shrink-0 border-indigo-200/80 bg-white text-xs text-indigo-900 hover:bg-indigo-50/80"
-            disabled={mpPending || mpTotalLb == null || !Number.isFinite(Number(mpTotalLb)) || Number(mpTotalLb) <= 0}
-            onClick={() => {
-              setLbDisponiblesTouched(false);
-              const v = mpTotalLb;
-              if (v != null && Number.isFinite(v) && v > 0) setLbDisponiblesStr(String(v));
-            }}
-          >
-            Usar MP real
-          </Button>
+          <div id="rep-decision-mp-real" className="scroll-mt-24 flex shrink-0 justify-end sm:justify-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 border-indigo-200/80 bg-white text-xs text-indigo-900 hover:bg-indigo-50/80"
+              disabled={mpPending || mpTotalLb == null || !Number.isFinite(Number(mpTotalLb)) || Number(mpTotalLb) <= 0}
+              onClick={() => {
+                setLbDisponiblesTouched(false);
+                const v = mpTotalLb;
+                if (v != null && Number.isFinite(v) && v > 0) setLbDisponiblesStr(String(v));
+              }}
+            >
+              Usar MP real
+            </Button>
+          </div>
         </div>
 
         <div
@@ -444,7 +446,10 @@ export function CommercialOfferCalculatorBlock({
           </div>
         </div>
 
-        <details className="group rounded-xl border border-slate-200/80 bg-slate-50/40 open:bg-slate-50/60">
+        <details
+          id="rep-decision-detalle-mp"
+          className="group scroll-mt-24 rounded-xl border border-slate-200/80 bg-slate-50/40 open:bg-slate-50/60"
+        >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
             <span>Detalle · MP, cliente y cajas/lb</span>
             <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />

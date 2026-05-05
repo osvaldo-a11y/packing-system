@@ -1,108 +1,50 @@
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import {
+  AlertCircle,
   AlertTriangle,
   Calendar,
-  CircleAlert,
   ClipboardList,
+  DollarSign,
   Factory,
   GitBranch,
   Import,
   Info,
   Library,
   Tag,
+  TrendingUp,
   Truck,
   User,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { useAuth } from '@/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  contentCard,
   emptyStateBanner,
-  kpiCardLg,
-  kpiFootnoteLead,
-  kpiLabel,
-  kpiValueXl,
   pageStack,
   pageSubtitle,
   pageTitle,
   sectionHint,
   sectionTitle,
 } from '@/lib/page-ui';
-import { formatCount } from '@/lib/number-format';
+import { formatMoney } from '@/lib/number-format';
 import { cn } from '@/lib/utils';
-import type { DispatchApi } from '@/pages/DispatchesPage';
-import type { PackagingMaterialRow } from '@/pages/MaterialsPage';
-import type { FruitProcessRow } from '@/pages/ProcessesPage';
-import type { ReceptionRow } from '@/pages/ReceptionPage';
-import type { RecipeApi } from '@/pages/RecipesPage';
-import type { SalesOrderRow } from '@/pages/SalesOrdersPage';
 import { countsTowardPtProductionTotals, type PtTagApi } from '@/pages/PtTagsPage';
+import type { DispatchApi, InvoiceLineApi } from './DispatchesPage';
+import type { PackagingMaterialRow } from './MaterialsPage';
+import type { FruitProcessRow } from './ProcessesPage';
+import type { ReceptionRow } from './ReceptionPage';
+import type { RecipeApi } from './RecipesPage';
+import type { SalesOrderRow } from './SalesOrdersPage';
 
 type DashboardMaterial = PackagingMaterialRow & {
   material_category?: { id: number; codigo: string; nombre: string };
 };
 
-/** Insumo incluido en el cálculo según filtros de formato y cliente. */
-function materialAppliesToCapView(
-  m: DashboardMaterial,
-  recipeFormatId: number,
-  clientFilter: number | 'all',
-): boolean {
-  const formatScope = (m.presentation_format_scope_ids ?? []).map(Number).filter((x) => Number.isFinite(x) && x > 0);
-  if (formatScope.length > 0) {
-    if (!formatScope.includes(recipeFormatId)) return false;
-  } else {
-    const pf = m.presentation_format_id != null ? Number(m.presentation_format_id) : null;
-    if (pf != null && pf !== recipeFormatId) return false;
-  }
-  const clientScope = (m.client_scope_ids ?? []).map(Number).filter((x) => Number.isFinite(x) && x > 0);
-  if (clientFilter === 'all') {
-    if (clientScope.length > 0) return false;
-    const cid = m.client_id != null ? Number(m.client_id) : null;
-    if (cid != null) return false;
-  } else if (clientScope.length > 0) {
-    if (!clientScope.includes(clientFilter)) return false;
-  } else {
-    const cid = m.client_id != null ? Number(m.client_id) : null;
-    if (cid != null && cid !== clientFilter) return false;
-  }
-  if (m.client_id != null && clientScope.length > 0 && !clientScope.includes(Number(m.client_id))) {
-    return false;
-  }
-  return true;
-}
-
-/** Color de barra de llenado de contenedor (referencia operativa). */
-function containerFillTone(pct: number): string {
-  if (pct < 50) return 'bg-rose-500';
-  if (pct < 80) return 'bg-amber-400';
-  return 'bg-emerald-500';
-}
-
-type TraceDashboard = {
-  counts: {
-    receptions: number;
-    reception_lines: number;
-    fruit_processes: number;
-    pt_tags: number;
-    dispatches: number;
-    packaging_materials: number;
-    final_pallets: number;
-    packaging_material_movements: number;
-  };
-  materials_low_stock: Array<{
-    id: number;
-    nombre_material: string;
-    cantidad_disponible: string;
-    unidad_medida: string;
-    categoria: string;
-  }>;
-  chain_hint: string;
-};
+type DashboardPeriod = 'today' | 'week' | 'accumulated';
+type WorkMode = 'both' | 'hand' | 'machine';
 
 type SalesOrderProgressLite = {
   order: { id: number; order_number: string; cliente_nombre: string | null };
@@ -112,38 +54,27 @@ type SalesOrderProgressLite = {
     dispatched_boxes: number;
     pending_boxes: number;
   };
-  lines: Array<{ fulfillment: 'pendiente' | 'parcial' | 'completo'; alerts: string[] }>;
 };
 
-function formatShortDate(iso: string) {
-  try {
-    return new Intl.DateTimeFormat('es-AR', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return '—';
-  }
-}
+type TraceDashboard = {
+  materials_low_stock: Array<{
+    id: number;
+    nombre_material: string;
+    cantidad_disponible: string;
+    unidad_medida: string;
+    categoria: string;
+  }>;
+  totalInvoiced?: number;
+  totalBilled?: number;
+  invoices_issued_count?: number;
+};
 
-function todayLabel() {
-  return new Intl.DateTimeFormat('es-AR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date());
-}
+type SpeciesRow = { id: number; nombre: string; codigo: string };
+type ProducerRow = { id: number; nombre: string; codigo: string | null };
+type ClientRow = { id: number; codigo: string; nombre: string };
+type FormatRow = { id: number; format_code: string; max_boxes_per_pallet?: number | null; activo?: boolean };
 
-function parseActivityTs(iso: string | null | undefined): number {
-  if (!iso) return 0;
-  const t = new Date(iso).getTime();
-  return Number.isFinite(t) ? t : 0;
-}
-
-function localDayKey(iso: string | null | undefined): string | null {
+function toDayKey(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
@@ -153,1537 +84,1899 @@ function localDayKey(iso: string | null | undefined): string | null {
   return `${y}-${m}-${day}`;
 }
 
-type ActivityRow = {
-  id: string;
-  at: number;
-  whenLabel: string;
-  kind: string;
-  detail: string;
-  to: string;
-};
-
-function buildActivityRows(
-  receptions: ReceptionRow[] | undefined,
-  processes: FruitProcessRow[] | undefined,
-  dispatches: DispatchApi[] | undefined,
-): ActivityRow[] {
-  const rows: ActivityRow[] = [];
-  (receptions ?? []).forEach((r) => {
-    const at = parseActivityTs(r.created_at);
-    rows.push({
-      id: `r-${r.id}`,
-      at,
-      whenLabel: formatShortDate(r.created_at),
-      kind: 'Recepción',
-      detail: r.reference_code?.trim() || `#${r.id}`,
-      to: '/receptions',
-    });
-  });
-  (processes ?? []).forEach((p) => {
-    const at = parseActivityTs(p.fecha_proceso);
-    const st = p.process_status ? ` · ${p.process_status}` : '';
-    rows.push({
-      id: `p-${p.id}`,
-      at,
-      whenLabel: formatShortDate(p.fecha_proceso),
-      kind: 'Proceso',
-      detail: `#${p.id}${st}`,
-      to: '/processes',
-    });
-  });
-  (dispatches ?? []).forEach((d) => {
-    const raw = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
-    const at = parseActivityTs(raw);
-    rows.push({
-      id: `d-${d.id}`,
-      at,
-      whenLabel: formatShortDate(raw ?? d.fecha_despacho),
-      kind: 'Despacho',
-      detail: d.numero_bol?.trim() || `#${d.id}`,
-      to: '/dispatches',
-    });
-  });
-  return rows.sort((a, b) => b.at - a.at).slice(0, 6);
+function parseNum(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-/** Curva suavizada tipo spline (Catmull-Rom → cúbicas). */
-function smoothLinePath(pts: { x: number; y: number }[]): string {
-  if (pts.length === 0) return '';
-  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i += 1) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+function clampPct(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(100, v));
+}
+
+function format2(v: number): string {
+  return v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function isoFromUnknown(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+function periodRange(period: DashboardPeriod): { from: Date; to: Date } {
+  const now = new Date();
+  const to = new Date(now);
+  to.setHours(23, 59, 59, 999);
+
+  const from = new Date(now);
+  from.setHours(0, 0, 0, 0);
+  if (period === 'week') {
+    const day = from.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    from.setDate(from.getDate() + mondayOffset);
+  } else if (period === 'accumulated') {
+    from.setMonth(from.getMonth() - 3);
   }
-  return d;
+  return { from, to };
 }
 
-type ReceivedVolumeChartPoint = {
-  idx: number;
-  x: number;
-  y: number;
-  val: number;
-  axisLabel: string;
-  tooltipDate: string;
-};
+function inclusiveCalendarDays(from: Date, to: Date): number {
+  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  const ms = b.getTime() - a.getTime();
+  const d = Math.floor(ms / 86_400_000) + 1;
+  return Number.isFinite(d) && d > 0 ? d : 1;
+}
 
-type ReceivedVolumeChartModel = {
-  width: number;
-  height: number;
-  yMin: number;
-  yMax: number;
-  points: ReceivedVolumeChartPoint[];
-  linePath: string;
-  areaPath: string;
-  guideY: number[];
-  labelIndices: number[];
-};
+function describePeriodDashboard(period: DashboardPeriod): string {
+  if (period === 'today') return 'Hoy (00:00–23:59, horario local)';
+  if (period === 'week') return 'Semana en curso (lun–ahora)';
+  return 'Últimos 90 días aprox.';
+}
 
-function ReceivedVolumeChart({
-  model,
-  filterLabel,
+/** Lunes local de la semana para una fecha yyyy-mm-dd. */
+function mondayKeyFromDayKey(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  dt.setDate(dt.getDate() + diff);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function formatWeekRangeLabel(mondayYmd: string): string {
+  const [y, m, d] = mondayYmd.split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  const end = new Date(y, m - 1, d + 6);
+  const f = (dt: Date) =>
+    dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }).replace(/\.$/, '');
+  return `${f(start)} – ${f(end)}`;
+}
+
+function inDateRange(iso: string | null | undefined, from: Date, to: Date): boolean {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && t >= from.getTime() && t <= to.getTime();
+}
+
+function machineModeMatches(kind: string | null | undefined, mode: WorkMode): boolean {
+  if (mode === 'both') return true;
+  const k = (kind ?? '').toLowerCase();
+  const isHand = /\bsingle\b|manual|\bmano\b/.test(k);
+  const isMachine = /\bdouble\b|maquina|machine|mecan/.test(k);
+  if (mode === 'hand') return isHand || (!isHand && !isMachine);
+  return isMachine;
+}
+
+function primaryProcessIdFromTag(t: PtTagApi): number | null {
+  for (const it of t.items ?? []) {
+    const pid = Number(it.process_id);
+    if (Number.isFinite(pid) && pid > 0) return pid;
+  }
+  return null;
+}
+
+function primaryProductorIdFromTag(t: PtTagApi): number | null {
+  for (const it of t.items ?? []) {
+    const pid = Number(it.productor_id);
+    if (Number.isFinite(pid) && pid > 0) return pid;
+  }
+  return null;
+}
+
+function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+  const s = (Math.PI * startDeg) / 180;
+  const e = (Math.PI * endDeg) / 180;
+  const sx = cx + r * Math.cos(s);
+  const sy = cy + r * Math.sin(s);
+  const ex = cx + r * Math.cos(e);
+  const ey = cy + r * Math.sin(e);
+  const large = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  return `M ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`;
+}
+
+function receptionNetLb(r: ReceptionRow): number {
+  let t = 0;
+  for (const ln of r.lines ?? []) t += parseNum(ln.net_lb);
+  return t;
+}
+
+function dispatchSpeciesMatch(d: DispatchApi, speciesId: number | 'all'): boolean {
+  if (speciesId === 'all') return true;
+  const lines = d.invoice?.lines ?? [];
+  if (!lines.length) return true;
+  return lines.some((ln) => Number(ln.species_id ?? 0) === speciesId);
+}
+
+/** Packout en lb según la tarja PT (API `net_weight_lb`). */
+function ptTagPackoutLb(t: PtTagApi): number {
+  return parseNum(t.net_weight_lb);
+}
+
+/**
+ * Salida física en lb: prioriza Σ `pounds` en líneas de factura;
+ * si la factura no trae lb en ninguna línea, estima proporcional (cajas despachadas / total_cajas) por tarja.
+ */
+function dispatchOutboundLb(d: DispatchApi, tagById: Map<number, PtTagApi>): number {
+  const lines = d.invoice?.lines ?? [];
+  const invoiceHasPounds = lines.some((l) => l.pounds != null && String(l.pounds).trim() !== '');
+  if (invoiceHasPounds) {
+    return lines.reduce((sum, l) => {
+      const x = Number(l.pounds);
+      return sum + (Number.isFinite(x) ? x : 0);
+    }, 0);
+  }
+  let est = 0;
+  for (const it of d.items ?? []) {
+    const tag = tagById.get(it.tarja_id);
+    if (!tag) continue;
+    const tagLb = parseNum(tag.net_weight_lb);
+    const tagBoxes = parseNum(tag.total_cajas);
+    const boxesOut = parseNum(it.cajas_despachadas);
+    if (tagLb <= 0 || boxesOut <= 0) continue;
+    if (tagBoxes > 0) est += tagLb * (boxesOut / tagBoxes);
+    else est += tagLb;
+  }
+  return est;
+}
+
+/** Misma resolución de productor que `ptTagsFiltered` (proceso primario → tarja). */
+function resolvedProducerIdFromTagDashboard(t: PtTagApi | undefined, processById: Map<number, FruitProcessRow>): number | null {
+  if (!t) return null;
+  const procId = primaryProcessIdFromTag(t);
+  const proc = procId != null ? processById.get(procId) : undefined;
+  const tagProd = proc != null ? Number(proc.productor_id ?? 0) : primaryProductorIdFromTag(t);
+  return tagProd != null && tagProd > 0 ? tagProd : null;
+}
+
+function resolvedProducerIdFromInvoiceLine(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+): number | null {
+  if (l.tarja_id != null) {
+    return resolvedProducerIdFromTagDashboard(tagById.get(l.tarja_id), processById);
+  }
+  if (l.fruit_process_id != null) {
+    const proc = processById.get(l.fruit_process_id);
+    const pid = proc != null ? Number(proc.productor_id ?? 0) : null;
+    return pid != null && pid > 0 ? pid : null;
+  }
+  return null;
+}
+
+function producerMatchesDashboardFilter(resolvedPid: number | null, producerId: number | 'all'): boolean {
+  if (producerId === 'all') return true;
+  if (resolvedPid != null && resolvedPid !== producerId) return false;
+  return true;
+}
+
+function speciesMatchesDashboardFilter(resolvedSpeciesId: number | null, speciesId: number | 'all'): boolean {
+  if (speciesId === 'all') return true;
+  if (resolvedSpeciesId != null && resolvedSpeciesId !== speciesId) return false;
+  return true;
+}
+
+/** Alineado al selector Mano / Máquina del dashboard vs `reception_types` (mano, máquina; mixto solo con “ambos”). */
+function receptionTypeMatchesWorkMode(r: ReceptionRow, workMode: WorkMode): boolean {
+  if (workMode === 'both') return true;
+  const cod = (r.reception_type?.codigo ?? '').toLowerCase();
+  if (workMode === 'hand') return cod === 'hand_picking';
+  if (workMode === 'machine') return cod === 'machine_picking';
+  return true;
+}
+
+function resolvedSpeciesFromTag(t: PtTagApi | undefined, processById: Map<number, FruitProcessRow>): number | null {
+  if (!t) return null;
+  const procId = primaryProcessIdFromTag(t);
+  const proc = procId != null ? processById.get(procId) : undefined;
+  const sp = proc != null ? Number(proc.especie_id ?? 0) : 0;
+  return sp > 0 ? sp : null;
+}
+
+function invoiceLineResolvedSpecies(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+): number | null {
+  const sid = Number(l.species_id ?? 0);
+  if (sid > 0) return sid;
+  if (l.tarja_id != null) {
+    const sp = resolvedSpeciesFromTag(tagById.get(l.tarja_id), processById);
+    if (sp != null && sp > 0) return sp;
+  }
+  if (l.fruit_process_id != null) {
+    const proc = processById.get(l.fruit_process_id);
+    const sp = proc != null ? Number(proc.especie_id ?? 0) : 0;
+    if (sp > 0) return sp;
+  }
+  return null;
+}
+
+function processFromInvoiceLine(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+): FruitProcessRow | undefined {
+  if (l.tarja_id != null) {
+    const tag = tagById.get(l.tarja_id);
+    const procId = tag ? primaryProcessIdFromTag(tag) : null;
+    if (procId != null) return processById.get(procId);
+  }
+  if (l.fruit_process_id != null) return processById.get(l.fruit_process_id);
+  return undefined;
+}
+
+function lineWorkModeMatchesForDashboard(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  workMode: WorkMode,
+): boolean {
+  if (workMode === 'both') return true;
+  const proc = processFromInvoiceLine(l, tagById, processById);
+  if (proc == null) return true;
+  return machineModeMatches(proc.process_machine_kind, workMode);
+}
+
+function invoiceLineMatchesDashboardFilters(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+  speciesId: number | 'all',
+  workMode: WorkMode,
+): boolean {
+  const rp = resolvedProducerIdFromInvoiceLine(l, tagById, processById);
+  if (!producerMatchesDashboardFilter(rp, producerId)) return false;
+  const rs = invoiceLineResolvedSpecies(l, tagById, processById);
+  if (!speciesMatchesDashboardFilter(rs, speciesId)) return false;
+  if (!lineWorkModeMatchesForDashboard(l, tagById, processById, workMode)) return false;
+  return true;
+}
+
+function dispatchItemMatchesDashboardFilters(
+  it: { tarja_id: number },
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+  speciesId: number | 'all',
+  workMode: WorkMode,
+): boolean {
+  const tag = tagById.get(it.tarja_id);
+  const rp = resolvedProducerIdFromTagDashboard(tag, processById);
+  if (!producerMatchesDashboardFilter(rp, producerId)) return false;
+  const rs = resolvedSpeciesFromTag(tag, processById);
+  if (!speciesMatchesDashboardFilter(rs, speciesId)) return false;
+  if (workMode === 'both') return true;
+  const procId = tag ? primaryProcessIdFromTag(tag) : null;
+  const proc = procId != null ? processById.get(procId) : undefined;
+  if (proc == null) return true;
+  return machineModeMatches(proc.process_machine_kind, workMode);
+}
+
+/** Libras de salida atribuidas a los filtros globales (productor, especie, modo trabajo). */
+function dispatchOutboundLbForDashboardFilters(
+  d: DispatchApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+  speciesId: number | 'all',
+  workMode: WorkMode,
+): number {
+  if (producerId === 'all' && speciesId === 'all' && workMode === 'both') {
+    return dispatchOutboundLb(d, tagById);
+  }
+  const lines = d.invoice?.lines ?? [];
+  const invoiceHasPounds = lines.some((l) => l.pounds != null && String(l.pounds).trim() !== '');
+  if (invoiceHasPounds) {
+    return lines.reduce((sum, l) => {
+      if (!invoiceLineMatchesDashboardFilters(l, tagById, processById, producerId, speciesId, workMode)) return sum;
+      const x = Number(l.pounds);
+      return sum + (Number.isFinite(x) ? x : 0);
+    }, 0);
+  }
+  let est = 0;
+  for (const it of d.items ?? []) {
+    if (!dispatchItemMatchesDashboardFilters(it, tagById, processById, producerId, speciesId, workMode)) continue;
+    const tag = tagById.get(it.tarja_id);
+    const tagLb = parseNum(tag?.net_weight_lb);
+    const tagBoxes = parseNum(tag?.total_cajas);
+    const boxesOut = parseNum(it.cajas_despachadas);
+    if (tagLb <= 0 || boxesOut <= 0) continue;
+    if (tagBoxes > 0) est += tagLb * (boxesOut / tagBoxes);
+    else est += tagLb;
+  }
+  return est;
+}
+
+function invoiceSalesForDashboardFilters(
+  d: DispatchApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+  speciesId: number | 'all',
+  workMode: WorkMode,
+): number {
+  const inv = d.invoice;
+  if (!inv) return 0;
+  const lines = inv.lines ?? [];
+  if (lines.length > 0) {
+    let sum = 0;
+    for (const l of lines) {
+      if (!invoiceLineMatchesDashboardFilters(l, tagById, processById, producerId, speciesId, workMode)) continue;
+      sum += parseNum(l.line_subtotal);
+    }
+    return sum;
+  }
+  const attr = dispatchOutboundLbForDashboardFilters(d, tagById, processById, producerId, speciesId, workMode);
+  const full = dispatchOutboundLb(d, tagById);
+  if (full <= 1e-9) return 0;
+  return parseNum(inv.total) * (attr / full);
+}
+
+function orderLoadDateIso(o: SalesOrderRow): string | null {
+  const anyOrder = o as SalesOrderRow & {
+    loading_date?: string | null;
+    fecha_carga?: string | null;
+    ship_date?: string | null;
+    created_at?: string | null;
+  };
+  return (
+    isoFromUnknown(anyOrder.loading_date) ??
+    isoFromUnknown(anyOrder.fecha_carga) ??
+    isoFromUnknown(anyOrder.ship_date) ??
+    isoFromUnknown(anyOrder.created_at)
+  );
+}
+
+function materialCodeSlug(m: DashboardMaterial): string {
+  return `${m.nombre_material ?? ''} ${m.material_category?.codigo ?? ''} ${m.material_category?.nombre ?? ''}`.toLowerCase();
+}
+
+function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number, clientId: number): boolean {
+  const formatScope = (m.presentation_format_scope_ids ?? []).map(Number).filter((x) => Number.isFinite(x) && x > 0);
+  if (formatScope.length > 0 && !formatScope.includes(formatId)) return false;
+  if (formatScope.length === 0) {
+    const pf = m.presentation_format_id != null ? Number(m.presentation_format_id) : null;
+    if (pf != null && pf > 0 && pf !== formatId) return false;
+  }
+  const clientScope = (m.client_scope_ids ?? []).map(Number).filter((x) => Number.isFinite(x) && x > 0);
+  if (clientScope.length > 0) return clientScope.includes(clientId);
+  const cid = m.client_id != null ? Number(m.client_id) : null;
+  if (cid != null && cid > 0) return cid === clientId;
+  return true;
+}
+
+type ChartGranularity = 'day' | 'week';
+
+function ReceivedPackedAreaChart({
+  points,
+  granularity,
 }: {
-  model: ReceivedVolumeChartModel | null;
-  filterLabel: string;
+  points: Array<{ label: string; received: number; packed: number; sortKey: string }>;
+  granularity: ChartGranularity;
 }) {
-  const gradId = useId().replace(/:/g, '');
-  const [tip, setTip] = useState<{ clientX: number; clientY: number; idx: number } | null>(null);
-
-  if (!model || model.points.length === 0) {
+  if (!points.length) {
     return (
-      <div className="flex h-52 items-center justify-center rounded-xl border border-slate-100 bg-slate-50/35 text-sm text-slate-500">
+      <div className="flex h-64 items-center justify-center rounded-xl border border-slate-100 bg-slate-50/35 text-sm text-slate-500">
         Sin datos en el período
       </div>
     );
   }
+  const W = 720;
+  const H = 260;
+  const padL = 52;
+  const padR = 20;
+  const padT = 28;
+  const padB = granularity === 'week' ? 52 : 44;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const baseline = padT + innerH;
+  const n = points.length;
+  const maxVal = Math.max(1, ...points.flatMap((p) => [p.received, p.packed]));
+  const xAt = (i: number) => (n <= 1 ? padL + innerW / 2 : padL + (innerW * i) / (n - 1));
+  const yAt = (v: number) => baseline - (maxVal > 0 ? (innerH * v) / maxVal : 0);
 
-  const tipData = tip != null ? model.points.find((p) => p.idx === tip.idx) : null;
+  const lineToArea = (vals: number[]) => {
+    if (n === 0) return '';
+    let d = `M ${xAt(0)} ${baseline}`;
+    for (let i = 0; i < n; i++) d += ` L ${xAt(i)} ${yAt(vals[i] ?? 0)}`;
+    d += ` L ${xAt(n - 1)} ${baseline} Z`;
+    return d;
+  };
+
+  const receivedVals = points.map((p) => p.received);
+  const packedVals = points.map((p) => p.packed);
+  const tickStep = Math.max(1, Math.ceil(n / 10));
 
   return (
-    <div className="relative">
-      {tipData != null && tip != null ? (
-        <div
-          className="pointer-events-none fixed z-50 max-w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-lg"
-          style={{ left: Math.min(tip.clientX + 14, typeof window !== 'undefined' ? window.innerWidth - 240 : 0), top: tip.clientY - 8, transform: 'translateY(-100%)' }}
-        >
-          <p className="font-semibold text-slate-900">{tipData.tooltipDate}</p>
-          <p className="mt-0.5 tabular-nums text-slate-800">
-            {tipData.val.toLocaleString('es-AR', { maximumFractionDigits: 2 })} lb
-          </p>
-          <p className="mt-1 text-slate-500">{filterLabel}</p>
+    <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/35 p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-3 rounded-sm bg-sky-500/85" />
+            Recibido (lb)
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-3 rounded-sm bg-emerald-600/85" />
+            Empacado (lb)
+          </span>
         </div>
-      ) : null}
-      <div className="rounded-xl border border-slate-100 bg-slate-50/35 p-2 sm:p-3">
-        <svg viewBox={`0 0 ${model.width} ${model.height}`} className="h-56 w-full" role="img" aria-label="Volumen recibido">
-          <defs>
-            <linearGradient id={`vol-fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.35" />
-              <stop offset="55%" stopColor="#0ea5e9" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {model.guideY.map((y, idx) => (
-            <line key={idx} x1="0" y1={y} x2={model.width} y2={y} stroke="#e2e8f0" strokeDasharray="3 4" />
-          ))}
-          <path d={model.areaPath} fill={`url(#vol-fill-${gradId})`} stroke="none" />
-          <path d={model.linePath} fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          {model.points.map((p) => {
-            const isLast = p.idx === model.points[model.points.length - 1]?.idx;
-            const showLabel = model.labelIndices.includes(p.idx);
-            const lb = p.val.toLocaleString('es-AR', { maximumFractionDigits: p.val >= 1000 ? 0 : 1 });
-            return (
-              <g key={p.idx}>
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={14}
-                  fill="transparent"
-                  className="cursor-crosshair"
-                  onMouseEnter={(e) => setTip({ clientX: e.clientX, clientY: e.clientY, idx: p.idx })}
-                  onMouseMove={(e) => setTip({ clientX: e.clientX, clientY: e.clientY, idx: p.idx })}
-                  onMouseLeave={() => setTip(null)}
-                />
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={isLast ? 6 : 3.5}
-                  fill={isLast ? '#0369a1' : '#ffffff'}
-                  stroke="#0284c7"
-                  strokeWidth={isLast ? 2 : 1.5}
-                  className="pointer-events-none"
-                />
-                {showLabel ? (
-                  <text
-                    x={p.x}
-                    y={p.y - 10}
-                    textAnchor="middle"
-                    className="pointer-events-none fill-slate-700 text-[9px] font-semibold"
-                    style={{ fontFamily: 'inherit' }}
-                  >
-                    {lb}
-                  </text>
-                ) : null}
-              </g>
-            );
-          })}
-        </svg>
+        <span className="text-slate-400">
+          Máx. eje: {maxVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })} lb
+        </span>
       </div>
+      <svg
+        className="mx-auto w-full max-w-[720px]"
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Recibido y empacado en libras"
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+          const y = baseline - innerH * t;
+          const val = maxVal * t;
+          return (
+            <g key={t}>
+              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#E2E8F0" strokeWidth={1} />
+              <text x={padL - 8} y={y + 4} textAnchor="end" className="fill-slate-400 text-[10px]">
+                {val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </text>
+            </g>
+          );
+        })}
+        <path d={lineToArea(packedVals)} fill="rgba(5, 150, 105, 0.22)" stroke="none" />
+        <path
+          d={`M ${xAt(0)} ${yAt(packedVals[0] ?? 0)}${packedVals
+            .slice(1)
+            .map((v, i) => ` L ${xAt(i + 1)} ${yAt(v)}`)
+            .join('')}`}
+          fill="none"
+          stroke="#059669"
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+        <path d={lineToArea(receivedVals)} fill="rgba(14, 165, 233, 0.2)" stroke="none" />
+        <path
+          d={`M ${xAt(0)} ${yAt(receivedVals[0] ?? 0)}${receivedVals
+            .slice(1)
+            .map((v, i) => ` L ${xAt(i + 1)} ${yAt(v)}`)
+            .join('')}`}
+          fill="none"
+          stroke="#0ea5e9"
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+        {points.map((p, i) =>
+          i % tickStep === 0 || i === n - 1 ? (
+            <text
+              key={`${p.sortKey}-${i}`}
+              x={xAt(i)}
+              y={H - 12}
+              textAnchor={n <= 3 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
+              className="fill-slate-500 text-[9px]"
+              transform={`rotate(${granularity === 'day' && n > 14 ? -35 : 0}, ${xAt(i)}, ${H - 12})`}
+            >
+              {p.label}
+            </text>
+          ) : null,
+        )}
+      </svg>
     </div>
   );
 }
 
 export function DashboardPage() {
   const { username, role, token } = useAuth();
-  const canLoadTrace = Boolean(token && !isAccessTokenExpired(token));
+  const canLoad = Boolean(token && !isAccessTokenExpired(token));
+
+  const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
+  const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('week');
+  const [producerId, setProducerId] = useState<number | 'all'>('all');
+  const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
+  const [workMode, setWorkMode] = useState<WorkMode>('both');
+
+  const range = useMemo(() => periodRange(period), [period]);
+  const queryParams = useMemo(() => {
+    const sp = new URLSearchParams();
+    sp.set('period', period);
+    sp.set('producer_id', producerId === 'all' ? 'all' : String(producerId));
+    sp.set('species_id', speciesId === 'all' ? 'all' : String(speciesId));
+    sp.set('work_mode', workMode);
+    return sp.toString();
+  }, [period, producerId, speciesId, workMode]);
+
+  const { data: producers } = useQuery({
+    queryKey: ['masters', 'producers', 'dashboard'],
+    queryFn: () => apiJson<ProducerRow[]>('/api/masters/producers'),
+    enabled: canLoad,
+    staleTime: 120_000,
+  });
+  const { data: species } = useQuery({
+    queryKey: ['masters', 'species', 'dashboard'],
+    queryFn: () => apiJson<SpeciesRow[]>('/api/masters/species'),
+    enabled: canLoad,
+    staleTime: 120_000,
+  });
 
   const {
     data: trace,
-    isPending: tracePending,
-    isError: traceError,
-    error: traceErr,
   } = useQuery({
-    queryKey: ['traceability', 'dashboard'],
-    queryFn: () => apiJson<TraceDashboard>('/api/traceability/dashboard'),
-    retry: 1,
-    enabled: canLoadTrace,
+    queryKey: ['traceability', 'dashboard', queryParams],
+    queryFn: () => apiJson<TraceDashboard>(`/api/traceability/dashboard?${queryParams}`),
+    enabled: canLoad,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
-  const [recQuery, procQuery, dispQuery, ptTagsQ, salesOrdersQ, materialsQ, recipesQ, formatsQ, clientsQ, receptionTypesQ] =
-    useQueries({
+  const [recQ, procQ, dispQ, tagsQ, ordersQ, matsQ, recipesQ, formatsQ, clientsQ] = useQueries({
     queries: [
       {
-        queryKey: ['receptions'],
+        queryKey: ['dashboard', 'receptions', queryParams],
         queryFn: () => apiJson<ReceptionRow[]>('/api/receptions'),
-        enabled: canLoadTrace,
-        staleTime: 60_000,
+        enabled: canLoad,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
       },
       {
-        queryKey: ['processes'],
+        queryKey: ['dashboard', 'processes', queryParams],
         queryFn: () => apiJson<FruitProcessRow[]>('/api/processes'),
-        enabled: canLoadTrace,
-        staleTime: 60_000,
+        enabled: canLoad,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
       },
       {
-        queryKey: ['dispatches'],
+        queryKey: ['dashboard', 'dispatches', queryParams],
         queryFn: () => apiJson<DispatchApi[]>('/api/dispatches'),
-        enabled: canLoadTrace,
-        staleTime: 60_000,
+        enabled: canLoad,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
       },
       {
-        queryKey: ['pt-tags', 'dashboard'],
+        queryKey: ['dashboard', 'pt-tags', queryParams],
         queryFn: () => apiJson<PtTagApi[]>('/api/pt-tags'),
-        enabled: canLoadTrace,
-        staleTime: 60_000,
+        enabled: canLoad,
+        staleTime: 20_000,
+        refetchInterval: 30_000,
       },
       {
-        queryKey: ['sales-orders', 'dashboard'],
+        queryKey: ['dashboard', 'sales-orders', queryParams],
         queryFn: () => apiJson<SalesOrderRow[]>('/api/sales-orders'),
-        enabled: canLoadTrace,
-        staleTime: 60_000,
+        enabled: canLoad,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
       },
       {
-        queryKey: ['packaging', 'materials', 'dashboard'],
-        queryFn: () => apiJson<PackagingMaterialRow[]>('/api/packaging/materials'),
-        enabled: canLoadTrace,
+        queryKey: ['dashboard', 'packaging-materials', queryParams],
+        queryFn: () => apiJson<DashboardMaterial[]>('/api/packaging/materials'),
+        enabled: canLoad,
         staleTime: 120_000,
       },
       {
-        queryKey: ['packaging', 'recipes', 'dashboard'],
+        queryKey: ['dashboard', 'recipes', queryParams],
         queryFn: () => apiJson<RecipeApi[]>('/api/packaging/recipes'),
-        enabled: canLoadTrace,
+        enabled: canLoad,
         staleTime: 120_000,
       },
       {
-        queryKey: ['masters', 'formats', 'dashboard'],
-        queryFn: () =>
-          apiJson<Array<{ id: number; format_code: string; max_boxes_per_pallet?: number | null }>>(
-            '/api/masters/presentation-formats',
-          ),
-        enabled: canLoadTrace,
+        queryKey: ['dashboard', 'formats', queryParams],
+        queryFn: () => apiJson<FormatRow[]>('/api/masters/presentation-formats'),
+        enabled: canLoad,
         staleTime: 120_000,
       },
       {
-        queryKey: ['masters', 'clients', 'dashboard'],
-        queryFn: () => apiJson<Array<{ id: number; codigo: string; nombre: string }>>('/api/masters/clients'),
-        enabled: canLoadTrace,
-        staleTime: 120_000,
-      },
-      {
-        queryKey: ['masters', 'reception-types', 'dashboard'],
-        queryFn: () => apiJson<Array<{ id: number; codigo: string; nombre: string; activo: boolean }>>('/api/masters/reception-types'),
-        enabled: canLoadTrace,
+        queryKey: ['dashboard', 'clients', queryParams],
+        queryFn: () => apiJson<ClientRow[]>('/api/masters/clients'),
+        enabled: canLoad,
         staleTime: 120_000,
       },
     ],
   });
 
-  const [capClientId] = useState<number | 'all'>('all');
-  const [receptionTypeFilter, setReceptionTypeFilter] = useState<number | 'all'>('all');
-  const [volumeRange, setVolumeRange] = useState<'7d' | '14d' | 'weeks'>('14d');
-  const [boardClientByFormat, setBoardClientByFormat] = useState<Record<number, number | 'all'>>({});
-
-  const receptionTypeOptions = useMemo(() => {
-    const list = receptionTypesQ.data ?? [];
-    return list.filter((t) => t.activo).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [receptionTypesQ.data]);
-
-  useEffect(() => {
-    if (receptionTypeFilter === 'all') return;
-    if (!receptionTypeOptions.some((t) => t.id === receptionTypeFilter)) setReceptionTypeFilter('all');
-  }, [receptionTypeFilter, receptionTypeOptions]);
-
-  /** Referencia logística: llenado de contenedor vs pallets teóricos. */
-  const CONTAINER_PALLETS = 24;
-
-  /** Estado por formato para chips (misma regla de bottleneck que capacityPreview, sin modificar ese memo). */
-  const formatChipStatus = useMemo(() => {
-    const recipes = (recipesQ.data ?? []).filter((r) => r.activo);
-    const mats = (materialsQ.data ?? []) as DashboardMaterial[];
-    const fmtById = new Map((formatsQ.data ?? []).map((f) => [f.id, f]));
-    const matById = new Map(mats.map((m) => [m.id, m]));
-    const map = new Map<number, 'danger' | 'warn' | 'ok'>();
-    for (const fmt of formatsQ.data ?? []) {
-      if ((fmt as { activo?: boolean }).activo === false) continue;
-      const fid = fmt.id;
-      const hasRecipe = recipes.some((r) => r.presentation_format_id === fid);
-      if (!hasRecipe) {
-        map.set(fid, 'danger');
-        continue;
+  const receptionsFiltered = useMemo(() => {
+    const rows = recQ.data ?? [];
+    return rows.filter((r) => {
+      if (!inDateRange(r.received_at, range.from, range.to)) return false;
+      if (producerId !== 'all' && Number(r.producer_id) !== producerId) return false;
+      if (speciesId !== 'all') {
+        const hasSpecies = (r.lines ?? []).some((ln) => Number(ln.species_id) === speciesId);
+        if (!hasSpecies) return false;
       }
-      const recs = recipes.filter((r) => r.presentation_format_id === fid);
-      let anyPositive = false;
-      for (const rec of recs) {
-        const fmeta = fmtById.get(rec.presentation_format_id);
-        if (!fmeta) continue;
-        let bottleneck = Infinity;
-        for (const it of rec.items ?? []) {
-          if (it.cost_type !== 'directo' || it.base_unidad !== 'box') continue;
-          const m = matById.get(it.material_id) as DashboardMaterial | undefined;
-          if (!m?.activo) continue;
-          if (!materialAppliesToCapView(m, rec.presentation_format_id, capClientId)) continue;
-          const qtyBox = Number(it.qty_per_unit);
-          const avail = Number(m.cantidad_disponible);
-          if (!Number.isFinite(qtyBox) || qtyBox <= 0 || !Number.isFinite(avail) || avail < 0) continue;
-          const maxBoxes = Math.floor(avail / qtyBox + 1e-9);
-          if (maxBoxes < bottleneck) bottleneck = maxBoxes;
-        }
-        if (Number.isFinite(bottleneck) && bottleneck < Infinity && bottleneck > 0) {
-          anyPositive = true;
-          break;
-        }
+      if (!receptionTypeMatchesWorkMode(r, workMode)) return false;
+      return true;
+    });
+  }, [recQ.data, range, producerId, speciesId, workMode]);
+
+  const processById = useMemo(() => new Map((procQ.data ?? []).map((p) => [p.id, p])), [procQ.data]);
+  const ptTagById = useMemo(() => new Map((tagsQ.data ?? []).map((t) => [t.id, t])), [tagsQ.data]);
+
+  const processesFiltered = useMemo(() => {
+    const rows = procQ.data ?? [];
+    return rows.filter((p) => {
+      if (!inDateRange(p.fecha_proceso, range.from, range.to)) return false;
+      const pid = Number(p.productor_id ?? 0);
+      if (producerId !== 'all' && pid > 0 && pid !== producerId) return false;
+      const sid = Number(p.especie_id ?? 0);
+      if (speciesId !== 'all' && sid > 0 && sid !== speciesId) return false;
+      if (!machineModeMatches(p.process_machine_kind, workMode)) return false;
+      return true;
+    });
+  }, [procQ.data, range, producerId, speciesId, workMode]);
+
+  const ptTagsFiltered = useMemo(() => {
+    const rows = tagsQ.data ?? [];
+    return rows.filter((t) => {
+      if (!countsTowardPtProductionTotals(t)) return false;
+      if (!inDateRange(t.fecha, range.from, range.to)) return false;
+      const procId = primaryProcessIdFromTag(t);
+      const proc = procId != null ? processById.get(procId) : undefined;
+      if (producerId !== 'all') {
+        const tagProd = proc != null ? Number(proc.productor_id ?? 0) : primaryProductorIdFromTag(t);
+        const pid = tagProd != null && tagProd > 0 ? tagProd : null;
+        if (pid != null && pid !== producerId) return false;
       }
-      map.set(fid, anyPositive ? 'ok' : 'warn');
-    }
-    return map;
-  }, [recipesQ.data, materialsQ.data, formatsQ.data, capClientId]);
-
-  /** Tablero global: capacidad resumida por formato (sin cambiar la lógica base de capacidad). */
-  const capacityFormatBoard = useMemo(() => {
-    const mats = (materialsQ.data ?? []) as DashboardMaterial[];
-    const recipes = (recipesQ.data ?? []).filter((r) => r.activo);
-    const fmtList = (formatsQ.data ?? []).filter((f) => (f as { activo?: boolean }).activo !== false);
-    const fmtById = new Map(fmtList.map((f) => [f.id, f]));
-    const matById = new Map(mats.map((m) => [m.id, m]));
-    const clientRows = clientsQ.data ?? [];
-
-    function bestCapacity(
-      fid: number,
-      clientFilter: number | 'all',
-    ): {
-      containers: number;
-      containerPct: number;
-      fillPctRaw: number;
-      boxesPossible: number;
-      recipeId: number;
-    } | null {
-      const fmt = fmtById.get(fid);
-      if (!fmt) return null;
-      const maxPallet = fmt.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : NaN;
-      const maxBpInt = Number.isFinite(maxPallet) && maxPallet > 0 ? Math.floor(maxPallet) : 0;
-      const recs = recipes.filter((r) => r.presentation_format_id === fid);
-      let best: { bottleneck: number; pallets: number; containerPct: number; fillPctRaw: number; recipeId: number } | null = null;
-      for (const rec of recs) {
-        let bottleneck = Infinity;
-        for (const it of rec.items ?? []) {
-          if (it.cost_type !== 'directo' || it.base_unidad !== 'box') continue;
-          const m = matById.get(it.material_id) as DashboardMaterial | undefined;
-          if (!m?.activo) continue;
-          if (!materialAppliesToCapView(m, rec.presentation_format_id, clientFilter)) continue;
-          const qtyBox = Number(it.qty_per_unit);
-          const avail = Number(m.cantidad_disponible);
-          if (!Number.isFinite(qtyBox) || qtyBox <= 0 || !Number.isFinite(avail) || avail < 0) continue;
-          const maxBoxes = Math.floor(avail / qtyBox + 1e-9);
-          if (maxBoxes < bottleneck) bottleneck = maxBoxes;
-        }
-        if (!Number.isFinite(bottleneck) || bottleneck === Infinity || bottleneck <= 0) continue;
-        const pallets = maxBpInt > 0 ? Math.floor(bottleneck / maxBpInt + 1e-9) : 0;
-        const fillPctRaw = (pallets / CONTAINER_PALLETS) * 100;
-        const containerPct = Math.min(100, fillPctRaw);
-        if (!best || bottleneck > best.bottleneck) {
-          best = { bottleneck, pallets, containerPct, fillPctRaw, recipeId: rec.id };
-        }
+      if (speciesId !== 'all') {
+        const sp = proc != null ? Number(proc.especie_id ?? 0) : 0;
+        if (sp > 0 && sp !== speciesId) return false;
       }
-      if (!best) return null;
-      return {
-        containers: best.pallets / CONTAINER_PALLETS,
-        containerPct: best.containerPct,
-        fillPctRaw: best.fillPctRaw,
-        boxesPossible: best.bottleneck,
-        recipeId: best.recipeId,
-      };
-    }
+      if (workMode !== 'both' && proc != null && !machineModeMatches(proc.process_machine_kind, workMode)) return false;
+      return true;
+    });
+  }, [tagsQ.data, range, processById, producerId, speciesId, workMode]);
 
-    function sumEtiquetas(fid: number, clientFilter: number | 'all'): number {
-      let s = 0;
-      for (const m of mats) {
-        if (!m.activo || m.material_category?.codigo !== 'etiqueta') continue;
-        const scope = (m.presentation_format_scope_ids ?? []).map(Number).filter((x) => Number.isFinite(x) && x > 0);
-        if (scope.length > 0) {
-          if (!scope.includes(fid)) continue;
-        } else {
-          const pf = m.presentation_format_id != null ? Number(m.presentation_format_id) : null;
-          if (pf != null && pf !== fid) continue;
-        }
-        if (!materialAppliesToCapView(m, fid, clientFilter)) continue;
-        s += Number(m.cantidad_disponible) || 0;
-      }
-      return s;
-    }
+  const dispatchesFiltered = useMemo(() => {
+    const rows = dispQ.data ?? [];
+    return rows.filter((d) => {
+      const ts = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
+      if (!inDateRange(ts, range.from, range.to)) return false;
+      if (!dispatchSpeciesMatch(d, speciesId)) return false;
+      return true;
+    });
+  }, [dispQ.data, range, speciesId]);
 
-    function capacityByCategory(
-      fid: number,
-      recipeId: number,
-      category: 'caja' | 'clamshell',
-      clientFilter: number | 'all',
-    ): number | null {
-      const rec = recipes.find((r) => r.id === recipeId);
-      if (!rec) return null;
-      let bottleneck = Infinity;
-      let found = false;
-      for (const it of rec.items ?? []) {
-        if (it.cost_type !== 'directo' || it.base_unidad !== 'box') continue;
-        const m = matById.get(it.material_id) as DashboardMaterial | undefined;
-        if (!m?.activo || m.material_category?.codigo !== category) continue;
-        if (!materialAppliesToCapView(m, fid, clientFilter)) continue;
-        const qtyBox = Number(it.qty_per_unit);
-        const avail = Number(m.cantidad_disponible);
-        if (!Number.isFinite(qtyBox) || qtyBox <= 0 || !Number.isFinite(avail) || avail < 0) continue;
-        found = true;
-        const maxBoxes = Math.floor(avail / qtyBox + 1e-9);
-        if (maxBoxes < bottleneck) bottleneck = maxBoxes;
-      }
-      if (!found || !Number.isFinite(bottleneck) || bottleneck === Infinity) return null;
-      return bottleneck;
-    }
-
-    const segmentDefs: Array<{ key: string; label: string; filter: number | 'all' }> = [
-      { key: 'gen', label: 'Genéricos', filter: 'all' },
-      ...clientRows.map((c) => ({ key: `c-${c.id}`, label: c.nombre, filter: c.id as number })),
-    ];
-
-    const cards: Array<{
-      formatId: number;
-      formatCode: string;
-      totalContainers: number;
-      status: 'red' | 'yellow' | 'green';
-      rows: Array<{
-        key: string;
-        label: string;
-        clientId: number | 'all';
-        containers: number;
-        fillPctRaw: number;
-        boxesPossible: number;
-        clamshellPossible: number;
-        etiquetaStock: number;
-      }>;
-    }> = [];
-
-    for (const fmt of fmtList) {
-      const fid = fmt.id;
-      const formatCode = (fmt.format_code ?? '').trim() || '—';
-      const rows: Array<{
-        key: string;
-        label: string;
-        clientId: number | 'all';
-        containers: number;
-        fillPctRaw: number;
-        boxesPossible: number;
-        clamshellPossible: number;
-        etiquetaStock: number;
-      }> = [];
-      const contVals: number[] = [];
-      let maxCont = 0;
-      for (const seg of segmentDefs) {
-        const cap = bestCapacity(fid, seg.filter);
-        const containers = cap?.containers ?? 0;
-        const fillPctRaw = cap?.fillPctRaw ?? 0;
-        const boxesPossible = cap?.recipeId != null ? capacityByCategory(fid, cap.recipeId, 'caja', seg.filter) ?? 0 : 0;
-        const clamshellPossible =
-          cap?.recipeId != null ? capacityByCategory(fid, cap.recipeId, 'clamshell', seg.filter) ?? 0 : 0;
-        const etiquetaStock = sumEtiquetas(fid, seg.filter);
-        rows.push({
-          key: seg.key,
-          label: seg.label,
-          clientId: seg.filter,
-          containers,
-          fillPctRaw,
-          boxesPossible,
-          clamshellPossible,
-          etiquetaStock,
-        });
-        if (Number.isFinite(containers)) {
-          contVals.push(containers);
-          maxCont = Math.max(maxCont, containers);
-        }
-      }
-      let status: 'red' | 'yellow' | 'green' = 'red';
-      const anyGe1 = contVals.some((v) => v >= 1);
-      const anyHalf = contVals.some((v) => v >= 0.5 && v < 1);
-      if (anyGe1) status = 'green';
-      else if (anyHalf) status = 'yellow';
-      else status = 'red';
-
-      cards.push({
-        formatId: fid,
-        formatCode,
-        totalContainers: maxCont,
-        status,
-        rows,
-      });
-    }
-
-    return cards.sort((a, b) => b.totalContainers - a.totalContainers);
-  }, [materialsQ.data, recipesQ.data, formatsQ.data, clientsQ.data]);
-
-  const activityRows = useMemo(
-    () => buildActivityRows(recQuery.data, procQuery.data, dispQuery.data),
-    [recQuery.data, procQuery.data, dispQuery.data],
+  const receivedLb = useMemo(
+    () => receptionsFiltered.reduce((s, r) => s + receptionNetLb(r), 0),
+    [receptionsFiltered],
+  );
+  const totalPackedLb = useMemo(
+    () => ptTagsFiltered.reduce((s, t) => s + ptTagPackoutLb(t), 0),
+    [ptTagsFiltered],
+  );
+  const ptTagsFilteredWithoutNetLb = useMemo(
+    () => ptTagsFiltered.reduce((n, t) => n + (ptTagPackoutLb(t) <= 0 ? 1 : 0), 0),
+    [ptTagsFiltered],
+  );
+  const totalDispatchedLb = useMemo(
+    () =>
+      dispatchesFiltered.reduce(
+        (s, d) =>
+          s +
+          dispatchOutboundLbForDashboardFilters(d, ptTagById, processById, producerId, speciesId, workMode),
+        0,
+      ),
+    [dispatchesFiltered, ptTagById, processById, producerId, speciesId, workMode],
   );
 
-  const openProcessesCount = useMemo(() => {
-    const list = procQuery.data ?? [];
-    return list.filter((p) => p.process_status === 'borrador' || p.process_status === 'confirmado').length;
-  }, [procQuery.data]);
+  const dispatchesCountForKpi = useMemo(() => {
+    return dispatchesFiltered.filter(
+      (d) =>
+        dispatchOutboundLbForDashboardFilters(d, ptTagById, processById, producerId, speciesId, workMode) > 1e-9,
+    ).length;
+  }, [dispatchesFiltered, ptTagById, processById, producerId, speciesId, workMode]);
+  const netOperationalLb = useMemo(() => totalPackedLb - totalDispatchedLb, [totalPackedLb, totalDispatchedLb]);
 
-  const todayKey = localDayKey(new Date().toISOString());
+  const dashboardFiltersWideOpen = producerId === 'all' && speciesId === 'all' && workMode === 'both';
 
-  const dispatchBoxes = (d: DispatchApi): number => {
-    const byItems = d.items.reduce((s, i) => s + (Number(i.cajas_despachadas) || 0), 0);
-    if (byItems > 0) return byItems;
-    return (d.invoice?.lines ?? []).reduce((s, ln) => s + (Number(ln.cajas) || 0), 0);
-  };
-
-  const executiveToday = useMemo(() => {
-    const receptions = recQuery.data ?? [];
-    const processes = procQuery.data ?? [];
-    const tags = ptTagsQ.data ?? [];
-    const dispatches = dispQuery.data ?? [];
-    const clientSet = new Set<number>();
-
-    let receivedLb = 0;
-    for (const r of receptions) {
-      if (localDayKey(r.received_at) !== todayKey) continue;
-      for (const ln of r.lines ?? []) {
-        const net = Number(ln.net_lb);
-        if (Number.isFinite(net)) receivedLb += net;
-      }
+  const totalSalesBilled = useMemo(() => {
+    if (dashboardFiltersWideOpen && trace) {
+      if (trace.totalInvoiced != null && Number.isFinite(trace.totalInvoiced)) return trace.totalInvoiced;
+      if (trace.totalBilled != null && Number.isFinite(trace.totalBilled)) return trace.totalBilled;
     }
+    return dispatchesFiltered.reduce(
+      (s, d) => s + invoiceSalesForDashboardFilters(d, ptTagById, processById, producerId, speciesId, workMode),
+      0,
+    );
+  }, [dashboardFiltersWideOpen, trace, dispatchesFiltered, ptTagById, processById, producerId, speciesId, workMode]);
 
-    let processedLb = 0;
-    for (const p of processes) {
-      if (localDayKey(p.fecha_proceso) !== todayKey) continue;
-      const lb = Number(p.peso_procesado_lb);
-      if (Number.isFinite(lb)) processedLb += lb;
+  const invoicesIssuedCount = useMemo(() => {
+    if (dashboardFiltersWideOpen && trace?.invoices_issued_count != null && Number.isFinite(trace.invoices_issued_count)) {
+      return Math.max(0, Math.round(trace.invoices_issued_count));
     }
-
-    let producedBoxes = 0;
-    for (const t of tags) {
-      if (!countsTowardPtProductionTotals(t)) continue;
-      if (localDayKey(t.fecha) !== todayKey) continue;
-      producedBoxes += Number(t.total_cajas) || 0;
-      const cid = t.client_id != null ? Number(t.client_id) : 0;
-      if (cid > 0) clientSet.add(cid);
+    const keys = new Set<string>();
+    for (const d of dispatchesFiltered) {
+      const sales = invoiceSalesForDashboardFilters(d, ptTagById, processById, producerId, speciesId, workMode);
+      if (sales <= 1e-9) continue;
+      const inv = d.invoice;
+      if (!inv) continue;
+      if (inv.id != null) keys.add(`id:${inv.id}`);
+      else keys.add(`n:${inv.invoice_number ?? d.id}`);
     }
+    return keys.size;
+  }, [dashboardFiltersWideOpen, trace, dispatchesFiltered, ptTagById, processById, producerId, speciesId, workMode]);
 
-    let dispatchedBoxes = 0;
-    for (const d of dispatches) {
-      const raw = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
-      if (localDayKey(raw) !== todayKey) continue;
-      dispatchedBoxes += dispatchBoxes(d);
-      const cid = d.client_id != null ? Number(d.client_id) : 0;
-      if (cid > 0) clientSet.add(cid);
-    }
+  const pricePerLbBilled = useMemo(() => {
+    if (totalDispatchedLb <= 0) return null;
+    return totalSalesBilled / totalDispatchedLb;
+  }, [totalSalesBilled, totalDispatchedLb]);
 
-    return {
-      receivedLb,
-      processedLb,
-      producedBoxes,
-      dispatchedBoxes,
-      activeClients: clientSet.size,
-    };
-  }, [recQuery.data, procQuery.data, ptTagsQ.data, dispQuery.data, todayKey]);
+  const averageReceivedDaily = useMemo(() => {
+    const days = inclusiveCalendarDays(range.from, range.to);
+    return receivedLb / days;
+  }, [receivedLb, range]);
 
-  const receivedVolumeSeries = useMemo(() => {
-    const receptions = recQuery.data ?? [];
-    const isWeekly = volumeRange === 'weeks';
-    const dailyCount = volumeRange === '7d' ? 7 : 14;
-    const weekCount = 8;
-    const d0 = new Date();
-    d0.setHours(0, 0, 0, 0);
-
-    const startOfWeek = (d: Date) => {
-      const out = new Date(d);
-      const day = out.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
-      out.setDate(out.getDate() + mondayOffset);
-      out.setHours(0, 0, 0, 0);
-      return out;
-    };
-
-    const base = new Map<string, { key: string; label: string; received: number }>();
-    if (isWeekly) {
-      const wk0 = startOfWeek(d0);
-      for (let i = weekCount - 1; i >= 0; i -= 1) {
-        const d = new Date(wk0);
-        d.setDate(wk0.getDate() - i * 7);
-        const k = localDayKey(d.toISOString());
-        if (!k) continue;
-        base.set(k, {
-          key: k,
-          label: `Sem ${d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`,
-          received: 0,
-        });
-      }
-    } else {
-      for (let i = dailyCount - 1; i >= 0; i -= 1) {
-        const d = new Date(d0);
-        d.setDate(d0.getDate() - i);
-        const k = localDayKey(d.toISOString());
-        if (!k) continue;
-        base.set(k, {
-          key: k,
-          label: d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
-          received: 0,
-        });
-      }
-    }
-
-    for (const r of receptions) {
-      if (receptionTypeFilter !== 'all' && Number(r.reception_type_id) !== receptionTypeFilter) continue;
-
-      const rk = localDayKey(r.received_at);
-      if (!rk) continue;
-      let key = rk;
-      if (isWeekly) {
-        const d = new Date(`${rk}T00:00:00`);
-        key = localDayKey(startOfWeek(d).toISOString()) ?? rk;
-      }
-      const row = base.get(key);
-      if (!row) continue;
-      for (const ln of r.lines ?? []) {
-        const net = Number(ln.net_lb);
-        if (Number.isFinite(net)) row.received += net;
-      }
-    }
-    return [...base.values()];
-  }, [recQuery.data, receptionTypeFilter, volumeRange]);
-
-  const receivedVolumeSummary = useMemo(() => {
-    const total = receivedVolumeSeries.reduce((s, r) => s + r.received, 0);
-    const avg = receivedVolumeSeries.length > 0 ? total / receivedVolumeSeries.length : 0;
-    return { total, avg, periods: receivedVolumeSeries.length };
-  }, [receivedVolumeSeries]);
-
-  const volumeReceivedSubtitle = useMemo(() => {
-    const base =
-      volumeRange === 'weeks'
-        ? 'Lb recibidas por semana - ultimas 8 semanas'
-        : `Lb recibidas por dia - ultimos ${volumeRange === '7d' ? 7 : 14} dias`;
-    if (receptionTypeFilter === 'all') return base;
-    const name = receptionTypeOptions.find((t) => t.id === receptionTypeFilter)?.nombre?.trim();
-    return `${base} - ${name ?? 'Tipo'}`;
-  }, [volumeRange, receptionTypeFilter, receptionTypeOptions]);
-
-  const receptionFilterTooltipLabel = useMemo(() => {
-    if (receptionTypeFilter === 'all') return 'Total';
-    return receptionTypeOptions.find((t) => t.id === receptionTypeFilter)?.nombre?.trim() ?? 'Tipo';
-  }, [receptionTypeFilter, receptionTypeOptions]);
-
-  const receivedVolumeChartModel = useMemo((): ReceivedVolumeChartModel | null => {
-    const width = 900;
-    const height = 260;
-    const padLeft = 28;
-    const padRight = 28;
-    const padTop = 28;
-    const padBottom = 36;
-    const innerW = Math.max(1, width - padLeft - padRight);
-    const innerH = Math.max(1, height - padTop - padBottom);
-    const n = receivedVolumeSeries.length;
-    if (n === 0) return null;
-
-    const vals = receivedVolumeSeries.map((r) => r.received);
-    const maxRaw = Math.max(...vals);
-    const yMin = 0;
-    const span = Math.max(maxRaw - yMin, 1e-9);
-    const yMax = Math.max(maxRaw + span * 0.15, maxRaw + 1, 1);
-
-    const yAtVal = (v: number) => padTop + innerH - ((Math.max(0, v) - yMin) / (yMax - yMin)) * innerH;
-    const yBase = padTop + innerH;
-    const xAt = (idx: number) => padLeft + (n <= 1 ? innerW / 2 : (idx / (n - 1)) * innerW);
-
-    const pts = vals.map((v, i) => ({
-      x: xAt(i),
-      y: yAtVal(v),
-    }));
-    const linePath = smoothLinePath(pts);
-    const areaPath =
-      n === 1
-        ? `M ${pts[0].x} ${yBase} L ${pts[0].x} ${pts[0].y} L ${pts[0].x} ${yBase} Z`
-        : `${linePath} L ${pts[n - 1].x} ${yBase} L ${pts[0].x} ${yBase} Z`;
-
-    let maxIdx = 0;
-    let minIdx = 0;
-    for (let i = 0; i < vals.length; i += 1) {
-      if (vals[i] > vals[maxIdx]) maxIdx = i;
-      if (vals[i] < vals[minIdx]) minIdx = i;
-    }
-    const lastIdx = n - 1;
-    const labelSet = new Set<number>();
-    labelSet.add(lastIdx);
-    labelSet.add(maxIdx);
-    if (minIdx !== maxIdx) labelSet.add(minIdx);
-    const labelIndices = [...labelSet].sort((a, b) => a - b);
-
-    const points: ReceivedVolumeChartPoint[] = receivedVolumeSeries.map((row, i) => {
-      let tooltipDate = row.label;
-      try {
-        const d = new Date(`${row.key}T12:00:00`);
-        if (!Number.isNaN(d.getTime())) {
-          tooltipDate = d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' });
-        }
-      } catch {
-        /* keep axis label */
-      }
-      return {
-        idx: i,
-        x: pts[i].x,
-        y: pts[i].y,
-        val: row.received,
-        axisLabel: row.label,
-        tooltipDate,
-      };
-    });
-
-    const guideY = [0.2, 0.45, 0.7].map((f) => padTop + innerH * f);
-
-    return {
-      width,
-      height,
-      yMin,
-      yMax,
-      points,
-      linePath,
-      areaPath,
-      guideY,
-      labelIndices,
-    };
-  }, [receivedVolumeSeries]);
-
-  const clientProductionRows = useMemo(() => {
-    const tags = ptTagsQ.data ?? [];
-    const dispatches = dispQuery.data ?? [];
-    const clients = new Map((clientsQ.data ?? []).map((c) => [c.id, c.nombre]));
-    const map = new Map<string, { clientId: number | null; label: string; produced: number; dispatched: number }>();
-    const ensure = (cid: number | null) => {
-      const key = cid != null && cid > 0 ? `c:${cid}` : 'c:na';
-      const cur = map.get(key);
-      if (cur) return cur;
-      const row = {
-        clientId: cid != null && cid > 0 ? cid : null,
-        label: cid != null && cid > 0 ? clients.get(cid) ?? `Cliente #${cid}` : 'Sin cliente',
-        produced: 0,
-        dispatched: 0,
-      };
-      map.set(key, row);
-      return row;
-    };
-    for (const t of tags) {
-      if (!countsTowardPtProductionTotals(t)) continue;
-      const cid = t.client_id != null ? Number(t.client_id) : null;
-      const row = ensure(cid != null && cid > 0 ? cid : null);
-      row.produced += Number(t.total_cajas) || 0;
-    }
-    for (const d of dispatches) {
-      const cid = d.client_id != null ? Number(d.client_id) : null;
-      const row = ensure(cid != null && cid > 0 ? cid : null);
-      row.dispatched += dispatchBoxes(d);
-    }
-    const out = [...map.values()].map((r) => ({
-      ...r,
-      inCamera: Math.max(0, r.produced - r.dispatched),
-    }));
-    return out.sort((a, b) => b.produced - a.produced).slice(0, 5);
-  }, [ptTagsQ.data, dispQuery.data, clientsQ.data]);
-
-  const clientProdScale = useMemo(() => {
-    let max = 0;
-    for (const r of clientProductionRows) {
-      max = Math.max(max, r.produced, r.inCamera, r.dispatched);
-    }
-    return max > 0 ? max : 1;
-  }, [clientProductionRows]);
-
-  const topPendingOrders = useMemo(() => {
-    const orders = salesOrdersQ.data ?? [];
-    return orders
-      .filter((o) => (Number(o.requested_boxes) || 0) > 0)
-      .sort((a, b) => (Number(b.requested_boxes) || 0) - (Number(a.requested_boxes) || 0))
-      .slice(0, 6);
-  }, [salesOrdersQ.data]);
+  /**
+   * Pool para el radar: pedidos más recientes primero (id descendente) para capturar varios abiertos.
+   * La fecha de carga deja fuera pedidos viejos sin fecha — por eso priorizamos id.
+   */
+  const ordersForProgress = useMemo(() => {
+    const rows = ordersQ.data ?? [];
+    return rows
+      .filter((o) => parseNum(o.requested_boxes) > 0)
+      .slice()
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 150);
+  }, [ordersQ.data]);
 
   const progressQueries = useQueries({
-    queries: topPendingOrders.map((o) => ({
-      queryKey: ['sales-orders', o.id, 'progress', 'dashboard'],
+    queries: ordersForProgress.map((o) => ({
+      queryKey: ['dashboard', 'sales-order-progress', o.id],
       queryFn: () => apiJson<SalesOrderProgressLite>(`/api/sales-orders/${o.id}/progress`),
-      enabled: canLoadTrace,
-      staleTime: 60_000,
+      enabled: canLoad,
+      staleTime: 20_000,
+      refetchInterval: 30_000,
     })),
   });
 
-  const orderProgressRows = useMemo(() => {
-    const rows: Array<{
-      orderId: number;
-      orderNumber: string;
-      clientLabel: string;
-      fulfillmentPct: number;
-      assignedPallets: number;
-      dispatchedPallets: number;
-      pendingPallets: number;
-      status: 'completo' | 'en_curso' | 'riesgo' | 'critico';
-    }> = [];
-    topPendingOrders.forEach((o, idx) => {
-      const q = progressQueries[idx];
-      const p = q?.data;
-      if (!p) return;
-      const req = Number(p.totals.requested_boxes) || 0;
-      const disp = Number(p.totals.dispatched_boxes) || 0;
-      const ass = Number(p.totals.assigned_pl_boxes) || 0;
-      const pending = Number(p.totals.pending_boxes) || 0;
-      const pct = req > 0 ? Math.min(999, (disp / req) * 100) : 0;
-      const assignedPallets = ass / CONTAINER_PALLETS;
-      const dispatchedPallets = disp / CONTAINER_PALLETS;
-      const pendingPallets = Math.max(0, pending / CONTAINER_PALLETS);
-      const hasRisk = p.lines.some((ln) => ln.alerts.length > 0);
-      const status: 'completo' | 'en_curso' | 'riesgo' | 'critico' =
-        pct >= 100
-          ? 'completo'
-          : pendingPallets >= 1.5 && pct < 25
-            ? 'critico'
-            : hasRisk
-              ? 'riesgo'
-              : 'en_curso';
-      rows.push({
-        orderId: o.id,
-        orderNumber: o.order_number,
-        clientLabel: p.order.cliente_nombre?.trim() || `Cliente #${o.cliente_id}`,
-        fulfillmentPct: pct,
-        assignedPallets,
-        dispatchedPallets,
-        pendingPallets,
-        status,
+  type GaugePending = {
+    mode: 'pending';
+    id: number;
+    client: string;
+    orderNumber: string;
+    pct: number;
+    dueLabel: string;
+    urgent: boolean;
+    pendingPallets: number;
+    noProgress: boolean;
+    assignedBoxes: number;
+    dispatchedBoxes: number;
+  };
+  type GaugeCompleted = {
+    mode: 'completed';
+    id: number;
+    client: string;
+    orderNumber: string;
+    dispatchedBoxes: number;
+    requestedBoxes: number;
+  };
+
+  const gaugeRowsPending = useMemo((): GaugePending[] => {
+    return ordersForProgress
+      .map((o, idx) => {
+        const p = progressQueries[idx].data;
+        if (!p) return null;
+        const reqBoxes = parseNum(p.totals.requested_boxes);
+        if (reqBoxes <= 0) return null;
+        const pendingBoxes = parseNum(p.totals.pending_boxes);
+        if (pendingBoxes <= 0) return null;
+        const producedBoxes = parseNum(p.totals.assigned_pl_boxes);
+        const dispatchedBoxes = parseNum(p.totals.dispatched_boxes);
+        const reqPallets = parseNum(o.requested_pallets) > 0 ? parseNum(o.requested_pallets) : reqBoxes / 24;
+        const producedPallets = producedBoxes / 24;
+        const pendingPallets = Math.max(0, reqPallets - producedPallets);
+        const pct = clampPct((producedPallets / Math.max(1e-9, reqPallets)) * 100);
+        const dueIso = orderLoadDateIso(o);
+        const dueLabel = dueIso ? new Date(dueIso).toLocaleDateString('es-AR') : 'Sin fecha';
+        const urgent = dueIso ? new Date(dueIso).getTime() <= new Date(Date.now() + 86_400_000).getTime() : false;
+        const hasNoProgress = pct <= 0.001;
+        return {
+          mode: 'pending' as const,
+          id: o.id,
+          client: p.order.cliente_nombre?.trim() || o.cliente_nombre?.trim() || `Cliente #${o.cliente_id}`,
+          orderNumber: o.order_number,
+          pct,
+          dueLabel,
+          urgent,
+          pendingPallets,
+          noProgress: hasNoProgress,
+          assignedBoxes: producedBoxes,
+          dispatchedBoxes,
+        };
+      })
+      .filter((x): x is GaugePending => x != null)
+      .sort((a, b) => {
+        if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+        if (a.pct !== b.pct) return a.pct - b.pct;
+        return b.pendingPallets - a.pendingPallets;
       });
-    });
-    const pri = { critico: 0, riesgo: 1, en_curso: 2, completo: 3 } as const;
-    return rows.sort((a, b) => {
-      const p = pri[a.status] - pri[b.status];
-      if (p !== 0) return p;
-      return b.pendingPallets - a.pendingPallets;
-    });
-  }, [topPendingOrders, progressQueries, CONTAINER_PALLETS]);
+  }, [ordersForProgress, progressQueries]);
+
+  const gaugeRowsCompleted = useMemo((): GaugeCompleted[] => {
+    const rows = ordersForProgress
+      .map((o, idx) => {
+        const p = progressQueries[idx].data;
+        if (!p) return null;
+        const reqBoxes = parseNum(p.totals.requested_boxes);
+        const pendingBoxes = parseNum(p.totals.pending_boxes);
+        const dispBoxes = parseNum(p.totals.dispatched_boxes);
+        if (reqBoxes <= 0 || pendingBoxes > 0) return null;
+        return {
+          mode: 'completed' as const,
+          id: o.id,
+          client: p.order.cliente_nombre?.trim() || o.cliente_nombre?.trim() || `Cliente #${o.cliente_id}`,
+          orderNumber: o.order_number,
+          dispatchedBoxes: dispBoxes,
+          requestedBoxes: reqBoxes,
+        };
+      })
+      .filter((x): x is GaugeCompleted => x != null)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 5);
+    return rows;
+  }, [ordersForProgress, progressQueries]);
+
+  const gaugeRowsRadar = useMemo((): GaugePending[] => {
+    const open = gaugeRowsPending;
+    if (!open.length) return [];
+    const enAvance = open.filter((g) => g.assignedBoxes > 0 || g.dispatchedBoxes > 0 || g.pct > 1);
+    if (enAvance.length > 0) return enAvance.slice(0, 5);
+    return open.slice(0, 5);
+  }, [gaugeRowsPending]);
+
+  const radarShowsOnlyAvance = useMemo(() => {
+    if (!gaugeRowsPending.length) return false;
+    return gaugeRowsPending.some((g) => g.assignedBoxes > 0 || g.dispatchedBoxes > 0 || g.pct > 1);
+  }, [gaugeRowsPending]);
+
+  const gaugeDisplayRows: Array<GaugePending | GaugeCompleted> =
+    gaugeRowsRadar.length > 0 ? gaugeRowsRadar : gaugeRowsCompleted;
+
+  const gaugeGridCols = Math.max(1, Math.min(gaugeDisplayRows.length, 5));
 
   const riskOrdersCount = useMemo(
-    () => orderProgressRows.filter((o) => o.status === 'riesgo' || o.status === 'critico').length,
-    [orderProgressRows],
-  );
-  const capacityAvailableContainers = useMemo(
-    () =>
-      capacityFormatBoard.reduce((s, c) => {
-        const g = c.rows.find((r) => r.clientId === 'all');
-        return s + (g?.containers ?? 0);
-      }, 0),
-    [capacityFormatBoard],
+    () => gaugeRowsPending.filter((g) => g.urgent || g.pendingPallets >= 1.5).length,
+    [gaugeRowsPending],
   );
 
-  const lowStock = trace?.materials_low_stock ?? [];
-
-  const kpiItems = [
-    {
-      key: 'produced_boxes',
-      label: 'Cajas producidas hoy',
-      value: formatCount(Math.round(executiveToday.producedBoxes)),
-      foot: 'producto terminado',
-      warn: false,
-    },
-    {
-      key: 'dispatched_boxes',
-      label: 'Cajas despachadas hoy',
-      value: formatCount(Math.round(executiveToday.dispatchedBoxes)),
-      foot: 'salida diaria',
-      warn: false,
-    },
-    {
-      key: 'risk_orders',
-      label: 'Pedidos en riesgo',
-      value: formatCount(riskOrdersCount),
-      foot: riskOrdersCount > 0 ? 'requieren acción' : 'sin riesgo crítico',
-      warn: riskOrdersCount > 0,
-    },
-    {
-      key: 'capacity_total',
-      label: 'Capacidad disponible',
-      value: `${capacityAvailableContainers.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cont`,
-      foot: 'contenedores totales',
-      warn: capacityAvailableContainers < 1,
-    },
-  ] as const;
-
-  const activityLoading = recQuery.isPending || procQuery.isPending || dispQuery.isPending;
-
-  const orderRiskCount = useMemo(
-    () => orderProgressRows.filter((o) => o.status === 'riesgo' || o.status === 'critico').length,
-    [orderProgressRows],
-  );
-
-  const formatsWithoutRecipe = useMemo(
-    () => [...formatChipStatus.values()].filter((s) => s === 'danger').length,
-    [formatChipStatus],
-  );
-
-  const specialLabelShortageCount = useMemo(() => {
-    let n = 0;
-    for (const card of capacityFormatBoard) {
-      const hasClientScope = card.rows.some((r) => r.clientId !== 'all');
-      if (!hasClientScope) continue;
-      const anyClientNoLabel = card.rows.some((r) => r.clientId !== 'all' && (r.etiquetaStock ?? 0) <= 0);
-      if (anyClientNoLabel) n += 1;
-    }
-    return n;
-  }, [capacityFormatBoard]);
-
-  const alertCards = useMemo(() => {
-    const rows = [
-      {
-        key: 'material',
-        active: lowStock.length > 0,
-        title: `Material crítico: ${lowStock.length}`,
-        desc: 'Stock bajo en materiales de empaque clave.',
-        tone: 'border-rose-100/90 bg-rose-50/40 text-rose-900',
-        iconTone: 'bg-rose-100/80 text-rose-700',
-        icon: CircleAlert,
-      },
-      {
-        key: 'orders',
-        active: orderRiskCount > 0,
-        title: `Pedidos en riesgo: ${orderRiskCount}`,
-        desc: 'Desfase entre producción, asignación y despacho.',
-        tone: 'border-amber-100/90 bg-amber-50/35 text-amber-950',
-        iconTone: 'bg-amber-100/80 text-amber-800',
-        icon: AlertTriangle,
-      },
-      {
-        key: 'format',
-        active: formatsWithoutRecipe > 0,
-        title: `Formato sin receta: ${formatsWithoutRecipe}`,
-        desc: 'No hay receta activa para cálculo de capacidad.',
-        tone: 'border-rose-100/90 bg-rose-50/30 text-rose-900',
-        iconTone: 'bg-rose-100/80 text-rose-700',
-        icon: Library,
-      },
-      {
-        key: 'process',
-        active: openProcessesCount > 0,
-        title: `Procesos abiertos: ${openProcessesCount}`,
-        desc: 'Procesos confirmados/borrador sin cierre.',
-        tone: 'border-amber-100/90 bg-amber-50/30 text-amber-950',
-        iconTone: 'bg-amber-100/80 text-amber-800',
-        icon: ClipboardList,
-      },
-      {
-        key: 'labels',
-        active: specialLabelShortageCount > 0,
-        title: `Etiquetas especiales insuficientes: ${specialLabelShortageCount}`,
-        desc: 'Hay formatos con cliente especial sin stock de etiqueta.',
-        tone: 'border-amber-100/90 bg-amber-50/30 text-amber-950',
-        iconTone: 'bg-amber-100/80 text-amber-800',
-        icon: Tag,
-      },
+  const tripajeCards = useMemo(() => {
+    const mats = (matsQ.data ?? []).filter((m) => m.activo);
+    const defs: Array<{ key: string; icon: string; label: string; unitsPerPallet: number; matcher: RegExp }> = [
+      { key: 'esquineros', icon: '📐', label: 'Esquineros', unitsPerPallet: 96, matcher: /esquiner|corner|angulo/ },
+      { key: 'interconectores', icon: '🔗', label: 'Interconectores', unitsPerPallet: 24, matcher: /interconector|interconnect|clip/ },
+      { key: 'pallets', icon: '🪵', label: 'Pallets', unitsPerPallet: 1, matcher: /pallet|tarima|palet/ },
+      { key: 'fleje', icon: '📎', label: 'Fleje (rollos)', unitsPerPallet: 1, matcher: /fleje|strap/ },
+      { key: 'zuncho', icon: '🔒', label: 'Zuncho (rollos)', unitsPerPallet: 1, matcher: /zuncho|zunch|cincho|seal/ },
     ];
-    return rows.filter((r) => r.active).slice(0, 3);
-  }, [lowStock.length, orderRiskCount, formatsWithoutRecipe, openProcessesCount, specialLabelShortageCount]);
+    return defs.map((d) => {
+      let qty = 0;
+      for (const m of mats) {
+        const slug = materialCodeSlug(m);
+        if (d.matcher.test(slug)) qty += parseNum(m.cantidad_disponible);
+      }
+      const containers = qty / Math.max(1e-9, d.unitsPerPallet) / 24;
+      return { ...d, qty, containers };
+    });
+  }, [matsQ.data]);
+
+  const capacityCards = useMemo(() => {
+    const recipes = (recipesQ.data ?? []).filter((r) => r.activo);
+    const formats = (formatsQ.data ?? []).filter((f) => f.activo !== false);
+    const mats = (matsQ.data ?? []).filter((m) => m.activo);
+    const clients = clientsQ.data ?? [];
+    const orders = ordersQ.data ?? [];
+    const clientById = new Map(clients.map((c) => [c.id, c.nombre]));
+    const matsById = new Map(mats.map((m) => [m.id, m]));
+    return formats.map((fmt) => {
+      const maxBoxesPerPallet = Math.max(1, parseNum(fmt.max_boxes_per_pallet) || 1);
+      const recipesFmt = recipes.filter((r) => r.presentation_format_id === fmt.id);
+      const bestRecipe = recipesFmt[0];
+      const boxesPossible = (() => {
+        if (!bestRecipe) return 0;
+        let minBoxes = Infinity;
+        let found = false;
+        for (const it of bestRecipe.items ?? []) {
+          if (it.cost_type !== 'directo' || it.base_unidad !== 'box') continue;
+          const m = matsById.get(it.material_id);
+          if (!m || m.material_category?.codigo !== 'caja') continue;
+          const q = parseNum(it.qty_per_unit);
+          if (q <= 0) continue;
+          found = true;
+          minBoxes = Math.min(minBoxes, parseNum(m.cantidad_disponible) / q);
+        }
+        return found && Number.isFinite(minBoxes) ? minBoxes : 0;
+      })();
+      const clamshellPossible = (() => {
+        if (!bestRecipe) return 0;
+        let minBoxes = Infinity;
+        let found = false;
+        for (const it of bestRecipe.items ?? []) {
+          if (it.cost_type !== 'directo' || it.base_unidad !== 'box') continue;
+          const m = matsById.get(it.material_id);
+          if (!m || m.material_category?.codigo !== 'clamshell') continue;
+          const q = parseNum(it.qty_per_unit);
+          if (q <= 0) continue;
+          found = true;
+          minBoxes = Math.min(minBoxes, parseNum(m.cantidad_disponible) / q);
+        }
+        return found && Number.isFinite(minBoxes) ? minBoxes : 0;
+      })();
+
+      const neededClientIds = new Set<number>();
+      for (const o of orders) {
+        for (const ln of o.lines ?? []) {
+          if (Number(ln.presentation_format_id) === fmt.id && Number(o.cliente_id) > 0) neededClientIds.add(Number(o.cliente_id));
+        }
+      }
+
+      const etiquetasByClient = [...neededClientIds].map((cid) => {
+        let stock = 0;
+        for (const m of mats) {
+          if (m.material_category?.codigo !== 'etiqueta') continue;
+          if (!materialAppliesToFormatAndClient(m, fmt.id, cid)) continue;
+          stock += parseNum(m.cantidad_disponible);
+        }
+        const containers = stock / maxBoxesPerPallet / 24;
+        return {
+          clientId: cid,
+          clientName: clientById.get(cid) ?? `Cliente #${cid}`,
+          stock,
+          containers,
+        };
+      });
+
+      const labelsMinContainers =
+        etiquetasByClient.length > 0
+          ? Math.min(...etiquetasByClient.map((r) => r.containers))
+          : Number.POSITIVE_INFINITY;
+      const boxesContainers = boxesPossible / maxBoxesPerPallet / 24;
+      const clamshellContainers = clamshellPossible / maxBoxesPerPallet / 24;
+      const bottleneckContainers = Math.min(
+        boxesContainers,
+        clamshellContainers,
+        Number.isFinite(labelsMinContainers) ? labelsMinContainers : Number.POSITIVE_INFINITY,
+      );
+      const hasCritical =
+        boxesPossible <= 0 ||
+        clamshellPossible <= 0 ||
+        etiquetasByClient.some((r) => r.stock <= 0) ||
+        !Number.isFinite(bottleneckContainers);
+      return {
+        formatId: fmt.id,
+        formatCode: fmt.format_code,
+        boxesPossible,
+        clamshellPossible,
+        boxesContainers,
+        clamshellContainers,
+        bottleneckContainers: Number.isFinite(bottleneckContainers) ? bottleneckContainers : 0,
+        etiquetasByClient,
+        hasCritical,
+      };
+    });
+  }, [recipesQ.data, formatsQ.data, matsQ.data, clientsQ.data, ordersQ.data]);
+
+  const receivedPackedChartPoints = useMemo(() => {
+    const recMap = new Map<string, number>();
+    const packMap = new Map<string, number>();
+    for (const r of receptionsFiltered) {
+      const k = toDayKey(r.received_at);
+      if (!k) continue;
+      recMap.set(k, (recMap.get(k) ?? 0) + receptionNetLb(r));
+    }
+    for (const t of ptTagsFiltered) {
+      const k = toDayKey(t.fecha);
+      if (!k) continue;
+      packMap.set(k, (packMap.get(k) ?? 0) + ptTagPackoutLb(t));
+    }
+    const dayKeys = [...new Set([...recMap.keys(), ...packMap.keys()])].sort((a, b) => a.localeCompare(b));
+    if (dayKeys.length === 0) return [];
+    if (chartGranularity === 'week') {
+      const wRec = new Map<string, number>();
+      const wPack = new Map<string, number>();
+      for (const k of dayKeys) {
+        const wk = mondayKeyFromDayKey(k);
+        wRec.set(wk, (wRec.get(wk) ?? 0) + (recMap.get(k) ?? 0));
+        wPack.set(wk, (wPack.get(wk) ?? 0) + (packMap.get(k) ?? 0));
+      }
+      const wKeys = [...new Set([...wRec.keys(), ...wPack.keys()])].sort((a, b) => a.localeCompare(b));
+      return wKeys.map((wk) => ({
+        sortKey: wk,
+        label: formatWeekRangeLabel(wk),
+        received: wRec.get(wk) ?? 0,
+        packed: wPack.get(wk) ?? 0,
+      }));
+    }
+    return dayKeys.map((k) => ({
+      sortKey: k,
+      label: k.slice(5),
+      received: recMap.get(k) ?? 0,
+      packed: packMap.get(k) ?? 0,
+    }));
+  }, [receptionsFiltered, ptTagsFiltered, chartGranularity]);
+
+  const productionByClient = useMemo(() => {
+    const clientsMap = new Map((clientsQ.data ?? []).map((c) => [c.id, c.nombre]));
+    const byClient = new Map<string, { produced: number; dispatched: number; label: string }>();
+    const ensure = (cid: number | null) => {
+      const key = cid != null && cid > 0 ? `c:${cid}` : 'none';
+      const cur = byClient.get(key);
+      if (cur) return cur;
+      const row = { produced: 0, dispatched: 0, label: cid != null && cid > 0 ? clientsMap.get(cid) ?? `Cliente #${cid}` : 'Sin cliente' };
+      byClient.set(key, row);
+      return row;
+    };
+    for (const t of ptTagsFiltered) {
+      const cid = t.client_id != null ? Number(t.client_id) : null;
+      ensure(cid).produced += ptTagPackoutLb(t);
+    }
+    for (const d of dispatchesFiltered) {
+      const lbOut = dispatchOutboundLbForDashboardFilters(
+        d,
+        ptTagById,
+        processById,
+        producerId,
+        speciesId,
+        workMode,
+      );
+      if (lbOut <= 0) continue;
+      const cid = d.client_id != null ? Number(d.client_id) : null;
+      ensure(cid).dispatched += lbOut;
+    }
+    return [...byClient.values()].sort((a, b) => b.produced - a.produced).slice(0, 6);
+  }, [ptTagsFiltered, dispatchesFiltered, clientsQ.data, ptTagById, processById, producerId, speciesId, workMode]);
+
+  const activityRows = useMemo(() => {
+    const rows: Array<{ id: string; ts: number; when: string; kind: string; detail: string; to: string }> = [];
+    for (const r of receptionsFiltered.slice(0, 8)) {
+      const iso = r.received_at;
+      rows.push({
+        id: `r-${r.id}`,
+        ts: new Date(iso).getTime(),
+        when: new Date(iso).toLocaleString('es-AR'),
+        kind: 'Recepción',
+        detail: r.reference_code || `#${r.id}`,
+        to: '/receptions',
+      });
+    }
+    for (const p of processesFiltered.slice(0, 8)) {
+      const iso = p.fecha_proceso;
+      rows.push({
+        id: `p-${p.id}`,
+        ts: new Date(iso).getTime(),
+        when: new Date(iso).toLocaleString('es-AR'),
+        kind: 'Proceso',
+        detail: `#${p.id}`,
+        to: '/processes',
+      });
+    }
+    for (const d of dispatchesFiltered.slice(0, 8)) {
+      const iso = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
+      rows.push({
+        id: `d-${d.id}`,
+        ts: new Date(iso).getTime(),
+        when: new Date(iso).toLocaleString('es-AR'),
+        kind: 'Despacho',
+        detail: d.numero_bol || `#${d.id}`,
+        to: '/dispatches',
+      });
+    }
+    return rows.sort((a, b) => b.ts - a.ts).slice(0, 8);
+  }, [receptionsFiltered, processesFiltered, dispatchesFiltered]);
+
+  type DashboardAlertVariant = 'material_critical' | 'tripaje_critical' | 'order_risk' | 'info';
+
+  const alerts = useMemo(() => {
+    const rows: Array<{ key: string; title: string; desc: string; variant: DashboardAlertVariant }> = [];
+    if ((trace?.materials_low_stock?.length ?? 0) > 0) {
+      rows.push({
+        key: 'mat-low',
+        title: `Material crítico: ${trace!.materials_low_stock.length}`,
+        desc: 'Stock bajo en materiales de empaque clave.',
+        variant: 'material_critical',
+      });
+    }
+    if (riskOrdersCount > 0) {
+      rows.push({
+        key: 'risk-orders',
+        title: `Pedidos en riesgo: ${riskOrdersCount}`,
+        desc: 'Carga cercana o pallets pendientes altos.',
+        variant: 'order_risk',
+      });
+    }
+    const tripajeCritical = tripajeCards.filter((r) => r.containers < 1).length;
+    if (tripajeCritical > 0) {
+      rows.push({
+        key: 'tripaje',
+        title: `Tripaje crítico: ${tripajeCritical}`,
+        desc: 'Hay recursos con menos de 1 contenedor posible.',
+        variant: 'tripaje_critical',
+      });
+    }
+    if (!rows.length) {
+      rows.push({
+        key: 'ok',
+        title: 'Sin alertas críticas',
+        desc: 'Operación sin bloqueos mayores con los filtros actuales.',
+        variant: 'info',
+      });
+    }
+    return rows.slice(0, 3);
+  }, [trace?.materials_low_stock.length, riskOrdersCount, tripajeCards]);
+
+  const dashboardLoading =
+    canLoad &&
+    (recQ.isPending ||
+      procQ.isPending ||
+      dispQ.isPending ||
+      tagsQ.isPending ||
+      ordersQ.isPending ||
+      matsQ.isPending ||
+      recipesQ.isPending ||
+      formatsQ.isPending ||
+      clientsQ.isPending);
+
+  const dashboardListError =
+    recQ.isError ||
+    procQ.isError ||
+    dispQ.isError ||
+    tagsQ.isError ||
+    ordersQ.isError ||
+    matsQ.isError ||
+    recipesQ.isError ||
+    formatsQ.isError ||
+    clientsQ.isError;
 
   return (
-    <div className={cn('font-inter', pageStack)}>
-        {/* Header — ligero, secundario frente a KPIs */}
-        <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1.5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
-            <h1 className={pageTitle}>Dashboard operativo</h1>
-            <p className={cn('max-w-md', pageSubtitle)}>Volumen y alertas del día.</p>
-          </div>
-          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <User className="h-4 w-4 text-slate-400" aria-hidden />
-              <span className="max-w-[200px] truncate font-medium text-slate-800">{username ?? 'Sesión'}</span>
-              {role ? (
-                <span className="rounded-md bg-slate-100/90 px-2 py-0.5 text-[11px] font-medium capitalize text-slate-500">
-                  {role}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-              <Calendar className="h-3.5 w-3.5 opacity-70" aria-hidden />
-              <span className="capitalize">{todayLabel()}</span>
-            </div>
-          </div>
-        </header>
+    <div className={pageStack}>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
+          <h1 className={pageTitle}>Inicio operativo</h1>
+          <p className={pageSubtitle}>Entrada, proceso, salida, riesgo comercial y capacidad en una sola vista.</p>
+        </div>
+        <div className="space-y-1 text-right">
+          <p className="text-sm text-slate-700">
+            <User className="mr-1 inline h-4 w-4 text-slate-400" />
+            {username ?? 'Sesión'} {role ? <span className="text-slate-400">· {role}</span> : null}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            <Calendar className="mr-1 inline h-3.5 w-3.5" />
+            {new Date().toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
+        </div>
+      </header>
 
-        {/* 1) Resumen ejecutivo del día */}
-        <section aria-labelledby="kpi-heading" className="space-y-4">
-          <div>
-            <h2 id="kpi-heading" className={sectionTitle}>
-              Resumen ejecutivo del día
-            </h2>
-            <p className={sectionHint}>Operación diaria para gerencia, supervisión y planta.</p>
+      {!canLoad ? (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white px-4 py-3 text-sm text-amber-950 shadow-sm ring-1 ring-amber-100/80">
+          <strong className="font-semibold">No hay datos hasta iniciar sesión.</strong>{' '}
+          Las métricas se cargan desde el servidor con tu token activo.{' '}
+          <Link to="/login" className="font-medium underline underline-offset-2 hover:no-underline">
+            Ir a iniciar sesión
+          </Link>
+        </div>
+      ) : null}
+
+      {canLoad && dashboardListError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
+          <strong className="font-semibold">No se pudieron cargar algunos listados.</strong> Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos.
+        </div>
+      ) : null}
+
+      <section className="sticky top-0 z-20 rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
+        <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1.5 md:h-10 md:max-h-10 md:flex-nowrap md:gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {[
+              { key: 'today', label: 'Hoy' },
+              { key: 'week', label: 'Semana' },
+              { key: 'accumulated', label: 'Acumulado' },
+            ].map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setPeriod(p.key as DashboardPeriod)}
+                className={cn(
+                  'h-8 shrink-0 rounded-full border px-2.5 text-xs font-medium transition-colors',
+                  period === p.key
+                    ? 'border-[#1D9E75] bg-[#1D9E75] text-white'
+                    : 'border-border bg-background text-foreground hover:bg-muted/60',
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-          {tracePending && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+            <select
+              className="h-8 min-w-[8rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[14rem] md:flex-initial"
+              value={producerId === 'all' ? 'all' : String(producerId)}
+              onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            >
+              <option value="all">Todos los productores</option>
+              {(producers ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[12rem] md:flex-initial"
+              value={speciesId === 'all' ? 'all' : String(speciesId)}
+              onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            >
+              <option value="all">Toda la fruta</option>
+              {(species ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[11rem] md:flex-initial"
+              value={workMode}
+              onChange={(e) => setWorkMode(e.target.value as WorkMode)}
+            >
+              <option value="both">Mano + Máquina</option>
+              <option value="hand">Mano</option>
+              <option value="machine">Máquina</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Entrada · Proceso · Salida</div>
+          <p className="mt-1 text-[11px] text-slate-500">{describePeriodDashboard(period)}</p>
+        </div>
+        {!canLoad ? (
+          <div className={emptyStateBanner}>
+            Métricas y gráficas requieren sesión iniciada.{' '}
+            <Link to="/login" className="font-medium underline underline-offset-2">
+              Entrá con tu cuenta
+            </Link>
+          </div>
+        ) : dashboardLoading ? (
+          <div className="w-full min-w-0 space-y-3">
+            <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-[148px] rounded-2xl" />
+                <Skeleton key={i} className="h-36 min-h-36 min-w-0 rounded-2xl" />
               ))}
             </div>
-          )}
-          {traceError && (
-            <div className="rounded-2xl border border-slate-100 bg-rose-50/50 px-4 py-3 text-sm text-rose-900">
-              No se pudo cargar el resumen. {traceErr instanceof Error ? traceErr.message : ''}
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
+              <div className="h-px flex-1 bg-border" />
             </div>
-          )}
-          {!tracePending && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {kpiItems.map(({ key, label, value, warn, foot }) => (
-                <div key={key} className={cn(kpiCardLg, warn ? 'border-amber-200/60 bg-amber-50/35' : '')}>
-                  <div>
-                    <p className={kpiLabel}>{label}</p>
-                    <p className={cn('mt-3', kpiValueXl, warn ? 'text-amber-900' : '')}>{value}</p>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="col-span-2 min-w-0">
+                <Skeleton className="h-36 min-h-36 w-full rounded-2xl" />
+              </div>
+              <div className="col-span-2 min-w-0">
+                <Skeleton className="h-36 min-h-36 w-full rounded-2xl" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full min-w-0 space-y-3 pb-1">
+            <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="min-w-0 rounded-2xl border border-[#A6E6D3] bg-gradient-to-br from-[#E7F7F1] to-white p-3 shadow-sm sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="shrink-0 text-xl leading-none sm:text-2xl">📥</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0F6E56] sm:text-xs">Total recibido</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-[#0F6E56] sm:text-2xl xl:text-3xl 2xl:text-4xl">
+                      {format2(receivedLb)} lb
+                    </p>
                   </div>
-                  <p className={kpiFootnoteLead}>{foot}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 2) Avance de pedidos (protagonista) */}
-        <section aria-labelledby="orders-progress-heading" className="space-y-4">
-          <div>
-            <h2 id="orders-progress-heading" className={sectionTitle}>
-              Avance de pedidos
-            </h2>
-            <p className={sectionHint}>Cumplimiento y pallets faltantes ordenado por criticidad.</p>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {progressQueries.some((q) => q.isPending) && (
-              <div className="p-4">
-                <Skeleton className="h-14 w-full rounded-lg" />
+                <p className="mt-1.5 text-xs text-[#0F6E56] sm:text-sm">Promedio diario: {format2(averageReceivedDaily)} lb</p>
+                <p className="mt-1.5 text-[10px] leading-snug text-[#0F6E56]/85 sm:text-[11px]">
+                  {receptionsFiltered.length.toLocaleString('es-AR')} recepciones · {processesFiltered.length.toLocaleString('es-AR')} procesos
+                </p>
               </div>
-            )}
-            {!progressQueries.some((q) => q.isPending) && orderProgressRows.length === 0 && (
-              <p className={cn(emptyStateBanner, 'border-0')}>Sin pedidos con avance pendiente.</p>
-            )}
-            {!progressQueries.some((q) => q.isPending) && orderProgressRows.length > 0 && (
-              <div className="divide-y divide-slate-100">
-                {orderProgressRows.map((o) => {
-                  const tone =
-                    o.status === 'completo'
-                      ? 'text-emerald-700 border-emerald-200/80 bg-emerald-50/50'
-                      : o.status === 'critico'
-                        ? 'text-rose-700 border-rose-200/80 bg-rose-50/50'
-                        : o.status === 'riesgo'
-                          ? 'text-amber-700 border-amber-200/80 bg-amber-50/45'
-                          : 'text-sky-700 border-sky-200/80 bg-sky-50/40';
-                  const barTone =
-                    o.status === 'completo'
-                      ? 'bg-emerald-500'
-                      : o.status === 'critico'
-                        ? 'bg-rose-500'
-                        : o.status === 'riesgo'
-                          ? 'bg-amber-500'
-                          : 'bg-sky-500';
-                  const statusText =
-                    o.status === 'completo'
-                      ? 'OK'
-                      : o.status === 'critico'
-                        ? 'Crítico'
-                        : o.status === 'riesgo'
-                          ? 'Riesgo'
-                          : 'En curso';
-                  const pct = o.fulfillmentPct.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                  const falt = o.pendingPallets.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                  return (
-                    <div
-                      key={o.orderId}
-                      className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-4 sm:py-2"
-                    >
-                      <div className="flex min-w-0 flex-1 items-start justify-between gap-2 sm:block sm:max-w-[220px]">
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold leading-tight text-slate-900">{o.clientLabel}</p>
-                          <p className="mt-0.5 font-mono text-[10px] text-slate-500">{o.orderNumber}</p>
-                        </div>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:hidden',
-                            tone,
-                          )}
-                        >
-                          {statusText}
-                        </span>
-                      </div>
-                      <div className="flex min-w-0 flex-[1.2] items-center gap-2 sm:max-w-none">
-                        <div className="h-1.5 min-w-0 flex-1 rounded-full bg-slate-100">
-                          <div
-                            className={cn('h-full rounded-full', barTone)}
-                            style={{ width: `${Math.max(2, Math.min(100, o.fulfillmentPct))}%` }}
-                          />
-                        </div>
-                        <span className="w-10 shrink-0 text-right text-[13px] font-semibold tabular-nums text-slate-800">{pct}%</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:justify-end sm:gap-3">
-                        <span className="text-[11px] text-slate-500">
-                          Falt.{' '}
-                          <span className="font-semibold tabular-nums text-slate-900">{falt}</span>
-                          <span className="text-slate-400"> pal</span>
-                        </span>
-                        <span
-                          className={cn(
-                            'hidden rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:inline-flex',
-                            tone,
-                          )}
-                        >
-                          {statusText}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="shrink-0 text-xl leading-none sm:text-2xl">⚙️</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total empacado</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
+                      {format2(totalPackedLb)} lb
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Packout neto registrado en tarjas PT.</p>
+                <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
+                  {ptTagsFiltered.length.toLocaleString('es-AR')} tarjas
+                  {ptTagsFilteredWithoutNetLb > 0 ? ` · ${ptTagsFilteredWithoutNetLb} sin peso` : ''}
+                </p>
               </div>
-            )}
-          </div>
-        </section>
-
-        {/* Tablero global: todos los formatos a la vez */}
-        <section aria-labelledby="cap-board-heading" className="space-y-4">
-          <h2 id="cap-board-heading" className={sectionTitle}>
-            Capacidad por formato
-          </h2>
-          {materialsQ.isPending || recipesQ.isPending || formatsQ.isPending || clientsQ.isPending ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-52 w-full rounded-2xl" />
-              ))}
-            </div>
-          ) : capacityFormatBoard.length === 0 ? (
-            <p className={emptyStateBanner}>Sin formatos activos.</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {capacityFormatBoard.map((card) => {
-                const selectedClient = boardClientByFormat[card.formatId] ?? 'all';
-                const selectedRow =
-                  card.rows.find((r) => r.clientId === selectedClient) ??
-                  card.rows.find((r) => r.clientId === 'all') ??
-                  card.rows[0];
-                const containers = selectedRow?.containers ?? 0;
-                const fillPct = selectedRow?.fillPctRaw ?? 0;
-                const status: 'red' | 'yellow' | 'green' =
-                  containers >= 1 ? 'green' : containers >= 0.5 ? 'yellow' : 'red';
-                const border =
-                  status === 'green'
-                    ? 'border-emerald-200/90 bg-emerald-50/30'
-                    : status === 'yellow'
-                      ? 'border-amber-200/90 bg-amber-50/35'
-                      : 'border-rose-200/90 bg-rose-50/30';
-                const pctTone = status === 'green' ? 'text-emerald-700' : status === 'yellow' ? 'text-amber-700' : 'text-rose-700';
-                const quickClients = card.rows
-                  .filter((r) => r.clientId !== 'all')
-                  .sort((a, b) => b.containers - a.containers)
-                  .slice(0, 3);
-                return (
-                  <div key={card.formatId} className={cn(contentCard, 'w-full text-left shadow-sm', border)}>
-                    <div className="space-y-3.5 px-4 py-4 sm:px-5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[15px] font-semibold leading-snug text-slate-900">{card.formatCode}</p>
-                        <select
-                          className="h-7 max-w-[140px] rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-800"
-                          value={selectedClient === 'all' ? 'all' : String(selectedClient)}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setBoardClientByFormat((prev) => ({ ...prev, [card.formatId]: v === 'all' ? 'all' : Number(v) }));
-                          }}
-                        >
-                          {card.rows.map((r) => (
-                            <option key={r.key} value={r.clientId === 'all' ? 'all' : String(r.clientId)}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-                        <div>
-                          <p className={cn('text-3xl font-bold tabular-nums tracking-tight', pctTone)}>
-                            {containers.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">contenedores posibles</p>
-                        </div>
-                        <p className={cn('text-lg font-semibold tabular-nums', pctTone)}>
-                          {fillPct.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%
-                        </p>
-                      </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/60">
-                        <div
-                          className={cn('h-full rounded-full transition-all duration-700 ease-out', containerFillTone(Math.min(100, fillPct)))}
-                          style={{ width: `${Math.min(100, fillPct)}%` }}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-[11px]">
-                        <div className="rounded-xl bg-white/75 px-2.5 py-2 ring-1 ring-slate-100/80">
-                          <p className="text-slate-500">Cajas</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">
-                            {formatCount(selectedRow?.boxesPossible ?? 0)}
-                          </p>
-                        </div>
-                        <div className="rounded-xl bg-white/75 px-2.5 py-2 ring-1 ring-slate-100/80">
-                          <p className="text-slate-500">Clamshell</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">
-                            {formatCount(selectedRow?.clamshellPossible ?? 0)}
-                          </p>
-                        </div>
-                        <div className="rounded-xl bg-white/75 px-2.5 py-2 ring-1 ring-slate-100/80">
-                          <p className="text-slate-500">Etiquetas</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">
-                            {formatCount(Math.round(selectedRow?.etiquetaStock ?? 0))}
-                          </p>
-                        </div>
-                      </div>
-                      {quickClients.length > 0 && (
-                        <div className="space-y-1.5 rounded-xl border border-white/80 bg-white/70 px-2.5 py-2">
-                          {quickClients.map((r) => (
-                            <div key={r.key} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 text-[10px]">
-                              <p className="truncate font-medium text-slate-700">{r.label}</p>
-                              <p className="tabular-nums text-slate-900">
-                                {r.containers.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cont
-                              </p>
-                              <p className="tabular-nums text-slate-500">Etq {formatCount(Math.round(r.etiquetaStock ?? 0))}</p>
-                            </div>
-                          ))}
-                        </div>
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="shrink-0 text-xl leading-none sm:text-2xl">🚚</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total despachado</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
+                      {format2(totalDispatchedLb)} lb
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Salida física en factura lb o estimación por tarja.</p>
+                <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
+                  {dispatchesCountForKpi.toLocaleString('es-AR')} despachos filtrados
+                </p>
+              </div>
+              <div
+                className={cn(
+                  'min-w-0 rounded-2xl border p-3 shadow-sm sm:p-4',
+                  netOperationalLb >= 0
+                    ? 'border-[#C9EBD7] bg-gradient-to-br from-[#EFF9F3] to-white'
+                    : 'border-[#F6C5C5] bg-gradient-to-br from-[#FDF1F1] to-white',
+                )}
+              >
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="shrink-0 text-xl leading-none sm:text-2xl">{netOperationalLb >= 0 ? '✅' : '⚠️'}</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 sm:text-xs">Saldo operativo</p>
+                    <p
+                      className={cn(
+                        'mt-0.5 truncate text-xl font-bold tabular-nums sm:text-2xl xl:text-3xl 2xl:text-4xl',
+                        netOperationalLb >= 0 ? 'text-[#0F6E56]' : 'text-[#A32D2D]',
                       )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* 4) Volumen diario (secundario) */}
-        <section aria-labelledby="volume-heading" className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 id="volume-heading" className={sectionTitle}>
-                Volumen recibido
-              </h2>
-              <p className={sectionHint}>{volumeReceivedSubtitle}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex max-w-full flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={receptionTypeFilter === 'all' ? 'default' : 'outline'}
-                  className="h-8 shrink-0 rounded-full px-3 text-xs"
-                  onClick={() => setReceptionTypeFilter('all')}
-                >
-                  Total
-                </Button>
-                {receptionTypesQ.isPending && <Skeleton className="h-8 w-24 rounded-full" />}
-                {!receptionTypesQ.isPending &&
-                  receptionTypeOptions.map((rt) => (
-                    <Button
-                      key={rt.id}
-                      type="button"
-                      size="sm"
-                      variant={receptionTypeFilter === rt.id ? 'default' : 'outline'}
-                      className="h-8 max-w-[160px] shrink-0 truncate rounded-full px-3 text-xs"
-                      title={rt.nombre}
-                      onClick={() => setReceptionTypeFilter(rt.id)}
                     >
-                      {rt.nombre}
-                    </Button>
-                  ))}
-              </div>
-              <div className="flex gap-2">
-                {[
-                  { key: '7d', label: '7d' },
-                  { key: '14d', label: '14d' },
-                  { key: 'weeks', label: 'Semanas' },
-                ].map((opt) => (
-                  <Button
-                    key={opt.key}
-                    type="button"
-                    size="sm"
-                    variant={volumeRange === opt.key ? 'default' : 'outline'}
-                    className="h-8 rounded-full px-3 text-xs"
-                    onClick={() => setVolumeRange(opt.key as '7d' | '14d' | 'weeks')}
-                  >
-                    {opt.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className={cn(contentCard, 'border-slate-100 bg-white p-4 sm:p-5')}>
-            <ReceivedVolumeChart model={receivedVolumeChartModel} filterLabel={receptionFilterTooltipLabel} />
-            <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-              <span>{receivedVolumeSeries[0]?.label ?? ''}</span>
-              <span>{receivedVolumeSeries[Math.floor((receivedVolumeSeries.length - 1) / 2)]?.label ?? ''}</span>
-              <span>{receivedVolumeSeries[receivedVolumeSeries.length - 1]?.label ?? ''}</span>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[11px]">
-              <span className="inline-flex items-center gap-1.5 text-slate-500"><span className="h-2 w-2 rounded-full bg-sky-500" />Recepciones (lb)</span>
-              <div className="flex flex-wrap gap-4 text-slate-700">
-                <span>
-                  Total periodo:{' '}
-                  <span className="font-semibold tabular-nums text-slate-900">{receivedVolumeSummary.total.toLocaleString('es-AR', { maximumFractionDigits: 2 })} lb</span>
-                </span>
-                <span>
-                  Promedio {volumeRange === 'weeks' ? 'semanal' : 'diario'}:{' '}
-                  <span className="font-semibold tabular-nums text-slate-900">{receivedVolumeSummary.avg.toLocaleString('es-AR', { maximumFractionDigits: 2 })} lb</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 5) Producción por cliente (simple) */}
-        <section aria-labelledby="client-production-heading" className="space-y-3">
-          <div>
-            <h2 id="client-production-heading" className={sectionTitle}>
-              Producción por cliente
-            </h2>
-            <p className={sectionHint}>Top clientes: producido, en cámara y despachado.</p>
-          </div>
-          <div className="space-y-2 rounded-2xl border border-slate-100 bg-white p-4 sm:p-5">
-            {clientProductionRows.length === 0 ? (
-              <p className={emptyStateBanner}>Sin datos por cliente.</p>
-            ) : (
-              clientProductionRows.map((r) => (
-                <div key={r.label} className="rounded-xl border border-slate-100/90 bg-slate-50/60 px-3 py-2.5">
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{r.label}</p>
-                    <p className="text-[11px] tabular-nums text-slate-500">Prod. {formatCount(Math.round(r.produced))}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-sky-500" style={{ width: `${Math.max(2, (r.produced / clientProdScale) * 100)}%` }} /></div>
-                    <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-amber-500" style={{ width: `${Math.max(2, (r.inCamera / clientProdScale) * 100)}%` }} /></div>
-                    <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(2, (r.dispatched / clientProdScale) * 100)}%` }} /></div>
-                  </div>
-                  <div className="mt-1.5 grid grid-cols-3 text-[10px] text-slate-500">
-                    <span>Prod: {formatCount(Math.round(r.produced))}</span>
-                    <span>Cámara: {formatCount(Math.round(r.inCamera))}</span>
-                    <span>Desp: {formatCount(Math.round(r.dispatched))}</span>
+                      {format2(netOperationalLb)} lb
+                    </p>
                   </div>
                 </div>
-              ))
-            )}
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Empacado − despachado en el período.</p>
+                <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
+                  {riskOrdersCount > 0 ? `${riskOrdersCount} pedidos en riesgo` : 'Sin pedidos en riesgo'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div
+                className={cn(
+                  'col-span-2 min-w-0 rounded-2xl border p-3 shadow-sm sm:p-4',
+                  riskOrdersCount > 0 ? 'border-amber-200 bg-amber-50/80' : 'border-slate-200 bg-white',
+                )}
+              >
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 sm:h-6 sm:w-6" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total ventas</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
+                      ${formatMoney(totalSalesBilled)}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">
+                  {invoicesIssuedCount.toLocaleString('es-AR')} facturas emitidas
+                </p>
+                <p
+                  className={cn(
+                    'mt-1.5 text-[10px] sm:text-[11px]',
+                    riskOrdersCount > 0 ? 'text-amber-600' : 'text-green-600',
+                  )}
+                >
+                  {riskOrdersCount > 0 ? `⚠ ${riskOrdersCount} pedidos en riesgo` : 'Sin pedidos en riesgo'}
+                </p>
+              </div>
+              <div className="col-span-2 min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 sm:h-6 sm:w-6" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Precio prom. / lb</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
+                      {pricePerLbBilled != null ? `$${formatMoney(pricePerLbBilled)} / lb` : '—'}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Promedio ponderado del período</p>
+              </div>
+            </div>
           </div>
-        </section>
+        )}
+      </section>
 
-        {/* 6) Alertas relevantes */}
-        <section aria-labelledby="alerts-heading" className="space-y-3">
-          <h2 id="alerts-heading" className={sectionTitle}>
-            Alertas
-          </h2>
-          {!canLoadTrace && (
-            <p className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-500">
-              Iniciá sesión para ver alertas.
-            </p>
-          )}
-          {canLoadTrace && (
-            <div className="space-y-2.5">
-              {alertCards.map((a) => {
-                const Icon = a.icon;
+      <section className="space-y-3">
+        <div>
+          <h2 className={sectionTitle}>Avance de pedidos pendientes</h2>
+          <p className={sectionHint}>
+            {gaugeRowsRadar.length > 0
+              ? radarShowsOnlyAvance
+                ? 'Prioriza pedidos en avance (PT/despacho); completa la fila hasta 5 con otros pendientes si hay.'
+                : 'Hasta 5 pedidos con saldo (sin PT/despacho aún).'
+              : 'Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.'}
+          </p>
+        </div>
+        {!canLoad ? (
+          <p className={emptyStateBanner}>
+            Para ver avance comercial iniciá sesión.{' '}
+            <Link to="/login" className="underline underline-offset-2">
+              Login
+            </Link>
+          </p>
+        ) : ordersQ.isPending || (ordersForProgress.length > 0 && progressQueries.some((q) => q.isPending)) ? (
+          <div
+            className="grid w-full min-w-0 gap-3"
+            style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}
+          >
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-56 w-full min-w-0 rounded-2xl" />
+            ))}
+          </div>
+        ) : gaugeDisplayRows.length === 0 ? (
+          <p className={emptyStateBanner}>Sin datos de pedidos para mostrar.</p>
+        ) : (
+          <div
+            className="grid w-full min-w-0 gap-3"
+            style={{ gridTemplateColumns: `repeat(${gaugeGridCols}, 1fr)` }}
+          >
+            {gaugeDisplayRows.map((g) => {
+                if (g.mode === 'completed') {
+                  const arcFull = arcPath(100, 100, 70, 180, 360);
+                  return (
+                    <article
+                      key={g.id}
+                      className="w-full min-w-0 rounded-2xl border border-[#9FE1CB] bg-[#F3FBF8] p-4 shadow-sm"
+                    >
+                      <header className="mb-2">
+                        <p className="truncate text-center text-2xl font-semibold text-slate-900">{g.client}</p>
+                        <p className="text-center font-mono text-base text-slate-600">#{g.orderNumber}</p>
+                      </header>
+                      <div className="flex w-full min-w-0 items-center justify-center">
+                        <svg
+                          viewBox="0 0 200 120"
+                          width="100%"
+                          preserveAspectRatio="xMidYMid meet"
+                          className="h-40 w-full"
+                          role="img"
+                          aria-label="Pedido completado"
+                        >
+                          <path d={arcPath(100, 100, 70, 180, 360)} fill="none" stroke="#E5E7EB" strokeWidth={14} strokeLinecap="round" />
+                          <path d={arcFull} fill="none" stroke="#0F6E56" strokeWidth={14} strokeLinecap="round" />
+                          <text x="100" y="90" textAnchor="middle" className="fill-slate-900 text-[24px] font-bold" style={{ fontFamily: 'inherit' }}>
+                            100%
+                          </text>
+                        </svg>
+                      </div>
+                      <footer className="space-y-1 text-center text-lg text-[#0F6E56]">
+                        <p className="font-medium">
+                          ✅ Enviado{' '}
+                          <span className="tabular-nums font-semibold">{Math.round(g.dispatchedBoxes).toLocaleString('es-AR')}</span> /{' '}
+                          <span className="tabular-nums">{Math.round(g.requestedBoxes).toLocaleString('es-AR')}</span> cajas
+                        </p>
+                      </footer>
+                    </article>
+                  );
+                }
+                const arc = arcPath(100, 100, 70, 180, 180 + (180 * clampPct(g.pct)) / 100);
+                const pendingTone =
+                  g.pct <= 1
+                    ? {
+                        card: 'border-[#F5B3B3] bg-[#FDF2F2]',
+                        arc: '#E24B4A',
+                        text: 'text-[#B32F2F]',
+                      }
+                    : g.pct < 70
+                      ? {
+                          card: 'border-[#F2C27C] bg-[#FFF8ED]',
+                          arc: '#E5931A',
+                          text: 'text-[#8A560A]',
+                        }
+                      : {
+                          card: 'border-[#A6E6D3] bg-[#F3FBF8]',
+                          arc: '#1D9E75',
+                          text: 'text-[#0F6E56]',
+                        };
                 return (
-                  <div key={a.key} className={cn('flex gap-3 rounded-2xl border px-4 py-3.5', a.tone)}>
-                    <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', a.iconTone)}>
-                      <Icon className="h-4 w-4" aria-hidden />
+                  <article
+                    key={g.id}
+                    className={cn('w-full min-w-0 rounded-2xl border p-4 shadow-sm', pendingTone.card)}
+                  >
+                    <header className="mb-2">
+                      <p className="truncate text-center text-2xl font-semibold text-slate-900">{g.client}</p>
+                      <p className="text-center font-mono text-base text-slate-600">#{g.orderNumber}</p>
+                    </header>
+                    <div className="flex w-full min-w-0 items-center justify-center">
+                      <svg
+                        viewBox="0 0 200 120"
+                        width="100%"
+                        preserveAspectRatio="xMidYMid meet"
+                        className="h-40 w-full"
+                        role="img"
+                        aria-label={`Avance ${g.pct}%`}
+                      >
+                        <path d={arcPath(100, 100, 70, 180, 360)} fill="none" stroke="#E5E7EB" strokeWidth={14} strokeLinecap="round" />
+                        <path d={arc} fill="none" stroke={pendingTone.arc} strokeWidth={14} strokeLinecap="round" />
+                        <text x="100" y="90" textAnchor="middle" className="fill-slate-900 text-[24px] font-bold" style={{ fontFamily: 'inherit' }}>
+                          {g.pct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}%
+                        </text>
+                      </svg>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">{a.title}</p>
-                      <p className="mt-1 text-[13px] opacity-85">{a.desc}</p>
-                    </div>
+                    <footer className={cn('space-y-1 text-center text-xl', pendingTone.text)}>
+                      <p className="font-medium">
+                        📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
+                      </p>
+                      <p>Falt. {format2(g.pendingPallets)} pal</p>
+                      {g.noProgress ? <p className="text-base text-slate-500">en proceso</p> : null}
+                    </footer>
+                  </article>
+                );
+              })}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className={sectionTitle}>Recursos de tripaje compartidos</h2>
+          <p className={sectionHint}>Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets</p>
+        </div>
+        {matsQ.isPending ? (
+          <div className="w-full min-w-0 overflow-x-auto pb-1">
+            <div className="flex w-full min-w-[min(100%,1100px)] flex-nowrap gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 min-h-28 min-w-0 flex-1 basis-0 rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="w-full min-w-0 overflow-x-auto pb-1">
+            <div className="flex w-full min-w-[min(100%,1100px)] flex-nowrap gap-3">
+              {tripajeCards.map((r) => {
+                const cont = r.containers;
+                const level = cont < 1 ? 'critical' : cont < 3 ? 'warn' : 'ok';
+                return (
+                  <div
+                    key={r.key}
+                    className={cn(
+                      'min-w-0 flex-1 basis-0 rounded-2xl border p-3 sm:p-4',
+                      level === 'critical' && 'border-red-300 bg-red-50',
+                      level === 'warn' && 'border-amber-300 bg-amber-50',
+                      level === 'ok' && 'border-border bg-background',
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        'flex min-w-0 flex-wrap items-center gap-1.5 truncate text-xs font-medium sm:text-sm',
+                        level === 'critical' && 'text-red-700',
+                        level === 'warn' && 'text-amber-700',
+                        level === 'ok' && 'font-semibold text-slate-900',
+                      )}
+                    >
+                      <span className="min-w-0 truncate">
+                        {r.icon} {r.label}
+                      </span>
+                      {level === 'critical' ? (
+                        <span className="shrink-0 rounded-full border border-red-400 bg-red-100 px-1.5 py-0 text-[10px] font-semibold text-red-700">
+                          ⚠ Crítico
+                        </span>
+                      ) : level === 'warn' ? (
+                        <span className="shrink-0 rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-800">
+                          ⚠
+                        </span>
+                      ) : null}
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1.5 truncate text-2xl font-semibold tabular-nums',
+                        level === 'critical' && 'text-red-700',
+                        level === 'warn' && 'text-amber-700',
+                        level === 'ok' && 'text-lg font-bold sm:text-xl text-slate-900',
+                      )}
+                    >
+                      {r.qty.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 text-xs',
+                        level === 'critical' && 'text-red-500',
+                        level === 'warn' && 'text-amber-500',
+                        level === 'ok' && 'text-[10px] sm:text-xs text-slate-600',
+                      )}
+                    >
+                      ≈ {format2(r.containers)} cont posibles
+                    </p>
                   </div>
                 );
               })}
-              {alertCards.length === 0 ? (
-                <p className={emptyStateBanner}>Sin alertas críticas.</p>
-              ) : null}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className={sectionTitle}>Capacidad por formato</h2>
+          <p className={sectionHint}>Cuello de botella = mínimo entre cajas, clamshell y etiquetas por cliente.</p>
+        </div>
+        {formatsQ.isPending || recipesQ.isPending || matsQ.isPending ? (
+          <div className="grid gap-3 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-3 xl:grid-cols-3">
+            {capacityCards.map((c) => {
+              const badgeGreen = c.bottleneckContainers > 1;
+              return (
+                <article
+                  key={c.formatId}
+                  className={cn(
+                    'rounded-2xl border p-4',
+                    c.hasCritical ? 'border-[#F09595] bg-[#FCEBEB]/60' : 'border-slate-200 bg-white',
+                  )}
+                >
+                  <header className="mb-3 flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {c.hasCritical ? '⚠ ' : ''}
+                      {c.formatCode}
+                    </p>
+                    <span
+                      className={cn(
+                        'rounded-full border px-2 py-0.5 text-xs font-semibold',
+                        badgeGreen ? 'border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56]' : 'border-[#F09595] bg-[#FCEBEB] text-[#A32D2D]',
+                      )}
+                    >
+                      {format2(c.bottleneckContainers)} cont
+                    </span>
+                  </header>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>📦 Cajas</span>
+                      <span className="tabular-nums">{format2(c.boxesContainers)} cont</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>🫙 Clamshell</span>
+                      <span className="tabular-nums">{format2(c.clamshellContainers)} cont</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Etiquetas por cliente</p>
+                    {c.etiquetasByClient.length === 0 ? (
+                      <p className="text-xs text-slate-500">Sin clientes exigidos para este formato en pedidos activos.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {c.etiquetasByClient.map((r) => (
+                          <div key={r.clientId} className="flex items-center justify-between text-xs">
+                            <span className="truncate">{r.clientName}</span>
+                            <span className="tabular-nums">
+                              {Math.round(r.stock).toLocaleString('es-AR')} etq · {format2(r.containers)} cont
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <div>
+            <h2 className={sectionTitle}>Recibido vs empacado (lb)</h2>
+            <p className={sectionHint}>
+              Mismos filtros que arriba (período, productor, especie, modo). Compará entrada de fruta vs packout PT.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Eje temporal</span>
+              <select
+                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                value={chartGranularity}
+                onChange={(e) => setChartGranularity(e.target.value as ChartGranularity)}
+              >
+                <option value="day">Por día</option>
+                <option value="week">Por semana (lun–dom)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        {!canLoad ? (
+          <p className={emptyStateBanner}>Gráfico no disponible sin sesión.</p>
+        ) : recQ.isPending || tagsQ.isPending ? (
+          <Skeleton className="h-64 rounded-2xl" />
+        ) : (
+          <ReceivedPackedAreaChart points={receivedPackedChartPoints} granularity={chartGranularity} />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className={sectionTitle}>Producción por cliente</h2>
+          <p className={sectionHint}>
+            Barras relativas al producido (referencia 100%). En cámara estimado como producido − despachado para la vista.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          {productionByClient.length === 0 ? (
+            <p className={emptyStateBanner}>Sin datos por cliente.</p>
+          ) : (
+            <div className="space-y-4">
+              {productionByClient.map((r) => {
+                const produced = r.produced;
+                const camara = Math.max(0, produced - r.dispatched);
+                const pctCamara = produced > 0 ? clampPct((camara / produced) * 100) : 0;
+                const pctDesp = produced > 0 ? clampPct((r.dispatched / produced) * 100) : 0;
+                return (
+                  <div key={r.label} className="space-y-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium text-slate-900">{r.label}</span>
+                      <span className="shrink-0 tabular-nums text-sm font-medium text-slate-700">
+                        {format2(produced)} lb
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full w-full rounded-full bg-blue-400" />
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pctCamara}%` }} />
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-green-500" style={{ width: `${pctDesp}%` }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Prod: {format2(produced)} · Cámara: {format2(camara)} · Desp: {format2(r.dispatched)}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </section>
+        </div>
+      </section>
 
-        {/* Accesos rápidos — agrupados, secundarios */}
-        <section aria-labelledby="quick-heading" className="space-y-3">
-          <h2 id="quick-heading" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-            Accesos rápidos
-          </h2>
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-3 sm:p-4">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto justify-start gap-3 rounded-xl border border-transparent bg-white/80 px-3 py-3 text-left font-normal text-slate-700 shadow-none ring-0 transition-colors hover:border-slate-200/80 hover:bg-white hover:text-slate-900"
-                asChild
+      <section className="space-y-3">
+        <h2 className={sectionTitle}>Alertas</h2>
+        <div className="space-y-2">
+          {alerts.map((a) => {
+            const isRed = a.variant === 'material_critical' || a.variant === 'tripaje_critical';
+            const isAmber = a.variant === 'order_risk';
+            const isInfo = a.variant === 'info';
+            return (
+              <div
+                key={a.key}
+                className={cn(
+                  'flex items-start gap-3 rounded-md border border-slate-200/80 p-3',
+                  isRed && 'border-l-4 border-l-red-500 bg-red-50',
+                  isAmber && 'border-l-4 border-l-amber-500 bg-amber-50',
+                  isInfo && 'border-l-4 border-l-blue-400 bg-blue-50',
+                )}
               >
-                <Link to="/receptions">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-600">
-                    <Import className="h-4 w-4" />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">Nueva recepción</span>
-                    <span className="text-[11px] font-normal text-slate-400">Ingreso</span>
-                  </span>
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto justify-start gap-3 rounded-xl border border-transparent bg-white/80 px-3 py-3 text-left font-normal text-slate-700 shadow-none ring-0 transition-colors hover:border-slate-200/80 hover:bg-white hover:text-slate-900"
-                asChild
-              >
-                <Link to="/processes">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-600">
-                    <ClipboardList className="h-4 w-4" />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">Nuevo proceso</span>
-                    <span className="text-[11px] font-normal text-slate-400">Fruta</span>
-                  </span>
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto justify-start gap-3 rounded-xl border border-transparent bg-white/80 px-3 py-3 text-left font-normal text-slate-700 shadow-none ring-0 transition-colors hover:border-slate-200/80 hover:bg-white hover:text-slate-900"
-                asChild
-              >
-                <Link to="/pt-tags">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-600">
-                    <Tag className="h-4 w-4" />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">Nueva unidad PT</span>
-                    <span className="text-[11px] font-normal text-slate-400">Tarja</span>
-                  </span>
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto justify-start gap-3 rounded-xl border border-transparent bg-white/80 px-3 py-3 text-left font-normal text-slate-700 shadow-none ring-0 transition-colors hover:border-slate-200/80 hover:bg-white hover:text-slate-900"
-                asChild
-              >
-                <Link to="/dispatches">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100/90 text-slate-600">
-                    <Truck className="h-4 w-4" />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">Nuevo despacho</span>
-                    <span className="text-[11px] font-normal text-slate-400">Salida</span>
-                  </span>
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* Actividad — compacta, menor peso */}
-        <section aria-labelledby="activity-heading" className="space-y-3">
-          <div>
-            <h2 id="activity-heading" className="text-sm font-medium text-slate-500">
-              Actividad reciente
-            </h2>
-            <p className="mt-0.5 text-[11px] text-slate-400">Últimos eventos (mixtos).</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white px-4 py-2 sm:px-5">
-            {activityLoading && (
-              <div className="space-y-2 py-3">
-                <Skeleton className="h-9 w-full rounded-lg" />
-                <Skeleton className="h-9 w-full rounded-lg" />
-                <Skeleton className="h-9 w-full rounded-lg" />
+                {isRed ? (
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden />
+                ) : isAmber ? (
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                ) : (
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" aria-hidden />
+                )}
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      'text-sm font-medium',
+                      isRed && 'text-red-800',
+                      isAmber && 'text-amber-800',
+                      isInfo && 'text-blue-800',
+                    )}
+                  >
+                    {a.title}
+                  </p>
+                  <p
+                    className={cn(
+                      'mt-0.5 opacity-80',
+                      isRed && 'text-sm text-red-600',
+                      isAmber && 'text-sm text-amber-600',
+                      isInfo && 'text-xs text-blue-600',
+                    )}
+                  >
+                    {a.desc}
+                  </p>
+                </div>
               </div>
-            )}
-            {!activityLoading && activityRows.length === 0 && (
-              <p className="py-6 text-center text-[13px] text-slate-400">Sin datos.</p>
-            )}
-            {!activityLoading && activityRows.length > 0 && (
-              <ul className="divide-y divide-slate-100">
-                {activityRows.map((row) => (
-                  <li key={row.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5">
-                    <span className="w-32 shrink-0 text-[11px] tabular-nums text-slate-400">{row.whenLabel}</span>
-                    <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                      {row.kind}
-                    </span>
-                    <Link
-                      to={row.to}
-                      className="min-w-0 flex-1 truncate text-sm text-slate-800 underline-offset-2 hover:underline"
-                    >
-                      {row.detail}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
+            );
+          })}
+        </div>
+      </section>
 
-        {/* Footer enlaces */}
-        <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
-          <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-            <Factory className="h-3.5 w-3.5" />
-            Planta
-          </Link>
-          <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-            <Library className="h-3.5 w-3.5" />
-            Mantenedores
-          </Link>
-          <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
-            Reportes
-          </Link>
-          <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-            <GitBranch className="h-3.5 w-3.5" />
-            Guía
-          </Link>
-          <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-            <Info className="h-3.5 w-3.5" />
-            Acerca
-          </Link>
-        </footer>
+      <section className="space-y-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Accesos rápidos</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
+            <Link to="/receptions"><Import className="mr-2 h-4 w-4" />Nueva recepción</Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
+            <Link to="/processes"><ClipboardList className="mr-2 h-4 w-4" />Nuevo proceso</Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
+            <Link to="/pt-tags"><Tag className="mr-2 h-4 w-4" />Nueva unidad PT</Link>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
+            <Link to="/dispatches"><Truck className="mr-2 h-4 w-4" />Nuevo despacho</Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-medium text-slate-500">Actividad reciente</h2>
+          <p className="mt-0.5 text-[11px] text-slate-400">Últimos eventos del período filtrado.</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white px-4 py-2">
+          {activityRows.length === 0 ? (
+            <p className="py-6 text-center text-[13px] text-slate-400">Sin datos.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {activityRows.map((row) => (
+                <li key={row.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5">
+                  <span className="w-36 shrink-0 text-[11px] tabular-nums text-slate-400">{row.when}</span>
+                  <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">{row.kind}</span>
+                  <Link to={row.to} className="min-w-0 flex-1 truncate text-sm text-slate-800 underline-offset-2 hover:underline">
+                    {row.detail}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
+        <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
+          <Factory className="h-3.5 w-3.5" />
+          Planta
+        </Link>
+        <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
+          <Library className="h-3.5 w-3.5" />
+          Mantenedores
+        </Link>
+        <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
+          Reportes
+        </Link>
+        <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
+          <GitBranch className="h-3.5 w-3.5" />
+          Guía
+        </Link>
+        <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
+          <Info className="h-3.5 w-3.5" />
+          Acerca
+        </Link>
+      </footer>
     </div>
   );
 }

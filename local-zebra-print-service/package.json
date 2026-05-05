@@ -1,0 +1,15 @@
+{
+  "name": "local-zebra-print-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servicio local Windows para imprimir ZPL en Zebra por USB",
+  "main": "print-server.js",
+  "scripts": {
+    "start": "node print-server.js",
+    "dev": "node print-server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

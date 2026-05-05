@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Info, ListOrdered } from 'lucide-react';
+import { Info, ListOrdered, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { apiJson } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,6 +64,97 @@ export type PtPackingListSummary = {
   order_number?: string | null;
 };
 
+/** Solo pallets para resumen de formatos (mismo endpoint que el detalle). */
+type PtPlDetailFormats = { pallets: { format_code: string | null }[] };
+
+const FORMAT_PREFETCH_MAX = 36;
+
+/**
+ * Avance visual de preparación usando solo campos del listado (sin denominador de pedido en API).
+ * Borrador vacío → bajo; con pallets → medio; con BOL → alto; confirmado → 100%; anulado → 0.
+ */
+function packingListAdvancePct(r: PtPackingListSummary): number {
+  const st = String(r.status || '').toLowerCase();
+  if (st === 'anulado') return 0;
+  if (st === 'confirmado') {
+    // Histórico con reversa: mismo cierre operativo (100%) pero se distingue en barra/tooltip.
+    return 100;
+  }
+  const pallets = r.pallet_count ?? 0;
+  const bol = !!(r.numero_bol?.trim());
+  if (pallets <= 0) return 10;
+  if (!bol) return 55;
+  return 90;
+}
+
+function summarizeFormatCodesFromPallets(pallets: { format_code: string | null }[]): string {
+  const codes = [
+    ...new Set(
+      pallets
+        .map((p) => p.format_code?.trim())
+        .filter((x): x is string => !!x && x.length > 0),
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'es'));
+  if (codes.length === 0) return '—';
+  if (codes.length === 1) return codes[0];
+  if (codes.length === 2) return `${codes[0]} · ${codes[1]}`;
+  return `${codes[0]} · ${codes[1]} · +${codes.length - 2}`;
+}
+
+function plCompactRowTone(r: PtPackingListSummary): {
+  bar: string;
+  badgeClass: string;
+  shortLabel: string;
+} {
+  const st = String(r.status || '').toLowerCase();
+  const hasRev = !!r.reversed_at;
+  if (st === 'anulado') {
+    return {
+      bar: 'bg-rose-500',
+      badgeClass: 'border-rose-200 bg-rose-50 text-rose-900',
+      shortLabel: 'Anulado',
+    };
+  }
+  if (st === 'confirmado') {
+    const dispatched = r.dispatch_id != null && Number(r.dispatch_id) > 0;
+    if (dispatched) {
+      return {
+        bar: hasRev ? 'bg-violet-500' : 'bg-slate-400',
+        badgeClass: 'border-slate-200 bg-slate-100 text-slate-800',
+        shortLabel: 'En despacho',
+      };
+    }
+    return {
+      bar: hasRev ? 'bg-violet-500' : 'bg-emerald-500',
+      badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      shortLabel: 'Completo',
+    };
+  }
+  if ((r.pallet_count ?? 0) === 0) {
+    return {
+      bar: hasRev ? 'bg-violet-500' : 'bg-slate-300',
+      badgeClass: 'border-slate-200 bg-slate-100 text-slate-700',
+      shortLabel: 'Pendiente',
+    };
+  }
+  return {
+    bar: hasRev ? 'bg-violet-500' : 'bg-sky-500',
+    badgeClass: 'border-sky-200 bg-sky-50 text-sky-900',
+    shortLabel: 'En proceso',
+  };
+}
+
+function plCompletenessLabel(r: PtPackingListSummary): string {
+  const st = String(r.status || '').toLowerCase();
+  const rev = r.reversed_at && st !== 'anulado' ? ' · Reversa' : '';
+  if (st === 'anulado') return 'Anulado';
+  if (st === 'confirmado') {
+    return (r.dispatch_id != null && Number(r.dispatch_id) > 0 ? 'Despachado' : 'Confirmado') + rev;
+  }
+  if ((r.pallet_count ?? 0) === 0) return 'Vacío' + rev;
+  return 'En armado' + rev;
+}
+
 function formatListDate(isoOrYmd: string) {
   try {
     const d = new Date(isoOrYmd.includes('T') ? isoOrYmd : `${isoOrYmd}T12:00:00`);
@@ -86,6 +184,34 @@ function notesPreview(notes: string | null): { text: string; title?: string } {
   if (!n) return { text: '' };
   if (n.length <= 48) return { text: n, title: n };
   return { text: `${n.slice(0, 48)}…`, title: n };
+}
+
+function PlAdvanceBar({ pct, hasReversal }: { pct: number; hasReversal?: boolean }) {
+  const w = Math.max(0, Math.min(100, Math.round(pct)));
+  const fill = hasReversal
+    ? 'bg-violet-500'
+    : w >= 100
+      ? 'bg-emerald-500'
+      : w >= 70
+        ? 'bg-sky-500'
+        : w >= 25
+          ? 'bg-amber-500'
+          : 'bg-slate-400';
+  return (
+    <div
+      className="flex min-w-[100px] max-w-[140px] flex-col gap-0.5"
+      title={
+        hasReversal
+          ? 'PL con reversa registrada en historial. Avance según estado actual; barra en violeta para distinguir del flujo activo.'
+          : 'Avance visual según estado del PL, pallets cargados y BOL (no incluye meta de pedido en este listado).'
+      }
+    >
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className={cn('h-full rounded-full transition-all', fill)} style={{ width: `${w}%` }} />
+      </div>
+      <span className="text-right text-[11px] font-semibold tabular-nums text-slate-700">{w}%</span>
+    </div>
+  );
 }
 
 function CondicionCell({
@@ -122,6 +248,7 @@ export function PtPackingListsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterClientId, setFilterClientId] = useState(0);
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['pt-packing-lists'],
@@ -163,6 +290,87 @@ export function PtPackingListsPage() {
     }
     return list;
   }, [data, filterStatus, filterClientId, search]);
+
+  const detailPrefetchIds = useMemo(() => {
+    if (filtered.length === 0) return [];
+    if (filtered.length <= FORMAT_PREFETCH_MAX) return filtered.map((r) => r.id);
+    return [...filtered]
+      .sort((a, b) => b.total_boxes - a.total_boxes)
+      .slice(0, FORMAT_PREFETCH_MAX)
+      .map((r) => r.id);
+  }, [filtered]);
+
+  const detailQueries = useQueries({
+    queries: detailPrefetchIds.map((id) => ({
+      queryKey: ['pt-packing-list', id],
+      queryFn: () => apiJson<PtPlDetailFormats>(`/api/pt-packing-lists/${id}`),
+      staleTime: 5 * 60_000,
+      enabled: viewMode === 'compact' && (data?.length ?? 0) > 0 && detailPrefetchIds.length > 0,
+    })),
+  });
+
+  const formatSummaryByPlId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (let i = 0; i < detailPrefetchIds.length; i++) {
+      const id = detailPrefetchIds[i];
+      const row = detailQueries[i]?.data;
+      if (row?.pallets?.length) m.set(id, summarizeFormatCodesFromPallets(row.pallets));
+    }
+    return m;
+  }, [detailPrefetchIds, detailQueries]);
+
+  const prefetchIdSet = useMemo(() => new Set(detailPrefetchIds), [detailPrefetchIds]);
+
+  const groupedByClient = useMemo(() => {
+    type G = {
+      key: string;
+      clientLabel: string;
+      clientId: number;
+      rows: PtPackingListSummary[];
+      totalBoxes: number;
+      totalLb: number;
+      plCount: number;
+      hasBorrador: boolean;
+      hasEmptyBorrador: boolean;
+      hasReversa: boolean;
+    };
+    const map = new Map<string, G>();
+    for (const r of filtered) {
+      const cid = r.client_id != null && r.client_id > 0 ? Number(r.client_id) : 0;
+      const key = cid > 0 ? `c-${cid}` : 'sin';
+      const clientLabel = cid > 0 ? (r.client_nombre?.trim() || `Cliente #${cid}`) : 'Sin cliente';
+      const g =
+        map.get(key) ??
+        ({
+          key,
+          clientLabel,
+          clientId: cid,
+          rows: [],
+          totalBoxes: 0,
+          totalLb: 0,
+          plCount: 0,
+          hasBorrador: false,
+          hasEmptyBorrador: false,
+          hasReversa: false,
+        } satisfies G);
+      g.rows.push(r);
+      g.totalBoxes += Number(r.total_boxes) || 0;
+      g.totalLb += Number(r.total_pounds) || 0;
+      g.plCount += 1;
+      if (r.reversed_at) g.hasReversa = true;
+      if (String(r.status || '').toLowerCase() === 'borrador') {
+        g.hasBorrador = true;
+        if ((r.pallet_count ?? 0) === 0) g.hasEmptyBorrador = true;
+      }
+      map.set(key, g);
+    }
+    return [...map.values()]
+      .sort((a, b) => b.totalBoxes - a.totalBoxes)
+      .map((g) => ({
+        ...g,
+        rows: g.rows.slice().sort((a, b) => b.id - a.id),
+      }));
+  }, [filtered]);
 
   const kpis = useMemo(() => {
     const list = filtered;
@@ -338,7 +546,7 @@ export function PtPackingListsPage() {
       </section>
 
       <div className={filterPanel}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>Filtros</span>
           <button
             type="button"
@@ -349,7 +557,7 @@ export function PtPackingListsPage() {
             <Info className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="grid gap-3 lg:grid-cols-12 lg:items-end">
+        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
             <Label className="text-xs text-slate-500">Estado</Label>
             <select className={filterSelectClass} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
@@ -387,19 +595,252 @@ export function PtPackingListsPage() {
       </div>
 
       <section className="space-y-3" aria-labelledby="pl-tabla">
-        <div>
-          <h2 id="pl-tabla" className={sectionTitle}>
-            Listado operativo
-          </h2>
-          <p className={sectionHint}>
-            {filtered.length} registro(s) · columna condición resume BOL y notas
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="pl-tabla" className={sectionTitle}>
+              Listado operativo
+            </h2>
+            <p className={sectionHint}>
+              {filtered.length} registro(s)
+              {viewMode === 'detailed' ? ' · tabla completa con condición comercial' : ' · compacta por cliente y avance'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('compact')}
+              >
+                Compacta
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('detailed')}
+              >
+                Detallada
+              </Button>
+            </div>
+            <details className="group">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                Ver criterios
+              </summary>
+              <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+                <p>
+                  <span className="font-semibold text-emerald-700">Completo:</span> Packing List confirmado / listo
+                </p>
+                <p>
+                  <span className="font-semibold text-sky-700">En proceso:</span> Packing List en borrador o preparación
+                </p>
+                <p>
+                  <span className="font-semibold text-rose-700">Anulado:</span> Packing List cancelado
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-800">Avance 100%:</span> confirmado
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-800">Avance en progreso:</span> borrador
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-800">Avance 0%:</span> anulado
+                </p>
+              </div>
+            </details>
+          </div>
         </div>
 
         {!data?.length ? (
           <p className={emptyStatePanel}>No hay packing lists. Creá uno desde inventario cámara.</p>
         ) : !filtered.length ? (
           <p className={emptyStatePanel}>Sin coincidencias con el filtro.</p>
+        ) : viewMode === 'compact' ? (
+          <div className="space-y-4">
+            {groupedByClient.map((group) => (
+              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
+                  <p className="text-sm font-semibold text-slate-900">{group.clientLabel}</p>
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-900">{formatLb(group.totalLb, 2)}</span> lb
+                  </p>
+                  <p className="text-xs text-slate-600">{formatCount(group.plCount)} packing lists</p>
+                  {group.hasEmptyBorrador ? (
+                    <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-900">
+                      Incompletos (vacíos)
+                    </span>
+                  ) : group.hasBorrador ? (
+                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
+                      En proceso
+                    </span>
+                  ) : null}
+                  {group.hasReversa ? (
+                    <span className="inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-900">
+                      Con reversa
+                    </span>
+                  ) : null}
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className={tableHeaderRow}>
+                      <TableHead className="w-[120px]">Estado</TableHead>
+                      <TableHead className="min-w-[140px]">PL / fecha</TableHead>
+                      <TableHead className="min-w-[120px]">Formatos</TableHead>
+                      <TableHead className="text-right tabular-nums">Cajas</TableHead>
+                      <TableHead className="text-right tabular-nums">Lb</TableHead>
+                      <TableHead className="min-w-[120px]">Avance</TableHead>
+                      <TableHead className="w-[100px]">Cumpl.</TableHead>
+                      <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group.rows.map((r) => {
+                      const tone = plCompactRowTone(r);
+                      const pct = packingListAdvancePct(r);
+                      const detailUrl = `/existencias-pt/packing-lists/${r.id}`;
+                      const st = String(r.status || '').toLowerCase();
+                      const prefetchIdx = detailPrefetchIds.indexOf(r.id);
+                      const q = prefetchIdx >= 0 ? detailQueries[prefetchIdx] : undefined;
+                      const formatText = prefetchIdSet.has(r.id)
+                        ? q?.isPending && !formatSummaryByPlId.has(r.id)
+                          ? null
+                          : (formatSummaryByPlId.get(r.id) ?? '—')
+                        : null;
+                      return (
+                        <TableRow key={r.id} className={cn(tableBodyRow, 'relative')}>
+                          <TableCell className="py-2.5 pl-3">
+                            <span className={cn('absolute inset-y-1 left-0 w-1 rounded-r-sm', tone.bar)} />
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={cn(
+                                  'inline-flex max-w-[118px] truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize',
+                                  tone.badgeClass,
+                                )}
+                                title={r.status}
+                              >
+                                {tone.shortLabel}
+                              </span>
+                              {r.reversed_at ? (
+                                <span
+                                  className="inline-flex w-fit rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900"
+                                  title={new Date(r.reversed_at).toLocaleString('es')}
+                                >
+                                  Reversa
+                                </span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[180px] py-2.5">
+                            <Link
+                              className="font-mono text-xs font-semibold text-slate-900 underline decoration-slate-200 underline-offset-2 hover:text-primary hover:decoration-primary"
+                              to={detailUrl}
+                            >
+                              {r.list_code}
+                            </Link>
+                            <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">{formatListDate(r.list_date)}</p>
+                          </TableCell>
+                          <TableCell className="max-w-[160px] py-2.5">
+                            {!prefetchIdSet.has(r.id) ? (
+                              <span
+                                className="text-[11px] text-slate-400"
+                                title="Muchos resultados: usá filtros o abrí el detalle para ver formatos"
+                              >
+                                —
+                              </span>
+                            ) : formatText === null ? (
+                              <Skeleton className="h-4 w-24" />
+                            ) : (
+                              <span className="line-clamp-2 text-[11px] font-medium leading-snug text-slate-800" title={formatText}>
+                                {formatText}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right text-sm font-semibold tabular-nums text-slate-950">
+                            {formatCount(r.total_boxes)}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right text-sm font-semibold tabular-nums text-slate-800">
+                            {formatLb(r.total_pounds, 2)}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <PlAdvanceBar pct={pct} hasReversal={!!r.reversed_at && st !== 'anulado'} />
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <span className="text-[11px] font-medium text-slate-600">{plCompletenessLabel(r)}</span>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
+                              <Button asChild type="button" size="sm" variant="default" className="h-7 rounded-md px-2 text-[11px]">
+                                <Link to={detailUrl}>Ver detalle</Link>
+                              </Button>
+                              {st === 'borrador' ? (
+                                <Button asChild type="button" size="sm" variant="outline" className="h-7 rounded-md px-2 text-[11px]">
+                                  <Link to={detailUrl}>Preparar</Link>
+                                </Button>
+                              ) : null}
+                              {r.dispatch_id != null && r.dispatch_id > 0 ? (
+                                <Button asChild type="button" size="sm" variant="outline" className="h-7 rounded-md px-2 text-[11px]">
+                                  <Link to="/dispatches" title={`Despacho #${r.dispatch_id}`}>
+                                    Despacho
+                                  </Link>
+                                </Button>
+                              ) : null}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 shrink-0 rounded-md"
+                                    aria-label="Más acciones"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {r.orden_id != null && r.orden_id > 0 ? (
+                                    <DropdownMenuItem asChild>
+                                      <Link to={`/sales-orders/${r.orden_id}/avance`}>Ver pedido</Link>
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem asChild>
+                                    <Link to="/dispatches">Ir a Despachos</Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {r.reversed_at ? (
+                                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                                      Reversa: {new Date(r.reversed_at).toLocaleString('es')}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      void navigator.clipboard?.writeText(r.list_code);
+                                    }}
+                                  >
+                                    Copiar código PL
+                                  </DropdownMenuItem>
+                                  {r.notes?.trim() ? (
+                                    <DropdownMenuItem disabled className="line-clamp-3 text-xs text-muted-foreground">
+                                      {r.notes.trim()}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className={tableShell}>
             <Table className="min-w-[1180px]">

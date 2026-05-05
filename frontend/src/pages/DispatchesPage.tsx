@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   FileText,
   Info,
+  MoreHorizontal,
   Package,
   Plus,
   Tag,
@@ -59,6 +60,7 @@ import {
   pageTitle,
   sectionHint,
   sectionTitle,
+  signalsTitle,
   tableBodyRow,
   tableHeaderRow,
   tableShell,
@@ -374,6 +376,52 @@ function uniqueFormatsFromFinalPallets(
   return [...m.values()].sort((a, b) => (a.format_code || '').localeCompare(b.format_code || ''));
 }
 
+function summarizeDispatchFormatCodes(d: DispatchApi): string {
+  const uf = uniqueFormatsFromFinalPallets(d.final_pallets ?? []);
+  const codes = uf.map((x) => (x.format_code ?? '').trim()).filter((x): x is string => x.length > 0);
+  const sorted = [...new Set(codes)].sort((a, b) => a.localeCompare(b, 'es'));
+  if (sorted.length === 0) return '—';
+  if (sorted.length === 1) return sorted[0];
+  if (sorted.length === 2) return `${sorted[0]} · ${sorted[1]}`;
+  return `${sorted[0]} · ${sorted[1]} · +${sorted.length - 2}`;
+}
+
+function dispatchCompactRowTone(d: DispatchApi): { bar: string; badgeClass: string; shortLabel: string } {
+  const s = String(d.status ?? 'borrador').toLowerCase();
+  if (s === 'anulado' || s === 'cancelado') {
+    return {
+      bar: 'bg-rose-500',
+      badgeClass: 'border-rose-200 bg-rose-50 text-rose-900',
+      shortLabel: 'Anulado',
+    };
+  }
+  if (s === 'despachado') {
+    return {
+      bar: 'bg-emerald-500',
+      badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      shortLabel: 'Ejecutado',
+    };
+  }
+  if (s === 'confirmado') {
+    return {
+      bar: 'bg-sky-500',
+      badgeClass: 'border-sky-200 bg-sky-50 text-sky-900',
+      shortLabel: 'Confirmado',
+    };
+  }
+  return {
+    bar: 'bg-amber-400',
+    badgeClass: 'border-amber-200 bg-amber-50 text-amber-950',
+    shortLabel: 'Borrador',
+  };
+}
+
+function dispatchDocCodeLine(d: DispatchApi): string {
+  const inv = d.invoice?.invoice_number?.trim();
+  if (inv) return inv;
+  return `Despacho #${d.id}`;
+}
+
 type MasterClient = { id: number; codigo: string; nombre: string };
 
 type LinkablePtPl = {
@@ -418,6 +466,7 @@ export function DispatchesPage() {
   const [orderLinkClientId, setOrderLinkClientId] = useState(0);
   const [orderLinkCommercialClientId, setOrderLinkCommercialClientId] = useState(0);
   const [confirmDispatchId, setConfirmDispatchId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const { data: dispatches, isPending, isError, error } = useQuery({
     queryKey: ['dispatches'],
@@ -913,6 +962,78 @@ export function DispatchesPage() {
     );
   }, [dispatches, search, filterClienteComercial, filterFechaDesde, filterFechaHasta]);
 
+  const groupedByClient = useMemo(() => {
+    type G = {
+      key: string;
+      label: string;
+      rows: DispatchApi[];
+      totalBoxes: number;
+      totalLb: number;
+      count: number;
+      lastFechaMs: number;
+      hasPending: boolean;
+      hasAnulado: boolean;
+    };
+    const map = new Map<string, G>();
+    for (const d of filtered) {
+      const label = dispatchClienteLabel(d);
+      const key =
+        d.client_id != null && Number(d.client_id) > 0
+          ? `c-${Number(d.client_id)}`
+          : `n-${label.toLowerCase().replace(/\s+/g, ' ').slice(0, 48)}`;
+      const t = new Date(d.fecha_despacho).getTime();
+      const g =
+        map.get(key) ??
+        ({
+          key,
+          label,
+          rows: [],
+          totalBoxes: 0,
+          totalLb: 0,
+          count: 0,
+          lastFechaMs: 0,
+          hasPending: false,
+          hasAnulado: false,
+        } satisfies G);
+      g.rows.push(d);
+      g.totalBoxes += dispatchTotalCajas(d);
+      const lb = dispatchTotalLb(d);
+      if (lb != null) g.totalLb += lb;
+      g.count += 1;
+      const st = String(d.status ?? 'borrador').toLowerCase();
+      if (st === 'borrador') g.hasPending = true;
+      if (st === 'anulado' || st === 'cancelado') g.hasAnulado = true;
+      if (Number.isFinite(t)) g.lastFechaMs = Math.max(g.lastFechaMs, t);
+      map.set(key, g);
+    }
+    return [...map.values()]
+      .sort((a, b) => b.totalBoxes - a.totalBoxes)
+      .map((g) => ({
+        ...g,
+        rows: g.rows
+          .slice()
+          .sort((a, b) => new Date(b.fecha_despacho).getTime() - new Date(a.fecha_despacho).getTime()),
+      }));
+  }, [filtered]);
+
+  const dispatchMetricsHoy = useMemo(() => {
+    const t0 = new Date();
+    const key = `${t0.getFullYear()}-${String(t0.getMonth() + 1).padStart(2, '0')}-${String(t0.getDate()).padStart(2, '0')}`;
+    let count = 0;
+    let cajas = 0;
+    let lbSum = 0;
+    for (const d of filtered) {
+      const fd = new Date(d.fecha_despacho);
+      const dk = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
+      if (dk !== key) continue;
+      count++;
+      cajas += dispatchTotalCajas(d);
+      const lb = dispatchTotalLb(d);
+      if (lb != null) lbSum += lb;
+    }
+    return { count, cajas, lb: lbSum > 0 ? lbSum : null as number | null };
+  }, [filtered]);
+
   const dispatchKpis = useMemo(() => {
     const list = filtered;
     let totalCajas = 0;
@@ -1016,6 +1137,11 @@ export function DispatchesPage() {
 
   const helpDespachosTitle =
     'Cierre del flujo: Proceso → Unidad PT → Existencias PT → Despacho. Vista logística y documental. Si Cajas muestra "—", el origen no aporta cajas en ítems. Estados: borrador → confirmado → despachado. Stock PT se mueve al confirmar packing lists en Existencias PT, no al confirmar el despacho. Factura: ① Precios → ② Factura → ③ PDF.';
+
+  function openDispatchDetailView(dispatchId: number) {
+    setViewMode('detailed');
+    setCollapsed((p) => ({ ...p, [dispatchId]: false }));
+  }
 
   if (isPending) {
     return (
@@ -1350,8 +1476,8 @@ export function DispatchesPage() {
       </section>
 
       <div className={filterPanel}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Filtros</span>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className={signalsTitle}>Filtros</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -1361,7 +1487,7 @@ export function DispatchesPage() {
             <Info className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="grid gap-3 lg:grid-cols-12 lg:items-end">
+        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
             <Label className="text-xs text-slate-500">Cliente (comercial)</Label>
             <select
@@ -1426,8 +1552,60 @@ export function DispatchesPage() {
               Listado operativo
             </h2>
             <p className={sectionHint}>
-              {filtered.length} registro(s) · expandí una fila para documentos y líneas
+              {filtered.length} registro(s)
+              {viewMode === 'detailed'
+                ? ' · expandí una fila para documentos y líneas'
+                : ` · hoy: ${formatCount(dispatchMetricsHoy.count)} despachos · ${formatCount(dispatchMetricsHoy.cajas)} cajas${
+                    dispatchMetricsHoy.lb != null ? ` · ${formatLb(dispatchMetricsHoy.lb, 2)} lb` : ''
+                  }`}
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('compact')}
+              >
+                Compacta
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('detailed')}
+              >
+                Detallada
+              </Button>
+            </div>
+            <details className="group">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                Ver criterios
+              </summary>
+              <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+                <p>
+                  <span className="font-semibold text-emerald-700">Ejecutado / confirmado / despachado:</span> salida ya
+                  realizada
+                </p>
+                <p>
+                  <span className="font-semibold text-amber-800">En preparación:</span> despacho pendiente o en proceso
+                </p>
+                <p>
+                  <span className="font-semibold text-rose-700">Anulado:</span> despacho cancelado
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-800">BOL / documento:</span> referencia comercial/logística del
+                  despacho
+                </p>
+                <p>
+                  <span className="font-semibold text-sky-800">Packing List asociado:</span> preparación que originó el
+                  despacho
+                </p>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1437,6 +1615,348 @@ export function DispatchesPage() {
               ? 'No hay despachos. Creá pedidos y luego un despacho.'
               : 'Sin coincidencias con el filtro.'}
           </p>
+        ) : viewMode === 'compact' ? (
+          <div className="space-y-4">
+            {groupedByClient.map((group) => (
+              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
+                  <p className="text-sm font-semibold text-slate-900">{group.label}</p>
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-900">
+                      {group.totalLb > 0 ? formatLb(group.totalLb, 2) : '—'}
+                    </span>{' '}
+                    lb
+                  </p>
+                  <p className="text-xs text-slate-600">{formatCount(group.count)} despachos</p>
+                  <p className="text-xs text-slate-600">
+                    Último:{' '}
+                    <span className="font-medium text-slate-800">
+                      {group.lastFechaMs > 0 ? formatDispatchFechaCell(new Date(group.lastFechaMs).toISOString()) : '—'}
+                    </span>
+                  </p>
+                  {group.hasPending ? (
+                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
+                      Pendientes
+                    </span>
+                  ) : null}
+                  {group.hasAnulado ? (
+                    <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-900">
+                      Anulados
+                    </span>
+                  ) : null}
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className={tableHeaderRow}>
+                      <TableHead className="w-[120px]">Estado</TableHead>
+                      <TableHead className="min-w-[120px]">Despacho / doc</TableHead>
+                      <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                      <TableHead className="min-w-[100px]">PL</TableHead>
+                      <TableHead className="min-w-[100px]">Formatos</TableHead>
+                      <TableHead className="text-right tabular-nums">Cajas</TableHead>
+                      <TableHead className="text-right tabular-nums">Lb</TableHead>
+                      <TableHead className="min-w-[120px]">Transporte</TableHead>
+                      <TableHead className="w-[220px] text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group.rows.map((d) => {
+                      const tone = dispatchCompactRowTone(d);
+                      const destinoD = destinoDespachoDisplay(d);
+                      const cajasList = dispatchCajasListDisplay(d);
+                      const totalLb = dispatchTotalLb(d);
+                      const opRisk = summarizeDispatchPalletRisks(
+                        {
+                          client_id: d.client_id,
+                          numero_bol: d.numero_bol ?? '',
+                          final_pallets: d.final_pallets,
+                          pt_packing_lists: d.pt_packing_lists,
+                        },
+                        palletById,
+                        processes,
+                        ptTags,
+                      );
+                      return (
+                        <TableRow key={d.id} className={cn(tableBodyRow, 'relative')}>
+                          <TableCell className="py-2.5 pl-3">
+                            <span className={cn('absolute inset-y-1 left-0 w-1 rounded-r-sm', tone.bar)} />
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={cn(
+                                  'inline-flex w-fit max-w-[110px] truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize',
+                                  tone.badgeClass,
+                                )}
+                                title={d.status}
+                              >
+                                {tone.shortLabel}
+                              </span>
+                              <DispatchKindBadge kind={d.kind} />
+                              {dispatchHasAnyOperationalAlert(opRisk) ? (
+                                <span
+                                  className="inline-flex w-fit rounded-full border border-amber-200/90 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950"
+                                  title="Ver detalle en tabla expandida"
+                                >
+                                  Alerta
+                                </span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[160px] py-2.5">
+                            <p className="font-mono text-xs font-semibold text-slate-900">#{d.id}</p>
+                            <p className="mt-0.5 truncate text-[11px] text-slate-600" title={dispatchDocCodeLine(d)}>
+                              {dispatchDocCodeLine(d)}
+                            </p>
+                            <p className="mt-0.5 truncate font-mono text-[10px] text-slate-400" title={d.numero_bol}>
+                              BOL {d.numero_bol?.trim() || '—'}
+                            </p>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap py-2.5 text-[11px] tabular-nums text-slate-600">
+                            {formatDispatchFechaCell(d.fecha_despacho)}
+                          </TableCell>
+                          <TableCell className="max-w-[120px] py-2.5">
+                            <span className="line-clamp-2 text-[11px] leading-snug text-slate-700" title={packingListSummary(d)}>
+                              {packingListSummary(d)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="max-w-[130px] py-2.5">
+                            <span className="line-clamp-2 text-[11px] font-medium text-slate-800" title={summarizeDispatchFormatCodes(d)}>
+                              {summarizeDispatchFormatCodes(d)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right text-base font-bold tabular-nums text-slate-950" title={cajasList.title}>
+                            {cajasList.text}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right text-sm font-semibold tabular-nums text-slate-800">
+                            {totalLb != null ? formatLb(totalLb, 2) : '—'}
+                          </TableCell>
+                          <TableCell className="max-w-[140px] py-2.5">
+                            <p className="truncate text-[11px] text-slate-600" title={destinoD.title}>
+                              {destinoD.text}
+                            </p>
+                            <p className="truncate font-mono text-[10px] text-slate-400" title={docTransporteLine(d)}>
+                              {docTransporteLine(d)}
+                            </p>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="default"
+                                className="h-7 rounded-md px-2 text-[11px]"
+                                onClick={() => openDispatchDetailView(d.id)}
+                              >
+                                Ver detalle
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="outline" size="sm" className="h-7 rounded-md px-2 text-[11px]">
+                                    PDF
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await downloadPdf(
+                                          `/api/documents/dispatches/${d.id}/packing-list/pdf`,
+                                          `packing-list-${d.id}.pdf`,
+                                        );
+                                        toast.success('PDF packing list');
+                                      } catch (e) {
+                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                      }
+                                    }}
+                                  >
+                                    PDF packing list
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                        toast.success('PDF factura');
+                                      } catch (e) {
+                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                      }
+                                    }}
+                                  >
+                                    PDF factura
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 rounded-md px-2 text-[11px]"
+                                onClick={() => {
+                                  setMetaDialogDispatchId(d.id);
+                                  setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
+                                  setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
+                                  setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
+                                  setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-md" aria-label="Más acciones">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[min(100vw-2rem,18rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
+                                  {d.kind === 'packing_lists' && d.status === 'borrador' ? (
+                                    <DropdownMenuItem
+                                      disabled={confirmDispatchMut.isPending}
+                                      onClick={() => {
+                                        const s = summarizeDispatchPalletRisks(
+                                          {
+                                            client_id: d.client_id,
+                                            numero_bol: d.numero_bol ?? '',
+                                            final_pallets: d.final_pallets,
+                                            pt_packing_lists: d.pt_packing_lists,
+                                          },
+                                          palletById,
+                                          processes,
+                                          ptTags,
+                                        );
+                                        if (dispatchConfirmShouldWarn(s)) setConfirmDispatchId(d.id);
+                                        else confirmDispatchMut.mutate(d.id);
+                                      }}
+                                    >
+                                      Confirmar despacho
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {d.kind === 'packing_lists' && d.status === 'confirmado' ? (
+                                    <DropdownMenuItem disabled={despacharMut.isPending} onClick={() => despacharMut.mutate(d.id)}>
+                                      Registrar salida física
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {d.status === 'despachado' && canRevertSalida ? (
+                                    <DropdownMenuItem
+                                      disabled={revertDespachadoMut.isPending}
+                                      onClick={() => {
+                                        if (
+                                          !window.confirm(
+                                            '¿Deshacer el registro de salida física? El despacho volverá a «confirmado». No se modifica el stock PT.',
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        revertDespachadoMut.mutate(d.id);
+                                      }}
+                                    >
+                                      Deshacer salida
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {d.kind !== 'packing_lists' ? (
+                                    <>
+                                      <DropdownMenuItem onClick={() => setAddTagDispatchId(d.id)}>
+                                        <Tag className="mr-2 h-4 w-4" />
+                                        Unidad PT (legacy)
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setAttachFpDispatchId(d.id);
+                                          const pre: Record<number, boolean> = {};
+                                          for (const fp of d.final_pallets ?? []) {
+                                            pre[fp.id] = true;
+                                          }
+                                          setFpSelect(pre);
+                                          const pr: Record<string, string> = {};
+                                          const saved = d.final_pallet_unit_prices ?? {};
+                                          for (const [k, v] of Object.entries(saved)) {
+                                            pr[k] = String(v);
+                                          }
+                                          setFpAttachUnitPrices(pr);
+                                        }}
+                                      >
+                                        <Package className="mr-2 h-4 w-4" />
+                                        Unidad PT (legacy)
+                                      </DropdownMenuItem>
+                                    </>
+                                  ) : null}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Packing list
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      const so = salesOrders?.find((s) => s.id === d.orden_id);
+                                      setOrderLinkDialogDispatchId(d.id);
+                                      setOrderLinkOrderId(d.orden_id);
+                                      setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
+                                      setOrderLinkCommercialClientId(d.client_id ?? 0);
+                                    }}
+                                  >
+                                    Corregir pedido vinculado
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setMetaDialogDispatchId(d.id);
+                                      setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
+                                      setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
+                                      setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
+                                      setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                                    }}
+                                  >
+                                    Editar datos despacho
+                                  </DropdownMenuItem>
+                                  {d.kind === 'packing_lists' && d.status === 'borrador' ? (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setBolDialogDispatchId(d.id);
+                                        setBolEditValue(d.numero_bol);
+                                        setBolApplyToPls(false);
+                                      }}
+                                    >
+                                      Editar BOL
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuSeparator />
+                                  {uniqueFormatsFromFinalPallets(d.final_pallets ?? []).length > 0 ? (
+                                    <DropdownMenuItem
+                                      disabled={d.status === 'despachado'}
+                                      onClick={() => {
+                                        setInvoicePricesDispatchId(d.id);
+                                        const order = salesOrders?.find((o) => o.id === d.orden_id);
+                                        const inherited = order ? unitPricesRecordFromOrderLines(order.lines) : {};
+                                        const saved = d.final_pallet_unit_prices ?? {};
+                                        const formats = uniqueFormatsFromFinalPallets(d.final_pallets ?? []);
+                                        setDispatchInvoiceUnitPrices(
+                                          mergeUnitPriceStrings(
+                                            formats.map((f) => f.id),
+                                            saved,
+                                            inherited,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      ① Precios factura
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    ② Generar factura
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className={tableShell}>
             <Table className="min-w-[1180px]">

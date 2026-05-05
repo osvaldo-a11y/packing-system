@@ -28,7 +28,7 @@ import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
 import {
   contentCard,
   emptyStateBanner,
-  emptyStateInset,
+  filterInputClass,
   filterSelectClass,
   kpiCard,
   kpiCardSm,
@@ -37,6 +37,18 @@ import {
   kpiValueLg,
   kpiValueMd,
   pageInfoButton,
+  operationalModalBodyClass,
+  operationalModalContentClass,
+  operationalModalDescriptionClass,
+  operationalModalFooterClass,
+  operationalModalFormClass,
+  operationalModalHeaderClass,
+  operationalModalSectionCard,
+  operationalModalSectionHeadingRow,
+  operationalModalSectionMuted,
+  operationalModalStepBadge,
+  operationalModalStepTitle,
+  operationalModalTitleClass,
   pageSubtitle,
   pageTitle,
   sectionHint,
@@ -247,6 +259,33 @@ function ProcessStatusBadge({ status }: { status?: string }) {
   );
 }
 
+function rendimientoVisualTone(pct: number | null): {
+  badge: string;
+  text: string;
+  bar: string;
+  label: string;
+} {
+  if (pct == null || !Number.isFinite(pct)) {
+    return { badge: 'border-slate-200 bg-slate-50 text-slate-700', text: 'text-slate-700', bar: 'bg-slate-300', label: '—' };
+  }
+  if (pct >= 80) {
+    return { badge: 'border-emerald-200 bg-emerald-50 text-emerald-900', text: 'text-emerald-900', bar: 'bg-emerald-400', label: 'Bueno' };
+  }
+  if (pct >= 65) {
+    return { badge: 'border-amber-200 bg-amber-50 text-amber-900', text: 'text-amber-900', bar: 'bg-amber-400', label: 'Medio' };
+  }
+  return { badge: 'border-rose-200 bg-rose-50 text-rose-900', text: 'text-rose-900', bar: 'bg-rose-400', label: 'Bajo' };
+}
+
+function parseRendimientoPct(r: FruitProcessRow): number | null {
+  const v = Number(r.porcentaje_procesado);
+  if (Number.isFinite(v)) return v;
+  const entrada = Number(r.lb_entrada ?? r.peso_procesado_lb);
+  const pack = Number(r.lb_packout_asociado ?? r.lb_packout ?? 0);
+  if (!Number.isFinite(entrada) || entrada <= 0 || !Number.isFinite(pack)) return null;
+  return (pack / entrada) * 100;
+}
+
 /** Merma registrada (lb), alineada a reporting: lb_sobrante + lb_merma_balance, o merma_lb si la suma es ~0. */
 function mermaRegistradaLb(r: FruitProcessRow): number {
   const EPS = 1e-6;
@@ -385,6 +424,7 @@ export function ProcessesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterProcessClient, setFilterProcessClient] = useState(0);
   const [filterProcessFormat, setFilterProcessFormat] = useState('');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const producersForCreate = useMemo(() => {
     if (!producers?.length) return [];
@@ -794,6 +834,67 @@ export function ProcessesPage() {
     return [...filteredProcesses].sort((a, b) => b.id - a.id);
   }, [filteredProcesses]);
 
+  const compactGroups = useMemo(() => {
+    const byProducer = new Map<
+      string,
+      {
+        key: string;
+        producerName: string;
+        rows: FruitProcessRow[];
+        lbEntrada: number;
+        lbPackout: number;
+        weightedRend: number | null;
+        count: number;
+        borradorCount: number;
+        cerradoCount: number;
+        hasLowRend: boolean;
+        hasHighMerma: boolean;
+      }
+    >();
+    for (const r of filteredProcesses) {
+      const producerName = r.productor_nombre?.trim() || `Productor #${r.productor_id}`;
+      const key = `${r.productor_id}:${producerName}`;
+      const bucket = byProducer.get(key) ?? {
+        key,
+        producerName,
+        rows: [],
+        lbEntrada: 0,
+        lbPackout: 0,
+        weightedRend: null,
+        count: 0,
+        borradorCount: 0,
+        cerradoCount: 0,
+        hasLowRend: false,
+        hasHighMerma: false,
+      };
+      const entrada = Number(r.lb_entrada ?? r.peso_procesado_lb);
+      const pack = Number(r.lb_packout_asociado ?? r.lb_packout ?? 0);
+      const rend = parseRendimientoPct(r);
+      const merma = mermaRegistradaLb(r);
+      const mermaPct = Number.isFinite(entrada) && entrada > 0 ? (merma / entrada) * 100 : 0;
+      bucket.rows.push(r);
+      if (Number.isFinite(entrada)) bucket.lbEntrada += entrada;
+      if (Number.isFinite(pack)) bucket.lbPackout += pack;
+      bucket.count += 1;
+      if ((r.process_status ?? 'borrador') === 'borrador') bucket.borradorCount += 1;
+      if ((r.process_status ?? 'borrador') === 'cerrado') bucket.cerradoCount += 1;
+      if (rend != null && rend < 78) bucket.hasLowRend = true;
+      if (mermaPct >= 15) bucket.hasHighMerma = true;
+      byProducer.set(key, bucket);
+    }
+
+    return [...byProducer.values()]
+      .map((g) => {
+        const weightedRend = g.lbEntrada > 0 ? (g.lbPackout / g.lbEntrada) * 100 : null;
+        return {
+          ...g,
+          weightedRend,
+          rows: g.rows.slice().sort((a, b) => new Date(b.fecha_proceso).getTime() - new Date(a.fecha_proceso).getTime()),
+        };
+      })
+      .sort((a, b) => b.lbEntrada - a.lbEntrada);
+  }, [filteredProcesses]);
+
   const processKpis = useMemo(() => {
     const rows = filteredProcesses;
     const ids = new Set(rows.map((r) => r.id));
@@ -1087,186 +1188,293 @@ export function ProcessesPage() {
               Nuevo proceso
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Nuevo proceso</DialogTitle>
+          <DialogContent
+            className={cn(
+              operationalModalContentClass,
+              'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+            )}
+          >
+            <DialogHeader className={operationalModalHeaderClass}>
+              <DialogTitle className={operationalModalTitleClass}>Nuevo proceso</DialogTitle>
+              <DialogDescription className={operationalModalDescriptionClass}>
+                Elegí productor, repartí lb desde recepciones con saldo, línea de proceso y componentes de resultado.
+              </DialogDescription>
+              <details className="group text-[13px] text-muted-foreground">
+                <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                    <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                    Packout, cuadre y unidades PT
+                  </span>
+                </summary>
+                <p className="mt-2 max-w-prose text-pretty leading-snug">
+                  Repartí materia prima desde recepciones con saldo, elegí máquina y completá componentes de resultado. El packout en lb se
+                  acumula cuando registrás unidades PT vinculadas a este proceso.
+                </p>
+              </details>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(submitNewProcess)} className="grid gap-3 py-2">
-              <div className="grid gap-2">
-                  <Label>Productor</Label>
-                  <select
-                    className={filterSelectClass}
-                    value={producerId}
-                    onChange={(e) => setProducerId(Number(e.target.value))}
+            <form onSubmit={form.handleSubmit(submitNewProcess)} className={operationalModalFormClass}>
+              <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-6')}>
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(320px,100%),min(460px,44vw))_minmax(0,1fr)] lg:items-start lg:gap-8 lg:overflow-hidden">
+                  <section
+                    className={cn(
+                      operationalModalSectionMuted,
+                      'flex min-h-0 flex-col gap-2 overflow-hidden lg:flex-1 lg:min-h-0',
+                    )}
                   >
-                    <option value={0}>Elegir productor…</option>
-                    {producersForCreate.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                        {p.codigo ? ` (${p.codigo})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {producerIdsWithMp && producersForCreate.length === 0 ? (
-                    <p className="text-sm text-amber-700 dark:text-amber-500">
-                      Ningún productor tiene fruta disponible en recepción para procesar. Revisá recepciones abiertas.
-                    </p>
-                  ) : null}
-                  {eligibleLoading && producerId > 0 ? (
-                    <p className="text-xs text-muted-foreground">Cargando líneas con saldo…</p>
-                  ) : null}
-                  {producerId > 0 && eligibleLines && eligibleLines.length === 0 && !eligibleLoading ? (
-                    <p className="text-sm text-amber-700 dark:text-amber-500">No hay líneas con saldo disponible para este productor.</p>
-                  ) : null}
-                  {eligibleLines && eligibleLines.length > 0 ? (
-                    <div className="space-y-2 rounded-lg border border-border p-3">
-                      <Label className="text-sm">Vaciar MP (varias recepciones / líneas)</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Indicá cuántas lb tomás de cada línea (hasta el saldo disponible). La suma define las <strong>lb entrada</strong>.
+                    <div className={operationalModalSectionHeadingRow}>
+                      <span className={operationalModalStepBadge}>1</span>
+                      <h3 className={operationalModalStepTitle}>Origen MP (recepciones)</h3>
+                    </div>
+                    <div className="grid shrink-0 gap-2">
+                      <Label className="text-xs">Productor</Label>
+                      <select
+                        className={filterSelectClass}
+                        value={producerId}
+                        onChange={(e) => setProducerId(Number(e.target.value))}
+                      >
+                        <option value={0}>Elegir productor…</option>
+                        {producersForCreate.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                            {p.codigo ? ` (${p.codigo})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {producerIdsWithMp && producersForCreate.length === 0 ? (
+                        <p className="text-sm text-amber-700 dark:text-amber-500">
+                          Ningún productor tiene fruta disponible en recepción para procesar. Revisá recepciones abiertas.
+                        </p>
+                      ) : null}
+                      {eligibleLoading && producerId > 0 ? (
+                        <p className="text-xs text-muted-foreground">Cargando líneas con saldo…</p>
+                      ) : null}
+                      {producerId > 0 && eligibleLines && eligibleLines.length === 0 && !eligibleLoading ? (
+                        <p className="text-sm text-amber-700 dark:text-amber-500">
+                          No hay líneas con saldo disponible para este productor.
+                        </p>
+                      ) : null}
+                    </div>
+                      {eligibleLines && eligibleLines.length > 0 ? (
+                        <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-card p-3">
+                          <Label className="shrink-0 text-sm">Vaciar MP (varias recepciones / líneas)</Label>
+                          <p className="shrink-0 text-xs text-muted-foreground">
+                            Indicá cuántas lb tomás de cada línea (hasta el saldo disponible). La suma define las{' '}
+                            <strong>lb entrada</strong>.
+                          </p>
+                          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
+                            {eligibleLines.map((ln) => (
+                              <div
+                                key={ln.reception_line_id}
+                                className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 px-2.5 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
+                              >
+                                <div className="min-w-0 flex-1 break-words text-sm leading-snug text-muted-foreground">
+                                  <span className="text-foreground">R{ln.reception_id}</span>
+                                  {' · '}
+                                  <span className="text-foreground">L{ln.line_order + 1}</span>
+                                  {' · '}
+                                  <span className="font-mono text-foreground">{ln.lot_code}</span>
+                                  <span className="text-muted-foreground">
+                                    {' '}
+                                    {ln.species_nombre}/{ln.variety_nombre}
+                                  </span>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
+                                  <span className="whitespace-nowrap text-xs text-slate-600">saldo {fmtLb2(ln.available_lb)} lb</span>
+                                  <Input
+                                    className={cn(filterInputClass, 'h-9 w-[7.5rem] shrink-0 sm:w-32')}
+                                    placeholder="lb"
+                                    inputMode="decimal"
+                                    value={allocDrafts[ln.reception_line_id] ?? ''}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      let v = raw;
+                                      const n = Number(String(raw).replace(',', '.'));
+                                      if (raw !== '' && Number.isFinite(n) && n > ln.available_lb) {
+                                        v = fmtLb2(ln.available_lb);
+                                      }
+                                      setAllocDrafts((prev) => ({
+                                        ...prev,
+                                        [ln.reception_line_id]: v,
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                  </section>
+
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:min-h-0 lg:max-h-[min(82vh,860px)] lg:overflow-y-auto lg:overscroll-contain lg:pr-0.5">
+                  <section className={operationalModalSectionCard}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                      <span className={operationalModalStepBadge}>2</span>
+                      <h3 className={operationalModalStepTitle}>Fecha y línea de proceso</h3>
+                    </div>
+                    <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs" htmlFor="fecha_proceso">
+                          Fecha / hora proceso
+                        </Label>
+                        <Input
+                          id="fecha_proceso"
+                          type="datetime-local"
+                          className={filterInputClass}
+                          {...form.register('fecha_proceso')}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs">Línea de proceso (máquina)</Label>
+                        <select className={filterSelectClass} {...form.register('process_machine_id', { valueAsNumber: true })}>
+                          <option value={0}>Elegir línea…</option>
+                          {activeMachineByKind.single ? <option value={activeMachineByKind.single.id}>Línea single</option> : null}
+                          {activeMachineByKind.double ? <option value={activeMachineByKind.double.id}>Línea double</option> : null}
+                        </select>
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Configurá máquinas en <strong>Mantenedores → Líneas de proceso</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={operationalModalSectionCard}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                      <span className={operationalModalStepBadge}>3</span>
+                      <h3 className={operationalModalStepTitle}>Entrada y nota</h3>
+                    </div>
+                    <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs">Lb entrada (suma del reparto)</Label>
+                        <Input
+                          readOnly
+                          className={cn(filterInputClass, 'bg-muted/50')}
+                          value={entradaSum > 0 ? fmtLb2(entradaSum) : ''}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs">Nota</Label>
+                        <Input className={filterInputClass} {...form.register('nota')} />
+                      </div>
+                    </div>
+                    {createSpeciesId == null ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Indicá lb en al menos una línea con saldo para determinar la especie y cargar los componentes de resultado.
                       </p>
-                      <div className="space-y-2 max-h-52 overflow-y-auto">
-                        {eligibleLines.map((ln) => (
-                          <div key={ln.reception_line_id} className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="min-w-[180px] text-muted-foreground">
-                              R{ln.reception_id} · L{ln.line_order + 1} ·{' '}
-                              <span className="font-mono text-foreground">{ln.lot_code}</span> {ln.species_nombre}/
-                              {ln.variety_nombre}
-                            </span>
-                            <span className="text-xs">saldo {fmtLb2(ln.available_lb)} lb</span>
+                    ) : null}
+                  </section>
+
+                  <section className={operationalModalSectionMuted}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                      <span className={operationalModalStepBadge}>4</span>
+                      <h3 className={operationalModalStepTitle}>Componentes (resultado)</h3>
+                    </div>
+                    {activeCreateComponents.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {activeCreateComponents.map((c) => (
+                          <div key={c.id} className="grid gap-1">
+                            <Label className="text-xs">{c.nombre}</Label>
                             <Input
-                              className="h-9 w-28"
-                              placeholder="lb"
-                              value={allocDrafts[ln.reception_line_id] ?? ''}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                let v = raw;
-                                const n = Number(String(raw).replace(',', '.'));
-                                if (raw !== '' && Number.isFinite(n) && n > ln.available_lb) {
-                                  v = fmtLb2(ln.available_lb);
-                                }
-                                setAllocDrafts((prev) => ({
+                              type="number"
+                              step="0.01"
+                              className={filterInputClass}
+                              value={createComponentsDraft[c.id] ?? 0}
+                              onChange={(e) =>
+                                setCreateComponentsDraft((prev) => ({
                                   ...prev,
-                                  [ln.reception_line_id]: v,
-                                }));
-                              }}
+                                  [c.id]: Number(e.target.value || 0),
+                                }))
+                              }
                             />
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              <div className="grid gap-2">
-                <Label htmlFor="fecha_proceso">Fecha / hora proceso</Label>
-                <Input id="fecha_proceso" type="datetime-local" {...form.register('fecha_proceso')} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Línea de proceso (máquina)</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  {...form.register('process_machine_id', { valueAsNumber: true })}
-                >
-                  <option value={0}>Elegir línea…</option>
-                  {activeMachineByKind.single ? <option value={activeMachineByKind.single.id}>Línea single</option> : null}
-                  {activeMachineByKind.double ? <option value={activeMachineByKind.double.id}>Línea double</option> : null}
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  Configurá máquinas en <strong>Mantenedores → Líneas de proceso</strong>.
-                </p>
-              </div>
-              <div className="grid gap-2">
-                  <Label>Lb entrada (suma del reparto)</Label>
-                  <Input
-                    readOnly
-                    className="bg-muted/50"
-                    value={entradaSum > 0 ? fmtLb2(entradaSum) : ''}
-                  />
-                </div>
-              <div className="grid gap-2">
-                <Label>Nota</Label>
-                <Input {...form.register('nota')} />
-              </div>
-              {createSpeciesId == null ? (
-                <p className="text-xs text-muted-foreground">
-                  Indicá lb en al menos una línea con saldo para determinar la especie y cargar los componentes de resultado.
-                </p>
-              ) : null}
-              {activeCreateComponents.length > 0 ? (
-                <div className="grid gap-2">
-                  <Label className="text-sm">Componentes (especie)</Label>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {activeCreateComponents.map((c) => (
-                      <div key={c.id} className="grid gap-1">
-                        <Label className="text-xs">{c.nombre}</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={createComponentsDraft[c.id] ?? 0}
-                          onChange={(e) =>
-                            setCreateComponentsDraft((prev) => ({
-                              ...prev,
-                              [c.id]: Number(e.target.value || 0),
-                            }))
-                          }
-                        />
+                    ) : createSpeciesId != null ? (
+                      <p className="text-xs text-muted-foreground">No hay componentes activos para esta especie en mantenedores.</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Los componentes aparecen cuando hay reparto en líneas y la especie queda determinada.
+                      </p>
+                    )}
+                  </section>
+
+                  <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-white p-4 shadow-sm">
+                    <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+                      En alta no hay unidades PT aún: packout = 0. Si cargás componentes, deben sumar la{' '}
+                      <strong className="text-foreground">lb entrada</strong>.
+                    </p>
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Calculadora de cuadre</p>
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Lb entrada</p>
+                        <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                          {fmtLb2(entradaSum)}
+                        </p>
                       </div>
-                    ))}
+                      <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Lb packout</p>
+                        <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                          {fmtLb2(packoutFromTagsCreate)}
+                        </p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-400">Desde PT (en alta: 0)</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Componentes</p>
+                        <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                          {fmtLb2(createComponentsTotal)}
+                        </p>
+                      </div>
+                      <div
+                        className={cn(
+                          'rounded-xl border px-3 py-3 shadow-sm',
+                          Math.abs(diferenciaRep) < ALLOC_EPS
+                            ? 'border-emerald-200/90 bg-emerald-50/60'
+                            : 'border-amber-200/80 bg-amber-50/45',
+                        )}
+                      >
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Diferencia</p>
+                        <p className="mt-1 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                          {fmtLb2(diferenciaRep)}
+                          <span className="ml-1 text-[10px] font-sans font-normal text-slate-500">lb</span>
+                        </p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-500">entrada − packout − componentes</p>
+                      </div>
+                    </div>
+                    {activeCreateComponents.length > 0 ? (
+                      <div className="mt-4 space-y-1.5 rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Detalle componentes</p>
+                        <ul className="space-y-1 text-xs">
+                          {activeCreateComponents.map((c) => (
+                            <li key={c.id} className="flex justify-between gap-3 tabular-nums">
+                              <span className="min-w-0 break-words text-muted-foreground">{c.nombre}</span>
+                              <span className="shrink-0 font-mono font-medium">{fmtLb2(createComponentsDraft[c.id] ?? 0)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              ) : createSpeciesId != null ? (
-                <p className="text-xs text-muted-foreground">No hay componentes activos para esta especie en mantenedores.</p>
-              ) : null}
-              <p className="text-xs text-muted-foreground">
-                En alta no hay unidades PT aún: packout = 0. Si cargás componentes, deben sumar la <strong>lb entrada</strong>. El packout real se
-                acumula en <strong>PT → unidades PT</strong> asociadas al proceso.
-              </p>
-              <div className={cn(emptyStateInset, 'space-y-1.5')}>
-                <div className="font-medium text-slate-900">Calculadora</div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Lb entrada</span>
-                  <span className="font-mono font-medium">{fmtLb2(entradaSum)}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Lb packout (desde unidades PT; en alta 0)</span>
-                  <span className="font-mono">{fmtLb2(packoutFromTagsCreate)}</span>
-                </div>
-                {activeCreateComponents.map((c) => (
-                  <div key={c.id} className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">{c.nombre}</span>
-                    <span className="font-mono">{fmtLb2(createComponentsDraft[c.id] ?? 0)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between gap-4 border-t border-border pt-1.5">
-                  <span>Componentes (suma)</span>
-                  <span className="font-mono">{fmtLb2(createComponentsTotal)}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span>Diferencia (entrada − packout − componentes)</span>
-                  <span
-                    className={`font-mono font-semibold ${Math.abs(diferenciaRep) < ALLOC_EPS ? 'text-green-600 dark:text-green-500' : ''}`}
-                  >
-                    {fmtLb2(diferenciaRep)}
-                  </span>
                 </div>
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Guardando…' : 'Registrar'}
-                </Button>
-              </DialogFooter>
+            </div>
+            <DialogFooter className={operationalModalFooterClass}>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Guardando…' : 'Registrar'}
+              </Button>
+            </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <section aria-labelledby="proc-kpis" className="space-y-4">
+      <section aria-labelledby="proc-kpis" className="space-y-3">
         <h2 id="proc-kpis" className="sr-only">
           Indicadores del listado filtrado
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
             <p className={kpiLabel}>Lb entrada</p>
             <p className={kpiValueLg}>{fmtLb2(processKpis.lbEntrada)}</p>
@@ -1290,7 +1498,7 @@ export function ProcessesPage() {
             <p className={kpiFootnote}>Desde unidades PT</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-3">
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Merma</p>
             <p className={kpiValueMd}>{fmtLb2(processKpis.lbMerma)}</p>
@@ -1348,31 +1556,50 @@ export function ProcessesPage() {
           }
         }}
       >
-        <DialogContent className="flex max-h-[min(92vh,900px)] w-full max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]">
-          <DialogHeader className="shrink-0 space-y-1 border-b border-border px-6 py-3 pr-12 text-left">
-            <DialogTitle className="text-lg">Editar proceso #{weightsRow?.id ?? '—'}</DialogTitle>
-            <DialogDescription className="text-xs">
-              Resumen de lb, estado y unidades PT; abajo el reparto y componentes para guardar.
+        <DialogContent
+          className={cn(
+            operationalModalContentClass,
+            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+          )}
+        >
+          <DialogHeader className={operationalModalHeaderClass}>
+            <DialogTitle className={operationalModalTitleClass}>Editar proceso #{weightsRow?.id ?? '—'}</DialogTitle>
+            <DialogDescription className={operationalModalDescriptionClass}>
+              Resumen de lb, unidades PT vinculadas y ajuste de componentes / nota.
             </DialogDescription>
+            <details className="group text-[13px] text-muted-foreground">
+              <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                  <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Cuadre, estados y barra de acciones
+                </span>
+              </summary>
+              <p className="mt-2 max-w-prose text-pretty leading-snug">
+                Resumen de lb, estado y unidades PT; el reparto técnico (PT vs PF) y los componentes se guardan con <strong>Guardar
+                cambios</strong>. Confirmar o cerrar el proceso usá los botones del pie del modal.
+              </p>
+            </details>
           </DialogHeader>
 
           {weightsRow && processEditModalSnapshot ? (
-            <>
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Entrada</p>
+            <div className={operationalModalFormClass}>
+              <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
+                <div className="shrink-0 space-y-4 pb-4">
+                  <div className="flex min-w-0 flex-wrap gap-2">
+                    <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                        Entrada
+                      </p>
                       <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
                         {fmtLb2(processEditModalSnapshot.entrada)}
                       </p>
                       <p className="text-[9px] text-muted-foreground">lb</p>
                     </div>
                     <div
-                      className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm"
+                      className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm"
                       title="Lb planificadas en unidades PT (cache). El cuadre usa el máximo entre esto y pallets PF asociados."
                     >
-                      <p className="flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="flex flex-wrap items-center gap-x-0.5 gap-y-0 text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
                         En PT
                         <HelpCircle className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
                       </p>
@@ -1385,15 +1612,19 @@ export function ProcessesPage() {
                         <p className="text-[9px] text-muted-foreground">plan</p>
                       )}
                     </div>
-                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Componentes</p>
+                    <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                        Componentes
+                      </p>
                       <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
                         {fmtLb2(processEditModalSnapshot.components)}
                       </p>
                       <p className="text-[9px] text-muted-foreground">lb (borrador)</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pendiente</p>
+                    <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                        Pendiente
+                      </p>
                       <p
                         className={cn(
                           'mt-0.5 text-base font-bold tabular-nums leading-none',
@@ -1404,70 +1635,19 @@ export function ProcessesPage() {
                       </p>
                       <p className="text-[9px] text-muted-foreground">{processEditModalSnapshot.ok ? 'Cuadrado' : 'Ajustar'}</p>
                     </div>
-                    <div className="col-span-2 rounded-lg border border-border bg-muted/25 px-2.5 py-2 sm:col-span-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Estado</p>
+                    <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-muted/25 px-2.5 py-2 sm:min-w-[12rem]">
+                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">Estado</p>
                       <div className="mt-1">
                         <ProcessStatusBadge status={weightsRow.process_status} />
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {canChangeProcessStatus ? (
-                    <section className="rounded-lg border border-border bg-muted/20 p-3">
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-foreground">Estado del proceso</p>
-                        <span className="text-[10px] text-muted-foreground">{isAdmin ? 'Administración' : 'Supervisor'}</span>
-                      </div>
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="grid gap-1">
-                          <Label className="text-[10px] text-muted-foreground">Cambiar a</Label>
-                          <select
-                            className="flex h-9 min-w-[180px] rounded-md border border-input bg-background px-2 py-1 text-sm"
-                            value={adminStatusDraft}
-                            onChange={(e) => setAdminStatusDraft(e.target.value as ProcessStatusUi)}
-                          >
-                            <option value="borrador">borrador</option>
-                            <option value="confirmado">confirmado</option>
-                            <option value="cerrado">cerrado</option>
-                          </select>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-9"
-                          disabled={(() => {
-                            if (adminEstadoMut.isPending) return true;
-                            const cur = weightsRow.process_status ?? 'borrador';
-                            const same = adminStatusDraft === cur;
-                            const mustReapplyBorrador =
-                              same && cur === 'borrador' && weightsRow.tarja_id != null;
-                            return same && !mustReapplyBorrador;
-                          })()}
-                          onClick={() => adminEstadoMut.mutate({ id: weightsRow.id, status: adminStatusDraft })}
-                        >
-                          {adminEstadoMut.isPending ? 'Aplicando…' : 'Aplicar estado'}
-                        </Button>
-                      </div>
-                      {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
-                        <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                          Borrador con PT #{weightsRow.tarja_id} aún enlazada: <strong>Aplicar estado</strong> desvincula en servidor.
-                        </p>
-                      ) : null}
-                      <details className="group mt-2 rounded-md border border-border/60 bg-background/50 [&_summary::-webkit-details-marker]:hidden">
-                        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/40">
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
-                          Ayuda estados y cuadre
-                        </summary>
-                        <p className="border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
-                          Pasar a <strong>confirmado</strong> exige cuadre (entrada = packout + componentes). Reabrir a borrador o cerrar
-                          son acciones administrativas según rol.
-                        </p>
-                      </details>
-                    </section>
-                  ) : null}
-
-                  <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
-                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(72vh,780px)] lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:gap-6 lg:overflow-hidden">
+                  <div className="flex min-h-0 flex-col gap-3 overflow-hidden lg:min-h-0">
+                  <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
+                    <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold text-foreground">Unidades PT vinculadas</h3>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -1495,7 +1675,7 @@ export function ProcessesPage() {
                     {linkedPtRowsForModal.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Ninguna unidad PT referencia este proceso.</p>
                     ) : (
-                      <div className="overflow-x-auto rounded-md border border-border/80">
+                      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded-md border border-border/80">
                         <Table className="min-w-[680px] text-xs [&_td]:py-1.5 [&_th]:h-8 [&_th]:py-1.5 [&_th]:text-[10px]">
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
@@ -1596,6 +1776,61 @@ export function ProcessesPage() {
                       </details>
                     ) : null}
                   </section>
+                  </div>
+                  <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain lg:min-h-0 lg:pr-1">
+                  {canChangeProcessStatus ? (
+                    <section className="rounded-lg border border-border bg-muted/20 p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-foreground">Estado del proceso</p>
+                        <span className="text-[10px] text-muted-foreground">{isAdmin ? 'Administración' : 'Supervisor'}</span>
+                      </div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-[10px] text-muted-foreground">Cambiar a</Label>
+                          <select
+                            className="flex h-9 min-w-[180px] rounded-md border border-input bg-background px-2 py-1 text-sm"
+                            value={adminStatusDraft}
+                            onChange={(e) => setAdminStatusDraft(e.target.value as ProcessStatusUi)}
+                          >
+                            <option value="borrador">borrador</option>
+                            <option value="confirmado">confirmado</option>
+                            <option value="cerrado">cerrado</option>
+                          </select>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9"
+                          disabled={(() => {
+                            if (adminEstadoMut.isPending) return true;
+                            const cur = weightsRow.process_status ?? 'borrador';
+                            const same = adminStatusDraft === cur;
+                            const mustReapplyBorrador =
+                              same && cur === 'borrador' && weightsRow.tarja_id != null;
+                            return same && !mustReapplyBorrador;
+                          })()}
+                          onClick={() => adminEstadoMut.mutate({ id: weightsRow.id, status: adminStatusDraft })}
+                        >
+                          {adminEstadoMut.isPending ? 'Aplicando…' : 'Aplicar estado'}
+                        </Button>
+                      </div>
+                      {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
+                        <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+                          Borrador con PT #{weightsRow.tarja_id} aún enlazada: <strong>Aplicar estado</strong> desvincula en servidor.
+                        </p>
+                      ) : null}
+                      <details className="group mt-2 rounded-md border border-border/60 bg-background/50 [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/40">
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                          Ayuda estados y cuadre
+                        </summary>
+                        <p className="border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
+                          Pasar a <strong>confirmado</strong> exige cuadre (entrada = packout + componentes). Reabrir a borrador o cerrar
+                          son acciones administrativas según rol.
+                        </p>
+                      </details>
+                    </section>
+                  ) : null}
 
                   <form
                     id="process-edit-weights-form"
@@ -1613,22 +1848,30 @@ export function ProcessesPage() {
                     })}
                     className="grid gap-3 border-t border-border/60 pt-4"
                   >
-                    <div className="grid gap-3 lg:grid-cols-[1fr_minmax(120px,140px)] lg:items-stretch">
-                      <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/15 p-3 sm:grid-cols-4">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Entrada</p>
+                    <div className="flex min-w-0 flex-wrap gap-3">
+                      <div className="flex min-w-0 flex-1 basis-full flex-wrap gap-2 rounded-lg border border-border bg-muted/15 p-3 sm:basis-auto">
+                        <div className="min-w-[8.75rem] max-w-full flex-1">
+                          <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                            Entrada
+                          </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.entrada)}</p>
                         </div>
-                        <div title="Máx. entre PT planificado y pallets PF asociados (cuadre).">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">En producto</p>
+                        <div className="min-w-[8.75rem] max-w-full flex-1" title="Máx. entre PT planificado y pallets PF asociados (cuadre).">
+                          <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                            En producto
+                          </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.packoutProductLb)}</p>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Componentes</p>
+                        <div className="min-w-[8.75rem] max-w-full flex-1">
+                          <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                            Componentes
+                          </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.components)}</p>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pendiente</p>
+                        <div className="min-w-[8.75rem] max-w-full flex-1">
+                          <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                            Pendiente
+                          </p>
                           <p
                             className={cn(
                               'mt-0.5 text-sm font-bold tabular-nums',
@@ -1639,8 +1882,8 @@ export function ProcessesPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex flex-col justify-center rounded-lg border border-border bg-card px-3 py-2 shadow-sm">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Merma</p>
+                      <div className="flex min-w-[10rem] max-w-full flex-1 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2 shadow-sm sm:max-w-none sm:flex-[1_1_11rem]">
+                        <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">Merma</p>
                         <p className="mt-0.5 text-lg font-bold tabular-nums leading-none">{fmtLb2(processEditModalSnapshot.merma)}</p>
                         <p className="mt-1 text-[9px] text-muted-foreground">Registro del proceso</p>
                       </div>
@@ -1699,9 +1942,12 @@ export function ProcessesPage() {
                       );
                     })()}
                   </form>
+                  </div>
                 </div>
               </div>
-              <DialogFooter className="shrink-0 flex flex-wrap gap-2 border-t border-border bg-muted/20 px-6 py-3 sm:justify-end">
+              <DialogFooter
+                className={cn(operationalModalFooterClass, 'flex flex-wrap gap-2 sm:justify-end')}
+              >
                 <Button type="button" variant="outline" onClick={() => setWeightsOpen(false)}>
                   Cerrar
                 </Button>
@@ -1739,7 +1985,7 @@ export function ProcessesPage() {
                   );
                 })()}
               </DialogFooter>
-            </>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
@@ -1756,91 +2002,265 @@ export function ProcessesPage() {
             <Info className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-          <select
-            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm lg:max-w-[220px]"
-            value={filterProducer}
-            onChange={(e) => setFilterProducer(Number(e.target.value))}
-          >
-            <option value={0}>Todos los productores</option>
-            {(producers ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm lg:max-w-[200px]"
-            value={filterVariedad}
-            onChange={(e) => setFilterVariedad(Number(e.target.value))}
-          >
-            <option value={0}>Todas las variedades</option>
-            {varietyOptions.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm lg:max-w-[220px]"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="vinculable_pt">Solo vinculables a PT</option>
-            <option value="borrador">borrador</option>
-            <option value="confirmado">confirmado</option>
-            <option value="cerrado">cerrado</option>
-          </select>
-          <select
-            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm lg:max-w-[220px]"
-            value={filterProcessFormat}
-            onChange={(e) => setFilterProcessFormat(e.target.value)}
-            title="Filtra procesos con unidad PT del formato indicado"
-          >
-            <option value="">Todos los formatos PT</option>
-            {formatFilterOptions.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm lg:max-w-[260px]"
-            value={filterProcessClient}
-            onChange={(e) => setFilterProcessClient(Number(e.target.value))}
-            title="Filtra procesos con unidad PT asignada a este cliente"
-          >
-            <option value={0}>Todos los clientes (PT)</option>
-            {(commercialClients ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.codigo} — {c.nombre}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-stretch">
+          <div className="min-w-0 flex-[1_1_12rem]">
+            <select
+              className={filterSelectClass}
+              value={filterProducer}
+              onChange={(e) => setFilterProducer(Number(e.target.value))}
+            >
+              <option value={0}>Todos los productores</option>
+              {(producers ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-0 flex-[1_1_12rem]">
+            <select
+              className={filterSelectClass}
+              value={filterVariedad}
+              onChange={(e) => setFilterVariedad(Number(e.target.value))}
+            >
+              <option value={0}>Todas las variedades</option>
+              {varietyOptions.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-0 flex-[1_1_10rem]">
+            <select
+              className={filterSelectClass}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="vinculable_pt">Solo vinculables a PT</option>
+              <option value="borrador">borrador</option>
+              <option value="confirmado">confirmado</option>
+              <option value="cerrado">cerrado</option>
+            </select>
+          </div>
+          <div className="min-w-0 flex-[1_1_12rem]">
+            <select
+              className={filterSelectClass}
+              value={filterProcessFormat}
+              onChange={(e) => setFilterProcessFormat(e.target.value)}
+              title="Filtra procesos con unidad PT del formato indicado"
+            >
+              <option value="">Todos los formatos PT</option>
+              {formatFilterOptions.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-0 flex-[1_1_14rem]">
+            <select
+              className={filterSelectClass}
+              value={filterProcessClient}
+              onChange={(e) => setFilterProcessClient(Number(e.target.value))}
+              title="Filtra procesos con unidad PT asignada a este cliente"
+            >
+              <option value={0}>Todos los clientes (PT)</option>
+              {(commercialClients ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo} — {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       <section className="space-y-3" aria-labelledby="proc-listado">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 id="proc-listado" className={sectionTitle}>
-            Procesos
-          </h2>
-          <span className={cn(sectionHint, '!mt-0')}>Últimos 500 · scroll horizontal si aplica</span>
+          <div>
+            <h2 id="proc-listado" className={sectionTitle}>
+              Procesos
+            </h2>
+            <span className={cn(sectionHint, '!mt-0')}>Últimos 500 · control operativo por productor</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('compact')}
+              >
+                Compacta
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('detailed')}
+              >
+                Detallada
+              </Button>
+            </div>
+            <details className="group">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+                Ver criterios
+              </summary>
+              <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+                <p><span className="font-semibold text-emerald-700">Rend. bueno:</span> &ge; 80%</p>
+                <p><span className="font-semibold text-amber-700">Rend. medio:</span> 65% - 79%</p>
+                <p><span className="font-semibold text-rose-700">Rend. bajo:</span> &lt; 65%</p>
+                <p><span className="font-semibold text-rose-700">Merma alta:</span> &ge; 15%</p>
+              </div>
+            </details>
+          </div>
         </div>
-        <div className={cn(tableShell, 'overflow-x-auto')}>
-          <DataTable
-            columns={columns}
-            data={sortedFilteredProcesses}
-            searchPlaceholder="Buscar por productor, variedad, lote o ID de proceso"
-            customGlobalFilter={(row, s) => processRowMatchesGlobalSearch(row, s)}
-            initialPageSize={25}
-            scrollToRowId={focusPid}
-            getRowClassName={(r) => (r.id === focusPid ? 'bg-sky-50/60 ring-1 ring-inset ring-sky-200/70' : undefined)}
-            containerClassName="px-3 py-3 sm:px-4"
-            tableClassName="min-w-[1180px] [&_td]:py-3 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right"
-          />
-        </div>
+        {viewMode === 'compact' ? (
+          <div className="space-y-2.5">
+            {compactGroups.length === 0 ? (
+              <p className={emptyStateBanner}>Sin procesos para el filtro actual.</p>
+            ) : (
+              compactGroups.map((group) => {
+                const rendTone = rendimientoVisualTone(group.weightedRend);
+                return (
+                  <div key={group.key} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
+                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/85">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{group.producerName}</p>
+                        <p className="text-[11px] text-slate-500">
+                          Entrada {fmtLb2(group.lbEntrada)} lb · Packout {fmtLb2(group.lbPackout)} lb · {formatCount(group.count)} proceso(s)
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', rendTone.badge)}>
+                          Rend. {group.weightedRend != null ? `${formatPercent(group.weightedRend, 1)}%` : '—'} · {rendTone.label}
+                        </span>
+                        {group.borradorCount > 0 ? (
+                          <span className="inline-flex rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                            Pendientes: {formatCount(group.borradorCount)}
+                          </span>
+                        ) : null}
+                        {group.hasLowRend || group.hasHighMerma ? (
+                          <span className="inline-flex rounded-full border border-rose-200/90 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-900">
+                            Atención
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table className="min-w-[980px]">
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Estado</TableHead>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Variedad</TableHead>
+                            <TableHead className="text-right">Lb entrada</TableHead>
+                            <TableHead className="text-right">Lb packout</TableHead>
+                            <TableHead>Rendimiento</TableHead>
+                            <TableHead>Componentes / merma</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.rows.map((r) => {
+                            const rend = parseRendimientoPct(r);
+                            const rt = rendimientoVisualTone(rend);
+                            const mermaLb = mermaRegistradaLb(r);
+                            const entrada = Number(r.lb_entrada ?? r.peso_procesado_lb);
+                            const mermaPct = Number.isFinite(entrada) && entrada > 0 ? (mermaLb / entrada) * 100 : null;
+                            const highMerma = mermaPct != null && mermaPct >= 15;
+                            const compsCount = (r.components ?? []).filter((c) => Number(c.lb_value) > 0.001).length;
+                            const cerrado = r.process_status === 'cerrado';
+                            const adminEdit = cerrado && isAdmin;
+                            return (
+                              <TableRow key={r.id} className="border-b border-slate-100/70 hover:bg-slate-50/70">
+                                <TableCell className="py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn('h-5 w-1.5 rounded-full', rt.bar)} />
+                                    <ProcessStatusBadge status={r.process_status} />
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2.5 text-xs text-slate-700">{formatProcessDateShort(r.fecha_proceso)}</TableCell>
+                                <TableCell className="py-2.5 text-xs text-slate-800">{r.variedad_nombre ?? '—'}</TableCell>
+                                <TableCell className="py-2.5 text-right font-mono text-sm text-slate-900">{fmtLb2(r.lb_entrada)}</TableCell>
+                                <TableCell className="py-2.5 text-right font-mono text-sm text-slate-900">{fmtLb2(r.lb_packout_asociado ?? r.lb_packout)}</TableCell>
+                                <TableCell className="py-2.5">
+                                  <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', rt.badge)}>
+                                    {rend != null ? `${formatPercent(rend, 1)}%` : '—'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="py-2.5 text-xs">
+                                  <span className={cn('font-medium', highMerma ? 'text-rose-700' : 'text-slate-700')}>
+                                    Merma {fmtLb2(mermaLb)} lb
+                                  </span>
+                                  <span className="text-slate-500"> · {compsCount} comp.</span>
+                                </TableCell>
+                                <TableCell className="py-2.5">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-xs font-medium shadow-sm"
+                                      onClick={() => openWeights(r)}
+                                      title={
+                                        cerrado && !isAdmin
+                                          ? 'Solo lectura (proceso cerrado)'
+                                          : adminEdit
+                                            ? 'Editar (admin): proceso cerrado'
+                                            : 'Editar proceso'
+                                      }
+                                    >
+                                      {adminEdit ? <><Pencil className="h-3.5 w-3.5" />Editar</> : cerrado ? 'Ver' : 'Editar'}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900"
+                                      onClick={async () => {
+                                        try {
+                                          await downloadPdf(`/api/documents/processes/${r.id}/pdf`, `proceso-${r.id}.pdf`);
+                                          toast.success('PDF descargado');
+                                        } catch (e) {
+                                          toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                        }
+                                      }}
+                                    >
+                                      PDF
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div className={cn(tableShell, 'overflow-x-auto')}>
+            <DataTable
+              columns={columns}
+              data={sortedFilteredProcesses}
+              searchPlaceholder="Buscar por productor, variedad, lote o ID de proceso"
+              customGlobalFilter={(row, s) => processRowMatchesGlobalSearch(row, s)}
+              initialPageSize={25}
+              scrollToRowId={focusPid}
+              getRowClassName={(r) => (r.id === focusPid ? 'bg-sky-50/60 ring-1 ring-inset ring-sky-200/70' : undefined)}
+              containerClassName="px-3 py-3 sm:px-4"
+              tableClassName="min-w-[1180px] [&_td]:py-3 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right"
+            />
+          </div>
+        )}
       </section>
 
       <section className="space-y-3 pb-2" aria-labelledby="proc-analisis">

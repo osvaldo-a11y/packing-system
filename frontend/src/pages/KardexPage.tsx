@@ -1,4 +1,13 @@
 ﻿import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowDownRight,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Boxes,
+  Layers,
+  Package,
+  Warehouse,
+} from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiJson } from '@/api';
@@ -11,24 +20,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { describeAlcance, movementRefTypeLabel, stockSaldoClass, stockSaldoTone } from '@/lib/materials-inventory-ux';
 import {
   contentCard,
+  emptyStateInset,
   filterInputClass,
   filterLabel,
   filterPanel,
   filterSelectClass,
   kpiCardSm,
   kpiFootnote,
-  kpiGrid,
   kpiLabel,
   kpiValueMd,
   pageHeaderRow,
   pageSubtitle,
   pageTitle,
+  sectionHeadingLg,
   sectionHint,
   signalsPanel,
   signalsTitle,
   tableShell,
 } from '@/lib/page-ui';
-import { formatInventoryQty, formatInventoryQtyFromString, formatTechnical } from '@/lib/number-format';
+import { formatCount, formatInventoryQty, formatInventoryQtyFromString, formatTechnical } from '@/lib/number-format';
 import { cn } from '@/lib/utils';
 import type { PackagingMaterialRow } from './MaterialsPage';
 
@@ -79,6 +89,89 @@ function matchesMoveTypeFilter(ref: string | null, moveType: string): boolean {
 }
 
 const MOVE_FILTER_ALL = 'all';
+
+/** Alineado con filtros de tipo; movimientos no mapeados van a `other`. */
+function movementBucketForRow(ref: string | null): string {
+  const rt = (ref ?? '').trim().toLowerCase();
+  if (rt === 'consumo' || rt === 'consumption') return 'consumption';
+  if (rt === 'consumo_reverso' || rt === 'consumption_revert') return 'consumption_revert';
+  if (rt === 'manual' || rt === 'ajuste' || rt === 'correccion' || rt === '') return 'manual';
+  const known = ['entrada', 'compra', 'inventario_inicial', 'salida', 'final_inventario'] as const;
+  if ((known as readonly string[]).includes(rt)) return rt;
+  return 'other';
+}
+
+const MOVE_TYPE_KPI_META: Array<{
+  bucket: string;
+  label: string;
+  desc: string;
+  shell: string;
+  Icon: typeof Package;
+}> = [
+  {
+    bucket: 'consumption',
+    label: 'Consumo PT',
+    desc: 'Salidas por tarja',
+    shell: 'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/40 to-white',
+    Icon: ArrowDownRight,
+  },
+  {
+    bucket: 'consumption_revert',
+    label: 'Reverso consumo',
+    desc: 'Entradas por reverso',
+    shell: 'border-l-[3px] border-l-emerald-400 bg-gradient-to-br from-emerald-50/35 to-white',
+    Icon: ArrowUpRight,
+  },
+  {
+    bucket: 'manual',
+    label: 'Manual / corr.',
+    desc: 'Ajustes y correcciones',
+    shell: 'border-l-[3px] border-l-slate-400 bg-gradient-to-br from-slate-50/50 to-white',
+    Icon: ArrowLeftRight,
+  },
+  {
+    bucket: 'entrada',
+    label: 'Ingreso',
+    desc: 'Entradas operativas',
+    shell: 'border-l-[3px] border-l-sky-400 bg-gradient-to-br from-sky-50/40 to-white',
+    Icon: ArrowUpRight,
+  },
+  {
+    bucket: 'compra',
+    label: 'Compra',
+    desc: 'OC / recepciones',
+    shell: 'border-l-[3px] border-l-teal-400 bg-gradient-to-br from-teal-50/40 to-white',
+    Icon: Package,
+  },
+  {
+    bucket: 'inventario_inicial',
+    label: 'Inv. inicial',
+    desc: 'Carga histórica',
+    shell: 'border-l-[3px] border-l-violet-400 bg-gradient-to-br from-violet-50/35 to-white',
+    Icon: Warehouse,
+  },
+  {
+    bucket: 'salida',
+    label: 'Salida / merma',
+    desc: 'Egresos',
+    shell: 'border-l-[3px] border-l-orange-400 bg-gradient-to-br from-orange-50/35 to-white',
+    Icon: ArrowDownRight,
+  },
+  {
+    bucket: 'final_inventario',
+    label: 'Cierre inv.',
+    desc: 'Ajuste de cierre',
+    shell: 'border-l-[3px] border-l-amber-400 bg-gradient-to-br from-amber-50/40 to-white',
+    Icon: Layers,
+  },
+  {
+    bucket: 'other',
+    label: 'Otros tipos',
+    desc: 'Códigos especiales',
+    shell: 'border-l-[3px] border-l-slate-300 bg-white',
+    Icon: Boxes,
+  },
+];
 
 function fetchMaterials() {
   return apiJson<PackagingMaterialRow[]>('/api/packaging/materials');
@@ -195,11 +288,9 @@ export function KardexPage() {
     return { ordered: orderedAsc, balanceById: balMap };
   }, [movements, selectedMaterial]);
 
-  const filteredRows = useMemo(() => {
+  /** Rango de fechas solamente: base para KPI por tipo (independiente del filtro «Tipo de movimiento»). */
+  const rowsForMovementTypeKpis = useMemo(() => {
     return ordered.filter((m) => {
-      if (moveType !== MOVE_FILTER_ALL && !matchesMoveTypeFilter(m.ref_type, moveType)) {
-        return false;
-      }
       if (dateFrom) {
         const t = movementEffectiveMs(m);
         if (t < new Date(`${dateFrom}T00:00:00`).getTime()) return false;
@@ -210,7 +301,16 @@ export function KardexPage() {
       }
       return true;
     });
-  }, [ordered, moveType, dateFrom, dateTo]);
+  }, [ordered, dateFrom, dateTo]);
+
+  const filteredRows = useMemo(() => {
+    return rowsForMovementTypeKpis.filter((m) => {
+      if (moveType !== MOVE_FILTER_ALL && !matchesMoveTypeFilter(m.ref_type, moveType)) {
+        return false;
+      }
+      return true;
+    });
+  }, [rowsForMovementTypeKpis, moveType]);
 
   const displayRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -220,6 +320,35 @@ export function KardexPage() {
       return b.id - a.id;
     });
   }, [filteredRows]);
+
+  const movementTypeKpiTotals = useMemo(() => {
+    const next = (): { count: number; net: number } => ({ count: 0, net: 0 });
+    const map = new Map<string, { count: number; net: number }>();
+    for (const m of MOVE_TYPE_KPI_META) map.set(m.bucket, next());
+    for (const m of rowsForMovementTypeKpis) {
+      const b = movementBucketForRow(m.ref_type);
+      const tgt = map.get(b) ?? map.get('other')!;
+      const d = Number(m.quantity_delta);
+      if (!Number.isFinite(d)) continue;
+      tgt.count += 1;
+      tgt.net += d;
+    }
+    return map;
+  }, [rowsForMovementTypeKpis]);
+
+  const netMovementTypeKpiQty = useMemo(
+    () =>
+      rowsForMovementTypeKpis.reduce(
+        (s, m) => s + (Number.isFinite(Number(m.quantity_delta)) ? Number(m.quantity_delta) : 0),
+        0,
+      ),
+    [rowsForMovementTypeKpis],
+  );
+
+  const netTableFilteredQty = useMemo(
+    () => filteredRows.reduce((s, m) => s + (Number.isFinite(Number(m.quantity_delta)) ? Number(m.quantity_delta) : 0), 0),
+    [filteredRows],
+  );
 
   const movementsTruncated = (movements?.length ?? 0) >= 5000;
   const moveFilterOptions: { value: string; label: string }[] = [
@@ -350,45 +479,149 @@ export function KardexPage() {
             <Skeleton className="h-40 w-full" />
           ) : kardexOp ? (
             <>
-              <div className={kpiGrid}>
-                <div className={kpiCardSm}>
+              <div className="space-y-2">
+                <h2 className={sectionHeadingLg}>Resumen del material</h2>
+                <p className="text-[12px] text-slate-500">
+                  Vista de stock operativo desde el servidor (no depende de fechas ni del filtro de tipo abajo).
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-slate-100/90')}>
+                  <Warehouse className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-violet-100" aria-hidden />
                   <p className={kpiLabel}>Inventario inicial</p>
                   <p className={kpiValueMd}>
-                    {formatInventoryQty(kardexOp.inventario_inicial)} <span className="text-sm font-normal text-slate-500">{uom}</span>
+                    {formatInventoryQty(kardexOp.inventario_inicial)}{' '}
+                    <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
                 </div>
-                <div className={kpiCardSm}>
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-emerald-100/90 bg-emerald-50/25')}>
+                  <Package className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-emerald-100" aria-hidden />
                   <p className={kpiLabel}>Compras</p>
-                  <p className="text-[1.65rem] font-semibold tabular-nums leading-none text-emerald-800">
+                  <p className="text-[1.5rem] font-semibold tabular-nums leading-none text-emerald-800">
                     +{formatInventoryQty(kardexOp.compras_total)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
                 </div>
-                <div className={kpiCardSm}>
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-sky-100/90 bg-sky-50/20')}>
+                  <ArrowLeftRight className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-sky-100" aria-hidden />
+                  <p className={kpiLabel}>Otros mov. neto</p>
+                  <p
+                    className={cn(
+                      kpiValueMd,
+                      kardexOp.otros_movimientos_neto < 0 ? 'text-rose-700' : kardexOp.otros_movimientos_neto > 0 ? 'text-emerald-800' : '',
+                    )}
+                  >
+                    {kardexOp.otros_movimientos_neto >= 0 ? '+' : ''}
+                    {formatInventoryQty(kardexOp.otros_movimientos_neto)}{' '}
+                    <span className="text-sm font-normal text-slate-500">{uom}</span>
+                  </p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>Entradas y salidas fuera de compras/cons. PT típico.</p>
+                </div>
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-teal-100/80 bg-teal-50/15')}>
+                  <Boxes className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-teal-100" aria-hidden />
                   <p className={kpiLabel}>Total entradas</p>
                   <p className={kpiValueMd}>
                     {formatInventoryQty(kardexOp.total_entradas)} <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>Inventario inicial más compras registradas.</p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>Base operativa cargada antes de consumir por PT.</p>
                 </div>
-                <div className={kpiCardSm}>
-                  <p className={kpiLabel}>Consumo total (Unidad PT)</p>
-                  <p className="text-[1.65rem] font-semibold tabular-nums leading-none text-rose-800">
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-rose-100/90 bg-rose-50/20')}>
+                  <ArrowDownRight className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-rose-100" aria-hidden />
+                  <p className={kpiLabel}>Consumo total (PT)</p>
+                  <p className="text-[1.5rem] font-semibold tabular-nums leading-none text-rose-800">
                     −{formatInventoryQty(kardexOp.consumo_pt_total)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>Cajas en tarjas por formato × receta por caja.</p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>Tarjas × receta por caja.</p>
                 </div>
-                <div className={kpiCardSm}>
+                <div className={cn(kpiCardSm, 'relative overflow-hidden border border-slate-200 bg-slate-50/30')}>
+                  <Layers className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-slate-200" aria-hidden />
                   <p className={kpiLabel}>Stock final</p>
-                  <p className={cn(kpiValueMd, saldoKpiClass)}>{formatInventoryQty(kardexOp.stock_final)}</p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>
-                    Cálculo operativo: inventario inicial + compras − consumo PT:{' '}
-                    {formatInventoryQty(kardexOp.stock_segun_inv_compras_y_pt)} {uom}
+                  <p className={cn(kpiValueMd, saldoKpiClass)}>
+                    {formatInventoryQty(kardexOp.stock_final)} <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>
+                    Inv. inicial + compras − consumo PT = {formatInventoryQty(kardexOp.stock_segun_inv_compras_y_pt)}{' '}
+                    {uom}
+                  </p>
+                  {kardexOp.movimientos_sin_consumo_pt !== 0 ? (
+                    <p className={cn(kpiFootnote, 'mt-1 text-[11px] text-sky-900/80')} title="Conteo desde motor operativo">
+                      Incluye {formatCount(kardexOp.movimientos_sin_consumo_pt)} mov. sin consumo PT en el modelo.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </>
+          ) : (
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-[13px] leading-snug text-amber-950">
+              No se pudo cargar el resumen operativo del material. Siguen disponibles los movimientos y los totales por tipo abajo si el
+              historial respondió bien.
+            </div>
+          )}
+
+          {!movementsLoading && materialId > 0 ? (
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <h2 className={sectionHeadingLg}>Totales por tipo de movimiento</h2>
+                <p className="text-[12px] leading-snug text-slate-500">
+                  Tarjetas para cada tipo (consumo PT, compra, manual, etc.). Cuentan el período <strong className="font-medium text-slate-700">Desde / Hasta</strong> solamente; el filtro <strong className="font-medium text-slate-700">Tipo de movimiento</strong> no las altera (sí filtra la tabla de abajo).
+                </p>
+                <p className="text-[12px] text-slate-600">
+                  Período: Δ{' '}
+                  <span className={netMovementTypeKpiQty >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
+                    {formatInventoryQty(netMovementTypeKpiQty)}
+                  </span>{' '}
+                  {uom},{' '}
+                  <span className="tabular-nums">{formatCount(rowsForMovementTypeKpis.length)}</span> mov. · Tabla (fecha + tipo): Δ{' '}
+                  <span className={netTableFilteredQty >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
+                    {formatInventoryQty(netTableFilteredQty)}
+                  </span>{' '}
+                  {uom},{' '}
+                  <span className="tabular-nums">{formatCount(filteredRows.length)}</span> fila(s)
+                  {moveType !== MOVE_FILTER_ALL
+                    ? ` · «${moveFilterOptions.find((o) => o.value === moveType)?.label ?? moveType}»`
+                    : ''}
+                </p>
+              </div>
+              {rowsForMovementTypeKpis.length === 0 ? (
+                <div className={emptyStateInset}>
+                  {ordered.length === 0
+                    ? 'Este material no tiene movimientos en el historial cargado.'
+                    : 'Sin movimientos en el rango de fechas — ampliá el período o borrá las fechas para ver KPI por tipo.'}
+                </div>
+              ) : (
+                <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                  {MOVE_TYPE_KPI_META.map(({ bucket, label, desc, shell, Icon }) => {
+                    const agg = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
+                    const inactive = agg.count === 0;
+                    return (
+                      <div
+                        key={bucket}
+                        className={cn(
+                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm transition-opacity',
+                          shell,
+                          inactive ? 'opacity-[0.45]' : '',
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                            <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
+                          </div>
+                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', !inactive && 'text-slate-400')} aria-hidden />
+                        </div>
+                        <p className={cn('mt-2.5 text-lg font-semibold tabular-nums leading-none', movementDeltaTone(agg.net))}>
+                          {formatInventoryQty(agg.net)} <span className="text-xs font-normal text-slate-500">{uom}</span>
+                        </p>
+                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(agg.count)} mov.</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : materialId > 0 && movementsLoading ? (
+            <Skeleton className="h-36 w-full rounded-2xl" />
           ) : null}
 
           <Card className={contentCard}>

@@ -615,7 +615,7 @@ export class ReportingExportService {
     filter: ReportFilterDto,
     meta: { productorNombre: string | null; especieLabel: string | null; formatoCodigo: string | null },
   ): Promise<{ buffer: Buffer; mime: string; filename: string }> {
-    const doc = new PDFDocument({ margin: 48, size: 'A4' });
+    const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape' });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
@@ -629,7 +629,19 @@ export class ReportingExportService {
       minute: '2-digit',
     });
 
-    const w = 500;
+    const w = this.pdfContentWidth(doc);
+    const num = (v: unknown): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const pickText = (row: Record<string, unknown>, keys: string[]): string => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v != null && String(v).trim() !== '') return String(v);
+      }
+      return '—';
+    };
+
     doc.fontSize(16).font('Helvetica-Bold').text('LIQUIDACIÓN AL PRODUCTOR', { align: 'center', width: w });
     doc.moveDown(0.35);
     doc.fontSize(11).text(company, { align: 'center', width: w });
@@ -654,7 +666,7 @@ export class ReportingExportService {
     doc.moveDown(0.5);
     doc.fontSize(8);
     doc.fillColor('#444444').text(
-      'Importes según facturación del período. Costos de empaque: materiales y packing de planta, en línea con la liquidación del sistema.',
+      'Los costos se componen de materiales de empaque según receta y servicio de packing calculado por libra de acuerdo a la especie/formato.',
       { width: w, align: 'left' },
     );
     doc.fillColor('#000000');
@@ -721,15 +733,27 @@ export class ReportingExportService {
 
     doc.moveDown(0.5);
 
-    const detailCols = [
-      { w: 0.1, header: 'Despacho', align: 'left' as const },
-      { w: 0.18, header: 'Formato', align: 'left' as const },
-      { w: 0.1, header: 'Cajas', align: 'right' as const },
-      { w: 0.1, header: 'LB', align: 'right' as const },
-      { w: 0.12, header: 'Precio', align: 'right' as const },
-      { w: 0.13, header: 'Ventas', align: 'right' as const },
-      { w: 0.135, header: 'Costo', align: 'right' as const },
-      { w: 0.135, header: 'Neto', align: 'right' as const },
+    const detailColsA = [
+      { w: 0.09, header: 'Despacho', align: 'left' as const },
+      { w: 0.12, header: 'Código / BOL', align: 'left' as const },
+      { w: 0.16, header: 'Formato', align: 'left' as const },
+      { w: 0.08, header: 'Cajas', align: 'right' as const },
+      { w: 0.08, header: 'LB', align: 'right' as const },
+      { w: 0.1, header: 'Precio venta/caja', align: 'right' as const },
+      { w: 0.12, header: 'Ventas', align: 'right' as const },
+      { w: 0.12, header: 'Neto', align: 'right' as const },
+      { w: 0.13, header: 'Nota', align: 'left' as const },
+    ];
+
+    const detailColsB = [
+      { w: 0.09, header: 'Despacho', align: 'left' as const },
+      { w: 0.16, header: 'Formato', align: 'left' as const },
+      { w: 0.11, header: 'Material/caja', align: 'right' as const },
+      { w: 0.11, header: 'Packing/caja', align: 'right' as const },
+      { w: 0.11, header: 'Total costo/caja', align: 'right' as const },
+      { w: 0.14, header: 'Material total', align: 'right' as const },
+      { w: 0.14, header: 'Packing total', align: 'right' as const },
+      { w: 0.14, header: 'Costo total', align: 'right' as const },
     ];
 
     if (!detailRows.length) {
@@ -738,28 +762,110 @@ export class ReportingExportService {
       });
       doc.fillColor('#000000');
     } else {
-      const detailBody: string[][] = [];
+      const detailBodyA: string[][] = [];
+      const detailBodyB: string[][] = [];
+      const byFormat = new Map<
+        string,
+        { cajas: number; lb: number; material: number; packing: number; total: number; ventas: number }
+      >();
       for (const r of detailRows) {
-        const did = String((r as { dispatch_id?: number }).dispatch_id ?? '—');
+        const did = pickText(r, ['dispatch_number', 'dispatch_id']);
+        const dispatchCode = pickText(r, ['dispatch_code']);
+        const bol = pickText(r, ['bol', 'reference', 'reference_number']);
+        const codeBol = dispatchCode !== '—' ? dispatchCode : bol;
         const fc = ReportingExportService.clipText(String((r as { format_code?: string }).format_code ?? '—'), 24);
-        const cajas = Number((r as { cajas?: number }).cajas ?? 0);
-        const lb = Number((r as { lb?: number }).lb ?? 0);
-        const ventas = Number((r as { ventas?: number }).ventas ?? 0);
-        const ct = Number((r as { costo_total?: number }).costo_total ?? 0);
-        const neto = Number((r as { neto?: number }).neto ?? 0);
+        const cajas = num((r as { cajas?: number }).cajas);
+        const lb = num((r as { lb?: number }).lb);
+        const ventas = num((r as { ventas?: number }).ventas);
+        const cm = num((r as { costo_materiales?: number }).costo_materiales);
+        const cp = num((r as { costo_packing?: number }).costo_packing);
+        const ct = num((r as { costo_total?: number }).costo_total);
+        const neto = num((r as { neto?: number }).neto);
         const precio = cajas > 0 ? ventas / cajas : 0;
-        detailBody.push([
+        const matCaja = cajas > 0 ? cm / cajas : 0;
+        const packCaja = cajas > 0 ? cp / cajas : 0;
+        const totalCaja = cajas > 0 ? ct / cajas : 0;
+        const note = ReportingExportService.clipText(
+          pickText(r, ['nota_prorrateo', 'nota_trazabilidad', 'trace_note']),
+          56,
+        );
+
+        detailBodyA.push([
           did,
-          fc,
+          ReportingExportService.clipText(codeBol, 22),
+          ReportingExportService.clipText(fc, 24),
           ReportingExportService.qtyAr(cajas),
           ReportingExportService.qtyAr(lb),
           ReportingExportService.precioCajaAr(precio),
           ReportingExportService.moneyAr(ventas),
-          ReportingExportService.moneyAr(ct),
           ReportingExportService.moneyAr(neto),
+          note,
+        ]);
+        detailBodyB.push([
+          did,
+          ReportingExportService.clipText(fc, 24),
+          ReportingExportService.precioCajaAr(matCaja),
+          ReportingExportService.precioCajaAr(packCaja),
+          ReportingExportService.precioCajaAr(totalCaja),
+          ReportingExportService.moneyAr(cm),
+          ReportingExportService.moneyAr(cp),
+          ReportingExportService.moneyAr(ct),
+        ]);
+
+        const key = String((r as { format_code?: string }).format_code ?? '').trim().toLowerCase() || '(sin formato)';
+        const cur = byFormat.get(key) ?? { cajas: 0, lb: 0, material: 0, packing: 0, total: 0, ventas: 0 };
+        cur.cajas += cajas;
+        cur.lb += lb;
+        cur.material += cm;
+        cur.packing += cp;
+        cur.total += ct;
+        cur.ventas += ventas;
+        byFormat.set(key, cur);
+      }
+      this.pdfDrawDataTable(doc, 'Detalle por despacho — ventas y neto', detailColsA, detailBodyA, null, {
+        titleSize: 13,
+        headerFontSize: 8,
+        bodyFontSize: 7.5,
+      });
+      this.pdfDrawDataTable(doc, 'Detalle por despacho — costos abiertos', detailColsB, detailBodyB, null, {
+        titleSize: 12,
+        headerFontSize: 8,
+        bodyFontSize: 7.5,
+      });
+
+      const fmtCols = [
+        { w: 0.2, header: 'Formato', align: 'left' as const },
+        { w: 0.08, header: 'Cajas', align: 'right' as const },
+        { w: 0.08, header: 'LB', align: 'right' as const },
+        { w: 0.11, header: 'Material/caja', align: 'right' as const },
+        { w: 0.11, header: 'Packing/caja', align: 'right' as const },
+        { w: 0.11, header: 'Total/caja', align: 'right' as const },
+        { w: 0.1, header: 'Material total', align: 'right' as const },
+        { w: 0.1, header: 'Packing total', align: 'right' as const },
+        { w: 0.11, header: 'Costo total', align: 'right' as const },
+      ];
+      const fmtBody: string[][] = [];
+      for (const [fmt, val] of [...byFormat.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'))) {
+        const matCaja = val.cajas > 0 ? val.material / val.cajas : 0;
+        const packCaja = val.cajas > 0 ? val.packing / val.cajas : 0;
+        const totalCaja = val.cajas > 0 ? val.total / val.cajas : 0;
+        fmtBody.push([
+          ReportingExportService.clipText(fmt, 30),
+          ReportingExportService.qtyAr(val.cajas),
+          ReportingExportService.qtyAr(val.lb),
+          ReportingExportService.precioCajaAr(matCaja),
+          ReportingExportService.precioCajaAr(packCaja),
+          ReportingExportService.precioCajaAr(totalCaja),
+          ReportingExportService.moneyAr(val.material),
+          ReportingExportService.moneyAr(val.packing),
+          ReportingExportService.moneyAr(val.total),
         ]);
       }
-      this.pdfDrawDataTable(doc, 'Detalle por despacho', detailCols, detailBody, null, { titleSize: 14 });
+      this.pdfDrawDataTable(doc, 'Resumen de costos por formato', fmtCols, fmtBody, null, {
+        titleSize: 12,
+        headerFontSize: 8,
+        bodyFontSize: 7.5,
+      });
     }
 
     doc.moveDown(1);

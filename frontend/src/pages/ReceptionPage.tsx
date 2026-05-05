@@ -1,14 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Info, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Eye, Info, Pencil, Plus, Printer, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +28,7 @@ import {
   errorStateCard,
   filterInputClass,
   filterPanel,
+  formReadonlyValueClass,
   filterSelectClass,
   kpiCard,
   kpiCardSm,
@@ -28,6 +36,22 @@ import {
   kpiLabel,
   kpiValueLg,
   kpiValueMd,
+  modalFormLineCard,
+  modalFormLineDeleteButton,
+  modalFormPrimaryButton,
+  modalFormSoftGreenButton,
+  operationalModalBodyClass,
+  operationalModalContentClass,
+  operationalModalDescriptionClass,
+  operationalModalFooterClass,
+  operationalModalFormClass,
+  operationalModalHeaderClass,
+  operationalModalSectionCard,
+  operationalModalSectionHeadingRow,
+  operationalModalSectionMuted,
+  operationalModalStepBadge,
+  operationalModalStepTitle,
+  operationalModalTitleClass,
   pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
@@ -96,8 +120,59 @@ function lotesResumen(r: ReceptionRow): string {
   return `${arr.slice(0, 2).join(' · ')} +${arr.length - 2}`;
 }
 
+function lotesDetalle(r: ReceptionRow): string {
+  const set = new Set<string>();
+  for (const ln of r.lines ?? []) {
+    const lc = ln.lot_code?.trim();
+    if (lc) set.add(lc);
+  }
+  if (set.size === 0) return '—';
+  return [...set].join(' · ');
+}
+
 function variedadCabecera(r: ReceptionRow): string {
   return r.variety?.nombre?.trim() || '—';
+}
+
+function receptionVisualTone(r: ReceptionRow): {
+  leftBar: string;
+  rowHover: string;
+  usoBadge: string;
+} {
+  const state = r.document_state?.codigo ?? '';
+  if (state === 'borrador') {
+    return {
+      leftBar: 'bg-amber-300',
+      rowHover: 'hover:bg-amber-50/60',
+      usoBadge: 'border-amber-200/90 bg-amber-50 text-amber-900',
+    };
+  }
+  if (state === 'confirmado') {
+    return {
+      leftBar: 'bg-emerald-400',
+      rowHover: 'hover:bg-emerald-50/55',
+      usoBadge: 'border-emerald-200/90 bg-emerald-50 text-emerald-900',
+    };
+  }
+  if (state === 'cerrado') {
+    return {
+      leftBar: 'bg-violet-400',
+      rowHover: 'hover:bg-violet-50/45',
+      usoBadge: 'border-violet-200/85 bg-violet-50 text-violet-900',
+    };
+  }
+  if (state === 'anulado') {
+    return {
+      leftBar: 'bg-rose-400',
+      rowHover: 'hover:bg-rose-50/45',
+      usoBadge: 'border-rose-200/90 bg-rose-50 text-rose-900',
+    };
+  }
+  return {
+    leftBar: 'bg-sky-400',
+    rowHover: 'hover:bg-sky-50/55',
+    usoBadge: 'border-sky-200/80 bg-sky-50 text-sky-900',
+  };
 }
 
 const DEFAULT_PLANT = 'PINEBLOOM FARMS';
@@ -295,6 +370,8 @@ export function ReceptionPage() {
   const [filterTipo, setFilterTipo] = useState(0);
   const [filterUso, setFilterUso] = useState<'todos' | 'abierto' | 'cerrado'>('todos');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   const filteredReceptions = useMemo(() => {
     let list = receptions ?? [];
@@ -325,6 +402,40 @@ export function ReceptionPage() {
     }
     return list;
   }, [receptions, filterProducer, filterVariety, filterTipo, filterUso, search]);
+
+  const compactGroups = useMemo(() => {
+    const byProducer = new Map<
+      string,
+      {
+        key: string;
+        producerName: string;
+        receptions: ReceptionRow[];
+        totalNet: number;
+        pendingCount: number;
+      }
+    >();
+    for (const r of filteredReceptions) {
+      const producerName = r.producer?.nombre?.trim() || '—';
+      const key = `${r.producer_id || 0}:${producerName}`;
+      const bucket = byProducer.get(key) ?? {
+        key,
+        producerName,
+        receptions: [],
+        totalNet: 0,
+        pendingCount: 0,
+      };
+      bucket.receptions.push(r);
+      bucket.totalNet += receptionNetLb(r);
+      if (r.document_state?.codigo === 'borrador') bucket.pendingCount += 1;
+      byProducer.set(key, bucket);
+    }
+    return [...byProducer.values()]
+      .map((g) => ({
+        ...g,
+        receptions: g.receptions.slice().sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime()),
+      }))
+      .sort((a, b) => b.totalNet - a.totalNet);
+  }, [filteredReceptions]);
 
   const receptionKpis = useMemo(() => {
     let totalNet = 0;
@@ -718,6 +829,19 @@ export function ReceptionPage() {
     return { net, gross, qty };
   }, [lineDrafts]);
 
+  const watchedDocumentStateId = form.watch('document_state_id');
+  const docStateBadgeLabel =
+    (documentStates ?? []).find((s) => s.id === watchedDocumentStateId)?.nombre?.trim() ||
+    (documentStates ?? []).find((s) => s.id === watchedDocumentStateId)?.codigo?.trim() ||
+    '—';
+
+  const receptionDialogTitle =
+    viewOnly && editingId != null
+      ? `Recepción #${editingId} (solo lectura)`
+      : editingId != null
+        ? `Editar recepción #${editingId}`
+        : 'Registrar recepción';
+
   const helpTitle =
     'Informe PDF formal para el productor. Cerrado (documento): estado «cerrado» — cierre administrativo; no usar para nuevos procesos. Abierto: aún no cerrado; el saldo de lb por línea se controla al crear procesos. Una recepción queda consumida en la práctica cuando no queda MP disponible en sus líneas; el documento puede seguir «abierto» hasta que operación cierre el estado.';
 
@@ -757,346 +881,469 @@ export function ReceptionPage() {
           if (!o) closeDialog();
         }}
       >
-        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>
-                {viewOnly && editingId != null
-                  ? `Recepción #${editingId} (solo lectura)`
-                  : editingId != null
-                    ? `Editar recepción #${editingId}`
-                    : 'Registrar recepción'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-2">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Fecha y hora</Label>
-                  <Input className={filterInputClass} type="datetime-local" disabled={viewOnly} {...form.register('received_at')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Estado del documento</Label>
-                  <select
-                    className={cn(filterSelectClass, 'disabled:opacity-60')}
-                    disabled={viewOnly}
-                    {...form.register('document_state_id', { valueAsNumber: true })}
-                  >
-                    {(documentStates ?? [])
-                      .filter((s) => s.activo !== false)
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nombre}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Productor (grower)</Label>
-                  <select
-                    className={cn(filterSelectClass, 'disabled:opacity-60')}
-                    disabled={viewOnly}
-                    {...form.register('producer_id', { valueAsNumber: true })}
-                  >
-                    <option value={0}>Elegir…</option>
-                    {sortedProducers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid gap-2 sm:col-span-2">
-                  <Label>Referencia</Label>
-                  <div className="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-sm">
-                    {serverReference ?? (editingId == null ? 'Se asignará al guardar (productor + fecha + correlativo)' : '—')}
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Planta</Label>
-                  <Input className={filterInputClass} disabled={viewOnly} {...form.register('plant_code')} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Mercado</Label>
-                  <select
-                    className={cn(filterSelectClass, 'disabled:opacity-60')}
-                    disabled={viewOnly}
-                    {...form.register('mercado_id', { valueAsNumber: true })}
-                  >
-                    <option value={0}>— (por defecto USA en servidor)</option>
-                    {(mercados ?? [])
-                      .filter((m) => m.activo !== false)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nombre} ({m.codigo})
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Tipo de recepción fruta</Label>
-                  <select
-                    className={cn(filterSelectClass, 'disabled:opacity-60')}
-                    disabled={viewOnly}
-                    {...form.register('reception_type_id', { valueAsNumber: true })}
-                  >
-                    {(receptionTypes ?? [])
-                      .filter((t) => t.activo !== false)
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nombre}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Documento / guía</Label>
-                  <Input className={filterInputClass} disabled={viewOnly} {...form.register('document_number')} />
-                </div>
-              </div>
+        <DialogContent
+          className={cn(
+            operationalModalContentClass,
+            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+          )}
+        >
+          <DialogHeader className={operationalModalHeaderClass}>
+            <DialogTitle className={operationalModalTitleClass}>{receptionDialogTitle}</DialogTitle>
+            <DialogDescription className={operationalModalDescriptionClass}>
+              {viewOnly
+                ? 'Solo lectura: cabecera, líneas y totales.'
+                : editingId != null
+                  ? 'Editá borrador: cabecera, líneas y observaciones.'
+                  : 'Alta de materia prima en planta: cabecera, líneas y observaciones.'}{' '}
+              <span className="font-medium text-foreground/90">Estado: {docStateBadgeLabel}.</span>
+            </DialogDescription>
+            <details className="group text-[13px] text-muted-foreground">
+              <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                  <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Estados del documento, PDF y consumo en proceso
+                </span>
+              </summary>
+              <p className="mt-2 max-w-prose text-pretty leading-snug">{helpTitle}</p>
+            </details>
+          </DialogHeader>
 
-              <div className="space-y-2 rounded-lg border border-border p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium">Líneas de partida</span>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={copyFromPreviousLine}
-                        disabled={viewOnly}
-                        onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
-                      />
-                      Copiar última línea
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={applyVarietyToInvolvedLines}
-                        disabled={viewOnly}
-                        onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
-                      />
-                      Aplicar variedad a líneas involucradas
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={viewOnly}
-                      onClick={() =>
-                        setLineDrafts((d) => {
-                          const prev = d[d.length - 1];
-                          const next =
-                            copyFromPreviousLine && prev && prev.species_id > 0
-                              ? { ...prev, lot_code: undefined }
-                              : emptyLine();
-                          return [...d, next];
-                        })
-                      }
-                    >
-                      + Línea
-                    </Button>
+          <form onSubmit={form.handleSubmit(onSubmit)} className={operationalModalFormClass}>
+            <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-6 lg:pb-7')}>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(340px,100%),min(460px,42vw))_minmax(0,1fr)] lg:items-start lg:gap-8 lg:overflow-hidden lg:pb-1">
+                <section
+                  className={cn(
+                    operationalModalSectionCard,
+                    'min-h-0 w-full lg:flex lg:max-h-[min(78vh,820px)] lg:min-h-0 lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:pr-0.5',
+                  )}
+                >
+                  <div className={cn(operationalModalSectionHeadingRow, 'mb-4')}>
+                    <span className={operationalModalStepBadge}>1</span>
+                    <h3 className={operationalModalStepTitle}>Documento</h3>
                   </div>
-                </div>
-                {lineDrafts.map((L, idx) => (
-                  <div key={idx} className="grid gap-2 border-b border-border pb-3 sm:grid-cols-6">
-                    {L.lot_code ? (
-                      <p className="text-xs text-muted-foreground sm:col-span-6 font-mono">Lote: {L.lot_code}</p>
-                    ) : null}
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Especie</Label>
-                      <select
-                        className="h-9 rounded-md border border-input bg-muted/40 px-2 text-sm disabled:opacity-60"
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-600">Fecha y hora</label>
+                      <Input
+                        type="datetime-local"
                         disabled={viewOnly}
-                        value={L.species_id}
-                        onChange={(e) => {
-                          const sid = Number(e.target.value);
-                          const firstV = sortedVarieties.find((v) => v.species_id === sid);
-                          setLineDrafts((d) =>
-                            d.map((x, i) =>
-                              i === idx ? { ...x, species_id: sid, variety_id: firstV?.id ?? 0 } : x,
-                            ),
-                          );
-                        }}
+                        className={filterInputClass}
+                        {...form.register('received_at')}
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-1">
+                      <label className="block text-xs font-medium text-slate-600">Productor (grower)</label>
+                      <select
+                        className={filterSelectClass}
+                        disabled={viewOnly}
+                        {...form.register('producer_id', { valueAsNumber: true })}
                       >
-                        <option value={0}>—</option>
-                        {(speciesList ?? []).map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.nombre}
+                        <option value={0}>Elegir…</option>
+                        {sortedProducers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
                           </option>
                         ))}
                       </select>
                     </div>
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Variedad</Label>
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-600">Estado del documento</label>
                       <select
-                        className="h-9 rounded-md border border-input bg-muted/40 px-2 text-sm disabled:opacity-60"
+                        className={filterSelectClass}
                         disabled={viewOnly}
-                        value={L.variety_id}
-                        onChange={(e) => {
-                          const vid = Number(e.target.value);
-                          setLineDrafts((d) => {
-                            if (!applyVarietyToInvolvedLines) {
-                              return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
-                            }
-                            const src = d[idx];
-                            if (!src || src.species_id <= 0) {
-                              return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
-                            }
-                            return d.map((x) =>
-                              x.species_id === src.species_id ? { ...x, variety_id: vid } : x,
-                            );
-                          });
-                        }}
+                        {...form.register('document_state_id', { valueAsNumber: true })}
                       >
-                        <option value={0}>—</option>
-                        {sortedVarieties
-                          .filter((v) => L.species_id <= 0 || v.species_id === L.species_id)
-                          .map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.nombre}
+                        {(documentStates ?? [])
+                          .filter((s) => s.activo !== false)
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.nombre}
                             </option>
                           ))}
                       </select>
                     </div>
-                    <div className="grid gap-1">
-                      <Label className="text-xs">Calidad</Label>
-                      <select
-                        className="h-9 rounded-md border border-input bg-muted/40 px-2 text-sm disabled:opacity-60"
-                        disabled={viewOnly}
-                        value={L.quality_grade_id}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, quality_grade_id: v } : x)));
-                        }}
+
+                    <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-1">
+                      <label className="block text-xs font-medium text-slate-600">Referencia</label>
+                      <div className={cn(formReadonlyValueClass, 'cursor-default text-slate-700')}>
+                        {serverReference ??
+                          (editingId == null ? 'Se asignará al guardar (productor + fecha + correlativo)' : '—')}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-600">Planta</label>
+                      <input type="hidden" {...form.register('plant_code')} />
+                      <div
+                        className={cn(
+                          'flex min-h-10 w-full min-w-0 items-center whitespace-normal break-words rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium leading-snug text-slate-800 shadow-sm',
+                          viewOnly ? 'opacity-80' : '',
+                        )}
                       >
-                        <option value={0}>—</option>
-                        {(qualityGrades ?? []).map((q) => (
-                          <option key={q.id} value={q.id}>
-                            {q.nombre}
-                          </option>
-                        ))}
+                        {String(form.watch('plant_code') ?? '').trim() || '—'}
+                      </div>
+                    </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-600">Mercado</label>
+                      <select
+                        className={filterSelectClass}
+                        disabled={viewOnly}
+                        {...form.register('mercado_id', { valueAsNumber: true })}
+                      >
+                        <option value={0}>— (por defecto USA en servidor)</option>
+                        {(mercados ?? [])
+                          .filter((m) => m.activo !== false)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nombre} ({m.codigo})
+                            </option>
+                          ))}
                       </select>
                     </div>
-                    <div className="flex items-end justify-end">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
-                        disabled={viewOnly || lineDrafts.length <= 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Bruto lb (opcional)</Label>
-                      <Input
-                        placeholder="Total si informan"
-                        disabled={viewOnly}
-                        value={L.gross_lb}
-                        onChange={(e) =>
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, gross_lb: e.target.value } : x)))
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Neto lb (peso productor)</Label>
-                      <Input
-                        disabled={viewOnly}
-                        value={L.net_lb}
-                        onChange={(e) =>
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, net_lb: e.target.value } : x)))
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <Label className="text-xs">Cant. (lugs / envases)</Label>
-                      <Input
-                        disabled={viewOnly}
-                        value={L.quantity}
-                        onChange={(e) =>
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)))
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Envase (mantenedor)</Label>
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-600">Tipo de recepción fruta</label>
                       <select
-                        className="h-9 rounded-md border border-input bg-muted/40 px-2 text-sm disabled:opacity-60"
+                        className={filterSelectClass}
                         disabled={viewOnly}
-                        value={L.returnable_container_id}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, returnable_container_id: v } : x)));
-                        }}
+                        {...form.register('reception_type_id', { valueAsNumber: true })}
                       >
-                        <option value={0}>—</option>
-                        {activeContainers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.tipo}
-                            {c.capacidad ? ` · ${c.capacidad}` : ''}
-                          </option>
-                        ))}
+                        {(receptionTypes ?? [])
+                          .filter((t) => t.activo !== false)
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.nombre}
+                            </option>
+                          ))}
                       </select>
                     </div>
-                    <div className="grid gap-1 sm:col-span-2">
-                      <Label className="text-xs">Temp °F</Label>
+
+                    <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-1">
+                      <label className="block text-xs font-medium text-slate-600">Documento / guía</label>
                       <Input
                         disabled={viewOnly}
-                        value={L.temperature_str}
-                        onChange={(e) =>
-                          setLineDrafts((d) =>
-                            d.map((x, i) => (i === idx ? { ...x, temperature_str: e.target.value } : x)),
-                          )
-                        }
+                        className={filterInputClass}
+                        {...form.register('document_number')}
                       />
                     </div>
                   </div>
-                ))}
-              </div>
+                </section>
 
-              <div className="grid gap-2">
-                <Label>Observaciones</Label>
-                <Input className={filterInputClass} disabled={viewOnly} {...form.register('notes')} />
-              </div>
-
-              <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm">
-                <span className="font-medium">Totales líneas: </span>
-                <span className="text-muted-foreground">
-                  neto {formatLb(lineTotals.net, 2)} lb · bruto {formatLb(lineTotals.gross, 2)} lb · envases{' '}
-                  {formatCount(lineTotals.qty)}
-                </span>
-              </div>
-
-              {viewOnly && viewStateCodigo === 'confirmado' && editingId != null && cerradoStateId > 0 ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
-                  <span className="text-sm">Documento confirmado: podés cerrarlo para dejarlo solo lectura definitivo.</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={transitionMut.isPending}
-                    onClick={() =>
-                      transitionMut.mutate({ id: editingId, document_state_id: cerradoStateId })
-                    }
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:min-h-0 lg:max-h-[min(78vh,820px)] lg:overflow-hidden">
+                  <section
+                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col overflow-hidden lg:min-h-[240px]')}
                   >
-                    {transitionMut.isPending ? 'Aplicando…' : 'Pasar a Cerrado'}
-                  </Button>
-                </div>
-              ) : null}
+                  <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 flex-wrap items-start gap-2">
+                      <span className={operationalModalStepBadge}>2</span>
+                      <div>
+                        <h3 className={operationalModalStepTitle}>Líneas de partida</h3>
+                        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                          Especie, variedad, pesos y envase por fila.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={copyFromPreviousLine}
+                          disabled={viewOnly}
+                          onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
+                        />
+                        Copiar última línea
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={applyVarietyToInvolvedLines}
+                          disabled={viewOnly}
+                          onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
+                        />
+                        Aplicar variedad a líneas involucradas
+                      </label>
+                      <button
+                        type="button"
+                        className={modalFormSoftGreenButton}
+                        disabled={viewOnly}
+                        onClick={() =>
+                          setLineDrafts((d) => {
+                            const prev = d[d.length - 1];
+                            const next =
+                              copyFromPreviousLine && prev && prev.species_id > 0
+                                ? { ...prev, lot_code: undefined }
+                                : emptyLine();
+                            return [...d, next];
+                          })
+                        }
+                      >
+                        + Línea
+                      </button>
+                    </div>
+                  </div>
 
-              <DialogFooter>
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pt-2">
+                    <div className="space-y-4">
+                    {lineDrafts.map((L, idx) => (
+                      <div key={idx} className={cn(modalFormLineCard, 'space-y-3.5')}>
+                        {L.lot_code ? (
+                          <p className="font-mono text-[11px] text-slate-500">Lote: {L.lot_code}</p>
+                        ) : null}
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end lg:gap-x-4 lg:gap-y-3">
+                          <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-4">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Especie</label>
+                            <select
+                              className={filterSelectClass}
+                              disabled={viewOnly}
+                              value={L.species_id}
+                              onChange={(e) => {
+                                const sid = Number(e.target.value);
+                                const firstV = sortedVarieties.find((v) => v.species_id === sid);
+                                setLineDrafts((d) =>
+                                  d.map((x, i) =>
+                                    i === idx ? { ...x, species_id: sid, variety_id: firstV?.id ?? 0 } : x,
+                                  ),
+                                );
+                              }}
+                            >
+                              <option value={0}>—</option>
+                              {(speciesList ?? []).map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-4">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Variedad</label>
+                            <select
+                              className={filterSelectClass}
+                              disabled={viewOnly}
+                              value={L.variety_id}
+                              onChange={(e) => {
+                                const vid = Number(e.target.value);
+                                setLineDrafts((d) => {
+                                  if (!applyVarietyToInvolvedLines) {
+                                    return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                                  }
+                                  const src = d[idx];
+                                  if (!src || src.species_id <= 0) {
+                                    return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                                  }
+                                  return d.map((x) =>
+                                    x.species_id === src.species_id ? { ...x, variety_id: vid } : x,
+                                  );
+                                });
+                              }}
+                            >
+                              <option value={0}>—</option>
+                              {sortedVarieties
+                                .filter((v) => L.species_id <= 0 || v.species_id === L.species_id)
+                                .map((v) => (
+                                  <option key={v.id} value={v.id}>
+                                    {v.nombre}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                          <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-3">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Calidad</label>
+                            <select
+                              className={filterSelectClass}
+                              disabled={viewOnly}
+                              value={L.quality_grade_id}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, quality_grade_id: v } : x)));
+                              }}
+                            >
+                              <option value={0}>—</option>
+                              {(qualityGrades ?? []).map((q) => (
+                                <option key={q.id} value={q.id}>
+                                  {q.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex min-w-0 items-end sm:col-span-2 lg:col-span-1 lg:justify-end">
+                            <button
+                              type="button"
+                              className={modalFormLineDeleteButton}
+                              aria-label={`Eliminar línea ${idx + 1}`}
+                              title="Eliminar línea"
+                              onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
+                              disabled={viewOnly || lineDrafts.length <= 1}
+                            >
+                              <X className="h-4 w-4 shrink-0" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 lg:items-end">
+                          <div className="min-w-0 space-y-1.5">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Bruto (lb)</label>
+                            <Input
+                              placeholder="Opcional"
+                              disabled={viewOnly}
+                              className={filterInputClass}
+                              value={L.gross_lb}
+                              onChange={(e) =>
+                                setLineDrafts((d) =>
+                                  d.map((x, i) => (i === idx ? { ...x, gross_lb: e.target.value } : x)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Neto (lb)</label>
+                            <Input
+                              disabled={viewOnly}
+                              className={filterInputClass}
+                              value={L.net_lb}
+                              onChange={(e) =>
+                                setLineDrafts((d) =>
+                                  d.map((x, i) => (i === idx ? { ...x, net_lb: e.target.value } : x)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Cantidad</label>
+                            <Input
+                              disabled={viewOnly}
+                              className={filterInputClass}
+                              value={L.quantity}
+                              onChange={(e) =>
+                                setLineDrafts((d) =>
+                                  d.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Envase</label>
+                            <select
+                              className={filterSelectClass}
+                              disabled={viewOnly}
+                              value={L.returnable_container_id}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                setLineDrafts((d) =>
+                                  d.map((x, i) => (i === idx ? { ...x, returnable_container_id: v } : x)),
+                                );
+                              }}
+                            >
+                              <option value={0}>—</option>
+                              {activeContainers.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.tipo}
+                                  {c.capacidad ? ` · ${c.capacidad}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <label className="block text-xs font-medium tracking-tight text-slate-700">Temp. (°F)</label>
+                            <Input
+                              disabled={viewOnly}
+                              className={filterInputClass}
+                              value={L.temperature_str}
+                              onChange={(e) =>
+                                setLineDrafts((d) =>
+                                  d.map((x, i) => (i === idx ? { ...x, temperature_str: e.target.value } : x)),
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section className={cn(operationalModalSectionCard, 'shrink-0')}>
+                  <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                    <span className={operationalModalStepBadge}>3</span>
+                    <h3 className={operationalModalStepTitle}>Observaciones</h3>
+                  </div>
+                  <label className="sr-only" htmlFor="reception-notes">
+                    Texto libre
+                  </label>
+                  <textarea
+                    id="reception-notes"
+                    rows={3}
+                    disabled={viewOnly}
+                    className={cn(filterInputClass, 'h-auto min-h-[84px] resize-y py-2.5')}
+                    placeholder="Opcional"
+                    {...form.register('notes')}
+                  />
+                </section>
+
+                {viewOnly && viewStateCodigo === 'confirmado' && editingId != null && cerradoStateId > 0 ? (
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">
+                    <span>Documento confirmado: podés cerrarlo para dejarlo solo lectura definitivo.</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={transitionMut.isPending}
+                      onClick={() => transitionMut.mutate({ id: editingId, document_state_id: cerradoStateId })}
+                    >
+                      {transitionMut.isPending ? 'Aplicando…' : 'Pasar a Cerrado'}
+                    </Button>
+                  </div>
+                ) : null}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter
+              className={cn(
+                operationalModalFooterClass,
+                'flex flex-col gap-4 border-border/90 bg-muted/20 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
+              )}
+            >
+              <div className="order-2 flex min-w-0 flex-col gap-2.5 sm:order-1 sm:max-w-[min(40rem,100%)]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Totales en pantalla</p>
+                <div className="flex flex-wrap gap-3 sm:gap-3.5">
+                  <div className="min-w-[7rem] flex-1 rounded-xl border border-sky-100/90 bg-gradient-to-br from-white to-sky-50/40 px-3.5 py-3 shadow-sm ring-1 ring-slate-100/80 sm:flex-initial">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Neto</p>
+                    <p className="mt-1.5 text-lg font-semibold tabular-nums leading-none text-slate-900">
+                      {formatLb(lineTotals.net, 2)}{' '}
+                      <span className="text-xs font-normal text-slate-500">lb</span>
+                    </p>
+                  </div>
+                  <div className="min-w-[7rem] flex-1 rounded-xl border border-violet-100/90 bg-gradient-to-br from-white to-violet-50/35 px-3.5 py-3 shadow-sm ring-1 ring-slate-100/80 sm:flex-initial">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Bruto</p>
+                    <p className="mt-1.5 text-lg font-semibold tabular-nums leading-none text-slate-900">
+                      {formatLb(lineTotals.gross, 2)}{' '}
+                      <span className="text-xs font-normal text-slate-500">lb</span>
+                    </p>
+                  </div>
+                  <div className="min-w-[7rem] flex-1 rounded-xl border border-teal-100/90 bg-gradient-to-br from-white to-teal-50/35 px-3.5 py-3 shadow-sm ring-1 ring-slate-100/80 sm:flex-initial">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Envases</p>
+                    <p className="mt-1.5 text-lg font-semibold tabular-nums leading-none text-slate-900">{formatCount(lineTotals.qty)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:shrink-0">
                 <Button type="button" variant="outline" onClick={() => closeDialog()}>
                   {viewOnly ? 'Cerrar' : 'Cancelar'}
                 </Button>
                 {!viewOnly ? (
-                  <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>
+                  <button
+                    type="submit"
+                    className={modalFormPrimaryButton}
+                    disabled={createMut.isPending || updateMut.isPending}
+                  >
                     {createMut.isPending || updateMut.isPending ? 'Guardando…' : 'Guardar'}
-                  </Button>
+                  </button>
                 ) : null}
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
@@ -1114,11 +1361,11 @@ export function ReceptionPage() {
         </Button>
       </div>
 
-      <section aria-labelledby="rec-kpis" className="space-y-4">
+      <section aria-labelledby="rec-kpis" className="space-y-3">
         <h2 id="rec-kpis" className="sr-only">
           Indicadores
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
             <p className={kpiLabel}>Recepciones totales</p>
             <p className={kpiValueLg}>{formatCount(receptionKpis.nRecepciones)}</p>
@@ -1147,7 +1394,7 @@ export function ReceptionPage() {
             <p className={cn(kpiFootnote, 'text-slate-500')}>Cierre administrativo</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Lb netas recibidas</p>
             <p className={kpiValueMd}>{formatLb(receptionKpis.totalNet, 2)}</p>
@@ -1200,7 +1447,7 @@ export function ReceptionPage() {
       ) : null}
 
       <div className={filterPanel}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>Filtros</span>
           <button
             type="button"
@@ -1211,7 +1458,7 @@ export function ReceptionPage() {
             <Info className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="grid gap-3 lg:grid-cols-12 lg:items-end">
+        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-2">
             <Label className="text-xs text-slate-500">Productor</Label>
             <select className={filterSelectClass} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
@@ -1266,124 +1513,315 @@ export function ReceptionPage() {
       </div>
 
       <section className="space-y-3" aria-labelledby="rec-tabla">
-        <div>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
           <h2 id="rec-tabla" className={sectionTitle}>
             Historial operativo
           </h2>
           <p className={sectionHint}>
             {filteredReceptions.length} registro(s) · lb netas suman líneas; cabecera bruto/neto si el servidor lo envía
           </p>
+          </div>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <Button
+              type="button"
+              variant={viewMode === 'compact' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 rounded-md px-3 text-xs"
+              onClick={() => setViewMode('compact')}
+            >
+              Compacta
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 rounded-md px-3 text-xs"
+              onClick={() => setViewMode('detailed')}
+            >
+              Detallada
+            </Button>
+          </div>
         </div>
         {!filteredReceptions.length ? (
           <p className={emptyStatePanel}>Sin recepciones con el filtro actual.</p>
+        ) : viewMode === 'compact' ? (
+          <div className="space-y-2.5">
+            {compactGroups.map((group) => (
+              <div key={group.key} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/85">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{group.producerName}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {formatCount(group.receptions.length)} recepción(es) · {formatLb(group.totalNet, 2)} lb netas
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {group.pendingCount > 0 ? (
+                      <span className="inline-flex rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                        Pendiente: {formatCount(group.pendingCount)}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[860px]">
+                    <TableHeader>
+                      <TableRow className={tableHeaderRow}>
+                        <TableHead className="min-w-[146px]">Estado</TableHead>
+                        <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                        <TableHead className="min-w-[110px]">Variedad</TableHead>
+                        <TableHead className="min-w-[180px]">Guía / lote</TableHead>
+                        <TableHead className="text-right tabular-nums">Lb netas</TableHead>
+                        <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.receptions.map((r) => {
+                        const uso = usoRecepcionLabel(r);
+                        const tone = receptionVisualTone(r);
+                        const netLb = receptionNetLb(r);
+                        const isLowNet = netLb > 0 && netLb < 400;
+                        return (
+                          <Fragment key={r.id}>
+                            <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                              <TableCell className="max-w-[180px] py-2 align-top">
+                                <div className="flex flex-col gap-1">
+                                  <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
+                                  <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                                  <span
+                                    className={cn('inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.usoBadge)}
+                                    title={uso.title}
+                                  >
+                                    {uso.short}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                              <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                              <TableCell className="max-w-[200px] py-2 align-top font-mono text-xs text-slate-800">
+                                {r.reference_code ?? r.document_number ?? '—'}
+                                {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">Lote: {lotesResumen(r)}</p> : null}
+                              </TableCell>
+                              <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                                <span className="text-[15px] font-semibold leading-none">{formatLb(netLb, 2)}</span>
+                              </TableCell>
+                              <TableCell className="py-2 align-top">
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  {r.document_state?.codigo === 'borrador' ? (
+                                    <Button type="button" variant="default" size="sm" className="h-7 gap-1 rounded-lg" onClick={() => openEdit(r.id)}>
+                                      <Pencil className="h-3.5 w-3.5" />
+                                      Editar
+                                    </Button>
+                                  ) : (
+                                    <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-lg border-slate-200" onClick={() => openView(r.id)}>
+                                      <Eye className="h-3.5 w-3.5" />
+                                      Ver
+                                    </Button>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 gap-1 rounded-lg border-slate-200"
+                                    onClick={async () => {
+                                      try {
+                                        await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
+                                        toast.success('Informe listo');
+                                      } catch (e) {
+                                        toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                      }
+                                    }}
+                                  >
+                                    <Printer className="h-3.5 w-3.5" />
+                                    Informe
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 gap-1 rounded-lg px-2 text-xs font-normal text-slate-600 hover:text-slate-900"
+                                    onClick={() =>
+                                      setExpandedRows((prev) => ({
+                                        ...prev,
+                                        [r.id]: !prev[r.id],
+                                      }))
+                                    }
+                                  >
+                                    {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                    Ver detalle
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {expandedRows[r.id] ? (
+                              <TableRow className="bg-slate-50/55">
+                                <TableCell colSpan={6} className="py-2">
+                                  <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                                    <p><span className="font-semibold text-slate-800">ID:</span> #{r.id}</p>
+                                    <p><span className="font-semibold text-slate-800">Tipo:</span> {r.reception_type?.nombre ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">Mercado:</span> {r.mercado?.nombre ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">Planta:</span> {r.plant_code ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">Doc/guía:</span> {r.document_number ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">Referencia:</span> {r.reference_code ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">Líneas:</span> {formatCount(r.lines?.length ?? 0)}</p>
+                                    <p><span className="font-semibold text-slate-800">Lotes:</span> {lotesDetalle(r)}</p>
+                                  </div>
+                                  <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
+                                    <span className="font-semibold text-slate-800">Observaciones:</span> {r.notes?.trim() || '—'}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ) : null}
+                          </Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className={tableShell}>
-            <Table className="min-w-[1100px]">
+            <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
                   <TableHead className="min-w-[168px]">Estado</TableHead>
                   <TableHead className="whitespace-nowrap">Fecha</TableHead>
                   <TableHead className="min-w-[140px]">Productor</TableHead>
-                  <TableHead className="min-w-[120px]">Guía / ref.</TableHead>
+                  <TableHead className="min-w-[120px]">Guía / lote</TableHead>
                   <TableHead className="min-w-[100px]">Variedad</TableHead>
-                  <TableHead className="min-w-[120px]">Lote</TableHead>
                   <TableHead className="text-right tabular-nums">Lb netas</TableHead>
-                  <TableHead className="min-w-[140px]">Observaciones</TableHead>
+                  {viewMode === 'detailed' ? <TableHead className="min-w-[140px]">Observaciones</TableHead> : null}
                   <TableHead className="w-[200px] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredReceptions.map((r) => {
                   const uso = usoRecepcionLabel(r);
-                  const usoCls =
-                    r.document_state?.codigo === 'anulado'
-                      ? 'border-rose-200/90 bg-rose-50 text-rose-900'
-                      : r.document_state?.codigo === 'cerrado'
-                        ? 'border-violet-200/85 bg-violet-50 text-violet-900'
-                        : 'border-sky-200/80 bg-sky-50 text-sky-900';
+                  const tone = receptionVisualTone(r);
+                  const netLb = receptionNetLb(r);
+                  const isLowNet = netLb > 0 && netLb < 400;
                   return (
-                    <TableRow key={r.id} className={tableBodyRow}>
-                      <TableCell className="max-w-[200px] py-3.5 align-top">
-                        <div className="flex flex-col gap-1.5">
-                          <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
-                          <span
-                            className={cn('inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold', usoCls)}
-                            title={uso.title}
-                          >
-                            {uso.short}
+                    <Fragment key={r.id}>
+                      <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                        <TableCell className="max-w-[200px] py-2.5 align-top">
+                          <div className="flex flex-col gap-1">
+                            <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
+                            <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                            <span
+                              className={cn('inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.usoBadge)}
+                              title={uso.title}
+                            >
+                              {uso.short}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2.5 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                        <TableCell className="max-w-[180px] py-2.5 align-top">
+                          <p className="truncate text-sm font-medium text-slate-900" title={r.producer?.nombre ?? ''}>
+                            {r.producer?.nombre ?? '—'}
+                          </p>
+                          {viewMode === 'detailed' ? <p className="font-mono text-[11px] text-slate-400">#{r.id}</p> : null}
+                        </TableCell>
+                        <TableCell className="max-w-[180px] py-2.5 align-top font-mono text-xs text-slate-800">
+                          {r.reference_code ?? r.document_number ?? '—'}
+                          {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">Lote: {lotesResumen(r)}</p> : null}
+                        </TableCell>
+                        <TableCell className="max-w-[120px] py-2.5 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                        <TableCell className={cn('py-2.5 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                          <span className="text-[15px] font-semibold leading-none">
+                            {formatLb(netLb, 2)}
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                      <TableCell className="max-w-[180px] align-top">
-                        <p className="truncate text-sm font-medium text-slate-900" title={r.producer?.nombre ?? ''}>
-                          {r.producer?.nombre ?? '—'}
-                        </p>
-                        <p className="font-mono text-[11px] text-slate-400">#{r.id}</p>
-                      </TableCell>
-                      <TableCell className="max-w-[140px] align-top font-mono text-xs text-slate-800">
-                        {r.reference_code ?? r.document_number ?? '—'}
-                      </TableCell>
-                      <TableCell className="max-w-[120px] align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
-                      <TableCell className="max-w-[160px] align-top">
-                        <p className="line-clamp-2 font-mono text-[11px] text-slate-600" title={lotesResumen(r)}>
-                          {lotesResumen(r)}
-                        </p>
-                      </TableCell>
-                      <TableCell className="align-top text-right text-sm font-medium tabular-nums text-slate-900">
-                        {formatLb(receptionNetLb(r), 2)}
-                      </TableCell>
-                      <TableCell className="max-w-[180px] align-top">
-                        <p className="line-clamp-2 text-[11px] leading-snug text-slate-500" title={r.notes?.trim() ?? ''}>
-                          {r.notes?.trim() || '—'}
-                        </p>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {r.document_state?.codigo === 'borrador' && (
+                        </TableCell>
+                        {viewMode === 'detailed' ? (
+                          <TableCell className="max-w-[220px] py-2.5 align-top">
+                            <p className="line-clamp-2 text-[11px] leading-snug text-slate-500" title={r.notes?.trim() ?? ''}>
+                              {r.notes?.trim() || '—'}
+                            </p>
+                          </TableCell>
+                        ) : null}
+                        <TableCell className="py-2.5 align-top">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {r.document_state?.codigo === 'borrador' ? (
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                className="h-8 gap-1 rounded-lg"
+                                onClick={() => openEdit(r.id)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Editar
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1 rounded-lg border-slate-200"
+                                onClick={() => openView(r.id)}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Ver
+                              </Button>
+                            )}
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="h-8 gap-1 rounded-lg border-slate-200"
-                              onClick={() => openEdit(r.id)}
+                              onClick={async () => {
+                                try {
+                                  await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
+                                  toast.success('Informe listo');
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                }
+                              }}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Editar
+                              <Printer className="h-3.5 w-3.5" />
+                              Informe
                             </Button>
-                          )}
-                          {r.document_state?.codigo !== 'borrador' && (
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="h-8 gap-1 rounded-lg border-slate-200"
-                              onClick={() => openView(r.id)}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Ver
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="h-8 gap-1 rounded-lg"
-                            onClick={async () => {
-                              try {
-                                await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
-                                toast.success('Informe listo');
-                              } catch (e) {
-                                toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                              className="h-8 gap-1 rounded-lg px-2 text-xs font-normal text-slate-600 hover:text-slate-900"
+                              onClick={() =>
+                                setExpandedRows((prev) => ({
+                                  ...prev,
+                                  [r.id]: !prev[r.id],
+                                }))
                               }
-                            }}
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                            Informe
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                            >
+                              {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                              Ver detalle
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {expandedRows[r.id] ? (
+                        <TableRow className="bg-slate-50/55">
+                          <TableCell colSpan={8} className="py-2.5">
+                            <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                              <p><span className="font-semibold text-slate-800">ID:</span> #{r.id}</p>
+                              <p><span className="font-semibold text-slate-800">Tipo:</span> {r.reception_type?.nombre ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">Mercado:</span> {r.mercado?.nombre ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">Planta:</span> {r.plant_code ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">Doc/guía:</span> {r.document_number ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">Referencia:</span> {r.reference_code ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">Líneas:</span> {formatCount(r.lines?.length ?? 0)}</p>
+                              <p><span className="font-semibold text-slate-800">Lotes:</span> {lotesDetalle(r)}</p>
+                            </div>
+                            <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
+                              <span className="font-semibold text-slate-800">Observaciones:</span> {r.notes?.trim() || '—'}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </Fragment>
                   );
                 })}
               </TableBody>

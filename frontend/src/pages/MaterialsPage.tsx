@@ -1,6 +1,26 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link2, Loader2, Pencil, Plus, PlusCircle, Trash2, Zap } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Box,
+  Boxes,
+  Check,
+  ClipboardList,
+  Droplets,
+  FileStack,
+  Info,
+  Layers,
+  LayoutGrid,
+  Package,
+  PackageOpen,
+  Plus,
+  Printer,
+  Ribbon,
+  Search,
+  Shrink,
+  Tag,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
@@ -29,13 +49,23 @@ import {
   contentCard,
   filterInputClass,
   filterSelectClass,
+  operationalModalBodyClass,
+  operationalModalContentClass,
+  operationalModalDescriptionClass,
+  operationalModalFooterClass,
+  operationalModalFormClass,
+  operationalModalHeaderClass,
+  operationalModalSectionCard,
+  operationalModalSectionMuted,
+  operationalModalSectionHeadingRow,
+  operationalModalStepBadge,
+  operationalModalStepTitle,
+  operationalModalTitleClass,
   pageHeaderRow,
   pageSubtitle,
   pageTitle,
-  tableShell,
 } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
-import type { RecipeApi } from './RecipesPage';
 
 const MATERIAL_UOM_OPTIONS = ['unidad', 'lb', 'ml', 'kg'] as const;
 
@@ -104,24 +134,6 @@ type PatchMaterialBody = {
   unidad_medida?: string;
 };
 
-type MaterialFormatSummary = {
-  generico: Array<{
-    id: number;
-    nombre_material: string;
-    cantidad_disponible: string;
-    unidad_medida: string;
-    material_category_codigo: string | null;
-    alcance: 'todos' | 'exclusivo';
-    presentation_format_id: number | null;
-    format_code: string | null;
-  }>;
-  por_formato: Array<{
-    presentation_format_id: number;
-    format_code: string;
-    exclusivos: MaterialFormatSummary['generico'];
-  }>;
-};
-
 type PackingSupplierRow = { id: number; codigo: string; nombre: string; activo: boolean };
 
 type PackingMaterialLinkRow = {
@@ -134,61 +146,6 @@ type PackingMaterialLinkRow = {
 
 function fetchMaterials() {
   return apiJson<PackagingMaterialRow[]>('/api/packaging/materials');
-}
-
-function fetchRecipes() {
-  return apiJson<RecipeApi[]>('/api/packaging/recipes');
-}
-
-function recipeUsageCountByMaterial(recipes: RecipeApi[] | undefined): Map<number, number> {
-  const m = new Map<number, number>();
-  if (!recipes) return m;
-  for (const r of recipes) {
-    for (const it of r.items ?? []) {
-      const id = it.material_id;
-      m.set(id, (m.get(id) ?? 0) + 1);
-    }
-  }
-  return m;
-}
-
-function InlineCostInput({
-  materialId,
-  costo,
-  onCommit,
-  disabled,
-}: {
-  materialId: number;
-  costo: string;
-  onCommit: (v: number) => void;
-  disabled?: boolean;
-}) {
-  const [val, setVal] = useState(costo);
-  useEffect(() => setVal(costo), [costo, materialId]);
-  return (
-    <Input
-      type="number"
-      step="0.0001"
-      min={0}
-      disabled={disabled}
-      className={cn(filterInputClass, 'h-8 w-[7.5rem] tabular-nums')}
-      value={val}
-      onChange={(e) => setVal(e.target.value)}
-      onBlur={() => {
-        const n = Number(val);
-        if (!Number.isFinite(n) || n < 0) {
-          setVal(costo);
-          return;
-        }
-        const prev = Number(costo);
-        if (Math.abs(n - prev) < 1e-9) return;
-        onCommit(n);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-      }}
-    />
-  );
 }
 
 function SupplierLinkRow({
@@ -374,6 +331,56 @@ function formatMoneySimple(v: string | number): string {
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const KARDEX_MATERIAL_GROUP_ORDER = ['Etiquetas', 'Cajas', 'Clamshell', 'Otros'] as const;
+
+function kardexMaterialPickerGroupLabel(cat?: { codigo: string; nombre: string }): string {
+  const code = (cat?.codigo ?? 'otros').toLowerCase();
+  if (code === 'etiquetas' || code === 'cintas') return 'Etiquetas';
+  if (code === 'cajas' || code === 'caja' || code.includes('caja')) return 'Cajas';
+  if (code === 'clamshell') return 'Clamshell';
+  if (code === 'otros') return 'Otros';
+  if (code.includes('etiqueta')) return 'Etiquetas';
+  if (code.includes('clam')) return 'Clamshell';
+  return 'Otros';
+}
+
+function kardexMaterialGroupSortKey(label: string): number {
+  const i = (KARDEX_MATERIAL_GROUP_ORDER as readonly string[]).indexOf(label);
+  return i === -1 ? 99 : i;
+}
+
+const PACKAGING_CATEGORY_HEADER_TONES = [
+  'border-sky-200/80 bg-sky-50 text-sky-800 shadow-sm',
+  'border-violet-200/75 bg-violet-50 text-violet-900 shadow-sm',
+  'border-emerald-200/75 bg-emerald-50 text-emerald-900 shadow-sm',
+  'border-amber-200/80 bg-amber-50 text-amber-950 shadow-sm',
+] as const;
+
+function packagingCategorySlug(cat: { codigo: string; nombre: string }): string {
+  const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return `${norm(cat.codigo)} ${norm(cat.nombre)}`.trim();
+}
+
+/** Ícono para encabezado de grupo en inventario; usa código + nombre de la categoría. */
+function packagingCategorySectionIcon(cat: { codigo: string; nombre: string }): LucideIcon {
+  const raw = packagingCategorySlug(cat);
+
+  if (/\bclamshell\b|clam/.test(raw)) return PackageOpen;
+  if (/corner|esquin|corner\s*board|angul protector/.test(raw)) return LayoutGrid;
+  if (/\bpalet|pallet|tarima\b/.test(raw)) return Boxes;
+  if (/etiquet|\blabel\b/.test(raw)) return Tag;
+  if (/cinta|adhesiv|tape/.test(raw)) return Ribbon;
+  if (/\bcaja|cajas\b/.test(raw)) return Box;
+  if (/bolsa|poly|saco\b/.test(raw)) return Package;
+  if (/film|stretch|envol|rollo estir/.test(raw)) return Shrink;
+  if (/liqu|gel|\bml\b|tapon|\btapa\b/.test(raw)) return Droplets;
+  if (/foam|espum|insert|separador|division/.test(raw)) return Layers;
+  if (/papel|carton|corruga|liner|linerboard/.test(raw)) return FileStack;
+  if (/impres|\bribbon\b/.test(raw)) return Printer;
+  if (/herramient|consum|misc|\botros\b|\bgeneral\b/.test(raw)) return ClipboardList;
+  return Package;
+}
+
 export function MaterialsPage() {
   const { role } = useAuth();
   const canDelete = role === 'admin' || role === 'supervisor' || role === 'operator';
@@ -383,11 +390,16 @@ export function MaterialsPage() {
   const [kardexOpen, setKardexOpen] = useState(false);
   const [kardexMaterialId, setKardexMaterialId] = useState(0);
   const [moveDelta, setMoveDelta] = useState('');
-  const [moveRefType, setMoveRefType] = useState('entrada');
+  const [moveRefType, setMoveRefType] = useState('compra');
   const [moveSupplierId, setMoveSupplierId] = useState(0);
   const [moveGuideRef, setMoveGuideRef] = useState('');
+  const [moveGuiaRef, setMoveGuiaRef] = useState('');
+  const [moveInvoiceRef, setMoveInvoiceRef] = useState('');
   const [moveNota, setMoveNota] = useState('');
-  const [tableSearch, setTableSearch] = useState('');
+  const [moveUnitCostRef, setMoveUnitCostRef] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState(0);
+  const [materialPickerSearch, setMaterialPickerSearch] = useState('');
   const [scopeEditRow, setScopeEditRow] = useState<PackagingMaterialRow | null>(null);
   const [scopeFormatIds, setScopeFormatIds] = useState<number[]>([]);
   const [scopeClientIds, setScopeClientIds] = useState<number[]>([]);
@@ -398,13 +410,6 @@ export function MaterialsPage() {
     queryKey: ['packaging', 'materials'],
     queryFn: fetchMaterials,
   });
-
-  const { data: recipes } = useQuery({
-    queryKey: ['packaging', 'recipes'],
-    queryFn: fetchRecipes,
-  });
-
-  const usageByMaterial = useMemo(() => recipeUsageCountByMaterial(recipes), [recipes]);
 
   const { data: formatList } = useQuery({
     queryKey: ['masters', 'presentation-formats'],
@@ -425,12 +430,6 @@ export function MaterialsPage() {
     queryKey: ['packaging', 'movements', kardexMaterialId],
     queryFn: () => apiJson<MaterialMovementRow[]>(`/api/packaging/materials/${kardexMaterialId}/movements`),
     enabled: kardexMaterialId > 0 && kardexOpen,
-  });
-
-  const { data: formatSummary } = useQuery({
-    queryKey: ['packaging', 'materials', 'summary-by-format'],
-    queryFn: () => apiJson<MaterialFormatSummary>('/api/packaging/materials/summary-by-format'),
-    staleTime: 60_000,
   });
 
   const { data: packingSuppliers } = useQuery({
@@ -625,10 +624,19 @@ export function MaterialsPage() {
       const delta = Number(moveDelta);
       if (!Number.isFinite(delta) || delta === 0) throw new Error('Indicá un delta distinto de cero');
       const parts: string[] = [];
-      if (moveGuideRef.trim()) parts.push(`Guía: ${moveGuideRef.trim()}`);
-      if (moveSupplierId > 0) {
-        const s = (kardexMaterialLinks ?? []).find((x) => x.supplier_id === moveSupplierId)?.supplier;
-        if (s) parts.push(`Proveedor: ${s.nombre}`);
+      if (moveRefType === 'compra') {
+        if (moveGuideRef.trim()) parts.push(`OC: ${moveGuideRef.trim()}`);
+        if (moveGuiaRef.trim()) parts.push(`Guía: ${moveGuiaRef.trim()}`);
+        if (moveInvoiceRef.trim()) parts.push(`Factura: ${moveInvoiceRef.trim()}`);
+      } else if (moveGuideRef.trim()) {
+        parts.push(`Guía: ${moveGuideRef.trim()}`);
+      }
+      if (moveRefType === 'compra') {
+        if (moveSupplierId > 0) {
+          const s = (kardexMaterialLinks ?? []).find((x) => x.supplier_id === moveSupplierId)?.supplier;
+          if (s) parts.push(`Proveedor: ${s.nombre}`);
+        }
+        if (moveUnitCostRef.trim()) parts.push(`Costo unitario ref: ${moveUnitCostRef.trim()}`);
       }
       if (moveNota.trim()) parts.push(moveNota.trim());
       return apiJson<PackagingMaterialRow>(`/api/packaging/materials/${kardexMaterialId}/movements`, {
@@ -646,10 +654,13 @@ export function MaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'movements', kardexMaterialId] });
       toast.success('Movimiento registrado');
       setMoveDelta('');
-      setMoveRefType('entrada');
+      setMoveRefType('compra');
       setMoveGuideRef('');
+      setMoveGuiaRef('');
+      setMoveInvoiceRef('');
       setMoveSupplierId(0);
       setMoveNota('');
+      setMoveUnitCostRef('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -738,19 +749,6 @@ export function MaterialsPage() {
     [activeRows, formatCodeSet],
   );
 
-  const tableRows = useMemo(() => {
-    const list = data ?? [];
-    const q = tableSearch.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (m) =>
-        m.nombre_material.toLowerCase().includes(q) ||
-        (m.material_category?.nombre ?? '').toLowerCase().includes(q) ||
-        (m.presentation_format?.format_code ?? '').toLowerCase().includes(q) ||
-        (m.client?.nombre ?? '').toLowerCase().includes(q),
-    );
-  }, [data, tableSearch]);
-
   const inventorySummary = useMemo(() => {
     const rows = (data ?? []).filter((r) => r.activo);
     const categories = new Set<number>();
@@ -782,6 +780,73 @@ export function MaterialsPage() {
       }));
   }, [data, materialCategories]);
 
+  const categoryById = useMemo(() => {
+    const map = new Map<number, { id: number; codigo: string; nombre: string; activo: boolean }>();
+    for (const c of materialCategories ?? []) map.set(c.id, c);
+    return map;
+  }, [materialCategories]);
+
+  const groupedInventoryFiltered = useMemo(() => {
+    const q = inventorySearch.trim().toLowerCase();
+    return groupedInventory
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((row) => {
+          if (inventoryCategoryFilter > 0 && row.material_category_id !== inventoryCategoryFilter) return false;
+          if (!q) return true;
+          return row.nombre_material.toLowerCase().includes(q);
+        }),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [groupedInventory, inventoryCategoryFilter, inventorySearch]);
+
+  const groupedPickerOptions = useMemo(() => {
+    const q = materialPickerSearch.trim().toLowerCase();
+    const rows = (data ?? [])
+      .filter((row) => row.activo)
+      .filter((row) => {
+        if (!q) return true;
+        const cat = categoryById.get(row.material_category_id);
+        return (
+          row.nombre_material.toLowerCase().includes(q) ||
+          (cat?.nombre ?? '').toLowerCase().includes(q) ||
+          (cat?.codigo ?? '').toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => a.nombre_material.localeCompare(b.nombre_material));
+
+    const map = new Map<string, { label: string; items: PackagingMaterialRow[] }>();
+    for (const row of rows) {
+      const cat = categoryById.get(row.material_category_id);
+      const label = kardexMaterialPickerGroupLabel(cat);
+      const bucket = map.get(label) ?? { label, items: [] };
+      bucket.items.push(row);
+      map.set(label, bucket);
+    }
+    return [...map.values()].sort((a, b) => {
+      const da = kardexMaterialGroupSortKey(a.label);
+      const db = kardexMaterialGroupSortKey(b.label);
+      if (da !== db) return da - db;
+      return a.label.localeCompare(b.label);
+    });
+  }, [data, materialPickerSearch, categoryById]);
+
+  const selectedKardexMaterial = useMemo(
+    () => (data ?? []).find((m) => m.id === kardexMaterialId) ?? null,
+    [data, kardexMaterialId],
+  );
+
+  const canSubmitAdjustment = useMemo(() => {
+    if (!selectedKardexMaterial) return false;
+    const delta = Number(moveDelta);
+    if (!Number.isFinite(delta) || delta === 0) return false;
+    if (moveRefType === 'compra') return moveSupplierId > 0;
+    if (moveRefType === 'salida') return moveNota.trim().length > 0;
+    if (moveRefType === 'manual') return moveNota.trim().length > 0;
+    if (moveRefType === 'inventario_inicial') return true;
+    return false;
+  }, [selectedKardexMaterial, moveDelta, moveRefType, moveSupplierId, moveNota]);
+
   const savingId = updateMut.isPending && updateMut.variables ? updateMut.variables.id : null;
 
   const categoryOptions = (materialCategories ?? []).filter((c) => c.activo !== false);
@@ -811,7 +876,7 @@ export function MaterialsPage() {
       <div className={pageHeaderRow}>
         <div>
           <h1 className={pageTitle}>Materiales de empaque</h1>
-          <p className={pageSubtitle}>Editá costo, categoría y estado desde la tabla · alta en segundos.</p>
+          <p className={pageSubtitle}>Gestión operativa de stock, ajustes y trazabilidad de costos.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -820,11 +885,15 @@ export function MaterialsPage() {
             type="button"
             onClick={() => {
               setKardexMaterialId(0);
-              setMoveRefType('entrada');
+              setMoveRefType('compra');
               setMoveDelta('');
               setMoveGuideRef('');
+              setMoveGuiaRef('');
+              setMoveInvoiceRef('');
               setMoveSupplierId(0);
               setMoveNota('');
+              setMoveUnitCostRef('');
+              setMaterialPickerSearch('');
               setKardexOpen(true);
             }}
           >
@@ -840,7 +909,7 @@ export function MaterialsPage() {
                 Material rápido
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]">
               <DialogHeader>
                 <DialogTitle>Material rápido</DialogTitle>
               </DialogHeader>
@@ -897,146 +966,226 @@ export function MaterialsPage() {
                 Agregar material
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Nuevo material</DialogTitle>
+            <DialogContent
+              className={cn(
+                operationalModalContentClass,
+                'min-h-0 max-h-[min(96vh,920px)] max-w-[min(920px,calc(100vw-2rem))] sm:max-w-[min(920px,calc(100vw-2rem))]',
+              )}
+            >
+              <DialogHeader className={operationalModalHeaderClass}>
+                <DialogTitle className={operationalModalTitleClass}>Nuevo material</DialogTitle>
+                <DialogDescription className={operationalModalDescriptionClass}>
+                  Alta en maestro con alcance, unidad y stock inicial. Queda listo para compras, recetas y Kardex.
+                </DialogDescription>
+                <details className="group text-[13px] text-muted-foreground">
+                  <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                      <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                      Consejos para un registro limpio
+                    </span>
+                  </summary>
+                  <ul className="mt-2 max-w-prose list-disc space-y-1.5 pl-4 text-pretty leading-snug">
+                    <li>
+                      <strong className="font-medium text-foreground">Alcance vacío = general.</strong> Sin formatos ni clientes marcados, el
+                      material aplica a toda la operación.
+                    </li>
+                    <li>
+                      Marcá formatos o clientes solo cuando el consumo sea distinto (etiquetas por cliente, clamshell por formato, etc.).
+                    </li>
+                    <li>
+                      El <strong className="font-medium text-foreground">stock inicial</strong> y el costo se pueden ajustar después; conviene
+                      que la unidad (unidad, lb, ml, kg) coincida con cómo comprás y consumís en recetas.
+                    </li>
+                  </ul>
+                </details>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit((vals) => mutation.mutate(vals))} className="grid gap-3 py-2">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor="nombre_material">Nombre</Label>
-                    <Input id="nombre_material" {...form.register('nombre_material')} autoComplete="off" />
-                    {form.formState.errors.nombre_material && (
-                      <p className="text-xs text-destructive">{form.formState.errors.nombre_material.message}</p>
-                    )}
-                  </div>
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor="material_category_id">Categoría</Label>
-                    <select
-                      id="material_category_id"
-                      className={filterSelectClass}
-                      {...form.register('material_category_id', { valueAsNumber: true })}
-                    >
-                      <option value={0}>Elegir…</option>
-                      {categoryOptions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre} ({c.codigo})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <Label>Alcance por formato (check múltiple)</Label>
-                  <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-2 py-2">
-                    {(formatList ?? [])
-                      .filter((f) => (f as { activo?: boolean }).activo !== false)
-                      .map((f) => {
-                        const checked = selectedFormatIds.includes(f.id);
-                        return (
-                          <label key={f.id} className="flex items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                const next = checked
-                                  ? selectedFormatIds.filter((id) => id !== f.id)
-                                  : [...selectedFormatIds, f.id];
-                                form.setValue('presentation_format_ids', next, { shouldDirty: true });
-                              }}
+              <form
+                onSubmit={form.handleSubmit((vals) => mutation.mutate(vals))}
+                className={cn(operationalModalFormClass, 'min-h-0 gap-0')}
+              >
+                <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
+                  <div className="flex min-h-0 flex-col gap-5 lg:max-h-[min(78vh,760px)] lg:grid lg:grid-cols-2 lg:gap-6 lg:overflow-hidden">
+                    <div className="flex min-h-0 flex-col gap-4 lg:overflow-y-auto lg:pr-1">
+                      <section className={operationalModalSectionCard}>
+                        <div className={operationalModalSectionHeadingRow}>
+                          <span className={operationalModalStepBadge}>1</span>
+                          <h3 className={operationalModalStepTitle}>Identificación</h3>
+                        </div>
+                        <div className="grid gap-3">
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs text-slate-600" htmlFor="nombre_material">
+                              Nombre
+                            </Label>
+                            <Input
+                              id="nombre_material"
+                              className={filterInputClass}
+                              autoComplete="off"
+                              placeholder="Ej. Tape 48mm transparente"
+                              {...form.register('nombre_material')}
                             />
-                            <span>{f.format_code}</span>
-                          </label>
-                        );
-                      })}
+                            {form.formState.errors.nombre_material ? (
+                              <p className="text-xs text-destructive">{form.formState.errors.nombre_material.message}</p>
+                            ) : null}
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs text-slate-600" htmlFor="material_category_id">
+                              Categoría
+                            </Label>
+                            <select
+                              id="material_category_id"
+                              className={filterSelectClass}
+                              {...form.register('material_category_id', { valueAsNumber: true })}
+                            >
+                              <option value={0}>Elegir…</option>
+                              {categoryOptions.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.nombre} ({c.codigo})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs text-slate-600" htmlFor="descripcion">
+                              Nota interna (opc.)
+                            </Label>
+                            <Input id="descripcion" className={filterInputClass} autoComplete="off" {...form.register('descripcion')} />
+                          </div>
+                        </div>
+                      </section>
+                      <section className={operationalModalSectionCard}>
+                        <div className={operationalModalSectionHeadingRow}>
+                          <span className={operationalModalStepBadge}>2</span>
+                          <h3 className={operationalModalStepTitle}>Alcance por formato</h3>
+                        </div>
+                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2">
+                          {(formatList ?? [])
+                            .filter((f) => (f as { activo?: boolean }).activo !== false)
+                            .map((f) => {
+                              const checked = selectedFormatIds.includes(f.id);
+                              return (
+                                <label key={f.id} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300"
+                                    checked={checked}
+                                    onChange={() => {
+                                      const next = checked
+                                        ? selectedFormatIds.filter((id) => id !== f.id)
+                                        : [...selectedFormatIds, f.id];
+                                      form.setValue('presentation_format_ids', next, { shouldDirty: true });
+                                    }}
+                                  />
+                                  <span className="font-mono text-[13px]">{f.format_code}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                          Vacío = todos los formatos. Con selección = solo esos códigos.
+                        </p>
+                      </section>
+                    </div>
+                    <div className="flex min-h-0 flex-col gap-4 lg:overflow-y-auto lg:pl-1">
+                      <section className={operationalModalSectionCard}>
+                        <div className={operationalModalSectionHeadingRow}>
+                          <span className={operationalModalStepBadge}>3</span>
+                          <h3 className={operationalModalStepTitle}>Alcance por cliente</h3>
+                        </div>
+                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2">
+                          {(commercialClients ?? []).map((c) => {
+                            const checked = selectedClientIds.includes(c.id);
+                            return (
+                              <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300"
+                                  checked={checked}
+                                  onChange={() => {
+                                    const next = checked
+                                      ? selectedClientIds.filter((id) => id !== c.id)
+                                      : [...selectedClientIds, c.id];
+                                    form.setValue('client_ids', next, { shouldDirty: true });
+                                  }}
+                                />
+                                <span>
+                                  {c.nombre}{' '}
+                                  <span className="text-muted-foreground">({c.codigo})</span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                          Vacío = todos los clientes. Útil para materiales dedicados por cuenta.
+                        </p>
+                      </section>
+                      <section className={operationalModalSectionMuted}>
+                        <div className={operationalModalSectionHeadingRow}>
+                          <span className={operationalModalStepBadge}>4</span>
+                          <h3 className={operationalModalStepTitle}>Unidad, costos e inventario inicial</h3>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-1.5 sm:col-span-2">
+                            <Label className="text-xs text-slate-600" htmlFor="unidad_medida">
+                              Unidad de medida
+                            </Label>
+                            <select id="unidad_medida" className={filterSelectClass} {...form.register('unidad_medida')}>
+                              {MATERIAL_UOM_OPTIONS.map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs text-slate-600" htmlFor="costo_unitario">
+                              Costo unitario
+                            </Label>
+                            <Input
+                              id="costo_unitario"
+                              type="number"
+                              step="0.0001"
+                              min={0}
+                              className={filterInputClass}
+                              {...form.register('costo_unitario')}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs text-slate-600" htmlFor="cantidad_disponible">
+                              Stock inicial
+                            </Label>
+                            <Input
+                              id="cantidad_disponible"
+                              type="number"
+                              step="0.001"
+                              min={0}
+                              className={filterInputClass}
+                              {...form.register('cantidad_disponible')}
+                            />
+                          </div>
+                          {selectedCatCodigo === 'clamshell' ? (
+                            <div className="grid gap-1.5 sm:col-span-2">
+                              <Label className="text-xs text-slate-600">Unidades clamshell por caja (opc.)</Label>
+                              <Input
+                                type="number"
+                                step="0.0001"
+                                min={0}
+                                placeholder="1"
+                                className={filterInputClass}
+                                {...form.register('clamshell_units_per_box', { valueAsNumber: true })}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      </section>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Sin checks = todos los formatos. Con checks = exclusivo para los formatos seleccionados.
-                  </p>
                 </div>
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <Label>Alcance por cliente (check múltiple)</Label>
-                  <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-2 py-2">
-                    {(commercialClients ?? []).map((c) => {
-                      const checked = selectedClientIds.includes(c.id);
-                      return (
-                        <label key={c.id} className="flex items-center gap-2 text-sm text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const next = checked
-                                ? selectedClientIds.filter((id) => id !== c.id)
-                                : [...selectedClientIds, c.id];
-                              form.setValue('client_ids', next, { shouldDirty: true });
-                            }}
-                          />
-                          <span>
-                            {c.nombre} ({c.codigo})
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Sin checks = todos los clientes. Ideal para etiquetas/clamshell diferenciados por cliente.
-                  </p>
-                </div>
-                {selectedCatCodigo === 'clamshell' ? (
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label>Unid. clamshell / caja (opc.)</Label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min={0}
-                      placeholder="1"
-                      {...form.register('clamshell_units_per_box', { valueAsNumber: true })}
-                    />
-                  </div>
-                ) : null}
-                <div className="grid gap-1.5">
-                  <Label htmlFor="descripcion">Nota (opc.)</Label>
-                  <Input id="descripcion" {...form.register('descripcion')} autoComplete="off" />
-                </div>
-                <div className="grid gap-3 sm:col-span-2">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="costo_unitario">Costo unit.</Label>
-                    <Input
-                      id="costo_unitario"
-                      type="number"
-                      step="0.0001"
-                      min={0}
-                      className={filterInputClass}
-                      {...form.register('costo_unitario')}
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cantidad_disponible">Stock inicial</Label>
-                    <Input
-                      id="cantidad_disponible"
-                      type="number"
-                      step="0.001"
-                      min={0}
-                      className={filterInputClass}
-                      {...form.register('cantidad_disponible')}
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="unidad_medida">Unidad medida</Label>
-                    <select id="unidad_medida" className={filterSelectClass} {...form.register('unidad_medida')}>
-                      {MATERIAL_UOM_OPTIONS.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                <DialogFooter className={operationalModalFooterClass}>
+                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={mutation.isPending}>
+                  <Button type="submit" className={cn(btnToolbarPrimary)} disabled={mutation.isPending}>
                     {mutation.isPending ? 'Guardando…' : 'Agregar material'}
                   </Button>
                 </DialogFooter>
@@ -1048,151 +1197,477 @@ export function MaterialsPage() {
             open={kardexOpen}
             onOpenChange={(o) => {
               setKardexOpen(o);
-              if (!o) setKardexMaterialId(0);
+              if (!o) {
+                setKardexMaterialId(0);
+                setMaterialPickerSearch('');
+              }
             }}
           >
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Kardex · movimientos de stock</DialogTitle>
-                <DialogDescription>
-                  Compras y reposición: cantidad <strong>positiva</strong> y tipo «Entrada» o «Inventario inicial». El
-                  consumo en planta se descuenta al registrar <strong>consumos de tarja</strong>; acá solo ajustás
-                  existencias (entradas, salidas manuales, inventario).
+            <DialogContent
+              className={cn(
+                operationalModalContentClass,
+                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+              )}
+            >
+              <DialogHeader className={operationalModalHeaderClass}>
+                <DialogTitle className={operationalModalTitleClass}>Ajuste de inventario</DialogTitle>
+                <DialogDescription className={operationalModalDescriptionClass}>
+                  Modifica el stock actual y registra el movimiento en Kardex.
                 </DialogDescription>
+                <details className="group text-[13px] text-muted-foreground">
+                  <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                      <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                      Más detalle para operación
+                    </span>
+                  </summary>
+                  <p className="mt-2 max-w-prose text-pretty leading-snug">
+                    Elegí el material y el tipo de movimiento. Las compras exigen proveedor vinculado; salidas y correcciones exigen motivo
+                    claro. El inventario inicial es solo para la primera carga histórica. Todo queda trazado en Kardex con fecha y referencia.
+                  </p>
+                </details>
               </DialogHeader>
-              <div className="grid gap-4 py-2">
-                <div className="grid gap-2">
-                  <Label>Material</Label>
-                  <select
-                    className={filterSelectClass}
-                    value={kardexMaterialId || ''}
-                    onChange={(e) => setKardexMaterialId(Number(e.target.value) || 0)}
-                  >
-                    <option value="">Elegir…</option>
-                    {(data ?? []).map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre_material} · stock {m.cantidad_disponible}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {kardexMaterialId > 0 && (
-                  <>
-                    {(() => {
-                      const sel = (data ?? []).find((m) => m.id === kardexMaterialId);
-                      const cur = sel ? Number(sel.cantidad_disponible) : NaN;
-                      const d = Number(moveDelta);
-                      const preview =
-                        Number.isFinite(cur) && Number.isFinite(d) && d !== 0 ? (cur + d).toFixed(3) : null;
-                      return sel ? (
-                        <p className="text-sm text-muted-foreground">
-                          Saldo actual:{' '}
-                          <span className="font-mono font-medium text-foreground">{sel.cantidad_disponible}</span>
-                          {preview != null ? (
-                            <>
-                              {' '}
-                              → después del movimiento:{' '}
-                              <span className="font-mono font-medium text-foreground">{preview}</span>
-                            </>
-                          ) : null}
-                        </p>
-                      ) : null;
-                    })()}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label>Tipo de movimiento</Label>
-                        <select
-                          className={filterSelectClass}
-                          value={moveRefType}
-                          onChange={(e) => setMoveRefType(e.target.value)}
-                        >
-                          <option value="entrada">Entrada (compra / reposición)</option>
-                          <option value="compra">Entrada factura / OC</option>
-                          <option value="inventario_inicial">Inventario inicial (carga única)</option>
-                          <option value="salida">Salida manual / merma</option>
-                          <option value="final_inventario">Cierre inventario (temporada)</option>
-                        </select>
+
+              <div className={operationalModalFormClass}>
+                <div
+                  className={cn(
+                    operationalModalBodyClass,
+                    'lg:overflow-hidden lg:px-8 lg:py-6',
+                  )}
+                >
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(320px,100%),min(460px,44vw))_minmax(0,1fr)] lg:grid-rows-1 lg:items-start lg:gap-8 lg:overflow-hidden">
+                    <section
+                      className={cn(
+                        operationalModalSectionCard,
+                        'flex min-h-0 flex-col lg:h-full lg:min-h-0 lg:overflow-hidden',
+                      )}
+                    >
+                      <div className={operationalModalSectionHeadingRow}>
+                        <span className={operationalModalStepBadge}>1</span>
+                        <h3 className={operationalModalStepTitle}>Material</h3>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Cantidad (+ entra / − sale)</Label>
-                        <Input
-                          value={moveDelta}
-                          onChange={(e) => setMoveDelta(e.target.value)}
-                          placeholder="Ej. 500 (entrada) o -20 (salida)"
-                          className={filterInputClass}
-                        />
-                        <p className="text-[11px] text-muted-foreground">
-                          Entradas: número positivo. Salidas: negativo o tipo «Salida» con negativo.
-                        </p>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Proveedor ligado (opc.)</Label>
-                        <select
-                          className={filterSelectClass}
-                          value={moveSupplierId}
-                          onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
-                        >
-                          <option value={0}>—</option>
-                          {(kardexMaterialLinks ?? []).map((lnk) => (
-                            <option key={lnk.supplier_id} value={lnk.supplier_id}>
-                              {lnk.supplier.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Guía / referencia (opc.)</Label>
-                        <Input
-                          value={moveGuideRef}
-                          onChange={(e) => setMoveGuideRef(e.target.value)}
-                          placeholder="Ej. guía 12345"
-                        />
-                      </div>
-                      <div className="grid gap-2 sm:col-span-2">
-                        <Label>Nota (opc.)</Label>
-                        <Input value={moveNota} onChange={(e) => setMoveNota(e.target.value)} placeholder="—" />
-                      </div>
-                    </div>
-                    <Button type="button" disabled={movementMut.isPending} onClick={() => movementMut.mutate()}>
-                      {movementMut.isPending ? 'Guardando…' : 'Registrar'}
-                    </Button>
-                    <div className="max-h-56 overflow-auto rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Δ</TableHead>
-                            <TableHead>Ref.</TableHead>
-                            <TableHead>Nota</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(movements ?? []).length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                Sin movimientos
-                              </TableCell>
-                            </TableRow>
+                      <div className="flex min-h-0 flex-1 flex-col gap-3">
+                        <div className="relative shrink-0">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            value={materialPickerSearch}
+                            onChange={(e) => setMaterialPickerSearch(e.target.value)}
+                            placeholder="Buscar material..."
+                            className={cn(filterInputClass, 'pl-9')}
+                            aria-label="Buscar material"
+                          />
+                        </div>
+                        <div className="min-h-[200px] flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 lg:min-h-0">
+                          {groupedPickerOptions.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin resultados.</p>
                           ) : (
-                            (movements ?? []).map((mv) => (
-                              <TableRow key={mv.id}>
-                                <TableCell className="whitespace-nowrap text-xs">
-                                  {new Date(mv.created_at).toLocaleString('es')}
-                                </TableCell>
-                                <TableCell className="font-mono text-xs">{mv.quantity_delta}</TableCell>
-                                <TableCell className="text-xs">
-                                  {mv.ref_type ?? '—'}
-                                  {mv.ref_id != null ? ` #${mv.ref_id}` : ''}
-                                </TableCell>
-                                <TableCell className="max-w-[140px] truncate text-xs">{mv.nota ?? '—'}</TableCell>
-                              </TableRow>
-                            ))
+                            <div className="divide-y divide-border/80 p-1.5">
+                              {groupedPickerOptions.map((group) => (
+                                <div key={group.label} className="py-2 first:pt-0 last:pb-0">
+                                  <p className="sticky top-0 z-[1] bg-muted/10 px-2 pb-1.5 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-[2px]">
+                                    {group.label}
+                                  </p>
+                                  <div className="space-y-1">
+                                    {group.items.map((row) => {
+                                      const selected = row.id === kardexMaterialId;
+                                      return (
+                                        <button
+                                          key={`pick-${row.id}`}
+                                          type="button"
+                                          className={cn(
+                                            'flex w-full flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors sm:flex-row sm:items-start sm:justify-between sm:gap-3',
+                                            selected
+                                              ? 'border-primary/35 bg-primary/8'
+                                              : 'hover:border-border hover:bg-background',
+                                          )}
+                                          onClick={() => {
+                                            setKardexMaterialId(row.id);
+                                            setMaterialPickerSearch('');
+                                          }}
+                                        >
+                                          <span className="min-w-0 text-sm font-medium leading-snug text-foreground">{row.nombre_material}</span>
+                                          <div className="flex shrink-0 flex-wrap items-baseline gap-x-1.5 sm:flex-col sm:items-end sm:text-right">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Stock</span>
+                                            <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                                              {formatQty(row.cantidad_disponible)}
+                                            </span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </>
-                )}
+                        </div>
+                        {kardexMaterialId > 0 ? (
+                          <div className="shrink-0 rounded-lg border border-border bg-muted/20 p-3 shadow-sm">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Material seleccionado</p>
+                            <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{selectedKardexMaterial?.nombre_material}</p>
+                            <p className="mt-1.5 text-sm text-muted-foreground">
+                              Stock actual:{' '}
+                              <span className="font-mono font-semibold tabular-nums text-foreground">
+                                {formatQty(selectedKardexMaterial?.cantidad_disponible ?? 0)}
+                              </span>
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </section>
+
+                    {kardexMaterialId > 0 ? (
+                      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:h-[min(82vh,860px)] lg:max-h-[min(82vh,860px)] lg:overflow-hidden lg:pr-0.5">
+                        <div className="flex min-h-0 flex-shrink-0 flex-col gap-5 overflow-y-auto overscroll-contain lg:max-h-[min(48vh,480px)]">
+                        <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-1')}>
+                            <span className={operationalModalStepBadge}>2</span>
+                            <h3 className={operationalModalStepTitle}>Tipo de ajuste</h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                            {(
+                              [
+                                {
+                                  key: 'compra',
+                                  title: 'Compra',
+                                  hint: 'Entrada con proveedor, OC/factura y costo.',
+                                },
+                                {
+                                  key: 'salida',
+                                  title: 'Salida',
+                                  hint: 'Merma o consumo manual.',
+                                },
+                                {
+                                  key: 'manual',
+                                  title: 'Corrección',
+                                  hint: 'Ajuste delta +/- del saldo.',
+                                },
+                                {
+                                  key: 'inventario_inicial',
+                                  title: 'Inventario inicial',
+                                  hint: 'Primera carga histórica.',
+                                },
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                className={cn(
+                                  'rounded-xl border p-3.5 text-left shadow-sm transition-colors',
+                                  moveRefType === opt.key
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30',
+                                )}
+                                onClick={() => setMoveRefType(opt.key)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold">{opt.title}</p>
+                                  {moveRefType === opt.key ? <Check className="h-4 w-4 shrink-0" /> : null}
+                                </div>
+                                <p
+                                  className={cn(
+                                    'mt-1 text-xs leading-snug',
+                                    moveRefType === opt.key ? 'text-primary-foreground/90' : 'text-muted-foreground',
+                                  )}
+                                >
+                                  {opt.hint}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className={cn(operationalModalSectionCard, 'shrink-0')}>
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                            <span className={operationalModalStepBadge}>3</span>
+                            <h3 className={operationalModalStepTitle}>Datos del movimiento</h3>
+                          </div>
+                          {(() => {
+                            const sel = (data ?? []).find((m) => m.id === kardexMaterialId);
+                            const cur = sel ? Number(sel.cantidad_disponible) : NaN;
+                            const d = Number(moveDelta);
+                            const preview =
+                              Number.isFinite(cur) && Number.isFinite(d) && d !== 0 ? (cur + d).toFixed(3) : null;
+                            const uom = sel?.unidad_medida?.trim() || '';
+                            return sel ? (
+                              <div className="mb-5 flex flex-wrap gap-3">
+                                <div className="min-w-[8.5rem] flex-1 rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/90 to-white px-3.5 py-3 shadow-sm">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                    Saldo actual
+                                  </p>
+                                  <p className="mt-2 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                                    {formatQty(sel.cantidad_disponible)}
+                                    {uom ? <span className="ml-1 text-xs font-sans font-normal text-slate-500">{uom}</span> : null}
+                                  </p>
+                                </div>
+                                <div
+                                  className={cn(
+                                    'min-w-[8.5rem] flex-1 rounded-xl border px-3.5 py-3 shadow-sm',
+                                    preview != null
+                                      ? 'border-primary/25 bg-primary/5'
+                                      : 'border-dashed border-slate-200 bg-slate-50/40',
+                                  )}
+                                >
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                    Saldo después
+                                  </p>
+                                  <p className="mt-2 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
+                                    {preview != null ? (
+                                      <>
+                                        {preview}
+                                        {uom ? <span className="ml-1 text-xs font-sans font-normal text-slate-500">{uom}</span> : null}
+                                      </>
+                                    ) : (
+                                      <span className="text-sm font-normal text-slate-500">Indicá cantidad Δ</span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                            {moveRefType === 'compra' ? (
+                              <>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Proveedor</Label>
+                                  <select
+                                    className={filterSelectClass}
+                                    value={moveSupplierId}
+                                    onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
+                                  >
+                                    <option value={0}>Seleccionar…</option>
+                                    {(kardexMaterialLinks ?? []).map((lnk) => (
+                                      <option key={lnk.supplier_id} value={lnk.supplier_id}>
+                                        {lnk.supplier.nombre}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">Cantidad</Label>
+                                  <Input
+                                    value={moveDelta}
+                                    onChange={(e) => setMoveDelta(e.target.value)}
+                                    placeholder="Ej. 500"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">OC / pedido</Label>
+                                  <Input
+                                    value={moveGuideRef}
+                                    onChange={(e) => setMoveGuideRef(e.target.value)}
+                                    placeholder="Ej. OC-1023"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">Factura</Label>
+                                  <Input
+                                    value={moveInvoiceRef}
+                                    onChange={(e) => setMoveInvoiceRef(e.target.value)}
+                                    placeholder="Ej. F-2218"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600" title="Referencia de costo por unidad de medida del material">
+                                    Precio unitario
+                                  </Label>
+                                  <Input
+                                    value={moveUnitCostRef}
+                                    onChange={(e) => setMoveUnitCostRef(e.target.value)}
+                                    placeholder="Ej. 0.052"
+                                    title="Referencia de costo por unidad"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Guía / referencia</Label>
+                                  <Input
+                                    value={moveGuiaRef}
+                                    onChange={(e) => setMoveGuiaRef(e.target.value)}
+                                    placeholder="Guía de despacho u otro documento"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Motivo / nota</Label>
+                                  <Input
+                                    value={moveNota}
+                                    onChange={(e) => setMoveNota(e.target.value)}
+                                    placeholder="Observación (opcional)"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                              </>
+                            ) : null}
+                            {moveRefType === 'salida' ? (
+                              <>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">Cantidad</Label>
+                                  <Input
+                                    value={moveDelta}
+                                    onChange={(e) => setMoveDelta(e.target.value)}
+                                    placeholder="Ej. -20"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Guía / referencia (opcional)</Label>
+                                  <Input
+                                    value={moveGuideRef}
+                                    onChange={(e) => setMoveGuideRef(e.target.value)}
+                                    placeholder="Documento de respaldo"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">
+                                    Motivo <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    value={moveNota}
+                                    onChange={(e) => setMoveNota(e.target.value)}
+                                    placeholder="Merma, consumo manual, etc."
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                              </>
+                            ) : null}
+                            {moveRefType === 'manual' ? (
+                              <>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">Cantidad delta (+/-)</Label>
+                                  <Input
+                                    value={moveDelta}
+                                    onChange={(e) => setMoveDelta(e.target.value)}
+                                    placeholder="Ej. +35 o -12"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">
+                                    Motivo <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    value={moveNota}
+                                    onChange={(e) => setMoveNota(e.target.value)}
+                                    placeholder="Corrección de conteo, ajuste de saldo…"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                              </>
+                            ) : null}
+                            {moveRefType === 'inventario_inicial' ? (
+                              <>
+                                <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">Cantidad inicial</Label>
+                                  <Input
+                                    value={moveDelta}
+                                    onChange={(e) => setMoveDelta(e.target.value)}
+                                    placeholder="Ej. 1200"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Referencia (opcional)</Label>
+                                  <Input
+                                    value={moveGuideRef}
+                                    onChange={(e) => setMoveGuideRef(e.target.value)}
+                                    placeholder="Acta, lote de carga histórica…"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                                  <Label className="text-xs text-slate-600">Motivo / nota</Label>
+                                  <Input
+                                    value={moveNota}
+                                    onChange={(e) => setMoveNota(e.target.value)}
+                                    placeholder="Observación (opcional)"
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                              </>
+                            ) : null}
+                          </div>
+                        </section>
+                        </div>
+
+                        <section
+                          className={cn(
+                            operationalModalSectionMuted,
+                            'flex min-h-[min(260px,36vh)] flex-1 shrink-0 flex-col overflow-hidden lg:min-h-[280px]',
+                          )}
+                        >
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-2')}>
+                            <span className={operationalModalStepBadge}>4</span>
+                            <h3 className={operationalModalStepTitle}>Confirmación y Kardex</h3>
+                          </div>
+                          <p className="mb-3 shrink-0 text-xs text-muted-foreground">
+                            {moveRefType === 'compra'
+                              ? 'Requerido: proveedor y cantidad positiva.'
+                              : moveRefType === 'salida' || moveRefType === 'manual'
+                                ? 'Requerido: cantidad distinta de cero y motivo.'
+                                : 'Requerido: cantidad inicial distinta de cero.'}
+                          </p>
+                          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-lg border border-border lg:min-h-[200px]">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Fecha</TableHead>
+                                  <TableHead>Δ</TableHead>
+                                  <TableHead>Ref.</TableHead>
+                                  <TableHead>Nota</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(movements ?? []).length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                      Sin movimientos
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  (movements ?? []).map((mv) => (
+                                    <TableRow key={mv.id}>
+                                      <TableCell className="whitespace-nowrap text-xs">
+                                        {new Date(mv.created_at).toLocaleString('es')}
+                                      </TableCell>
+                                      <TableCell className="font-mono text-xs">{mv.quantity_delta}</TableCell>
+                                      <TableCell className="text-xs">
+                                        {mv.ref_type ?? '—'}
+                                        {mv.ref_id != null ? ` #${mv.ref_id}` : ''}
+                                      </TableCell>
+                                      <TableCell className="max-w-[140px] truncate text-xs">{mv.nota ?? '—'}</TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </section>
+                      </div>
+                    ) : (
+                      <div className="hidden min-h-[120px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-8 text-center text-sm text-muted-foreground lg:flex">
+                        Seleccioná un material en la columna izquierda para cargar tipo de ajuste y datos del movimiento.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <DialogFooter className={cn(operationalModalFooterClass, 'flex flex-row flex-wrap justify-end gap-2')}>
+                  <Button type="button" variant="outline" onClick={() => setKardexOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={movementMut.isPending || !canSubmitAdjustment}
+                    onClick={() => movementMut.mutate()}
+                  >
+                    {movementMut.isPending ? 'Guardando…' : 'Guardar ajuste'}
+                  </Button>
+                </DialogFooter>
               </div>
             </DialogContent>
           </Dialog>
@@ -1229,132 +1704,150 @@ export function MaterialsPage() {
       <Card className={contentCard}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Inventario agrupado por categoría</CardTitle>
-          <CardDescription>Materiales activos con stock, costo maestro y accesos rápidos de operación.</CardDescription>
+          <CardDescription>Materiales activos con lectura rápida para operación diaria y costo maestro.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {groupedInventory.length === 0 ? (
+          <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(140px,1fr)]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Buscar material..."
+                value={inventorySearch}
+                onChange={(e) => setInventorySearch(e.target.value)}
+                className={cn(filterInputClass, 'pl-9')}
+              />
+            </div>
+            <select
+              className={filterSelectClass}
+              value={inventoryCategoryFilter}
+              onChange={(e) => setInventoryCategoryFilter(Number(e.target.value))}
+            >
+              <option value={0}>Todas las categorías</option>
+              {categoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          {groupedInventoryFiltered.length === 0 ? (
             <p className="text-sm text-slate-500">Sin materiales activos para mostrar.</p>
           ) : (
-            groupedInventory.map((group) => (
-              <section key={group.category.id} className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {group.category.nombre} <span className="text-slate-400">({group.category.codigo})</span>
-                  </h3>
-                  <p className="text-xs text-slate-500">{group.items.length} material(es)</p>
+            groupedInventoryFiltered.map((group, groupIdx) => {
+              const CategoryIcon = packagingCategorySectionIcon(group.category);
+              const iconTone =
+                PACKAGING_CATEGORY_HEADER_TONES[
+                  Math.abs(Number(group.category.id)) % PACKAGING_CATEGORY_HEADER_TONES.length
+                ];
+              return (
+              <section
+                key={group.category.id}
+                className={cn('space-y-3', groupIdx > 0 && 'border-t border-slate-200/90 pt-6')}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border [&>svg]:h-5 [&>svg]:w-5',
+                      iconTone,
+                    )}
+                    aria-hidden
+                  >
+                    <CategoryIcon aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold leading-tight text-slate-900">{group.category.nombre}</h3>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {group.items.length} {group.items.length === 1 ? 'material' : 'materiales'}
+                    </p>
+                  </div>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {group.items.map((row) => (
-                    <article key={`card-${row.id}`} className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                      <p className="text-sm font-semibold text-slate-900">{row.nombre_material}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded-md bg-slate-50 px-2 py-1.5">
-                          <p className="uppercase tracking-wide text-slate-500">Stock</p>
-                          <p className="mt-1 font-semibold tabular-nums text-slate-900">
-                            {formatQty(row.cantidad_disponible)} {row.unidad_medida}
+                    <article key={`card-${row.id}`} className="rounded-lg border border-slate-200/80 bg-white p-2.5 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="break-words text-[13px] font-semibold leading-snug text-slate-900">
+                            {row.nombre_material}
                           </p>
+                          <Badge variant="secondary" className="mt-1 text-[10px]">
+                            {group.category.nombre}
+                          </Badge>
                         </div>
-                        <div className="rounded-md bg-slate-50 px-2 py-1.5">
-                          <p className="uppercase tracking-wide text-slate-500">Costo maestro</p>
-                          <p className="mt-1 font-semibold tabular-nums text-slate-900">${formatMoneySimple(row.costo_unitario)}</p>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500">Stock actual</p>
+                          <p className="text-lg font-semibold tabular-nums leading-none text-slate-900">{formatQty(row.cantidad_disponible)}</p>
+                          <p className="text-[11px] text-slate-500">{row.unidad_medida}</p>
                         </div>
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="mt-1.5 flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-[11px]">
+                        <span className="uppercase tracking-wide text-slate-500">Costo maestro</span>
+                        <span className="font-semibold tabular-nums text-slate-900">${formatMoneySimple(row.costo_unitario)}</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-3 gap-1.5">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="h-8 px-2 text-[11px]"
                           onClick={() => {
                             setKardexMaterialId(row.id);
                             setMoveRefType('compra');
                             setMoveDelta('');
                             setMoveGuideRef('');
+                            setMoveGuiaRef('');
+                            setMoveInvoiceRef('');
                             setMoveSupplierId(0);
                             setMoveNota('');
+                            setMoveUnitCostRef('');
+                            setMaterialPickerSearch('');
                             setKardexOpen(true);
                           }}
                         >
-                          Compra
+                          Ajustar
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="h-8 px-2 text-[11px]"
                           onClick={() => {
                             setKardexMaterialId(row.id);
                             setMoveRefType('manual');
                             setMoveDelta('');
                             setMoveGuideRef('');
+                            setMoveGuiaRef('');
+                            setMoveInvoiceRef('');
                             setMoveSupplierId(0);
                             setMoveNota('');
+                            setMoveUnitCostRef('');
+                            setMaterialPickerSearch('');
                             setKardexOpen(true);
                           }}
                         >
                           Corregir
                         </Button>
-                        <Button asChild type="button" size="sm">
-                          <Link to={`/packaging/kardex?material=${row.id}`}>Kardex</Link>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-[11px]"
+                          onClick={() => setRenameRow(row)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                      <div className="mt-1.5">
+                        <Button asChild type="button" size="sm" className="h-8 w-full text-[11px]">
+                          <Link to={`/packaging/kardex?material=${row.id}`}>Ver Kardex</Link>
                         </Button>
                       </div>
                     </article>
                   ))}
                 </div>
               </section>
-            ))
+              );
+            })
           )}
-        </CardContent>
-      </Card>
-
-      <Card className={contentCard}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Stock por alcance (referencial)</CardTitle>
-          <CardDescription>
-            Un mismo material tiene un solo saldo; «genérico» aplica a todos los formatos; «exclusivo» documenta uso
-            principal. Para guías de entrada, abrí «Proveedor / guía» en cada fila y cargá código o nombre del proveedor.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Genéricos (todos los formatos)</p>
-            {formatSummary && formatSummary.generico.length > 0 ? (
-              <ul className="mt-2 space-y-1 rounded-lg border border-slate-100 bg-slate-50/50 p-2">
-                {formatSummary.generico.map((m) => (
-                  <li key={m.id} className="flex flex-wrap justify-between gap-2 text-[13px]">
-                    <span className="font-medium text-slate-800">{m.nombre_material}</span>
-                    <span className="font-mono tabular-nums text-slate-600">
-                      {m.cantidad_disponible} {m.unidad_medida}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-1 text-muted-foreground">Ninguno activo con alcance «todos».</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Por formato (exclusivos)</p>
-            <div className="max-h-56 space-y-2 overflow-y-auto">
-              {(formatSummary?.por_formato ?? []).map((block) => (
-                <div key={block.presentation_format_id} className="rounded-lg border border-slate-100 bg-white p-2">
-                  <p className="font-mono text-xs font-semibold text-slate-700">{block.format_code}</p>
-                  {block.exclusivos.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Sin insumos marcados solo para este formato.</p>
-                  ) : (
-                    <ul className="mt-1 space-y-0.5">
-                      {block.exclusivos.map((m) => (
-                        <li key={m.id} className="flex flex-wrap justify-between gap-2 text-[12px]">
-                          <span>{m.nombre_material}</span>
-                          <span className="font-mono tabular-nums text-slate-600">
-                            {m.cantidad_disponible} {m.unidad_medida}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -1423,7 +1916,7 @@ export function MaterialsPage() {
           if (!o) setScopeEditRow(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+        <DialogContent className="max-h-[min(90vh,720px)] w-full max-w-[min(36rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(36rem,calc(100vw-2rem))]">
           <DialogHeader>
             <DialogTitle>Alcance: formatos y clientes</DialogTitle>
           </DialogHeader>
@@ -1520,7 +2013,7 @@ export function MaterialsPage() {
           if (!o) setRenameRow(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full max-w-[min(32rem,calc(100vw-2rem))] sm:max-w-[min(32rem,calc(100vw-2rem))]">
           <DialogHeader>
             <DialogTitle>Renombrar material</DialogTitle>
           </DialogHeader>
@@ -1529,6 +2022,7 @@ export function MaterialsPage() {
               <Label htmlFor="rename_material_name">Nombre</Label>
               <Input
                 id="rename_material_name"
+                className={filterInputClass}
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 autoComplete="off"
@@ -1570,278 +2064,6 @@ export function MaterialsPage() {
         </DialogContent>
       </Dialog>
 
-      <Card className={contentCard}>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Inventario</CardTitle>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Input
-              placeholder="Filtrar tabla…"
-              value={tableSearch}
-              onChange={(e) => setTableSearch(e.target.value)}
-              className={cn(filterInputClass, 'max-w-md')}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className={tableShell}>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-100 hover:bg-transparent">
-                    <TableHead className="min-w-[140px] text-xs font-semibold uppercase text-slate-500">Material</TableHead>
-                    <TableHead className="min-w-[160px] text-xs font-semibold uppercase text-slate-500">Categoría</TableHead>
-                    <TableHead className="min-w-[130px] text-xs font-semibold uppercase text-slate-500">Alcance</TableHead>
-                    <TableHead className="min-w-[120px] text-xs font-semibold uppercase text-slate-500">Cliente</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase text-slate-500">Costo unit.</TableHead>
-                    <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">Stock</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase text-slate-500">En recetas</TableHead>
-                    <TableHead className="min-w-[100px] text-xs font-semibold uppercase text-slate-500">Estado</TableHead>
-                    <TableHead className="w-11 text-center text-xs font-semibold uppercase text-slate-500">Guía</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="py-10 text-center text-sm text-slate-500">
-                        Sin filas
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    tableRows.map((row) => {
-                      const usage = usageByMaterial.get(row.id) ?? 0;
-                      const busy = savingId === row.id;
-                      return (
-                        <TableRow key={row.id} className="border-slate-100/90">
-                          <TableCell className="max-w-[200px]">
-                            <div className="flex items-center gap-2">
-                              {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" /> : null}
-                              <span className="min-w-0 flex-1 font-medium text-slate-900">{row.nombre_material}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 shrink-0 text-slate-500 hover:text-slate-800"
-                                title="Renombrar"
-                                disabled={busy}
-                                onClick={() => setRenameRow(row)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <select
-                              className={cn(filterSelectClass, 'h-8 min-w-[150px] max-w-[200px] text-sm')}
-                              value={row.material_category_id}
-                              disabled={busy}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (v === row.material_category_id) return;
-                                updateMut.mutate({ id: row.id, body: { material_category_id: v } });
-                              }}
-                            >
-                              {!categoryOptions.some((c) => c.id === row.material_category_id) && (
-                                <option value={row.material_category_id}>
-                                  {row.material_category?.nombre ?? `#${row.material_category_id}`}
-                                </option>
-                              )}
-                              {categoryOptions.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.nombre}
-                                </option>
-                              ))}
-                            </select>
-                          </TableCell>
-                          <TableCell>
-                            {(row.presentation_format_scope_ids?.length ?? 0) > 1 ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="secondary">Múltiple ({row.presentation_format_scope_ids?.length})</Badge>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  disabled={busy}
-                                  onClick={() => setScopeEditRow(row)}
-                                >
-                                  Editar
-                                </Button>
-                              </div>
-                            ) : (
-                              <select
-                                className={cn(filterSelectClass, 'h-8 min-w-[120px] max-w-[190px] text-sm')}
-                                value={row.presentation_format_id ?? 0}
-                                disabled={busy}
-                                onChange={(e) => {
-                                  const v = Number(e.target.value);
-                                  const next: number | null = v > 0 ? v : null;
-                                  const cur = row.presentation_format_id ?? null;
-                                  if (next === cur) return;
-                                  updateMut.mutate({ id: row.id, body: { presentation_format_id: next } });
-                                }}
-                              >
-                                <option value={0}>Todos</option>
-                                {(formatList ?? [])
-                                  .filter((f) => (f as { activo?: boolean }).activo !== false)
-                                  .map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                      {f.format_code}
-                                    </option>
-                                  ))}
-                              </select>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {(row.client_scope_ids?.length ?? 0) > 1 ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="secondary">Múltiple ({row.client_scope_ids?.length})</Badge>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  disabled={busy}
-                                  onClick={() => setScopeEditRow(row)}
-                                >
-                                  Editar
-                                </Button>
-                              </div>
-                            ) : (
-                              <select
-                                className={cn(filterSelectClass, 'h-8 min-w-[110px] max-w-[200px] text-sm')}
-                                value={row.client_id ?? 0}
-                                disabled={busy}
-                                onChange={(e) => {
-                                  const v = Number(e.target.value);
-                                  const next: number | null = v > 0 ? v : null;
-                                  if (next === (row.client_id ?? null)) return;
-                                  updateMut.mutate({ id: row.id, body: { client_id: next } });
-                                }}
-                              >
-                                <option value={0}>Todos</option>
-                                {(commercialClients ?? []).map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.nombre}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <InlineCostInput
-                              materialId={row.id}
-                              costo={row.costo_unitario}
-                              disabled={busy}
-                              onCommit={(n) => updateMut.mutate({ id: row.id, body: { costo_unitario: n } })}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <span className="font-mono text-sm tabular-nums text-slate-800">{row.cantidad_disponible}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 shrink-0 text-slate-500 hover:text-slate-800"
-                                title="Registrar entrada o movimiento (kardex)"
-                                disabled={busy}
-                                onClick={() => {
-                                  setKardexMaterialId(row.id);
-                                  setMoveRefType('entrada');
-                                  setMoveDelta('');
-                                  setMoveGuideRef('');
-                                  setMoveSupplierId(0);
-                                  setMoveNota('');
-                                  setKardexOpen(true);
-                                }}
-                              >
-                                <PlusCircle className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {usage > 0 ? (
-                              <Badge variant="secondary" className="tabular-nums">
-                                {usage}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-slate-400">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <select
-                              className={cn(filterSelectClass, 'h-8 w-[110px] text-sm')}
-                              value={row.activo ? '1' : '0'}
-                              disabled={busy}
-                              onChange={(e) => {
-                                const on = e.target.value === '1';
-                                if (on === row.activo) return;
-                                updateMut.mutate({ id: row.id, body: { activo: on } });
-                              }}
-                            >
-                              <option value="1">Activo</option>
-                              <option value="0">Inactivo</option>
-                            </select>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              title="Proveedor / texto de guía"
-                              onClick={() => setLinkDialogMaterialId(row.id)}
-                            >
-                              <Link2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            {canDelete ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                  'text-destructive hover:text-destructive',
-                                  usage > 0 && 'opacity-60 hover:opacity-80',
-                                )}
-                                disabled={deleteMut.isPending}
-                                title={
-                                  usage > 0
-                                    ? `Usado en ${usage} línea(s) de receta — quitá el insumo en Recetas antes de eliminar`
-                                    : 'Eliminar material'
-                                }
-                                aria-label={
-                                  usage > 0
-                                    ? `Eliminar no disponible: en ${usage} línea(s) de receta`
-                                    : `Eliminar ${row.nombre_material}`
-                                }
-                                onClick={() => {
-                                  if (usage > 0) {
-                                    toast.error(
-                                      `No se puede eliminar: el material está en ${usage} línea(s) de receta. En «Recetas», editá cada receta y quitá este insumo.`,
-                                    );
-                                    return;
-                                  }
-                                  if (!confirm(`¿Eliminar «${row.nombre_material}»?`)) return;
-                                  deleteMut.mutate(row.id);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="pb-2">

@@ -32,6 +32,13 @@ import {
   kpiLabel,
   kpiValueLg,
   kpiValueMd,
+  operationalModalBodyClass,
+  operationalModalContentClass,
+  operationalModalDescriptionClass,
+  operationalModalFooterClass,
+  operationalModalFormClass,
+  operationalModalHeaderClass,
+  operationalModalTitleClass,
   pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
@@ -247,6 +254,33 @@ function LogisticaCell({ r }: { r: ExistenciaPtRow }) {
   );
 }
 
+function compactStateTone(r: ExistenciaPtRow): { bar: string; label: string; badge: string } {
+  const s = String(r.status || '').toLowerCase();
+  if (s === 'anulado') {
+    return { bar: 'bg-rose-400', label: 'Problema', badge: 'border-rose-200 bg-rose-50 text-rose-900' };
+  }
+  if (r.dispatch_id != null && Number(r.dispatch_id) > 0) {
+    return { bar: 'bg-slate-400', label: 'Despachado', badge: 'border-slate-200 bg-slate-100 text-slate-800' };
+  }
+  if (s === 'asignado_pl' || r.planned_sales_order_id != null) {
+    return { bar: 'bg-sky-400', label: 'Comprometido', badge: 'border-sky-200 bg-sky-50 text-sky-900' };
+  }
+  if (s === 'borrador' || s === 'revertido') {
+    return { bar: 'bg-amber-400', label: 'Pendiente', badge: 'border-amber-200 bg-amber-50 text-amber-900' };
+  }
+  return { bar: 'bg-emerald-400', label: 'Disponible', badge: 'border-emerald-200 bg-emerald-50 text-emerald-900' };
+}
+
+function compactTraceabilityBadges(r: ExistenciaPtRow): string[] {
+  const out: string[] = [];
+  if (r.repalletizaje === 'resultado' || r.repalletizaje === 'origen') out.push('Re-paletizado');
+  if (r.dispatch_id != null && Number(r.dispatch_id) > 0) out.push('Despachado');
+  else if (r.status === 'asignado_pl' || r.planned_order_number?.trim()) out.push('En PL');
+  if (r.sales_order_number?.trim()) out.push('En pedido');
+  if (out.length === 0) out.push('Sin compromiso');
+  return out;
+}
+
 function buildQuery(params: {
   speciesId: number;
   varietyId: number;
@@ -318,6 +352,7 @@ export function ExistenciasPtPage() {
   const [status, setStatus] = useState('');
   const [soloDeposito, setSoloDeposito] = useState(true);
   const [excluirAnulados, setExcluirAnulados] = useState(true);
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [bolDialogOpen, setBolDialogOpen] = useState(false);
   const [bolInput, setBolInput] = useState('');
@@ -576,6 +611,63 @@ export function ExistenciasPtPage() {
 
   const totalEnListado = rows?.length ?? 0;
 
+  const groupedByFormat = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        format: string;
+        rows: ExistenciaPtRow[];
+        totalBoxes: number;
+        totalLb: number;
+        pallets: number;
+        definitive: number;
+        pending: number;
+        principalClient: string;
+        hasCommitted: boolean;
+        hasDispatched: boolean;
+      }
+    >();
+    for (const r of rows ?? []) {
+      const fmt = (r.format_code ?? '—').trim() || '—';
+      const g = map.get(fmt) ?? {
+        format: fmt,
+        rows: [],
+        totalBoxes: 0,
+        totalLb: 0,
+        pallets: 0,
+        definitive: 0,
+        pending: 0,
+        principalClient: '—',
+        hasCommitted: false,
+        hasDispatched: false,
+      };
+      g.rows.push(r);
+      g.totalBoxes += Number.isFinite(r.boxes) ? r.boxes : 0;
+      g.totalLb += Number.isFinite(r.pounds) ? r.pounds : 0;
+      g.pallets += 1;
+      if (String(r.status || '').toLowerCase() === 'definitivo') g.definitive += 1;
+      else g.pending += 1;
+      if (r.status === 'asignado_pl' || r.planned_sales_order_id != null || r.sales_order_number?.trim()) g.hasCommitted = true;
+      if (r.dispatch_id != null && Number(r.dispatch_id) > 0) g.hasDispatched = true;
+      map.set(fmt, g);
+    }
+    return [...map.values()]
+      .map((g) => {
+        const byClient = new Map<string, number>();
+        for (const r of g.rows) {
+          const c = r.client_nombre?.trim() || 'Sin cliente';
+          byClient.set(c, (byClient.get(c) ?? 0) + r.boxes);
+        }
+        const sortedClients = [...byClient.entries()].sort((a, b) => b[1] - a[1]);
+        const principalClient = sortedClients.length === 0 ? 'Sin cliente' : sortedClients.length === 1 ? sortedClients[0][0] : 'Varios clientes';
+        const sortedRows = g.rows
+          .slice()
+          .sort((a, b) => (a.client_nombre ?? '').localeCompare(b.client_nombre ?? '') || b.id - a.id);
+        return { ...g, rows: sortedRows, principalClient };
+      })
+      .sort((a, b) => b.totalBoxes - a.totalBoxes);
+  }, [rows]);
+
   return (
     <div className="space-y-8">
       <div className={pageHeaderRow}>
@@ -820,6 +912,53 @@ export function ExistenciasPtPage() {
               {rows?.length ?? 0} fila(s) · máx. 500 · prefetch productor: {TRACE_PREFETCH} primeras filas
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('compact')}
+              >
+                Compacta
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={() => setViewMode('detailed')}
+              >
+                Detallada
+              </Button>
+            </div>
+            <details className="group">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                Ver criterios
+              </summary>
+              <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+                <p>
+                  <span className="font-semibold text-emerald-700">Disponible:</span> stock libre para uso logístico
+                </p>
+                <p>
+                  <span className="font-semibold text-sky-700">En PL:</span> unidad vinculada a Packing List
+                </p>
+                <p>
+                  <span className="font-semibold text-amber-800">En pedido:</span> stock comprometido con pedido
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-600">Despachado:</span> stock ya salido
+                </p>
+                <p>
+                  <span className="font-semibold text-violet-700">Re-paletizado:</span> unidad generada o modificada por repaletizaje
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">Sin compromiso:</span> stock sin vínculo comercial/logístico actual
+                </p>
+              </div>
+            </details>
+          </div>
         </div>
         {selectedIds.size > 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
@@ -854,6 +993,158 @@ export function ExistenciasPtPage() {
             </div>
           ) : !rows?.length ? (
             <p className={emptyStatePanel}>No hay Unidades PT que coincidan con los filtros.</p>
+          ) : viewMode === 'compact' ? (
+            <div className="space-y-4">
+              {groupedByFormat.map((group) => (
+                <div key={group.format} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
+                    <p className="font-mono text-sm font-semibold text-slate-900">{group.format}</p>
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-900">{fmtLb(group.totalLb)}</span> lb
+                    </p>
+                    <p className="text-xs text-slate-600">{formatCount(group.pallets)} pallets</p>
+                    <p className="text-xs text-slate-600">
+                      Cliente: <span className="font-medium text-slate-900">{group.principalClient}</span>
+                    </p>
+                    {group.hasCommitted ? (
+                      <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-900">
+                        Stock comprometido
+                      </span>
+                    ) : null}
+                    {group.hasDispatched ? (
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800">
+                        Con despachos
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow className={tableHeaderRow}>
+                        <TableHead className="w-11 pl-4 pr-0">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300"
+                            checked={allEligibleSelected}
+                            disabled={eligibleRows.length === 0}
+                            onChange={toggleSelectAllEligible}
+                            title="Seleccionar filas elegibles (definitivo, sin despacho)"
+                          />
+                        </TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Unidad PT / Pallet</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Productor</TableHead>
+                        <TableHead>Variedad</TableHead>
+                        <TableHead className="text-right">Cajas disp.</TableHead>
+                        <TableHead className="text-right">Peso (lb)</TableHead>
+                        <TableHead>Ubicación</TableHead>
+                        <TableHead>Trazabilidad</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.rows.map((r) => {
+                        const tone = compactStateTone(r);
+                        const producerCell = producerLabelForPallet(r.id);
+                        const vu = verUnidadesVisibility(r);
+                        const codeDisplay =
+                          r.codigo_unidad_pt_display?.trim() ||
+                          r.tag_code?.trim() ||
+                          r.corner_board_code ||
+                          `PF-${r.id}`;
+                        const traceBadges = compactTraceabilityBadges(r);
+                        return (
+                          <TableRow key={r.id} className={cn(tableBodyRow, 'relative')}>
+                            <TableCell className="w-11 py-2.5 pl-4 pr-0">
+                              <span className={cn('absolute inset-y-1 left-0 w-1 rounded-r-sm', tone.bar)} />
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 disabled:opacity-40"
+                                checked={selectedIds.has(r.id)}
+                                disabled={!canBulkBol(r)}
+                                onChange={() => toggleRow(r.id)}
+                              />
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold', tone.badge)}>
+                                {tone.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="max-w-[190px] py-2.5">
+                              <Link
+                                to={`/existencias-pt/detalle/${r.id}`}
+                                className="font-mono text-xs font-semibold text-slate-900 underline decoration-slate-200 underline-offset-2 hover:text-primary hover:decoration-primary"
+                              >
+                                {codeDisplay}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="max-w-[140px] truncate py-2.5 text-xs text-slate-700">
+                              {r.client_nombre?.trim() || '—'}
+                            </TableCell>
+                            <TableCell className="max-w-[180px] truncate py-2.5 text-xs text-slate-700" title={producerCell}>
+                              {producerCell}
+                            </TableCell>
+                            <TableCell className="max-w-[180px] truncate py-2.5 text-xs text-slate-700">
+                              {r.variedades_label?.trim() || '—'}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right text-sm font-semibold tabular-nums text-slate-950">
+                              {formatCount(r.boxes)}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right text-sm font-semibold tabular-nums text-slate-800">
+                              {fmtLb(r.pounds)}
+                            </TableCell>
+                            <TableCell className="max-w-[130px] truncate py-2.5 font-mono text-[11px] text-slate-600">
+                              {r.corner_board_code?.trim() || '—'}
+                            </TableCell>
+                            <TableCell className="max-w-[220px] py-2.5">
+                              <div className="flex flex-wrap gap-1">
+                                {traceBadges.map((badge) => (
+                                  <span
+                                    key={`${r.id}-${badge}`}
+                                    className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+                                  >
+                                    {badge}
+                                  </span>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right">
+                              <div className="flex justify-end gap-1.5">
+                                <Button asChild type="button" variant="outline" size="sm" className="h-7 rounded-md px-2 text-[11px]">
+                                  <Link to={`/existencias-pt/detalle/${r.id}`}>Ver detalle</Link>
+                                </Button>
+                                {vu === 'hide' ? (
+                                  <span className="inline-flex items-center text-[11px] text-slate-400">Sin detalle PT</span>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 gap-1 rounded-md px-2 text-[11px]"
+                                    disabled={vu === 'wait'}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setUnitsForPalletId(r.id);
+                                    }}
+                                  >
+                                    <Layers className="h-3.5 w-3.5" />
+                                    Unidades
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className={tableShell}>
               <Table className="min-w-[1180px]">
@@ -1014,15 +1305,33 @@ export function ExistenciasPtPage() {
           if (!o) setUnitsForPalletId(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Unidades PT que componen este stock</DialogTitle>
-            <DialogDescription>
-              Tarjas vinculadas vía proceso de las líneas del registro logístico (misma cadena que la trazabilidad del detalle).
-              El stock mostrado en la tabla es el de cámara / existencias PT.
+        <DialogContent
+          className={cn(
+            operationalModalContentClass,
+            'min-h-0 max-h-[min(90vh,920px)] max-w-[min(720px,calc(100vw-2rem))] sm:max-w-[min(720px,calc(100vw-2rem))]',
+          )}
+        >
+          <DialogHeader className={operationalModalHeaderClass}>
+            <DialogTitle className={operationalModalTitleClass}>Unidades PT que componen este stock</DialogTitle>
+            <DialogDescription className={operationalModalDescriptionClass}>
+              Tarjas vinculadas vía proceso (misma cadena que el detalle del pallet).
             </DialogDescription>
+            <details className="group text-[13px] text-muted-foreground">
+              <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                  <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Más contexto
+                </span>
+              </summary>
+              <p className="mt-2 max-w-prose text-pretty leading-snug">
+                Tarjas vinculadas vía proceso de las líneas del registro logístico (misma cadena que la trazabilidad del detalle). El stock
+                mostrado en la tabla principal es el de cámara / existencias PT.
+              </p>
+            </details>
           </DialogHeader>
-          <div className="max-h-[min(50vh,420px)] space-y-2 overflow-y-auto text-sm">
+          <div className={cn(operationalModalFormClass)}>
+            <div className={cn(operationalModalBodyClass, 'max-h-[min(58vh,520px)] overflow-y-auto lg:px-8')}>
+          <div className="space-y-2 text-sm">
             {unitsForPalletId != null && traceUnitsPending ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
@@ -1058,23 +1367,43 @@ export function ExistenciasPtPage() {
               </ul>
             )}
           </div>
-          <DialogFooter>
+            </div>
+          <DialogFooter className={operationalModalFooterClass}>
             <Button type="button" variant="outline" onClick={() => setUnitsForPalletId(null)}>
               Cerrar
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={bolDialogOpen} onOpenChange={setBolDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Asignar BOL</DialogTitle>
-            <DialogDescription>
-              Se aplicará el mismo BOL a {selectedIds.size} registro(s) seleccionado(s). Solo aplica a Unidad PT en estado
-              definitivo sin despacho; podés corregirlo después desde el detalle o el flujo logístico habitual.
+        <DialogContent
+          className={cn(
+            operationalModalContentClass,
+            'min-h-0 max-h-[min(88vh,640px)] max-w-[min(520px,calc(100vw-2rem))] sm:max-w-[min(520px,calc(100vw-2rem))]',
+          )}
+        >
+          <DialogHeader className={operationalModalHeaderClass}>
+            <DialogTitle className={operationalModalTitleClass}>Asignar BOL</DialogTitle>
+            <DialogDescription className={operationalModalDescriptionClass}>
+              Mismo BOL para {selectedIds.size} registro(s) seleccionado(s), solo en estado definitivo sin despacho.
             </DialogDescription>
+            <details className="group text-[13px] text-muted-foreground">
+              <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                  <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                  Alcance y corrección
+                </span>
+              </summary>
+              <p className="mt-2 max-w-prose text-pretty leading-snug">
+                Se aplicará el mismo BOL a los seleccionados. Solo aplica a Unidad PT en estado definitivo sin despacho; podés corregirlo
+                después desde el detalle o el flujo logístico habitual.
+              </p>
+            </details>
           </DialogHeader>
+          <div className={cn(operationalModalFormClass)}>
+          <div className={cn(operationalModalBodyClass, 'lg:px-8')}>
           <div className="grid gap-2 py-2">
             <Label htmlFor="bulk-bol">BOL (pedido)</Label>
             <Input
@@ -1085,7 +1414,8 @@ export function ExistenciasPtPage() {
               autoComplete="off"
             />
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          </div>
+          <DialogFooter className={cn(operationalModalFooterClass, 'gap-2 sm:gap-0')}>
             <Button type="button" variant="outline" onClick={() => setBolDialogOpen(false)}>
               Cancelar
             </Button>
@@ -1097,6 +1427,7 @@ export function ExistenciasPtPage() {
               {bulkBolMut.isPending ? 'Guardando…' : 'Aplicar'}
             </Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

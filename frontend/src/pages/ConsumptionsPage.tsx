@@ -772,10 +772,7 @@ export function ConsumptionsPage() {
       <div className={pageHeaderRow}>
         <div>
           <h1 className={pageTitle}>Consumos</h1>
-          <p className={pageSubtitle}>
-            Consumo por categoría = factor de la receta × PT del formato (cajas/pallets por tarja); con «Cliente» solo entran PT de ese
-            cliente y materiales con alcance compatible. Consumo $ sigue siendo el costo de autoconsumos registrados.
-          </p>
+          <p className={pageSubtitle}>Consumo operativo por formato y categoría para decisiones rápidas de reposición.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -798,14 +795,14 @@ export function ConsumptionsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3">
+      <div className="flex flex-wrap items-end justify-between gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5">
         <div className="grid gap-1">
           <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500" htmlFor="consum-client">
             Cliente (capacidad)
           </label>
           <select
             id="consum-client"
-            className="h-9 min-w-[200px] rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
+            className="h-8 min-w-[200px] rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
             value={capClientId === 'all' ? 'all' : String(capClientId)}
             onChange={(e) => {
               const v = e.target.value;
@@ -833,16 +830,16 @@ export function ConsumptionsPage() {
           <h2 id="consum-mat-heading" className={sectionTitle}>
             Consumo por material
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {formatMaterialSections.map((f) => (
               <Card key={f.formatCode} className={cn(contentCard, 'border-slate-200/90 shadow-sm')}>
-                <CardContent className="space-y-3.5 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                <CardContent className="space-y-3 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div className="min-w-0">
-                      <p className="font-mono text-[15px] font-semibold text-slate-900">{f.formatCode}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">Consumo por categoría para decisiones de compra</p>
+                      <p className="font-mono text-[14px] font-semibold text-slate-900">{f.formatCode}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">Consumo por categoría</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-slate-500">Cajas</span>
                         <span className="font-semibold tabular-nums text-slate-900">{formatCount(f.boxesProduced)}</span>
@@ -868,7 +865,7 @@ export function ConsumptionsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-7">
                     {f.categories.map((c) => {
                       const border =
                         c.status === 'green'
@@ -887,19 +884,19 @@ export function ConsumptionsPage() {
                         <div
                           key={c.key}
                           className={cn(
-                            'rounded-xl border p-3 text-[11px] shadow-sm transition-colors',
+                            'rounded-lg border p-2.5 text-[10px] shadow-sm transition-colors',
                             border,
                           )}
                         >
-                          <p className="text-[13px] font-semibold leading-tight text-slate-900">{c.label}</p>
-                          <div className="mt-1.5 space-y-1.5">
-                            <div className="flex justify-between gap-1.5 border-b border-slate-100/80 pb-1">
+                          <p className="text-[12px] font-semibold leading-tight text-slate-900">{c.label}</p>
+                          <div className="mt-1.5 space-y-1">
+                            <div className="flex justify-between gap-1 border-b border-slate-100/80 pb-1">
                               <span className="text-slate-500">Consumo</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-800">
                                 {c.consumoQty.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                               </span>
                             </div>
-                            <div className="flex justify-between gap-1.5 border-b border-slate-100/80 pb-1">
+                            <div className="flex justify-between gap-1 border-b border-slate-100/80 pb-1">
                               <span className="text-slate-500">Stock</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-800">
                                 {formatCount(Math.round(c.stock))}
@@ -907,7 +904,7 @@ export function ConsumptionsPage() {
                             </div>
                             <div>
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/90">Contenedores</p>
-                              <p className="mt-0.5 text-base font-bold tabular-nums leading-tight text-sky-950">{contStr}</p>
+                              <p className="mt-0.5 text-sm font-bold tabular-nums leading-tight text-sky-950">{contStr}</p>
                             </div>
                           </div>
                           {c.key === 'tape' && c.tapeItems.length > 1 ? (

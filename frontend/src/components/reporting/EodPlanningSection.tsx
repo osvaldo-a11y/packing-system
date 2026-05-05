@@ -214,14 +214,28 @@ async function fetchMpDisponibleProcesoResumen(): Promise<{
 
 type EodPlanningSectionProps = {
   showCommercialOffer?: boolean;
+  /** KPIs Planificación diaria (packed/cámara/shipped y MP proceso). Por defecto visible. */
+  showDailyPlanningKpis?: boolean;
+  /** Bloque «Fin del día» con tabla por cliente/formato y copiar. Por defecto visible. */
+  showFinDelDia?: boolean;
+  /** Ancla scroll (p. ej. Reportes → Operación → Fin del día). */
+  finDelDiaDomId?: string;
+  planningDomId?: string;
   finFirst?: boolean;
   finOpenByDefault?: boolean;
+  /** Reemplaza el texto de ayuda bajo «Planificación diaria» (p. ej. Reportes → Operación). */
+  planningHint?: string;
 };
 
 export function EodPlanningSection({
   showCommercialOffer = true,
+  showDailyPlanningKpis = true,
+  showFinDelDia = true,
+  finDelDiaDomId,
+  planningDomId,
   finFirst = false,
   finOpenByDefault = false,
+  planningHint,
 }: EodPlanningSectionProps) {
   const [opsDayKey, setOpsDayKey] = useState<string>(() => escDay(new Date()));
 
@@ -413,7 +427,11 @@ export function EodPlanningSection({
   }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm]);
 
   const finDelDiaBlock = (
-    <details className={cn(contentCard, 'group overflow-hidden px-0 py-0 opacity-95')} open={finOpenByDefault}>
+    <details
+      id={finDelDiaDomId}
+      className={cn(contentCard, 'scroll-mt-24 group overflow-hidden px-0 py-0 opacity-95')}
+      open={finOpenByDefault}
+    >
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 marker:content-none sm:px-5 [&::-webkit-details-marker]:hidden">
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
         <div className="min-w-0 flex-1">
@@ -462,62 +480,72 @@ export function EodPlanningSection({
     </details>
   );
 
-  return (
-    <section className="space-y-4" aria-labelledby="rep-planificacion-diaria">
-      {finFirst ? finDelDiaBlock : null}
-      <div className={cn(contentCard, 'px-4 py-4 sm:px-5 sm:py-5')}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 id="rep-planificacion-diaria" className="text-base font-semibold text-slate-900">
-              Planificación diaria
-            </h2>
-            <p className={sectionHint}>
-              KPIs del día; abajo, {showCommercialOffer ? 'oferta comercial y ' : ''}cierre (Fin del día).
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-[11px] text-slate-500">Fecha operativa</Label>
-            <Input
-              type="date"
-              className="h-8 w-[160px] bg-white"
-              value={opsDayKey}
-              onChange={(e) => setOpsDayKey(e.target.value || escDay(new Date()))}
-            />
-          </div>
+  const planningKpisCard = (
+    <div id={planningDomId} className={cn(contentCard, 'scroll-mt-24 px-4 py-4 sm:px-5 sm:py-5')}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 id="rep-planificacion-diaria" className="text-base font-semibold text-slate-900">
+            Planificación diaria
+          </h2>
+          <p className={sectionHint}>
+            {planningHint ??
+              `KPIs del día${showCommercialOffer ? '; abajo planificación rápida y simulación' : ''}.${showFinDelDia ? (finFirst ? ' Fin del día arriba en esta pantalla.' : ' Fin del día al final de OPERACIÓN.') : ''}`}
+          </p>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3">
-          <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-            <p className={kpiLabel}>Packed día</p>
-            <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
-            <p className={kpiFootnote}>Cajas</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-            <p className={kpiLabel}>En cámara (saldo día)</p>
-            <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
-            <p className={kpiFootnote}>Packed − shipped</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-            <p className={kpiLabel}>Shipped día</p>
-            <p className={cn(kpiValueMd, 'text-xl')}>
-              {operationalDaily.shippedToday > 0 ? formatCount(operationalDaily.shippedToday) : '—'}
-            </p>
-            <p className={kpiFootnote}>{operationalDaily.shippedToday > 0 ? 'Cajas despachadas' : 'Nada despachado'}</p>
-          </div>
-          <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-            <p className={kpiLabel}>MP disponible p/proceso</p>
-            <p className={cn(kpiValueMd, 'text-xl text-emerald-950')}>
-              {mpDisponibleProceso == null ? '…' : mpDisponibleProceso.totalLb > 0 ? formatLb(mpDisponibleProceso.totalLb, 2) : '—'}
-            </p>
-            <p className={kpiFootnote}>
-              {mpDisponibleProceso == null
-                ? 'Cargando recepción…'
-                : mpDisponibleProceso.totalLb > 0
-                  ? `${mpDisponibleProceso.lineCount} línea(s) aptas`
-                  : 'Sin fruta disponible para reparto'}
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-[11px] text-slate-500">Fecha operativa</Label>
+          <Input
+            type="date"
+            className="h-8 w-[160px] bg-white"
+            value={opsDayKey}
+            onChange={(e) => setOpsDayKey(e.target.value || escDay(new Date()))}
+          />
         </div>
       </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3">
+        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+          <p className={kpiLabel}>Packed día</p>
+          <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
+          <p className={kpiFootnote}>Cajas</p>
+        </div>
+        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+          <p className={kpiLabel}>En cámara (saldo día)</p>
+          <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
+          <p className={kpiFootnote}>Packed − shipped</p>
+        </div>
+        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+          <p className={kpiLabel}>Shipped día</p>
+          <p className={cn(kpiValueMd, 'text-xl')}>
+            {operationalDaily.shippedToday > 0 ? formatCount(operationalDaily.shippedToday) : '—'}
+          </p>
+          <p className={kpiFootnote}>{operationalDaily.shippedToday > 0 ? 'Cajas despachadas' : 'Nada despachado'}</p>
+        </div>
+        <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+          <p className={kpiLabel}>MP disponible p/proceso</p>
+          <p className={cn(kpiValueMd, 'text-xl text-emerald-950')}>
+            {mpDisponibleProceso == null ? '…' : mpDisponibleProceso.totalLb > 0 ? formatLb(mpDisponibleProceso.totalLb, 2) : '—'}
+          </p>
+          <p className={kpiFootnote}>
+            {mpDisponibleProceso == null
+              ? 'Cargando recepción…'
+              : mpDisponibleProceso.totalLb > 0
+                ? `${mpDisponibleProceso.lineCount} línea(s) aptas`
+                : 'Sin fruta disponible para reparto'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="space-y-4" aria-labelledby="rep-planificacion-diaria">
+      {!showDailyPlanningKpis ? (
+        <h2 id="rep-planificacion-diaria" className="sr-only">
+          Planificación rápida y simulación
+        </h2>
+      ) : null}
+      {finFirst && showFinDelDia ? finDelDiaBlock : null}
+      {showDailyPlanningKpis ? planningKpisCard : null}
 
       {showCommercialOffer ? (
         <CommercialOfferCalculatorBlock
@@ -533,7 +561,7 @@ export function EodPlanningSection({
         />
       ) : null}
 
-      {!finFirst ? finDelDiaBlock : null}
+      {!finFirst && showFinDelDia ? finDelDiaBlock : null}
     </section>
   );
 }

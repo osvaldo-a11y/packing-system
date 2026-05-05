@@ -72,6 +72,9 @@ function sortRepalletOrigins(list: ExistenciaPtRow[]): ExistenciaPtRow[] {
     const ka = tarjaSortKey(a);
     const kb = tarjaSortKey(b);
     if (ka !== kb) return ka - kb;
+    const pa = isPartialPallet(a) ? 1 : 0;
+    const pb = isPartialPallet(b) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
     return a.id - b.id;
   });
 }
@@ -148,6 +151,8 @@ export function RepalletPage() {
   const [filterSpeciesId, setFilterSpeciesId] = useState(0);
   const [filterFormatId, setFilterFormatId] = useState(0);
   const [filterRepallet, setFilterRepallet] = useState<string>('');
+  /** Solo pallets con menos cajas que el tope del formato (cuando el maestro define tope). */
+  const [filterPartialOnly, setFilterPartialOnly] = useState<'all' | 'partial'>('all');
 
   const speciesOptions = useMemo(() => {
     const m = new Map<number, string>();
@@ -169,7 +174,7 @@ export function RepalletPage() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
   }, [rows]);
 
-  const filteredRows = useMemo(() => {
+  const filteredRowsBase = useMemo(() => {
     if (!rows?.length) return [];
     let list = rows;
     if (filterSpeciesId > 0) {
@@ -201,6 +206,16 @@ export function RepalletPage() {
     }
     return list;
   }, [rows, filterSpeciesId, filterFormatId, filterRepallet, search]);
+
+  const partialCountInBase = useMemo(
+    () => filteredRowsBase.filter(isPartialPallet).length,
+    [filteredRowsBase],
+  );
+
+  const filteredRows = useMemo(() => {
+    if (filterPartialOnly !== 'partial') return filteredRowsBase;
+    return filteredRowsBase.filter(isPartialPallet);
+  }, [filteredRowsBase, filterPartialOnly]);
 
   /** Misma lista que la tabla, ordenada por TAR/PF para los desplegables de orígenes. */
   const sortedOriginsForSelect = useMemo(() => sortRepalletOrigins(filteredRows), [filteredRows]);
@@ -280,8 +295,15 @@ export function RepalletPage() {
         text: `En vista: ${formatCount(kpis.origen)} origen(es) y ${formatCount(kpis.resultado)} resultado(s) de repaletizaje para trazabilidad.`,
       });
     }
+    if (partialCountInBase > 0) {
+      lines.push({
+        key: 'parciales',
+        tone: 'info',
+        text: `${formatCount(partialCountInBase)} pallet(s) con menos cajas que el tope del formato (en el universo antes de “solo incompletos”). Usá el filtro Completitud para acotar tabla y selectores de origen.`,
+      });
+    }
     return lines;
-  }, [kpis.sinCajas, kpis.conDespacho, kpis.origen, kpis.resultado]);
+  }, [kpis.sinCajas, kpis.conDespacho, kpis.origen, kpis.resultado, partialCountInBase]);
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -374,8 +396,8 @@ export function RepalletPage() {
             <div className="min-w-0 space-y-1">
               <CardTitle className={sectionTitle}>Nuevo repaletizaje</CardTitle>
               <CardDescription className="text-[13px] text-slate-500">
-                Orígenes (FIFO por líneas). Los filtros y la tabla de abajo usan el mismo universo (solo depósito). Las
-                cajas a mover no pueden superar lo disponible por pallet.
+                Orígenes (FIFO por líneas). Los filtros (incl. Completitud: solo incompletos vs tope) y la tabla usan el
+                mismo universo (solo depósito). Las cajas a mover no pueden superar lo disponible por pallet.
               </CardDescription>
             </div>
             <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
@@ -395,7 +417,7 @@ export function RepalletPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
-            <div className="grid min-w-[160px] flex-1 gap-1.5 sm:max-w-[220px]">
+            <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5">
               <Label className="text-[11px] text-slate-500">Formato (orígenes)</Label>
               <select
                 className={filterSelectClass}
@@ -585,7 +607,19 @@ export function RepalletPage() {
               <option value="resultado">Resultado</option>
             </select>
           </div>
-          <div className="grid gap-2 lg:col-span-4">
+          <div className="grid gap-2 lg:col-span-2">
+            <Label className="text-xs text-slate-500">Completitud</Label>
+            <select
+              className={filterSelectClass}
+              value={filterPartialOnly}
+              onChange={(e) => setFilterPartialOnly(e.target.value as 'all' | 'partial')}
+              title="Solo pallets con cajas por debajo del tope del formato (si el maestro define tope)"
+            >
+              <option value="all">Todos</option>
+              <option value="partial">Solo incompletos (vs tope)</option>
+            </select>
+          </div>
+          <div className="grid gap-2 lg:col-span-2">
             <Label className="text-xs text-slate-500">Buscar</Label>
             <Input
               className={filterInputClass}
@@ -604,7 +638,15 @@ export function RepalletPage() {
               Existencia en cámara (vista rápida)
             </h2>
             <p className={sectionHint}>
-              {filteredRows.length} pallet(s) · mismo universo que los orígenes
+              {filteredRows.length} pallet(s) en tabla
+              {filterPartialOnly === 'partial' && filteredRowsBase.length > 0
+                ? ` (de ${filteredRowsBase.length} con filtros actuales)`
+                : null}
+              {filterPartialOnly === 'all' && partialCountInBase > 0
+                ? ` · ${partialCountInBase} incompletos vs tope`
+                : null}
+              {' · '}
+              mismo universo que los orígenes
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
@@ -618,17 +660,21 @@ export function RepalletPage() {
         {!rows?.length ? (
           <p className={emptyStatePanel}>No hay pallets en depósito para repaletizar.</p>
         ) : !filteredRows.length ? (
-          <p className={emptyStatePanel}>Sin coincidencias con el filtro.</p>
+          <p className={emptyStatePanel}>
+            {filterPartialOnly === 'partial' && filteredRowsBase.length > 0
+              ? 'No hay pallets incompletos (vs tope de formato) con los filtros actuales.'
+              : 'Sin coincidencias con el filtro.'}
+          </p>
         ) : (
           <div className={cn(tableShell, 'max-h-[min(52vh,520px)] overflow-auto')}>
-            <Table className="min-w-[720px]">
+            <Table className="min-w-[780px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
                   <TableHead className="min-w-[160px]">Código · estado</TableHead>
                   <TableHead className="min-w-[72px]">Formato</TableHead>
+                  <TableHead className="min-w-[108px] text-right tabular-nums">Cajas / tope</TableHead>
                   <TableHead className="min-w-[120px]">Cliente</TableHead>
                   <TableHead className="min-w-[100px]">Marca</TableHead>
-                  <TableHead className="text-right tabular-nums">Cajas</TableHead>
                   <TableHead className="min-w-[100px]">BOL</TableHead>
                   <TableHead className="w-[72px] text-right"> </TableHead>
                 </TableRow>
@@ -649,6 +695,36 @@ export function RepalletPage() {
                     <TableCell className="align-middle font-mono text-xs text-slate-800">
                       {r.format_code?.trim() || '—'}
                     </TableCell>
+                    <TableCell
+                      className={cn(
+                        'align-middle text-right text-sm tabular-nums',
+                        isPartialPallet(r) ? 'text-amber-950' : 'text-slate-900',
+                      )}
+                      title={
+                        r.max_boxes_per_pallet != null && r.max_boxes_per_pallet > 0
+                          ? 'Cajas actuales / tope del formato en maestro'
+                          : 'Sin tope definido para el formato'
+                      }
+                    >
+                      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        {isPartialPallet(r) ? (
+                          <span
+                            className="inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-950"
+                            title="Menos cajas que el tope del formato (pallet parcial)"
+                          >
+                            Parcial
+                          </span>
+                        ) : null}
+                        <span className="font-mono text-[12px]">
+                          {formatCount(r.boxes)} /{' '}
+                          {r.max_boxes_per_pallet != null &&
+                          Number.isFinite(r.max_boxes_per_pallet) &&
+                          r.max_boxes_per_pallet > 0
+                            ? formatCount(r.max_boxes_per_pallet)
+                            : '—'}
+                        </span>
+                      </span>
+                    </TableCell>
                     <TableCell className="max-w-[140px] align-middle">
                       <p className="truncate text-xs text-slate-800" title={r.client_nombre ?? ''}>
                         {r.client_nombre?.trim() || '—'}
@@ -658,19 +734,6 @@ export function RepalletPage() {
                       <p className="truncate text-xs text-slate-600" title={r.brand_nombre ?? ''}>
                         {r.brand_nombre?.trim() || '—'}
                       </p>
-                    </TableCell>
-                    <TableCell className="align-middle text-right text-sm tabular-nums text-slate-900">
-                      <span className="inline-flex items-center justify-end gap-1.5">
-                        {isPartialPallet(r) ? (
-                          <span
-                            className="inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-950"
-                            title="Menos cajas que el tope del formato (pallet parcial)"
-                          >
-                            Parcial
-                          </span>
-                        ) : null}
-                        {formatCount(r.boxes)}
-                      </span>
                     </TableCell>
                     <TableCell className="max-w-[120px] align-middle font-mono text-[11px] text-slate-700">
                       {r.bol?.trim() || '—'}
@@ -717,7 +780,13 @@ export function RepalletPage() {
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Pallets en vista</p>
             <p className={kpiValueMd}>{formatCount(kpis.total)}</p>
-            <p className={kpiFootnote}>Filtros actuales</p>
+            <p className={kpiFootnote}>
+              {filterPartialOnly === 'partial'
+                ? 'Solo incompletos vs tope'
+                : partialCountInBase > 0
+                  ? `Filtros actuales · ${formatCount(partialCountInBase)} incompletos`
+                  : 'Filtros actuales'}
+            </p>
           </div>
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Cajas totales</p>
