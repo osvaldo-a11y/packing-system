@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ChevronDown,
   FileDown,
   Info,
   MoreHorizontal,
@@ -9,6 +8,7 @@ import {
   Plus,
   Printer,
   Waypoints,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
@@ -64,7 +64,6 @@ import {
   kpiValueMd,
   operationalModalBodyClass,
   operationalModalContentClass,
-  operationalModalDescriptionClass,
   operationalModalFooterClass,
   operationalModalFormClass,
   operationalModalHeaderClass,
@@ -574,14 +573,6 @@ export function PtTagsPage() {
 
   const activePresFormats = useMemo(() => (presFormats ?? []).filter((f) => f.activo), [presFormats]);
 
-  const formatMeta = useMemo(() => {
-    const m = new Map<string, { descripcion: string | null }>();
-    for (const f of presFormats ?? []) {
-      m.set(f.format_code.trim().toLowerCase(), { descripcion: f.descripcion ?? null });
-    }
-    return m;
-  }, [presFormats]);
-
   /** Un solo texto por formato: mismo código que en maestros (primera variante guardada). */
   const formatCanonicalByNorm = useMemo(() => {
     const m = new Map<string, string>();
@@ -984,11 +975,6 @@ export function PtTagsPage() {
         : apiJson<{ id: number; codigo: string; nombre: string }[]>('/api/masters/brands'),
     enabled: tagOpen,
   });
-
-  const selectedPresFormat = useMemo(() => {
-    const fc = watchedTagFormatCode?.trim().toLowerCase() ?? '';
-    return (presFormats ?? []).find((f) => f.format_code.trim().toLowerCase() === fc);
-  }, [presFormats, watchedTagFormatCode]);
 
   useEffect(() => {
     const justOpened = tagOpen && !prevTagOpenRef.current;
@@ -1508,37 +1494,24 @@ export function PtTagsPage() {
             <DialogContent
               className={cn(
                 operationalModalContentClass,
-                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] [&>button]:hidden',
               )}
             >
               <DialogHeader className={operationalModalHeaderClass}>
-                <DialogTitle className={operationalModalTitleClass}>{editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}</DialogTitle>
-                <DialogDescription className={operationalModalDescriptionClass}>
-                  {editTag
-                    ? 'Fecha, tipo, formato, proceso y cajas (una línea) o datos comerciales.'
-                    : 'Formato, proceso origen y cajas a cargar; destino comercial opcional.'}
-                </DialogDescription>
-                <details className="group text-[13px] text-muted-foreground">
-                  <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
-                    <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
-                      <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                      Flujo completo y edición avanzada
-                    </span>
-                  </summary>
-                  <p className="mt-2 max-w-prose text-pretty leading-snug">
-                    {editTag ? (
-                      <>
-                        Cambiá fecha, tipo, formato, proceso y cajas (una sola línea) o datos comerciales. Unidades unidas: no se editan
-                        líneas aquí.
-                      </>
-                    ) : (
-                      <>
-                        Crear nueva unidad de producto terminado. Definí formato, origen y cantidad. El sistema calcula el resto
-                        automáticamente. Alta de tarja TAR-… y vínculo a proceso; genera pallet PF-… y stock en Existencias PT.
-                      </>
-                    )}
-                  </p>
-                </details>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    {editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}
+                  </DialogTitle>
+                  <button
+                    type="button"
+                    onClick={() => setTagOpen(false)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                    aria-label="Cerrar"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </DialogHeader>
               <form
                 onSubmit={tagForm.handleSubmit((v) => {
@@ -1574,7 +1547,7 @@ export function PtTagsPage() {
                 className={operationalModalFormClass}
               >
                 <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(320px,100%),min(480px,44vw))_minmax(0,1fr)] lg:gap-6 lg:overflow-hidden">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-2 lg:gap-6 lg:overflow-hidden">
                     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:min-h-0 lg:overflow-hidden lg:pr-1">
                     {/* 1 · Formato */}
                     <section className={operationalModalSectionCard}>
@@ -1584,7 +1557,7 @@ export function PtTagsPage() {
                       </div>
                       <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
                         <div className="grid gap-1.5">
-                          <Label className="text-xs" htmlFor="tag-fecha">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-fecha">
                             Fecha
                           </Label>
                           <Input id="tag-fecha" type="datetime-local" className="h-9" {...tagForm.register('fecha')} />
@@ -1593,7 +1566,7 @@ export function PtTagsPage() {
                           )}
                         </div>
                         <div className="grid gap-1.5 rounded-lg border border-border/50 bg-muted/15 px-2.5 py-2">
-                          <Label className="text-[11px] font-normal text-muted-foreground">Tipo de producto PT</Label>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo de producto PT</Label>
                           <select
                             className="flex min-h-8 w-full rounded border-0 bg-transparent px-0 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
                             {...tagForm.register('resultado')}
@@ -1606,7 +1579,7 @@ export function PtTagsPage() {
                           </select>
                         </div>
                         <div className="grid gap-1.5 lg:col-span-2">
-                          <Label className="text-xs" htmlFor="format_code">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="format_code">
                             Formato de presentación *
                           </Label>
                           {activePresFormats.length > 0 ? (
@@ -1634,9 +1607,9 @@ export function PtTagsPage() {
                             <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
                           )}
                           <p className="leading-tight text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground/75">Cajas/pallet (maestro):</span>{' '}
+                            <span className="font-medium text-foreground/75">Cajas/pallet:</span>{' '}
                             <span className="tabular-nums font-semibold text-foreground/90">{tagForm.watch('cajas_por_pallet')}</span>
-                            {selectedPresFormat?.max_boxes_per_pallet == null ? ' · sin tope en formato (se usa 1)' : null} ·{' '}
+                            {' · '}
                             <span className="font-mono text-foreground/70">{watchedTagFormatCode || '—'}</span>
                           </p>
                           {tagForm.formState.errors.cajas_por_pallet && (
@@ -1654,7 +1627,7 @@ export function PtTagsPage() {
                       </div>
                       <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto">
                         <div className="grid gap-1.5">
-                          <Label className="text-xs" htmlFor="tag-process">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-process">
                             Proceso *
                           </Label>
                           <select
@@ -1698,53 +1671,30 @@ export function PtTagsPage() {
 
                         {selectedProcForCreate && (editTag ? editTag.items.length === 1 : true) ? (
                           <div className="space-y-2">
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent px-3 py-2.5">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">Lb disponibles (PT)</p>
-                                <p className="mt-0.5 text-2xl font-bold tabular-nums leading-none tracking-tight text-foreground">
-                                  {selectedProcForCreate.lb_pt_restante != null &&
-                                  String(selectedProcForCreate.lb_pt_restante).trim() !== ''
-                                    ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
-                                    : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
-                                </p>
-                              </div>
-                              <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent px-3 py-2.5">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-                                  Cajas sugeridas (tope)
-                                </p>
-                                <p className="mt-0.5 flex items-baseline gap-1.5 text-2xl font-bold tabular-nums leading-none tracking-tight text-foreground">
-                                  {maxCajasDesdeProcesoCreate != null ? (
-                                    <>
-                                      {maxCajasDesdeProcesoCreate}
-                                      <span className="text-sm font-semibold text-muted-foreground">cajas</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-lg font-normal text-muted-foreground">—</span>
-                                  )}
-                                </p>
-                              </div>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
+                                LB DISPONIBLES:{' '}
+                                {selectedProcForCreate.lb_pt_restante != null &&
+                                String(selectedProcForCreate.lb_pt_restante).trim() !== ''
+                                  ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
+                                  : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
+                              </span>
+                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
+                                CAJAS SUGERIDAS: {maxCajasDesdeProcesoCreate ?? '—'}
+                              </span>
                             </div>
-                            <p className="text-[10px] leading-tight text-muted-foreground">
-                              {editTag && editTag.items.length === 1
-                                ? 'Incluye lb ya cargados en otras tarjas; el servidor valida el tope.'
-                                : 'Si hay más unidades PT con este proceso, el restante se actualiza al guardar.'}
-                            </p>
                             {procesoVsTopeHint ? (
                               <div
                                 className={cn(
-                                  'rounded-md border-l-[3px] px-2.5 py-2 text-[11px] leading-snug',
-                                  procesoVsTopeHint.tone === 'danger' &&
-                                    'border-l-rose-500 bg-rose-50 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100',
-                                  procesoVsTopeHint.tone === 'tight' &&
-                                    'border-l-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100',
-                                  procesoVsTopeHint.tone === 'close' &&
-                                    'border-l-orange-400 bg-orange-50/90 text-orange-950 dark:bg-orange-950/25 dark:text-orange-100',
-                                  procesoVsTopeHint.tone === 'ok' &&
-                                    'border-l-emerald-600 bg-emerald-50/80 text-emerald-950 dark:bg-emerald-950/25 dark:text-emerald-100',
+                                  'rounded-md border px-2.5 py-1.5 text-[11px] font-medium',
+                                  procesoVsTopeHint.tone === 'ok'
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-rose-200 bg-rose-50 text-rose-700',
                                 )}
                               >
-                                <p className="font-semibold">{procesoVsTopeHint.label}</p>
-                                <p className="mt-0.5 opacity-90">{procesoVsTopeHint.detail}</p>
+                                {procesoVsTopeHint.tone === 'ok'
+                                  ? `Hay margen · Podés subir hasta ${maxCajasDesdeProcesoCreate ?? 0} cajas`
+                                  : 'Sin margen disponible'}
                               </div>
                             ) : null}
                           </div>
@@ -1761,7 +1711,7 @@ export function PtTagsPage() {
                         <h3 className={operationalModalStepTitle}>Cantidad</h3>
                       </div>
                       <div className="grid max-w-md gap-2">
-                        <Label htmlFor="cajas_generadas" className="text-xs font-medium">
+                        <Label htmlFor="cajas_generadas" className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           Cajas a cargar *
                         </Label>
                         <Input
@@ -1772,7 +1722,7 @@ export function PtTagsPage() {
                           step={1}
                           disabled={!!editTag && editTag.items.length > 1}
                           className={cn(
-                            'h-12 rounded-lg border-input text-center text-xl font-semibold tabular-nums tracking-tight',
+                            'h-12 rounded-lg border-input text-center text-[18px] font-medium tabular-nums tracking-tight',
                             editTag && editTag.items.length > 1 ? 'disabled:cursor-not-allowed disabled:opacity-70' : '',
                           )}
                           {...(() => {
@@ -1788,7 +1738,7 @@ export function PtTagsPage() {
                         />
                         {maxCajasDesdeProcesoCreate != null && !(editTag && editTag.items.length > 1) ? (
                           <p className="text-[11px] leading-tight text-muted-foreground">
-                            Máximo sugerido según proceso:{' '}
+                            Máx. sugerido:{' '}
                             <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span> cajas
                           </p>
                         ) : null}
@@ -1799,6 +1749,29 @@ export function PtTagsPage() {
                         ) : null}
                         {tagForm.formState.errors.cajas_generadas ? (
                           <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
+                        ) : null}
+                        {!editTag ? (
+                          <div className="mt-2 grid gap-1.5">
+                            <Label htmlFor="tag-bulk-units" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              Unidades idénticas
+                            </Label>
+                            <Input
+                              id="tag-bulk-units"
+                              type="number"
+                              min={1}
+                              max={100}
+                              step={1}
+                              inputMode="numeric"
+                              className="h-10 rounded-md border-input/80 text-center text-base font-semibold tabular-nums"
+                              {...tagForm.register('bulk_units', { valueAsNumber: true })}
+                            />
+                            <p className="text-[10px] leading-tight text-muted-foreground">
+                              Crea N tarjas con los mismos datos
+                            </p>
+                            {tagForm.formState.errors.bulk_units && (
+                              <p className="text-xs text-destructive">{tagForm.formState.errors.bulk_units.message}</p>
+                            )}
+                          </div>
                         ) : null}
                       </div>
                     </section>
@@ -1853,65 +1826,6 @@ export function PtTagsPage() {
                       </div>
                     </section>
 
-                    {/* 5 · Varias unidades (solo alta; peso bajo) */}
-                    {!editTag && (
-                      <section className="shrink-0 rounded-lg border border-dashed border-border/70 bg-muted/10 p-3">
-                        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="text-[11px] font-medium text-muted-foreground">Varias unidades a la vez</span>
-                          <span className="text-[10px] text-muted-foreground/90">Mismo dato que arriba · secuencial</span>
-                        </div>
-                        <div className="flex flex-wrap items-end gap-3">
-                          <div className="grid w-[120px] gap-1">
-                            <Label htmlFor="tag-bulk-units" className="text-[11px] text-muted-foreground">
-                              Unidades idénticas
-                            </Label>
-                            <Input
-                              id="tag-bulk-units"
-                              type="number"
-                              min={1}
-                              max={100}
-                              step={1}
-                              inputMode="numeric"
-                              className="h-10 rounded-md border-input/80 text-center text-base font-semibold tabular-nums"
-                              {...tagForm.register('bulk_units', { valueAsNumber: true })}
-                            />
-                          </div>
-                          {tagForm.formState.errors.bulk_units && (
-                            <p className="text-xs text-destructive">{tagForm.formState.errors.bulk_units.message}</p>
-                          )}
-                        </div>
-                      </section>
-                    )}
-
-                    {/* Lectura mantenedor: colapsable */}
-                    <details className="group shrink-0 rounded-lg border border-border/60 bg-muted/15 [&_summary::-webkit-details-marker]:hidden">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium text-muted-foreground transition hover:bg-muted/30">
-                        <span>Mantenedor (solo lectura)</span>
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
-                      </summary>
-                      <div className="grid gap-2 border-t border-border/50 px-3 pb-2.5 pt-2 sm:grid-cols-2">
-                        <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Tipo de caja</p>
-                          <p className="mt-0.5 text-xs font-medium text-foreground">
-                            {selectedPresFormat?.box_kind === 'mano'
-                              ? 'Mano'
-                              : selectedPresFormat?.box_kind === 'maquina'
-                                ? 'Máquina'
-                                : 'Sin definir'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Etiqueta clamshell</p>
-                          <p className="mt-0.5 text-xs font-medium text-foreground">
-                            {selectedPresFormat?.clamshell_label_kind === 'generica'
-                              ? 'Genérica'
-                              : selectedPresFormat?.clamshell_label_kind === 'marca'
-                                ? 'Marca'
-                                : 'Sin definir'}
-                          </p>
-                        </div>
-                      </div>
-                    </details>
                     </div>
                   </div>
                 </div>
@@ -1951,16 +1865,33 @@ export function PtTagsPage() {
         <h2 id="pt-kpis" className="sr-only">
           Indicadores del listado filtrado
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className={kpiCard}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
             <p className={kpiLabel}>Unidades (listado)</p>
-            <p className={kpiValueLg}>{formatCount(listKpis.unidades)}</p>
+            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(listKpis.unidades)}</p>
             <p className={kpiFootnote}>Filtradas</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Cajas totales</p>
-            <p className={kpiValueLg}>{formatCount(listKpis.cajas)}</p>
+            <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(listKpis.cajas)}</p>
             <p className={kpiFootnote}>Sin doble conteo repallet</p>
+          </div>
+          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
+            <p className={kpiLabel}>Lb totales</p>
+            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatLb(listKpis.lb, 2)}</p>
+            <p className={kpiFootnote}>Peso neto en vista</p>
+          </div>
+          <div
+            className={cn(
+              kpiCard,
+              listKpis.sinCliente > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50',
+            )}
+          >
+            <p className={kpiLabel}>Pendientes de asignar</p>
+            <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-700' : 'text-green-700')}>
+              {formatCount(listKpis.sinCliente)}
+            </p>
+            <p className={kpiFootnote}>Sin destino comercial</p>
           </div>
         </div>
       </section>
@@ -2293,10 +2224,6 @@ export function PtTagsPage() {
                                       <Waypoints className="mr-2 h-4 w-4" />
                                       Ver trazabilidad
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
-                                      <FileDown className="mr-2 h-4 w-4" />
-                                      Descargar ZPL etiqueta
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
                                       <FileDown className="mr-2 h-4 w-4" />
                                       PDF detalle / trazabilidad
@@ -2304,6 +2231,10 @@ export function PtTagsPage() {
                                     <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
                                       <FileDown className="mr-2 h-4 w-4" />
                                       PDF etiqueta pallet
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      Descargar ZPL etiqueta
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -2422,14 +2353,6 @@ export function PtTagsPage() {
                               <Waypoints className="mr-2 h-4 w-4" />
                               Ver trazabilidad
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openPrintDialog(tag)}>
-                              <Printer className="mr-2 h-4 w-4" />
-                              Imprimir etiqueta PT
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
-                              <FileDown className="mr-2 h-4 w-4" />
-                              Descargar ZPL etiqueta
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
                               <FileDown className="mr-2 h-4 w-4" />
                               PDF detalle / trazabilidad
@@ -2437,6 +2360,14 @@ export function PtTagsPage() {
                             <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
                               <FileDown className="mr-2 h-4 w-4" />
                               PDF etiqueta pallet
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
+                              <FileDown className="mr-2 h-4 w-4" />
+                              Descargar ZPL etiqueta
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openPrintDialog(tag)}>
+                              <Printer className="mr-2 h-4 w-4" />
+                              Imprimir etiqueta PT
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -2458,147 +2389,80 @@ export function PtTagsPage() {
       >
         <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-mono text-base">{detailTag?.tag_code}</DialogTitle>
-            <div className="space-y-1 text-left text-sm text-slate-600">
-              <span className="block">
-                <span className="font-medium text-slate-800">ID</span>{' '}
-                <span className="font-mono tabular-nums">{detailTag?.id}</span>
-                {' · '}
-                <span className="font-medium text-slate-800">Código</span>{' '}
-                <span className="font-mono">{detailTag?.tag_code}</span>
-              </span>
-              <span className="block text-slate-500">
-                Unión de tarjas:{' '}
-                {detailTag?.es_union_tarjas ? <strong className="text-slate-800">Sí</strong> : <span>No</span>}
-              </span>
-              {detailTag?.excluida_suma_packout ? (
-                <span className="block text-xs font-medium text-violet-900">
-                  Etiqueta repallet (unificada): no duplica cajas en totales de producción.
+            <div className="flex items-center gap-2">
+              <DialogTitle className="font-mono text-base">{detailTag?.tag_code}</DialogTitle>
+              {detailTag ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase',
+                    commercialAssignment(detailTag) === 'none'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700',
+                  )}
+                >
+                  {commercialAssignment(detailTag) === 'none' ? 'Disponible' : 'Asignado'}
                 </span>
               ) : null}
+            </div>
+            <div className="text-left text-sm text-slate-600">
+              <span className="font-medium text-slate-800">ID:</span>{' '}
+              <span className="font-mono tabular-nums">{detailTag?.id}</span>
+              {' · '}
+              <span className="font-medium text-slate-800">Código:</span>{' '}
+              <span className="font-mono">{detailTag?.tag_code}</span>
             </div>
           </DialogHeader>
           {detailTag && (
             <div className="space-y-4 text-sm">
-              <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">Inventario cámara</strong> (pestaña) concentra stock y herramientas (repaletizaje, packing list, BOL); la asignación
-                comercial temprana nace aquí y se confirma más adelante en logística y despacho.
-              </p>
-
-              <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Capa productiva (desde proceso)
-                </h3>
-                <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-muted/20 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Proceso origen</p>
-                  {detailTag.items.length > 0 ? (
-                    <ul className="space-y-2 text-sm">
-                      {detailTag.items.map((it) => {
-                        const proc = processById.get(it.process_id);
-                        return (
-                          <li key={it.id} className="rounded-md border border-border/80 bg-background px-2 py-2">
-                            <span className="font-medium">Proceso #{it.process_id}</span>
-                            {proc ? (
-                              <span className="text-muted-foreground">
-                                {' '}
-                                · {new Date(proc.fecha_proceso).toLocaleDateString('es')}
-                              </span>
-                            ) : null}
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Cajas en línea: {it.cajas_generadas} · Pallets línea: {it.pallets_generados}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      Sin procesos vinculados. Las nuevas unidades PT deben crearse desde este módulo eligiendo el proceso en el alta.
-                    </p>
-                  )}
-                </div>
-                <dl className="grid gap-2">
-                  <DetailRow label="Productor" value={tagProducerLabel(detailTag, producerById)} />
+              <section className="space-y-2 rounded-lg border border-border/80 bg-muted/20 p-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Producto</h3>
+                <dl className="grid gap-2 sm:grid-cols-2">
                   <DetailRow
-                    label="Especie"
-                    value={<EspeciesCell items={detailTag.items} processById={processById} />}
-                  />
-                  <DetailRow
-                    label="Variedad"
+                    label="Proceso origen"
                     value={
-                      <VariedadesCell
-                        items={detailTag.items}
-                        processById={processById}
-                      />
+                      detailTag.items.length > 0
+                        ? `#${detailTag.items[0].process_id} · ${
+                            processById.get(detailTag.items[0].process_id)
+                              ? new Date(processById.get(detailTag.items[0].process_id)!.fecha_proceso).toLocaleDateString('es')
+                              : '—'
+                          }`
+                        : '—'
                     }
                   />
-                  <DetailRow label="Formato" value={<span className="font-mono">{detailTag.format_code}</span>} />
-                  <DetailRow label="Cajas (total)" value={String(detailTag.total_cajas)} />
-                  <DetailRow label="LB" value={fmtLbCell(detailTag.net_weight_lb)} />
                   <DetailRow
-                    label="Notas de proceso"
-                    value={<NotasCell items={detailTag.items} processById={processById} />}
+                    label="Cajas en línea"
+                    value={
+                      detailTag.items.length > 0
+                        ? `${detailTag.items[0].cajas_generadas} · Pallets: ${detailTag.items[0].pallets_generados}`
+                        : '—'
+                    }
                   />
+                  <DetailRow label="Productor" value={tagProducerLabel(detailTag, producerById)} />
+                  <DetailRow label="Especie" value={<EspeciesCell items={detailTag.items} processById={processById} />} />
+                  <DetailRow label="Variedad" value={<VariedadesCell items={detailTag.items} processById={processById} />} />
+                  <DetailRow label="Formato" value={<span className="font-mono">{detailTag.format_code}</span>} />
+                  <DetailRow
+                    label="Tipo PT"
+                    value={labelPtProductoPt(
+                      RESULTADOS_PT.includes(detailTag.resultado as (typeof RESULTADOS_PT)[number])
+                        ? (detailTag.resultado as (typeof RESULTADOS_PT)[number])
+                        : 'cajas',
+                    )}
+                  />
+                  <DetailRow label="Cajas (total)" value={String(detailTag.total_cajas)} />
+                  <DetailRow label="Lb neto" value={fmtLbCell(detailTag.net_weight_lb)} />
                 </dl>
               </section>
 
-              <section
-                className={cn(
-                  'space-y-2 rounded-lg border-2 p-3',
-                  commercialAssignment(detailTag) === 'none'
-                    ? 'border-red-300/90 bg-red-50/90 dark:border-red-800 dark:bg-red-950/25'
-                    : commercialAssignment(detailTag) === 'partial'
-                      ? 'border-amber-300/80 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20'
-                      : 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20',
-                )}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Asignación comercial temprana
-                  </h3>
-                  <CommercialStatusBadge state={commercialAssignment(detailTag)} />
-                </div>
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  Fecha, tipo PT, formato, proceso, cajas (una sola línea), cliente, marca y BOL se pueden editar desde la lista
-                  (Editar) o se cargan al crear / unir unidades.
-                </p>
-                {commercialAssignment(detailTag) === 'none' ? (
-                  <p className="text-xs font-medium text-red-800 dark:text-red-200">
-                    Sin cliente previsto: definí destino en una nueva unidad o coordiná en pedidos / pallet para no perder trazabilidad
-                    operativa.
-                  </p>
-                ) : null}
-                <dl className="grid gap-2">
-                  <DetailRow label="Cliente previsto" value={clientLabel(detailTag)} />
-                  <DetailRow
-                    label="Pedido / orden prevista"
-                    value="—"
-                    hint="Hoy no hay un campo de pedido en la unidad PT. Coordiná en Pedidos o usá BOL prevista como referencia."
-                  />
-                  <DetailRow
-                    label="BOL prevista (referencia comercial)"
-                    value={detailTag.bol?.trim() || '—'}
-                    hint="Opcional en esta etapa. La BOL definitiva se confirma en despacho, no la reemplaza este dato."
-                  />
+              <section className="space-y-2 rounded-lg border border-border/80 bg-muted/20 p-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comercial</h3>
+                <dl className="grid gap-2 sm:grid-cols-2">
+                  <DetailRow label="Cliente" value={clientLabel(detailTag)} />
                   <DetailRow label="Marca" value={brandLabel(detailTag) ?? '—'} />
-                  <DetailRow
-                    label="Tipo de empaque / presentación"
-                    value={
-                      formatMeta.get(detailTag.format_code.trim().toLowerCase())?.descripcion?.trim() ||
-                      `Formato ${detailTag.format_code}`
-                    }
-                    hint="Descripción del formato de presentación. Detalle fino de etiquetas suele cerrarse en Existencias PT / despacho."
-                  />
-                  <DetailRow
-                    label="Clamshell especial"
-                    value="—"
-                    hint="No se registra en esta entidad. Definilo al armar pallet o envío si aplica."
-                  />
-                  <DetailRow
-                    label="Etiqueta especial"
-                    value="—"
-                    hint="No se registra en esta entidad. Existencias PT o despacho para etiquetado definitivo."
-                  />
+                  <DetailRow label="BOL / referencia" value={detailTag.bol?.trim() || '—'} />
+                  <DetailRow label="Pedido previsto" value="—" />
+                  <DetailRow label="Clamshell" value="—" />
+                  <DetailRow label="Etiqueta" value="—" />
                 </dl>
               </section>
 
@@ -2952,25 +2816,3 @@ function VariedadesCell({
   return names.join(' · ');
 }
 
-function NotasCell({
-  items,
-  processById,
-}: {
-  items: PtTagItemApi[];
-  processById: Map<number, FruitProcessRow>;
-}) {
-  const parts = items
-    .map((it) => {
-      const n = processById.get(it.process_id)?.nota?.trim();
-      return n ? `Proceso #${it.process_id}: ${n}` : null;
-    })
-    .filter((x): x is string => !!x);
-  if (parts.length === 0) return '—';
-  return (
-    <ul className="list-inside list-disc space-y-1">
-      {parts.map((p, i) => (
-        <li key={i}>{p}</li>
-      ))}
-    </ul>
-  );
-}

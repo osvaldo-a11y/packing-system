@@ -16,8 +16,9 @@ import { RepalletEvent } from '../final-pallet/repallet.entities';
 import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import { PtPackingList } from '../pt-packing-list/pt-packing-list.entities';
 import { Client } from '../traceability/operational.entities';
-import { Variety } from '../traceability/traceability.entities';
+import { Producer, Variety } from '../traceability/traceability.entities';
 import { FinalPalletService } from '../final-pallet/final-pallet.service';
+import { PlantService } from '../plant/plant.service';
 import { ProcessService } from '../process/process.service';
 import { TraceabilityService } from '../traceability/traceability.service';
 
@@ -33,6 +34,7 @@ function pdfToBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
 
 @Injectable()
 export class DocumentsPdfService {
+  private companyDisplayName = process.env.COMPANY_DISPLAY_NAME?.trim() || 'PINEBLOOM PACKING';
   private static qtyAr(n: number): string {
     return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
@@ -41,8 +43,8 @@ export class DocumentsPdfService {
     return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  private static companyLine(): string {
-    return process.env.COMPANY_DISPLAY_NAME?.trim() || 'Empresa';
+  private companyLine(): string {
+    return this.companyDisplayName?.trim() || 'PINEBLOOM PACKING';
   }
 
   private static pdfDateEs(d: Date | string | undefined): string {
@@ -61,7 +63,7 @@ export class DocumentsPdfService {
    * Cabecera corporativa (modelo “proceso”): empresa centrada, título, subtítulo.
    * @returns coordenada Y siguiente al bloque.
    */
-  private static renderCorporateHeader(
+  private renderCorporateHeader(
     doc: InstanceType<typeof PDFDocument>,
     x0: number,
     y: number,
@@ -70,7 +72,7 @@ export class DocumentsPdfService {
     subtitle: string,
   ): number {
     doc.fontSize(9).fillColor('#444444');
-    const lineCompany = DocumentsPdfService.companyLine();
+    const lineCompany = this.companyLine();
     const hCo = doc.heightOfString(lineCompany, { width: w, align: 'center' });
     doc.text(lineCompany, x0, y, { width: w, align: 'center' });
     y += Math.max(16, hCo + 4);
@@ -508,6 +510,7 @@ export class DocumentsPdfService {
     private readonly traceability: TraceabilityService,
     private readonly processService: ProcessService,
     private readonly finalPalletService: FinalPalletService,
+    private readonly plantService: PlantService,
     @InjectRepository(FruitProcess) private readonly processRepo: Repository<FruitProcess>,
     @InjectRepository(PtTag) private readonly tagRepo: Repository<PtTag>,
     @InjectRepository(PtTagItem) private readonly tagItemRepo: Repository<PtTagItem>,
@@ -519,11 +522,27 @@ export class DocumentsPdfService {
     @InjectRepository(PtPackingList) private readonly ptPlRepo: Repository<PtPackingList>,
     @InjectRepository(DispatchPtPackingList) private readonly dispatchPlRepo: Repository<DispatchPtPackingList>,
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>,
+    @InjectRepository(Producer) private readonly producerRepo: Repository<Producer>,
     @InjectRepository(Variety) private readonly varietyRepo: Repository<Variety>,
     @InjectRepository(FinalPallet) private readonly fpRepo: Repository<FinalPallet>,
     @InjectRepository(FinalPalletLine) private readonly fplLineRepo: Repository<FinalPalletLine>,
     @InjectRepository(RepalletEvent) private readonly repalletEventRepo: Repository<RepalletEvent>,
   ) {}
+
+  private async resolveCompanyLine(): Promise<void> {
+    const fromEnv = process.env.COMPANY_DISPLAY_NAME?.trim();
+    if (fromEnv) {
+      this.companyDisplayName = fromEnv;
+      return;
+    }
+    try {
+      const st = await this.plantService.getOrCreate();
+      const candidate = (st as unknown as { plant_name?: string | null })?.plant_name?.trim();
+      this.companyDisplayName = candidate || 'PINEBLOOM PACKING';
+    } catch {
+      this.companyDisplayName = 'PINEBLOOM PACKING';
+    }
+  }
 
   private ptPlPalletTotals(palletId: number, lines: FinalPalletLine[]) {
     const ls = lines.filter((l) => Number(l.final_pallet_id) === palletId);
@@ -533,11 +552,12 @@ export class DocumentsPdfService {
   }
 
   async buildReceptionPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const r = await this.traceability.getReception(id);
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -547,7 +567,7 @@ export class DocumentsPdfService {
     );
     const fecha = DocumentsPdfService.pdfDateEs(r.received_at as Date);
     const ctxLines = [
-      `${DocumentsPdfService.companyLine()} · Planta ${r.plant_code ?? '—'}`,
+      `${this.companyLine()} · Planta ${r.plant_code ?? '—'}`,
       `Productor: ${r.producer?.nombre ?? String(r.producer_id ?? '—')}`,
       `Fecha y hora: ${fecha}`,
       `Referencia: ${r.reference_code ?? '—'} · Documento: ${r.document_number ?? '—'}`,
@@ -613,12 +633,13 @@ export class DocumentsPdfService {
   }
 
   async buildProcessPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const row = await this.processService.getProcessRowForReport(id);
     const raw = await this.processRepo.findOne({ where: { id } });
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -628,7 +649,7 @@ export class DocumentsPdfService {
     );
     const fs = DocumentsPdfService.pdfDateEs(row.fecha_proceso as Date | string);
     const idLines = [
-      `${DocumentsPdfService.companyLine()}`,
+      `${this.companyLine()}`,
       `Fecha y hora: ${fs}`,
       `Productor: ${row.productor_nombre ?? String(row.productor_id ?? '—')} · Recepción vinculada: ${row.recepcion_id ?? '—'}`,
       `Especie / variedad: ${row.especie_nombre ?? '—'} / ${row.variedad_nombre ?? '—'}`,
@@ -779,16 +800,25 @@ export class DocumentsPdfService {
 
   /** PDF detalle (A4) — trazabilidad y tablas. */
   async buildTagDetailPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const t = await this.tagRepo.findOne({
       where: { id },
       relations: ['client', 'brand'],
     });
     if (!t) throw new NotFoundException('Unidad PT no encontrada');
     const items = await this.tagItemRepo.find({ where: { tarja_id: id } });
+    const producerIds = Array.from(new Set(items.map((it) => Number(it.productor_id)).filter((v) => Number.isFinite(v) && v > 0)));
+    const producers = producerIds.length > 0 ? await this.producerRepo.find({ where: { id: In(producerIds) } }) : [];
+    const producerById = new Map(
+      producers.map((p) => [
+        p.id,
+        p.nombre?.trim() || p.codigo?.trim() || String(p.id),
+      ]),
+    );
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -820,7 +850,7 @@ export class DocumentsPdfService {
       items.length > 0
         ? items.map((it) => [
             String(it.process_id),
-            String(it.productor_id),
+            producerById.get(Number(it.productor_id)) ?? String(it.productor_id ?? '—'),
             String(it.cajas_generadas),
             String(it.pallets_generados),
             '—',
@@ -859,6 +889,7 @@ export class DocumentsPdfService {
 
   /** Etiqueta operativa (4×6 in aprox.) — QR reservado. */
   async buildTagLabelPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const t = await this.tagRepo.findOne({
       where: { id },
       relations: ['client', 'brand'],
@@ -866,7 +897,7 @@ export class DocumentsPdfService {
     if (!t) throw new NotFoundException('Unidad PT no encontrada');
     const doc = new PDFDocument({ margin: 24, size: [288, 432] });
     const w = 240;
-    doc.fontSize(11).font('Helvetica-Bold').text(DocumentsPdfService.companyLine(), 24, 24, { width: w, align: 'center' });
+    doc.fontSize(11).font('Helvetica-Bold').text(this.companyLine(), 24, 24, { width: w, align: 'center' });
     doc.fontSize(20).text('UNIDAD PT', 24, 42, { width: w, align: 'center' });
     doc.fontSize(22).text(t.tag_code, 24, 72, { width: w, align: 'center' });
     doc.font('Helvetica').fontSize(14);
@@ -886,6 +917,7 @@ export class DocumentsPdfService {
    * Tras repaletizaje, el código nuevo (ej. PF-81) es el que debe ir a cámara / bodega.
    */
   async buildFinalPalletLabelPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const fp = await this.fpRepo.findOne({
       where: { id },
       relations: ['species', 'client', 'brand', 'presentation_format'],
@@ -905,7 +937,7 @@ export class DocumentsPdfService {
 
     const doc = new PDFDocument({ margin: 24, size: [288, 432] });
     const w = 240;
-    doc.fontSize(11).font('Helvetica-Bold').text(DocumentsPdfService.companyLine(), 24, 24, { width: w, align: 'center' });
+    doc.fontSize(11).font('Helvetica-Bold').text(this.companyLine(), 24, 24, { width: w, align: 'center' });
     doc.fontSize(20).text('EXISTENCIA PT', 24, 42, { width: w, align: 'center' });
     doc.fontSize(22).text(code, 24, 72, { width: w, align: 'center' });
     doc.font('Helvetica').fontSize(14).fillColor('#000000');
@@ -936,6 +968,7 @@ export class DocumentsPdfService {
   }
 
   async buildInvoicePdf(dispatchId: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId }, relations: { client: true } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
     const inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
@@ -964,7 +997,7 @@ export class DocumentsPdfService {
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const x0 = DocumentsPdfService.PDF_MARGIN;
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -1085,6 +1118,7 @@ export class DocumentsPdfService {
     ptPackingListId: number,
     unitPricesByFormatId: Record<string, number> = {},
   ): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const pl = await this.ptPlRepo.findOne({
       where: { id: ptPackingListId },
       relations: { client: true, items: true },
@@ -1101,7 +1135,7 @@ export class DocumentsPdfService {
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -1192,6 +1226,7 @@ export class DocumentsPdfService {
   }
 
   async buildPackingListPdf(dispatchId: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
     const pedidoCliente = await this.clientRepo.findOne({ where: { id: Number(dispatch.cliente_id) } });
@@ -1201,7 +1236,7 @@ export class DocumentsPdfService {
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const x0 = DocumentsPdfService.PDF_MARGIN;
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,
@@ -1302,6 +1337,7 @@ export class DocumentsPdfService {
 
   /** Packing list logístico PT (independiente de despacho). */
   async buildPtPackingListPtPdf(id: number): Promise<Buffer> {
+    await this.resolveCompanyLine();
     const pl = await this.ptPlRepo.findOne({
       where: { id },
       relations: { client: true, items: true },
@@ -1346,7 +1382,7 @@ export class DocumentsPdfService {
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = DocumentsPdfService.renderCorporateHeader(
+    let y = this.renderCorporateHeader(
       doc,
       x0,
       DocumentsPdfService.PDF_MARGIN,

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -178,5 +179,13 @@ export class DispatchBillingController {
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   deleteInvoiceLine(@Param('id', ParseIntPipe) id: number, @Param('lineId', ParseIntPipe) lineId: number) {
     return this.service.deleteManualInvoiceLine(id, lineId);
+  }
+
+  /** Vincula despachos sin PL PT (legacy) a un `pt_packing_lists` por BOL+cliente y copia pallets a `pt_packing_list_items`. */
+  @Post('admin/reconcile-legacy-dispatches')
+  @Roles(ROLES.ADMIN)
+  reconcileLegacyDispatches(@Query('dryRun') dryRun?: string) {
+    const flag = dryRun === 'true' || dryRun === '1';
+    return this.service.reconcileLegacyDispatches({ dryRun: flag });
   }
 }

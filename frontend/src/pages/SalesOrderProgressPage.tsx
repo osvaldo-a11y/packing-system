@@ -42,11 +42,11 @@ export type SalesOrderProgressApi = {
 function fulfillmentBadge(f: SalesOrderProgressLineApi['fulfillment']) {
   switch (f) {
     case 'completo':
-      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Completo</Badge>;
+      return <Badge className="border border-green-200 bg-green-50 text-green-700 hover:bg-green-50">Completo</Badge>;
     case 'parcial':
-      return <Badge variant="secondary" className="bg-amber-500/20 text-amber-950 dark:text-amber-100">Parcial</Badge>;
+      return <Badge className="border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">En curso</Badge>;
     default:
-      return <Badge variant="outline">Pendiente</Badge>;
+      return <Badge className="border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">Pendiente</Badge>;
   }
 }
 
@@ -134,11 +134,14 @@ export function SalesOrderProgressPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Por línea de pedido</CardTitle>
-          <CardDescription>
-            Depósito = pallets finales en estado definitivo sin PL ni despacho. Asignado PL = en packing list PT confirmado (no reversado)
-            vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con despacho confirmado o
-            despachado. El filtro por línea usa formato + marca/variedad cuando están definidos en el pedido.
-          </CardDescription>
+          <details className="rounded-md border border-blue-200 bg-blue-50 p-2">
+            <summary className="cursor-pointer text-sm font-medium text-blue-700">ℹ ¿Cómo funciona el avance?</summary>
+            <CardDescription className="mt-2 text-slate-600">
+              Depósito = pallets finales en estado definitivo sin PL ni despacho. Asignado PL = en packing list PT confirmado (no reversado)
+              vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con despacho confirmado o
+              despachado. El filtro por línea usa formato + marca/variedad cuando están definidos en el pedido.
+            </CardDescription>
+          </details>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {data.lines.length === 0 ? (

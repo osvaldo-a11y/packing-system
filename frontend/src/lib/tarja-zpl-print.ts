@@ -464,15 +464,10 @@ export async function getLocalPrinters(): Promise<{
     }
   }
 
-  const httpsPage =
-    typeof window !== 'undefined' && window.location.protocol === 'https:' ? true : false;
-  const hint = httpsPage
-    ? ' Si esta página es HTTPS, el navegador suele bloquear http://127.0.0.1:3001. Usá la app por HTTP en planta o configurá VITE_ZPL_PRINT_SERVICE_URL con un proxy mismo-origen.'
-    : ' Levantá el servicio en este PC: carpeta `local-zebra-print-service`, `node print-server.js` (puerto 3001). Probar en terminal: `curl http://127.0.0.1:3001/health`.';
-
   return {
     status: 'unavailable',
-    message: `No respondió en: ${candidates.join(' · ')}.${hint}`,
+    message:
+      'No se detectó el servicio de impresión local en este equipo. Usá «Descargar ZPL» o iniciá el servicio en el PC de planta y volvé a abrir este diálogo.',
   };
 }
 

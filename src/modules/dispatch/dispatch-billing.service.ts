@@ -1618,4 +1618,182 @@ export class DispatchBillingService {
     await this.recalculateInvoiceTotals(inv.id);
     return { ok: true };
   }
+
+  /**
+   * Repara trazabilidad: despacho sin `dispatch_pt_packing_lists` + PL en `pt_packing_lists`
+   * (mismo `numero_bol` TRIM y `client_id` del despacho). Resuelve pallets vía legacy
+   * `dispatch_tag_items` → `pt_tags` → `final_pallets` (dispatch_id en pallets suele estar vacío).
+   */
+  async reconcileLegacyDispatches(opts: { dryRun: boolean }): Promise<{
+    despachosReconciliados: number;
+    plsActualizados: number;
+    itemsCreados: number;
+    errores: string[];
+  }> {
+    const errores: string[] = [];
+    let despachosReconciliados = 0;
+    let itemsCreados = 0;
+    const plIdsTouched = new Set<number>();
+
+    const linkedRows = await this.dispatchPlRepo.find({ select: ['dispatch_id', 'pt_packing_list_id'] });
+    const linkedDispatchIds = new Set(linkedRows.map((r) => Number(r.dispatch_id)));
+    const plIdsAlreadyLinked = new Set(linkedRows.map((r) => Number(r.pt_packing_list_id)));
+
+    const reservedPlIds = new Set(plIdsAlreadyLinked);
+
+    const allDispatches = await this.dispatchRepo.find({ order: { id: 'ASC' } });
+    const legacyDispatches = allDispatches.filter((d) => !linkedDispatchIds.has(d.id));
+
+    const palletsToReconcileInventory: number[] = [];
+
+    for (const d of legacyDispatches) {
+      const bol = (d.numero_bol ?? '').trim();
+      if (!bol) {
+        errores.push(`Despacho #${d.id}: sin numero_bol; no se puede cruzar con pt_packing_lists.`);
+        continue;
+      }
+
+      const clientId = d.client_id != null && Number(d.client_id) > 0 ? Number(d.client_id) : null;
+      if (clientId == null) {
+        errores.push(
+          `Despacho #${d.id}: sin client_id válido; se requiere pt_packing_lists.client_id = dispatches.client_id.`,
+        );
+        continue;
+      }
+
+      const plCandidates = await this.ptPlRepo
+        .createQueryBuilder('pl')
+        .select(['pl.id', 'pl.list_code', 'pl.numero_bol', 'pl.client_id', 'pl.status'])
+        .where('TRIM(pl.numero_bol) = :bol', { bol })
+        .andWhere('pl.client_id = :cid', { cid: clientId })
+        .andWhere("pl.status <> 'anulado'")
+        .getMany();
+
+      if (plCandidates.length !== 1) {
+        if (plCandidates.length === 0) {
+          errores.push(
+            `Despacho #${d.id}: 0 PL candidatos (TRIM(numero_bol)= "${bol}", client_id=${clientId}, status<>anulado).`,
+          );
+        } else {
+          errores.push(
+            `Despacho #${d.id}: ${plCandidates.length} PL candidatos (${plCandidates
+              .map((p) => `#${p.id}`)
+              .join(', ')}); debe haber exactamente uno.`,
+          );
+        }
+        continue;
+      }
+
+      const pl = plCandidates[0];
+      if (reservedPlIds.has(Number(pl.id))) {
+        errores.push(
+          `Despacho #${d.id}: el PL #${pl.id} (${pl.list_code}) ya está en dispatch_pt_packing_lists o fue reservado en esta corrida.`,
+        );
+        continue;
+      }
+
+      const fps = await this.fpRepo
+        .createQueryBuilder('fp')
+        .distinct(true)
+        .innerJoin(
+          DispatchTagItem,
+          'dti',
+          'dti.tarja_id = fp.tarja_id AND dti.dispatch_id = :did',
+          { did: d.id },
+        )
+        .innerJoin(PtTag, 'pt', 'pt.id = dti.tarja_id')
+        .orderBy('fp.id', 'ASC')
+        .getMany();
+
+      let abortDispatch = false;
+      for (const fp of fps) {
+        const existingPl = fp.pt_packing_list_id != null ? Number(fp.pt_packing_list_id) : null;
+        if (existingPl != null && existingPl > 0 && existingPl !== Number(pl.id)) {
+          errores.push(
+            `Despacho #${d.id}: final_pallet #${fp.id} ya tiene pt_packing_list_id=${existingPl}; conflicto.`,
+          );
+          abortDispatch = true;
+          break;
+        }
+      }
+      if (abortDispatch) continue;
+
+      let newItemsForThis = 0;
+      for (const fp of fps) {
+        const exists = await this.ptPlItemRepo.findOne({
+          where: { packing_list_id: pl.id, final_pallet_id: fp.id },
+        });
+        if (!exists) newItemsForThis += 1;
+      }
+
+      if (opts.dryRun) {
+        despachosReconciliados += 1;
+        itemsCreados += newItemsForThis;
+        plIdsTouched.add(Number(pl.id));
+        reservedPlIds.add(Number(pl.id));
+        continue;
+      }
+
+      const qr = this.dispatchRepo.manager.connection.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.manager.insert(DispatchPtPackingList, {
+          dispatch_id: d.id,
+          pt_packing_list_id: pl.id,
+        });
+
+        for (const fp of fps) {
+          const existed = await qr.manager.findOne(PtPackingListItem, {
+            where: { packing_list_id: pl.id, final_pallet_id: fp.id },
+          });
+          if (!existed) {
+            await qr.manager.insert(PtPackingListItem, {
+              packing_list_id: pl.id,
+              final_pallet_id: fp.id,
+            });
+            itemsCreados += 1;
+          }
+
+          const row = await qr.manager.findOne(FinalPallet, { where: { id: fp.id } });
+          if (!row) continue;
+
+          row.pt_packing_list_id = pl.id;
+          if (row.status === 'definitivo') {
+            row.status = 'asignado_pl';
+            palletsToReconcileInventory.push(Number(row.id));
+          }
+
+          await qr.manager.save(row);
+        }
+
+        await qr.commitTransaction();
+        despachosReconciliados += 1;
+        plIdsTouched.add(Number(pl.id));
+        reservedPlIds.add(Number(pl.id));
+      } catch (e) {
+        await qr.rollbackTransaction();
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`Despacho #${d.id}: transacción revertida — ${msg}`);
+      } finally {
+        await qr.release();
+      }
+    }
+
+    for (const pid of palletsToReconcileInventory) {
+      try {
+        await this.finalPalletService.reconcileInventoryForPallet(pid);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`Inventario PT (pallet #${pid}): ${msg}`);
+      }
+    }
+
+    return {
+      despachosReconciliados,
+      plsActualizados: plIdsTouched.size,
+      itemsCreados,
+      errores,
+    };
+  }
 }

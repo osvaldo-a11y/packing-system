@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson } from '@/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -332,6 +332,9 @@ export function RepalletPage() {
   const helpBody =
     'Tomá cajas de uno o más pallets en depósito (definitivo, sin despacho) y formá un pallet nuevo. La restricción principal es que compartan formato (y el resto de cabecera: cliente, especie, calidad operativa, packing, mercado, marca). Podés mezclar varias variedades en el destino; cada combinación proceso/variedad/ref queda en su línea. Registra el evento para trazabilidad.';
 
+  const nuevoRepalletInfo =
+    'Orígenes (FIFO por líneas). Los filtros (incl. Completitud: solo incompletos vs tope) y la tabla usan el mismo universo (solo depósito). Las cajas a mover no pueden superar lo disponible por pallet.';
+
   const scrollToForm = () => {
     document.getElementById('repallet-origenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -382,7 +385,7 @@ export function RepalletPage() {
             type="button"
             size="sm"
             className={btnToolbarPrimary}
-            disabled={mut.isPending}
+            disabled={totalCajasAMover === 0 || mut.isPending}
             onClick={() => mut.mutate()}
           >
             {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
@@ -391,54 +394,38 @@ export function RepalletPage() {
       </div>
 
       <Card id="repallet-origenes" className={contentCard}>
-        <CardHeader className="space-y-3 pb-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 space-y-1">
-              <CardTitle className={sectionTitle}>Nuevo repaletizaje</CardTitle>
-              <CardDescription className="text-[13px] text-slate-500">
-                Orígenes (FIFO por líneas). Los filtros (incl. Completitud: solo incompletos vs tope) y la tabla usan el
-                mismo universo (solo depósito). Las cajas a mover no pueden superar lo disponible por pallet.
-              </CardDescription>
-            </div>
-            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-              <div
-                className={cn(
-                  kpiCardSm,
-                  'flex min-w-[200px] flex-row items-center justify-between gap-3 border-sky-200/80 bg-sky-50/50 py-2.5 sm:min-w-[240px]',
-                )}
-                title="Suma de todas las cajas que estás asignando a mover en los orígenes"
-              >
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Boxes className="h-4 w-4 text-sky-700" aria-hidden />
-                  <span className="text-xs font-medium text-slate-700">Total cajas a mover</span>
-                </div>
-                <span className="text-xl font-semibold tabular-nums text-sky-950">{formatCount(totalCajasAMover)}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
-            <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5">
-              <Label className="text-[11px] text-slate-500">Formato (orígenes)</Label>
-              <select
-                className={filterSelectClass}
-                value={filterFormatId}
-                onChange={(e) => setFilterFormatId(Number(e.target.value))}
-              >
-                <option value={0}>Todos los formatos</option>
-                {formatOptions.map(([id, code]) => (
-                  <option key={id} value={id}>
-                    {code}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="max-w-md flex-1 text-[11px] leading-snug text-slate-500">
-              Repaletizá dentro del mismo formato: al elegir uno, la lista y la tabla quedan alineadas. Los pallets con
-              menos cajas que el tope del formato aparecen como parciales abajo.
-            </p>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className={cn(sectionTitle, 'mb-0')}>Nuevo repaletizaje</CardTitle>
+            <button type="button" className={pageInfoButton} title={nuevoRepalletInfo} aria-label="Instrucciones nuevo repaletizaje">
+              <Info className="h-4 w-4" />
+            </button>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(200px,260px)] lg:items-start">
+            <div className="min-w-0 space-y-5">
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+                <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5">
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Formato (orígenes)</Label>
+                  <select
+                    className={filterSelectClass}
+                    value={filterFormatId}
+                    onChange={(e) => setFilterFormatId(Number(e.target.value))}
+                  >
+                    <option value={0}>Todos los formatos</option>
+                    {formatOptions.map(([id, code]) => (
+                      <option key={id} value={id}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="max-w-md flex-1 text-[11px] leading-snug text-slate-500">
+                  Repaletizá dentro del mismo formato: al elegir uno, la lista y la tabla quedan alineadas. Los pallets con
+                  menos cajas que el tope del formato aparecen como parciales abajo.
+                </p>
+              </div>
           {sources.map((row, idx) => {
             const meta = row.palletId > 0 ? byId.get(row.palletId) : undefined;
             const max = meta?.boxes ?? 0;
@@ -450,7 +437,7 @@ export function RepalletPage() {
                 className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end"
               >
                 <div className="grid min-w-0 flex-1 gap-2">
-                  <Label className="text-xs text-slate-500">Pallet origen #{idx + 1}</Label>
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Pallet origen #{idx + 1}</Label>
                   <select
                     className={filterSelectClass}
                     value={row.palletId || ''}
@@ -485,7 +472,7 @@ export function RepalletPage() {
                   ) : null}
                 </div>
                 <div className="grid w-full gap-2 sm:w-40">
-                  <Label className="text-xs text-slate-500">Cajas a mover</Label>
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cajas a mover</Label>
                   <Input
                     className={filterInputClass}
                     inputMode="numeric"
@@ -528,7 +515,7 @@ export function RepalletPage() {
           </Button>
 
           <div className="grid gap-2">
-            <Label className="text-xs text-slate-500">Notas (opcional)</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Notas</Label>
             <Input
               className={filterInputClass}
               value={notes}
@@ -547,6 +534,30 @@ export function RepalletPage() {
             <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
               {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
             </Button>
+          </div>
+            </div>
+
+            <aside
+              className="sticky top-4 shrink-0 rounded-xl border border-border bg-background p-4 shadow-sm lg:min-h-0"
+              title="Suma de todas las cajas que estás asignando a mover en los orígenes"
+            >
+              <div className="flex items-center gap-2">
+                <Boxes
+                  className={cn('h-4 w-4 shrink-0', totalCajasAMover > 0 ? 'text-[#1D9E75]' : 'text-muted-foreground')}
+                  aria-hidden
+                />
+                <p className={kpiLabel}>Total cajas a mover</p>
+              </div>
+              <p
+                className={cn(
+                  'mt-2 text-3xl tabular-nums',
+                  totalCajasAMover === 0 ? 'text-muted-foreground' : 'font-bold text-[#1D9E75]',
+                )}
+              >
+                {formatCount(totalCajasAMover)}
+              </p>
+              <p className={cn(kpiFootnote, 'mt-1')}>Según filas de orígenes arriba</p>
+            </aside>
           </div>
         </CardContent>
       </Card>

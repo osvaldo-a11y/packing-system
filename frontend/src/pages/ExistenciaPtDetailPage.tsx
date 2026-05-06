@@ -243,10 +243,6 @@ export function ExistenciaPtDetailPage() {
                 </>
               ) : (
                 <>
-                  Código unidad PT resuelto desde las líneas (proceso →{' '}
-                  <code className="text-xs">tarja_id</code> y <code className="text-xs">pt_tag_items</code>
-                  ). ID interno (sistema):{' '}
-                  <span className="font-mono tabular-nums">{data.pallet.id}</span>
                   {data.pallet.unidad_pt_codigos && data.pallet.unidad_pt_codigos.length > 1 ? (
                     <> · Varias TAR en esta preparación: {data.pallet.unidad_pt_codigos.join(', ')}</>
                   ) : null}
@@ -267,17 +263,14 @@ export function ExistenciaPtDetailPage() {
                 </Badge>
               )}
             </div>
-            <p className="mt-2 text-muted-foreground">
-              Trazabilidad de producto terminado (solo lectura). Cadena: recepción → proceso → Unidad PT.
-            </p>
+            <p className="mt-2 text-xs text-muted-foreground">Solo lectura</p>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Cabecera (Unidad PT)</CardTitle>
-              <CardDescription>Datos comerciales y de empaque; sin edición desde esta vista.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+          <section className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold">Cabecera (Unidad PT)</h3>
+            </div>
+            <div className="grid gap-2 p-4 text-sm sm:grid-cols-2">
               <div>
                 <span className="text-muted-foreground">Código Unidad PT (principal)</span>
                 <p className="font-mono font-medium">
@@ -287,10 +280,6 @@ export function ExistenciaPtDetailPage() {
                     data.pallet.unidad_pt_codigos?.join(', ') || data.pallet.tag_code || '—'
                   )}
                 </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">ID interno (sistema)</span>
-                <p className="font-mono font-medium tabular-nums">{data.pallet.id}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Estado</span>
@@ -351,8 +340,8 @@ export function ExistenciaPtDetailPage() {
                   <p>{data.pallet.clamshell_label}</p>
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
           {data.repallet &&
           (data.repallet.as_result != null ||
@@ -432,12 +421,11 @@ export function ExistenciaPtDetailPage() {
           ) : null}
 
           {data.recepciones.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Recepciones asociadas</CardTitle>
-                <CardDescription>Referencias de ingreso de materia prima vinculadas a los procesos de las líneas.</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <section className="bg-background border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold">Recepciones asociadas</h3>
+              </div>
+              <div className="p-4">
                 <ul className="space-y-2 text-sm">
                   {data.recepciones.map((r) => (
                     <li key={r.id} className="rounded-md border border-border bg-muted/20 px-3 py-2">
@@ -449,18 +437,15 @@ export function ExistenciaPtDetailPage() {
                     </li>
                   ))}
                 </ul>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Líneas y cadena recepción → proceso → Unidad PT</CardTitle>
-              <CardDescription>
-                Por cada línea: origen en recepción/proceso y cantidades aportadas a esta preparación.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto pt-0">
+          <section className="bg-background border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold">Líneas y cadena recepción → proceso → Unidad PT</h3>
+            </div>
+            <div className="overflow-x-auto p-4 pt-3">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -533,8 +518,8 @@ export function ExistenciaPtDetailPage() {
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </>
       ) : null}
     </div>

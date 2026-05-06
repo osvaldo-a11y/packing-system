@@ -2,6 +2,7 @@
 .env
 .env.*.local
 *.dump
+scripts/check-db.js
 
 
 # Build y dependencias

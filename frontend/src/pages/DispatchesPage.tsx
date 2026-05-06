@@ -10,8 +10,8 @@ import {
   MoreHorizontal,
   Package,
   Plus,
-  Tag,
   Truck,
+  X,
 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -41,7 +41,6 @@ import {
   summarizeDispatchPalletRisks,
 } from '@/lib/operational-risk';
 import { formatCount, formatLb, formatMoney, parseNumeric } from '@/lib/number-format';
-import { mergeUnitPriceStrings, unitPricesRecordFromOrderLines } from '@/lib/sales-order-prices';
 import {
   contentCard,
   emptyStatePanel,
@@ -273,6 +272,19 @@ function dispatchTotalLb(d: DispatchApi) {
   for (const l of lines) {
     const x = Number(l.pounds);
     if (Number.isFinite(x)) sum += x;
+  }
+  return sum > 0 ? sum : null;
+}
+
+function dispatchTotalLbFromPtTags(d: DispatchApi, ptTagById: Map<number, PtTagApi>) {
+  const seen = new Set<number>();
+  let sum = 0;
+  for (const it of d.items ?? []) {
+    const id = Number(it.tarja_id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    const w = Number(ptTagById.get(id)?.net_weight_lb);
+    if (Number.isFinite(w) && w > 0) sum += w;
   }
   return sum > 0 ? sum : null;
 }
@@ -517,6 +529,11 @@ export function DispatchesPage() {
     for (const p of allFinalPallets ?? []) m.set(p.id, p);
     return m;
   }, [allFinalPallets]);
+  const ptTagById = useMemo(() => {
+    const m = new Map<number, PtTagApi>();
+    for (const t of ptTags ?? []) m.set(t.id, t);
+    return m;
+  }, [ptTags]);
 
   const dispatchForm = useForm<DispatchForm>({
     resolver: zodResolver(dispatchSchema),
@@ -557,6 +574,8 @@ export function DispatchesPage() {
   const invoicePricesDispatch = dispatches?.find((x) => x.id === invoicePricesDispatchId);
   const invoicePricesLocked = invoicePricesDispatch?.status === 'despachado';
   const orderLinkDispatch = dispatches?.find((x) => x.id === orderLinkDialogDispatchId);
+  const orderLinkSelectedOrder = salesOrders?.find((s) => s.id === orderLinkOrderId);
+  const orderLinkClientLabel = orderLinkSelectedOrder?.cliente_nombre?.trim() || `Cliente #${orderLinkClientId}`;
 
   const tagForm = useForm<AddTagForm>({
     resolver: zodResolver(addTagSchema),
@@ -997,7 +1016,7 @@ export function DispatchesPage() {
         } satisfies G);
       g.rows.push(d);
       g.totalBoxes += dispatchTotalCajas(d);
-      const lb = dispatchTotalLb(d);
+      const lb = dispatchTotalLbFromPtTags(d, ptTagById);
       if (lb != null) g.totalLb += lb;
       g.count += 1;
       const st = String(d.status ?? 'borrador').toLowerCase();
@@ -1107,7 +1126,7 @@ export function DispatchesPage() {
       despachados: despachadosSolo,
       pendientes,
     };
-  }, [filtered, palletById, processes, ptTags]);
+  }, [filtered, palletById, processes, ptTags, ptTagById]);
 
   const pendingConfirmSummary = useMemo(() => {
     if (confirmDispatchId == null || !dispatches) return null;
@@ -1197,9 +1216,22 @@ export function DispatchesPage() {
               Nuevo despacho
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl [&>button]:hidden">
             <DialogHeader>
-              <DialogTitle>Nuevo despacho</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Nuevo despacho
+                </DialogTitle>
+                <button
+                  type="button"
+                  onClick={() => setDispatchOpen(false)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                  aria-label="Cerrar"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </DialogHeader>
             <form
               onSubmit={dispatchForm.handleSubmit((v) => {
@@ -1220,74 +1252,93 @@ export function DispatchesPage() {
                 }
                 createDispatchMut.mutate({ ...v, pt_packing_list_ids: selectedPlIds });
               })}
-              className="grid gap-3 py-2"
+              className="grid gap-4 py-2"
             >
-              <div className="grid gap-2">
-                <Label>Packing lists PT (confirmados, disponibles)</Label>
-                <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-border p-2 text-sm">
-                  {(linkablePtPl ?? []).length === 0 ? (
-                    <p className="text-muted-foreground">No hay packing lists confirmados libres. Confirmalos en Existencias PT (packing lists) primero.</p>
-                  ) : (
-                    (linkablePtPl ?? []).map((pl) => (
-                      <label key={pl.id} className="flex cursor-pointer items-start gap-2">
-                        <input
-                          type="checkbox"
-                          className="mt-1"
-                          checked={selectedPlIds.includes(pl.id)}
-                          onChange={(e) => {
-                            setSelectedPlIds((prev) =>
-                              e.target.checked ? [...prev, pl.id] : prev.filter((x) => x !== pl.id),
-                            );
-                          }}
-                        />
-                        <span>
-                          <span className="font-mono">{pl.list_code}</span> · {pl.list_date}{' '}
-                          {pl.client_nombre ? `· ${pl.client_nombre}` : ''}
-                          {pl.numero_bol ? (
-                            <span className="text-muted-foreground"> · BOL {pl.numero_bol}</span>
-                          ) : null}
-                        </span>
-                      </label>
-                    ))
-                  )}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <Label>Packing lists PT</Label>
+                    <div className="max-h-[180px] space-y-2 overflow-y-auto rounded-md border border-border p-2 text-sm">
+                      {(linkablePtPl ?? []).length === 0 ? (
+                        <p className="text-muted-foreground">No hay packing lists confirmados libres. Confirmalos en Existencias PT (packing lists) primero.</p>
+                      ) : (
+                        (linkablePtPl ?? []).map((pl) => (
+                          <label key={pl.id} className="flex cursor-pointer items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              checked={selectedPlIds.includes(pl.id)}
+                              onChange={(e) => {
+                                setSelectedPlIds((prev) =>
+                                  e.target.checked ? [...prev, pl.id] : prev.filter((x) => x !== pl.id),
+                                );
+                              }}
+                            />
+                            <span>
+                              <span className="font-mono">{pl.list_code}</span> · {pl.list_date}{' '}
+                              {pl.client_nombre ? `· ${pl.client_nombre}` : ''}
+                              {pl.numero_bol ? (
+                                <span className="text-muted-foreground"> · BOL {pl.numero_bol}</span>
+                              ) : null}
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Pedido</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      {...dispatchForm.register('orden_id', { valueAsNumber: true })}
+                    >
+                      {(salesOrders ?? []).map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.order_number}
+                          {o.cliente_nombre?.trim()
+                            ? ` · ${o.cliente_nombre}`
+                            : ` · cliente #${o.cliente_id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+                    Cliente: {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
+                    <span className="font-mono text-xs">#{selectedSalesOrder?.id ?? '—'}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <Label>Fecha despacho</Label>
+                    <Input type="datetime-local" {...dispatchForm.register('fecha_despacho')} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Número BOL</Label>
+                    <Input placeholder="Único en sistema" {...dispatchForm.register('numero_bol')} />
+                    {inheritedBolPreview.conflict ? (
+                      <p className="text-xs text-destructive">
+                        Los PL seleccionados tienen BOL distintos. Unificá en cada packing list o elegí PL con el mismo BOL.
+                      </p>
+                    ) : inheritedBolPreview.value ? (
+                      <p className="text-xs text-muted-foreground">
+                        Se usará <span className="font-mono">{inheritedBolPreview.value}</span> desde el packing list si dejás el campo
+                        vacío o igual. Si cambiás el valor, quedará solo en el despacho (no modifica los PL).
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Ningún PL seleccionado tiene BOL cargado; ingresalo aquí.</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Temperatura (°F)</Label>
+                    <Input type="number" step="0.01" {...dispatchForm.register('temperatura_f')} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Termógrafo (n° serie / ID)</Label>
+                    <Input placeholder="Opcional" {...dispatchForm.register('thermograph_serial')} />
+                  </div>
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Pedido</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  {...dispatchForm.register('orden_id', { valueAsNumber: true })}
-                >
-                  {(salesOrders ?? []).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.order_number}
-                      {o.cliente_nombre?.trim()
-                        ? ` · ${o.cliente_nombre}`
-                        : ` · cliente #${o.cliente_id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <input type="hidden" {...dispatchForm.register('cliente_id', { valueAsNumber: true })} />
-              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-                <p className="font-medium text-foreground">Cliente del pedido (heredado)</p>
-                <p className="mt-1 text-muted-foreground">
-                  {selectedSalesOrder?.cliente_nombre?.trim() ? (
-                    <>
-                      <span className="text-foreground">{selectedSalesOrder.cliente_nombre}</span>
-                      <span className="font-mono text-xs text-muted-foreground"> #{selectedSalesOrder.cliente_id}</span>
-                    </>
-                  ) : (
-                    <span>
-                      Cliente maestro <span className="font-mono">#{selectedSalesOrder?.cliente_id ?? '—'}</span>
-                    </span>
-                  )}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Lo toma automáticamente del pedido; no hace falta ingresar un ID. El packing list y el pedido ya definen el contexto del
-                  despacho.
-                </p>
-              </div>
               {plCommercialPreview.conflict && selectedPlIds.length > 0 ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
                   Los packing lists seleccionados tienen <strong>cliente comercial</strong> distinto en inventario (Existencias PT). En opciones avanzadas
@@ -1320,44 +1371,12 @@ export function DispatchesPage() {
                   ) : null}
                 </div>
               </details>
-              <div className="grid gap-2">
-                <Label>Fecha despacho</Label>
-                <Input type="datetime-local" {...dispatchForm.register('fecha_despacho')} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Número BOL</Label>
-                <Input placeholder="Único en sistema; vacío si viene del PL" {...dispatchForm.register('numero_bol')} />
-                {inheritedBolPreview.conflict ? (
-                  <p className="text-xs text-destructive">
-                    Los PL seleccionados tienen BOL distintos. Unificá en cada packing list o elegí PL con el mismo BOL.
-                  </p>
-                ) : inheritedBolPreview.value ? (
-                  <p className="text-xs text-muted-foreground">
-                    Se usará <span className="font-mono">{inheritedBolPreview.value}</span> desde el packing list si dejás el campo
-                    vacío o igual. Si cambiás el valor, quedará solo en el despacho (no modifica los PL).
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Ningún PL seleccionado tiene BOL cargado; ingresalo aquí.</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Temperatura (°F)</Label>
-                <Input type="number" step="0.01" {...dispatchForm.register('temperatura_f')} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Termógrafo (nº serie / ID)</Label>
-                <Input placeholder="Opcional" {...dispatchForm.register('thermograph_serial')} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Notas termógrafo / cadena de frío</Label>
-                <Input placeholder="Opcional" {...dispatchForm.register('thermograph_notes')} />
-              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setDispatchOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={createDispatchMut.isPending}>
-                  {createDispatchMut.isPending ? 'Creando…' : 'Crear'}
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={createDispatchMut.isPending}>
+                  {createDispatchMut.isPending ? 'Creando…' : 'Registrar despacho'}
                 </Button>
               </DialogFooter>
             </form>
@@ -1375,9 +1394,11 @@ export function DispatchesPage() {
             <p className={kpiValueLg}>{formatCount(dispatchKpis.totalDespachos)}</p>
             <p className={kpiFootnote}>Total en filtro</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, dispatchKpis.pendientes > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Pendientes</p>
-            <p className={kpiValueLg}>{formatCount(dispatchKpis.pendientes)}</p>
+            <p className={cn(kpiValueLg, dispatchKpis.pendientes > 0 ? 'text-amber-700' : 'text-green-700')}>
+              {formatCount(dispatchKpis.pendientes)}
+            </p>
             <p className={kpiFootnote}>Borrador</p>
           </div>
           <div className={kpiCard}>
@@ -1385,31 +1406,31 @@ export function DispatchesPage() {
             <p className={kpiValueLg}>{formatCount(dispatchKpis.confirmados)}</p>
             <p className={kpiFootnote}>Cerrados operativamente</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Despachados</p>
-            <p className={kpiValueLg}>{formatCount(dispatchKpis.despachados)}</p>
+            <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(dispatchKpis.despachados)}</p>
             <p className={kpiFootnote}>Salida física registrada</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCardSm}>
+          <div className={cn(kpiCardSm, 'border-blue-200 bg-blue-50')}>
             <p className={kpiLabel}>Cajas totales</p>
-            <p className={kpiValueMd}>{formatCount(dispatchKpis.totalCajas)}</p>
+            <p className={cn(kpiValueMd, 'text-blue-700')}>{formatCount(dispatchKpis.totalCajas)}</p>
             <p className={kpiFootnote}>Suma en vista</p>
           </div>
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Peso total (lb)</p>
             <p className={kpiValueMd}>{dispatchKpis.totalLb != null ? formatLb(dispatchKpis.totalLb, 2) : '—'}</p>
-            <p className={kpiFootnote}>Desde factura</p>
+            <p className={kpiFootnote}>Desde PT vinculadas</p>
           </div>
-          <div className={kpiCardSm}>
+          <div className={cn(kpiCardSm, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Ventas ($)</p>
-            <p className={kpiValueMd}>{dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—'}</p>
+            <p className={cn(kpiValueMd, 'text-green-700')}>{dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—'}</p>
             <p className={kpiFootnote}>Facturas con total</p>
           </div>
           <div className={kpiCardSm}>
             <p className={kpiLabel}>Precio / lb</p>
-            <p className={kpiValueMd}>{dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)}` : '—'}</p>
+            <p className={kpiValueMd}>{dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)} / lb` : '—'}</p>
             <p className={kpiFootnote}>Promedio ponderado</p>
           </div>
         </div>
@@ -1836,6 +1857,72 @@ export function DispatchesPage() {
                                       Registrar salida física
                                     </DropdownMenuItem>
                                   ) : null}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>Ver detalle</DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                        toast.success('PDF factura');
+                                      } catch (e) {
+                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                      }
+                                    }}
+                                  >
+                                    PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setMetaDialogDispatchId(d.id);
+                                      setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
+                                      setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
+                                      setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
+                                      setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                                    }}
+                                  >
+                                    Editar datos despacho
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Packing list
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Generar factura
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      const so = salesOrders?.find((s) => s.id === d.orden_id);
+                                      setOrderLinkDialogDispatchId(d.id);
+                                      setOrderLinkOrderId(d.orden_id);
+                                      setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
+                                      setOrderLinkCommercialClientId(d.client_id ?? 0);
+                                    }}
+                                  >
+                                    Corregir pedido vinculado
+                                  </DropdownMenuItem>
+                                  {d.kind !== 'packing_lists' ? (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setAttachFpDispatchId(d.id);
+                                        const pre: Record<number, boolean> = {};
+                                        for (const fp of d.final_pallets ?? []) {
+                                          pre[fp.id] = true;
+                                        }
+                                        setFpSelect(pre);
+                                        const pr: Record<string, string> = {};
+                                        const saved = d.final_pallet_unit_prices ?? {};
+                                        for (const [k, v] of Object.entries(saved)) {
+                                          pr[k] = String(v);
+                                        }
+                                        setFpAttachUnitPrices(pr);
+                                      }}
+                                    >
+                                      <Package className="mr-2 h-4 w-4" />
+                                      Unidad PT (legacy)
+                                    </DropdownMenuItem>
+                                  ) : null}
                                   {d.status === 'despachado' && canRevertSalida ? (
                                     <DropdownMenuItem
                                       disabled={revertDespachadoMut.isPending}
@@ -1853,98 +1940,6 @@ export function DispatchesPage() {
                                       Deshacer salida
                                     </DropdownMenuItem>
                                   ) : null}
-                                  {d.kind !== 'packing_lists' ? (
-                                    <>
-                                      <DropdownMenuItem onClick={() => setAddTagDispatchId(d.id)}>
-                                        <Tag className="mr-2 h-4 w-4" />
-                                        Unidad PT (legacy)
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setAttachFpDispatchId(d.id);
-                                          const pre: Record<number, boolean> = {};
-                                          for (const fp of d.final_pallets ?? []) {
-                                            pre[fp.id] = true;
-                                          }
-                                          setFpSelect(pre);
-                                          const pr: Record<string, string> = {};
-                                          const saved = d.final_pallet_unit_prices ?? {};
-                                          for (const [k, v] of Object.entries(saved)) {
-                                            pr[k] = String(v);
-                                          }
-                                          setFpAttachUnitPrices(pr);
-                                        }}
-                                      >
-                                        <Package className="mr-2 h-4 w-4" />
-                                        Unidad PT (legacy)
-                                      </DropdownMenuItem>
-                                    </>
-                                  ) : null}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                    Packing list
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      const so = salesOrders?.find((s) => s.id === d.orden_id);
-                                      setOrderLinkDialogDispatchId(d.id);
-                                      setOrderLinkOrderId(d.orden_id);
-                                      setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
-                                      setOrderLinkCommercialClientId(d.client_id ?? 0);
-                                    }}
-                                  >
-                                    Corregir pedido vinculado
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setMetaDialogDispatchId(d.id);
-                                      setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
-                                      setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
-                                      setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
-                                      setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
-                                    }}
-                                  >
-                                    Editar datos despacho
-                                  </DropdownMenuItem>
-                                  {d.kind === 'packing_lists' && d.status === 'borrador' ? (
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        setBolDialogDispatchId(d.id);
-                                        setBolEditValue(d.numero_bol);
-                                        setBolApplyToPls(false);
-                                      }}
-                                    >
-                                      Editar BOL
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuSeparator />
-                                  {uniqueFormatsFromFinalPallets(d.final_pallets ?? []).length > 0 ? (
-                                    <DropdownMenuItem
-                                      disabled={d.status === 'despachado'}
-                                      onClick={() => {
-                                        setInvoicePricesDispatchId(d.id);
-                                        const order = salesOrders?.find((o) => o.id === d.orden_id);
-                                        const inherited = order ? unitPricesRecordFromOrderLines(order.lines) : {};
-                                        const saved = d.final_pallet_unit_prices ?? {};
-                                        const formats = uniqueFormatsFromFinalPallets(d.final_pallets ?? []);
-                                        setDispatchInvoiceUnitPrices(
-                                          mergeUnitPriceStrings(
-                                            formats.map((f) => f.id),
-                                            saved,
-                                            inherited,
-                                          ),
-                                        );
-                                      }}
-                                    >
-                                      ① Precios factura
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    ② Generar factura
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -2084,60 +2079,19 @@ export function DispatchesPage() {
                               Deshacer salida
                             </DropdownMenuItem>
                           ) : null}
-                          {d.kind !== 'packing_lists' ? (
-                            <>
-                              <DropdownMenuItem onClick={() => setAddTagDispatchId(d.id)}>
-                                <Tag className="mr-2 h-4 w-4" />
-                                Unidad PT (legacy)
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setAttachFpDispatchId(d.id);
-                                  const pre: Record<number, boolean> = {};
-                                  for (const fp of d.final_pallets ?? []) {
-                                    pre[fp.id] = true;
-                                  }
-                                  setFpSelect(pre);
-                                  const pr: Record<string, string> = {};
-                                  const saved = d.final_pallet_unit_prices ?? {};
-                                  for (const [k, v] of Object.entries(saved)) {
-                                    pr[k] = String(v);
-                                  }
-                                  setFpAttachUnitPrices(pr);
-                                }}
-                              >
-                                <Package className="mr-2 h-4 w-4" />
-                                Unidad PT (legacy)
-                              </DropdownMenuItem>
-                            </>
-                          ) : null}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />
-                            Packing list
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>Ver detalle</DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={async () => {
                               try {
-                                await downloadPdf(`/api/documents/dispatches/${d.id}/packing-list/pdf`, `packing-list-${d.id}.pdf`);
-                                toast.success('PDF packing list');
+                                await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                toast.success('PDF factura');
                               } catch (e) {
                                 toast.error(e instanceof Error ? e.message : 'Error PDF');
                               }
                             }}
                           >
-                            PDF packing list
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              const so = salesOrders?.find((s) => s.id === d.orden_id);
-                              setOrderLinkDialogDispatchId(d.id);
-                              setOrderLinkOrderId(d.orden_id);
-                              setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
-                              setOrderLinkCommercialClientId(d.client_id ?? 0);
-                            }}
-                          >
-                            Corregir pedido vinculado
+                            PDF
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
@@ -2150,56 +2104,64 @@ export function DispatchesPage() {
                           >
                             Editar datos despacho
                           </DropdownMenuItem>
-                          {d.kind === 'packing_lists' && d.status === 'borrador' ? (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setBolDialogDispatchId(d.id);
-                                setBolEditValue(d.numero_bol);
-                                setBolApplyToPls(false);
-                              }}
-                            >
-                              Editar BOL
-                            </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuSeparator />
-                          {uniqueFormatsFromFinalPallets(d.final_pallets ?? []).length > 0 ? (
-                            <DropdownMenuItem
-                              disabled={d.status === 'despachado'}
-                              onClick={() => {
-                                setInvoicePricesDispatchId(d.id);
-                                const order = salesOrders?.find((o) => o.id === d.orden_id);
-                                const inherited = order ? unitPricesRecordFromOrderLines(order.lines) : {};
-                                const saved = d.final_pallet_unit_prices ?? {};
-                                const formats = uniqueFormatsFromFinalPallets(d.final_pallets ?? []);
-                                setDispatchInvoiceUnitPrices(
-                                  mergeUnitPriceStrings(
-                                    formats.map((f) => f.id),
-                                    saved,
-                                    inherited,
-                                  ),
-                                );
-                              }}
-                            >
-                              ① Precios factura
-                            </DropdownMenuItem>
-                          ) : null}
+                          <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            Packing list
+                          </DropdownMenuItem>
                           <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
                             <FileText className="mr-2 h-4 w-4" />
-                            ② Generar factura
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={async () => {
-                              try {
-                                await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
-                                toast.success('PDF factura');
-                              } catch (e) {
-                                toast.error(e instanceof Error ? e.message : 'Error PDF');
-                              }
-                            }}
-                          >
-                            ③ PDF factura
+                            Generar factura
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const so = salesOrders?.find((s) => s.id === d.orden_id);
+                              setOrderLinkDialogDispatchId(d.id);
+                              setOrderLinkOrderId(d.orden_id);
+                              setOrderLinkClientId(so?.cliente_id ?? d.cliente_id);
+                              setOrderLinkCommercialClientId(d.client_id ?? 0);
+                            }}
+                          >
+                            Corregir pedido vinculado
+                          </DropdownMenuItem>
+                          {d.kind !== 'packing_lists' ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setAttachFpDispatchId(d.id);
+                                const pre: Record<number, boolean> = {};
+                                for (const fp of d.final_pallets ?? []) {
+                                  pre[fp.id] = true;
+                                }
+                                setFpSelect(pre);
+                                const pr: Record<string, string> = {};
+                                const saved = d.final_pallet_unit_prices ?? {};
+                                for (const [k, v] of Object.entries(saved)) {
+                                  pr[k] = String(v);
+                                }
+                                setFpAttachUnitPrices(pr);
+                              }}
+                            >
+                              <Package className="mr-2 h-4 w-4" />
+                              Unidad PT (legacy)
+                            </DropdownMenuItem>
+                          ) : null}
+                          {d.status === 'despachado' && canRevertSalida ? (
+                            <DropdownMenuItem
+                              disabled={revertDespachadoMut.isPending}
+                              onClick={() => {
+                                if (
+                                  !window.confirm(
+                                    '¿Deshacer el registro de salida física? El despacho volverá a «confirmado». No se modifica el stock PT.',
+                                  )
+                                ) {
+                                  return;
+                                }
+                                revertDespachadoMut.mutate(d.id);
+                              }}
+                            >
+                              Deshacer salida
+                            </DropdownMenuItem>
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Button type="button" variant="ghost" size="icon" onClick={() => toggleCollapse(d.id)}>
@@ -2544,9 +2506,22 @@ export function DispatchesPage() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>Unidades PT en despacho #{attachFpDispatchId ?? '—'}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Unidades PT en despacho #{attachFpDispatchId ?? '—'}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setAttachFpDispatchId(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           <div className="grid gap-3 py-2 text-sm">
             <p className="text-muted-foreground text-xs">
@@ -2736,9 +2711,22 @@ export function DispatchesPage() {
           if (!o) setMetaDialogDispatchId(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>Editar datos de despacho #{metaDialogDispatchId ?? '—'}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Editar datos de despacho #{metaDialogDispatchId ?? '—'}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setMetaDialogDispatchId(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           {dispatches?.find((x) => x.id === metaDialogDispatchId)?.status === 'despachado' ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
@@ -2820,9 +2808,22 @@ export function DispatchesPage() {
           if (!o) setOrderLinkDialogDispatchId(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>Corregir pedido vinculado — despacho #{orderLinkDialogDispatchId ?? '—'}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Corregir pedido vinculado — despacho #{orderLinkDialogDispatchId ?? '—'}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setOrderLinkDialogDispatchId(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           {orderLinkDispatch?.status === 'despachado' ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
@@ -2852,7 +2853,7 @@ export function DispatchesPage() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="order-link-client">Cliente pedido</Label>
-              <Input id="order-link-client" value={String(orderLinkClientId)} readOnly />
+              <Input id="order-link-client" value={orderLinkClientLabel} readOnly />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="order-link-commercial">Cliente comercial (opcional)</Label>
@@ -3002,9 +3003,22 @@ export function DispatchesPage() {
       </Dialog>
 
       <Dialog open={addTagDispatchId != null} onOpenChange={(o) => !o && setAddTagDispatchId(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>Línea de despacho (unidad PT)</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Línea de despacho (unidad PT)
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setAddTagDispatchId(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           {addTagDispatchId != null && (
             <form
@@ -3064,9 +3078,22 @@ export function DispatchesPage() {
       </Dialog>
 
       <Dialog open={invoiceLineDispatchId != null} onOpenChange={(o) => !o && setInvoiceLineDispatchId(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>Ajuste manual de factura</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Ajuste manual de factura
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setInvoiceLineDispatchId(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           {invoiceLineDispatchId != null && (
             <form

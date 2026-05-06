@@ -1,5 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Info, Layers, ListOrdered, RotateCcw, Tag } from 'lucide-react';
+import { Info, Layers, ListOrdered, RotateCcw, Tag, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -26,12 +26,10 @@ import {
   filterPanel,
   filterSelectClass,
   kpiCard,
-  kpiCardSm,
   kpiFootnote,
   kpiGrid,
   kpiLabel,
   kpiValueLg,
-  kpiValueMd,
   operationalModalBodyClass,
   operationalModalContentClass,
   operationalModalDescriptionClass,
@@ -495,6 +493,18 @@ export function ExistenciasPtPage() {
     enabled: unitsForPalletId != null && unitsForPalletId > 0,
   });
 
+  const unitsDialogPalletCode = useMemo(() => {
+    if (unitsForPalletId == null) return '';
+    const r = rows?.find((x) => x.id === unitsForPalletId);
+    return (
+      r?.corner_board_code?.trim() ||
+      r?.codigo_unidad_pt_display?.trim() ||
+      r?.tag_code?.trim() ||
+      r?.codigo_logistico?.trim() ||
+      `PF-${unitsForPalletId}`
+    );
+  }, [unitsForPalletId, rows]);
+
   const ptUnitsInDialog = useMemo(() => {
     if (!traceForUnitsDialog || !ptTags) return [];
     const fromApi = traceForUnitsDialog.pallet.tarja_ids;
@@ -733,36 +743,20 @@ export function ExistenciasPtPage() {
             <p className={kpiFootnote}>Con cajas · mismos filtros</p>
           </div>
         </div>
-        <div
-          className={cn(
-            'grid gap-3 sm:grid-cols-2',
-            kpiUnidadesReservadasPl != null && kpiUnidadesReservadasPl > 0 ? '' : 'lg:grid-cols-1',
-          )}
-        >
-          <div
-            className={cn(
-              kpiCardSm,
-              kpiUnidadesReservadasPl != null && kpiUnidadesReservadasPl > 0
-                ? 'border-amber-200/90 bg-amber-50/40'
-                : 'border-slate-100/90 bg-slate-50/40',
-            )}
-          >
-            <p className={kpiLabel}>Reservadas packing list</p>
+        <div className={kpiGrid}>
+          <div className="flex min-h-[132px] flex-col justify-between rounded-lg border border-border bg-background p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reservadas packing list</p>
             <p
               className={cn(
-                kpiValueMd,
-                kpiUnidadesReservadasPl != null && kpiUnidadesReservadasPl > 0 ? 'text-amber-950' : 'text-slate-800',
+                'text-2xl font-semibold tabular-nums',
+                kpiUnidadesReservadasPl == null || kpiUnidadesReservadasPl === 0
+                  ? 'text-foreground'
+                  : 'text-amber-600',
               )}
             >
               {kpiUnidadesReservadasPl == null ? '—' : formatCount(kpiUnidadesReservadasPl)}
             </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Estado asignado_pl · filtros alineados</p>
-          </div>
-          <div className={cn(kpiCardSm, 'border-slate-100/90 bg-slate-50/40')}>
-            <p className={kpiLabel}>Productor en tabla</p>
-            <p className="mt-2 text-sm leading-snug text-slate-600">
-              Primeras {TRACE_PREFETCH} filas con prefetch de trazabilidad para la columna productor.
-            </p>
+            <p className="text-[11px] text-muted-foreground">Estado asignado_pl · filtros alineados</p>
           </div>
         </div>
       </section>
@@ -781,7 +775,7 @@ export function ExistenciasPtPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="grid gap-2">
-            <Label className="text-xs">Especie</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Especie</Label>
             <select
               className={filterSelectClass}
               value={speciesId}
@@ -800,7 +794,7 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-xs">Variedad</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Variedad</Label>
             <select
               className={filterSelectClass}
               value={varietyId}
@@ -817,7 +811,7 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-xs">Formato</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Formato</Label>
             <select
               className={filterSelectClass}
               value={formatId}
@@ -834,7 +828,7 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-xs">Cliente</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente</Label>
             <select
               className={filterSelectClass}
               value={clientId}
@@ -851,7 +845,7 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-xs">Estado</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
             <select
               className={filterSelectClass}
               disabled={soloDeposito}
@@ -909,25 +903,39 @@ export function ExistenciasPtPage() {
               Inventario cámara
             </h3>
             <p className={sectionHint}>
-              {rows?.length ?? 0} fila(s) · máx. 500 · prefetch productor: {TRACE_PREFETCH} primeras filas
+              {rows?.length ?? 0} fila(s) · máx. 500
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={pageInfoButton}
+              title={`Primeras ${TRACE_PREFETCH} filas con prefetch de trazabilidad para la columna productor.`}
+              aria-label="Ayuda productor en tabla"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
-                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                variant="ghost"
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs',
+                  viewMode === 'compact' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white' : '',
+                )}
                 onClick={() => setViewMode('compact')}
               >
                 Compacta
               </Button>
               <Button
                 type="button"
-                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                variant="ghost"
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs',
+                  viewMode === 'detailed' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white' : '',
+                )}
                 onClick={() => setViewMode('detailed')}
               >
                 Detallada
@@ -1308,14 +1316,30 @@ export function ExistenciasPtPage() {
         <DialogContent
           className={cn(
             operationalModalContentClass,
-            'min-h-0 max-h-[min(90vh,920px)] max-w-[min(720px,calc(100vw-2rem))] sm:max-w-[min(720px,calc(100vw-2rem))]',
+            'min-h-0 max-h-[min(90vh,920px)] max-w-[min(720px,calc(100vw-2rem))] sm:max-w-[min(720px,calc(100vw-2rem))] gap-0 p-0 [&>button]:hidden',
           )}
         >
-          <DialogHeader className={operationalModalHeaderClass}>
-            <DialogTitle className={operationalModalTitleClass}>Unidades PT que componen este stock</DialogTitle>
-            <DialogDescription className={operationalModalDescriptionClass}>
+          <div className="flex items-center border-b border-border px-4 py-3">
+            <span className="mr-2 h-2 w-2 rounded-full bg-[#1D9E75]" aria-hidden />
+            <span className="text-sm font-semibold">
+              Unidades PT · {unitsDialogPalletCode || '—'}
+            </span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setUnitsForPalletId(null)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+              aria-label="Cerrar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className={cn(operationalModalFormClass)}>
+            <div className={cn(operationalModalBodyClass, 'max-h-[min(58vh,520px)] overflow-y-auto lg:px-8')}>
+          <div className="space-y-2 text-sm">
+            <p className="text-[11px] leading-snug text-muted-foreground">
               Tarjas vinculadas vía proceso (misma cadena que el detalle del pallet).
-            </DialogDescription>
+            </p>
             <details className="group text-[13px] text-muted-foreground">
               <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
@@ -1328,10 +1352,6 @@ export function ExistenciasPtPage() {
                 mostrado en la tabla principal es el de cámara / existencias PT.
               </p>
             </details>
-          </DialogHeader>
-          <div className={cn(operationalModalFormClass)}>
-            <div className={cn(operationalModalBodyClass, 'max-h-[min(58vh,520px)] overflow-y-auto lg:px-8')}>
-          <div className="space-y-2 text-sm">
             {unitsForPalletId != null && traceUnitsPending ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />

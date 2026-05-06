@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Info, ListOrdered, MoreHorizontal } from 'lucide-react';
+import { AlertTriangle, Info, ListOrdered, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { apiJson } from '@/api';
@@ -382,12 +382,15 @@ export function PtPackingListsPage() {
     let conPedido = 0;
     let totalCajas = 0;
     let totalLb = 0;
+    let confirmadosSinPallets = 0;
     const clientes = new Set<number>();
     for (const r of list) {
       const st = String(r.status || '').toLowerCase();
       if (st === 'borrador') borrador++;
-      else if (st === 'confirmado') confirmado++;
-      else if (st === 'anulado') anulado++;
+      else if (st === 'confirmado') {
+        confirmado++;
+        if ((r.pallet_count ?? 0) === 0) confirmadosSinPallets += 1;
+      } else if (st === 'anulado') anulado++;
       totalCajas += Number(r.total_boxes) || 0;
       totalLb += Number(r.total_pounds) || 0;
       if (r.client_id != null && r.client_id > 0) clientes.add(r.client_id);
@@ -395,6 +398,7 @@ export function PtPackingListsPage() {
       if (r.dispatch_id != null && r.dispatch_id > 0) enDespacho++;
       if (r.orden_id != null && r.orden_id > 0) conPedido++;
     }
+
     return {
       total: list.length,
       borrador,
@@ -406,6 +410,7 @@ export function PtPackingListsPage() {
       totalCajas,
       totalLb,
       clientesActivos: clientes.size,
+      confirmadosSinPallets,
     };
   }, [filtered]);
 
@@ -504,7 +509,7 @@ export function PtPackingListsPage() {
             <p className={kpiFootnote}>Suma en vista</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Peso total (lb)</p>
+            <p className={kpiLabel}>Peso total</p>
             <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
             <p className={kpiFootnote}>Suma en vista</p>
           </div>
@@ -519,7 +524,7 @@ export function PtPackingListsPage() {
             <p className={kpiFootnote}>Con orden en despacho</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div
             className={cn(
               kpiCardSm,
@@ -559,7 +564,7 @@ export function PtPackingListsPage() {
         </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-xs text-slate-500">Estado</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
             <select className={filterSelectClass} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option value="">Todos</option>
               <option value="borrador">Borrador</option>
@@ -568,7 +573,7 @@ export function PtPackingListsPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">Cliente</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente</Label>
             <select
               className={filterSelectClass}
               value={filterClientId}
@@ -583,7 +588,7 @@ export function PtPackingListsPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-5">
-            <Label className="text-xs text-slate-500">Buscar</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Buscar</Label>
             <Input
               className={filterInputClass}
               placeholder="Código, BOL, cliente, pedido, despacho…"
@@ -653,6 +658,24 @@ export function PtPackingListsPage() {
             </details>
           </div>
         </div>
+
+        {kpis.totalCajas === 0 && kpis.confirmadosSinPallets > 0 ? (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                {formatCount(kpis.confirmadosSinPallets)} packing list(s) sin pallets asignados
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Fueron creados por carga masiva sin Unidades PT vinculadas. Ingresá al detalle de cada PL para asignar
+                los pallets correspondientes.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {!data?.length ? (
           <p className={emptyStatePanel}>No hay packing lists. Creá uno desde inventario cámara.</p>

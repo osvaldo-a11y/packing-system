@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -39,7 +39,6 @@ import {
   pageInfoButton,
   operationalModalBodyClass,
   operationalModalContentClass,
-  operationalModalDescriptionClass,
   operationalModalFooterClass,
   operationalModalFormClass,
   operationalModalHeaderClass,
@@ -268,13 +267,13 @@ function rendimientoVisualTone(pct: number | null): {
   if (pct == null || !Number.isFinite(pct)) {
     return { badge: 'border-slate-200 bg-slate-50 text-slate-700', text: 'text-slate-700', bar: 'bg-slate-300', label: '—' };
   }
-  if (pct >= 80) {
-    return { badge: 'border-emerald-200 bg-emerald-50 text-emerald-900', text: 'text-emerald-900', bar: 'bg-emerald-400', label: 'Bueno' };
+  if (pct >= 90) {
+    return { badge: 'border-emerald-200 bg-emerald-50 text-emerald-900', text: 'text-emerald-900', bar: 'bg-emerald-400', label: 'Rend. OK' };
   }
-  if (pct >= 65) {
-    return { badge: 'border-amber-200 bg-amber-50 text-amber-900', text: 'text-amber-900', bar: 'bg-amber-400', label: 'Medio' };
+  if (pct >= 75) {
+    return { badge: 'border-amber-200 bg-amber-50 text-amber-900', text: 'text-amber-900', bar: 'bg-amber-400', label: 'Atención' };
   }
-  return { badge: 'border-rose-200 bg-rose-50 text-rose-900', text: 'text-rose-900', bar: 'bg-rose-400', label: 'Bajo' };
+  return { badge: 'border-rose-200 bg-rose-50 text-rose-900', text: 'text-rose-900', bar: 'bg-rose-400', label: 'Bajo · Atención' };
 }
 
 function parseRendimientoPct(r: FruitProcessRow): number | null {
@@ -978,6 +977,13 @@ export function ProcessesPage() {
         ),
       },
       {
+        accessorKey: 'fecha_proceso',
+        header: 'Fecha',
+        cell: ({ getValue }) => (
+          <span className="text-xs text-slate-600">{formatProcessDateShort(getValue() as string)}</span>
+        ),
+      },
+      {
         id: 'lb_in',
         header: 'Lb entrada',
         cell: ({ row }) => <span className="tabular-nums text-slate-800">{fmtLb2(row.original.lb_entrada)}</span>,
@@ -1005,40 +1011,15 @@ export function ProcessesPage() {
       {
         accessorKey: 'porcentaje_procesado',
         header: 'Rend.',
-        cell: ({ getValue }) => (
-          <span className="tabular-nums font-medium text-slate-800">{getValue() != null ? `${getValue()}%` : '—'}</span>
-        ),
-      },
-      {
-        accessorKey: 'fecha_proceso',
-        header: 'Fecha',
-        cell: ({ getValue }) => (
-          <span className="text-xs text-slate-600">{formatProcessDateShort(getValue() as string)}</span>
-        ),
-      },
-      {
-        accessorKey: 'id',
-        header: 'ID',
-        cell: ({ getValue }) => <span className="font-mono text-xs text-slate-500">{getValue() as number}</span>,
-      },
-      { accessorKey: 'recepcion_id', header: 'Recep.' },
-      {
-        id: 'rec_line',
-        header: 'Línea',
         cell: ({ row }) => {
-          const v = row.original.reception_line_id;
-          return v != null ? <span className="font-mono text-xs">{v}</span> : <span className="text-slate-400">—</span>;
+          const rend = parseRendimientoPct(row.original);
+          const rt = rendimientoVisualTone(rend);
+          return (
+            <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', rt.badge)}>
+              {rend != null ? `${formatPercent(rend, 1)}%` : '—'}
+            </span>
+          );
         },
-      },
-      {
-        id: 'especie',
-        header: 'Especie',
-        cell: ({ row }) => row.original.especie_nombre ?? '—',
-      },
-      {
-        id: 'componentes',
-        header: 'Componentes',
-        cell: ({ row }) => processComponentsTableCell(row.original),
       },
       {
         id: 'lb_merma',
@@ -1056,20 +1037,9 @@ export function ProcessesPage() {
         },
       },
       {
-        id: 'linea_proc',
-        header: 'Línea proc.',
-        cell: ({ row }) => {
-          const r = row.original;
-          if (r.process_machine_codigo) {
-            return (
-              <span className="text-xs text-slate-600">
-                {r.process_machine_codigo}
-                {r.process_machine_kind ? ` (${r.process_machine_kind})` : ''}
-              </span>
-            );
-          }
-          return <span className="text-slate-400">—</span>;
-        },
+        id: 'componentes',
+        header: 'Componentes',
+        cell: ({ row }) => processComponentsTableCell(row.original),
       },
       {
         id: 'acciones',
@@ -1191,26 +1161,24 @@ export function ProcessesPage() {
           <DialogContent
             className={cn(
               operationalModalContentClass,
-              'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+              'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] [&>button]:hidden',
             )}
           >
             <DialogHeader className={operationalModalHeaderClass}>
-              <DialogTitle className={operationalModalTitleClass}>Nuevo proceso</DialogTitle>
-              <DialogDescription className={operationalModalDescriptionClass}>
-                Elegí productor, repartí lb desde recepciones con saldo, línea de proceso y componentes de resultado.
-              </DialogDescription>
-              <details className="group text-[13px] text-muted-foreground">
-                <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
-                    <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                    Packout, cuadre y unidades PT
-                  </span>
-                </summary>
-                <p className="mt-2 max-w-prose text-pretty leading-snug">
-                  Repartí materia prima desde recepciones con saldo, elegí máquina y completá componentes de resultado. El packout en lb se
-                  acumula cuando registrás unidades PT vinculadas a este proceso.
-                </p>
-              </details>
+              <div className="flex items-center justify-between">
+                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Nuevo proceso
+                </DialogTitle>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                  aria-label="Cerrar"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </DialogHeader>
             <form onSubmit={form.handleSubmit(submitNewProcess)} className={operationalModalFormClass}>
               <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-6')}>
@@ -1398,11 +1366,13 @@ export function ProcessesPage() {
                     )}
                   </section>
 
-                  <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-white p-4 shadow-sm">
-                    <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
-                      En alta no hay unidades PT aún: packout = 0. Si cargás componentes, deben sumar la{' '}
-                      <strong className="text-foreground">lb entrada</strong>.
-                    </p>
+                  <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+                    {entradaSum > 0 ? (
+                      <p className="mb-3 rounded-md border border-blue-200 bg-blue-50 p-2 text-[11px] leading-snug text-blue-800">
+                        En alta no hay unidades PT aún: packout = 0. Si cargás componentes, deben sumar la{' '}
+                        <strong className="text-blue-900">lb entrada</strong>.
+                      </p>
+                    ) : null}
                     <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Calculadora de cuadre</p>
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                       <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
@@ -1475,33 +1445,79 @@ export function ProcessesPage() {
           Indicadores del listado filtrado
         </h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
             <p className={kpiLabel}>Lb entrada</p>
-            <p className={kpiValueLg}>{fmtLb2(processKpis.lbEntrada)}</p>
+            <p className={cn(kpiValueLg, 'text-blue-700')}>{fmtLb2(processKpis.lbEntrada)}</p>
             <p className={kpiFootnote}>Suma filtrada</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Lb packout</p>
-            <p className={kpiValueLg}>{fmtLb2(processKpis.lbPack)}</p>
+            <p className={cn(kpiValueLg, 'text-green-700')}>{fmtLb2(processKpis.lbPack)}</p>
             <p className={kpiFootnote}>Planificado / acumulado</p>
           </div>
-          <div className={kpiCard}>
+          <div
+            className={cn(
+              kpiCard,
+              processKpis.rendimientoPct != null
+                ? processKpis.rendimientoPct >= 90
+                  ? 'border-green-200 bg-green-50'
+                  : processKpis.rendimientoPct >= 75
+                    ? 'border-amber-200 bg-amber-50'
+                    : 'border-red-200 bg-red-50'
+                : '',
+            )}
+          >
             <p className={kpiLabel}>Rendimiento</p>
-            <p className={kpiValueLg}>
+            <p
+              className={cn(
+                kpiValueLg,
+                processKpis.rendimientoPct != null
+                  ? processKpis.rendimientoPct >= 90
+                    ? 'text-green-700'
+                    : processKpis.rendimientoPct >= 75
+                      ? 'text-amber-700'
+                      : 'text-red-700'
+                  : '',
+              )}
+            >
               {processKpis.rendimientoPct != null ? `${formatPercent(processKpis.rendimientoPct, 2)}%` : '—'}
             </p>
             <p className={kpiFootnote}>Packout / entrada</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
             <p className={kpiLabel}>Cajas producidas</p>
-            <p className={kpiValueLg}>{formatCount(processKpis.totalCajas)}</p>
+            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(processKpis.totalCajas)}</p>
             <p className={kpiFootnote}>Desde unidades PT</p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className={kpiCardSm}>
+          <div
+            className={cn(
+              kpiCardSm,
+              processKpis.lbEntrada > 0
+                ? (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 15
+                  ? 'border-red-200 bg-red-50'
+                  : (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 8
+                    ? 'border-amber-200 bg-amber-50'
+                    : ''
+                : '',
+            )}
+          >
             <p className={kpiLabel}>Merma</p>
-            <p className={kpiValueMd}>{fmtLb2(processKpis.lbMerma)}</p>
+            <p
+              className={cn(
+                kpiValueMd,
+                processKpis.lbEntrada > 0
+                  ? (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 15
+                    ? 'text-red-700'
+                    : (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 8
+                      ? 'text-amber-700'
+                      : ''
+                  : '',
+              )}
+            >
+              {fmtLb2(processKpis.lbMerma)}
+            </p>
             <p className={kpiFootnote}>Vista filtrada</p>
           </div>
           <div className={kpiCardSm}>
@@ -1559,26 +1575,38 @@ export function ProcessesPage() {
         <DialogContent
           className={cn(
             operationalModalContentClass,
-            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
           <DialogHeader className={operationalModalHeaderClass}>
-            <DialogTitle className={operationalModalTitleClass}>Editar proceso #{weightsRow?.id ?? '—'}</DialogTitle>
-            <DialogDescription className={operationalModalDescriptionClass}>
-              Resumen de lb, unidades PT vinculadas y ajuste de componentes / nota.
+            <div className="flex items-center justify-between">
+              <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
+                <span
+                  className={cn(
+                    'inline-block h-2.5 w-2.5 rounded-full',
+                    weightsRow?.process_status === 'cerrado'
+                      ? 'bg-[#1D9E75]'
+                      : weightsRow?.process_status === 'confirmado'
+                        ? 'bg-[#EF9F27]'
+                        : 'bg-[#E24B4A]',
+                  )}
+                />
+                Proceso #{weightsRow?.id ?? '—'}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setWeightsOpen(false)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <DialogDescription className="text-[11px] text-muted-foreground">
+              {(weightsRow?.productor_nombre ?? '—')} · {(weightsRow?.variedad_nombre ?? '—')} ·{' '}
+              {weightsRow?.fecha_proceso ? formatProcessDateShort(weightsRow.fecha_proceso) : '—'} · Entrada:{' '}
+              {weightsRow?.lb_entrada != null ? `${fmtLb2(weightsRow.lb_entrada)} lb` : '—'}
             </DialogDescription>
-            <details className="group text-[13px] text-muted-foreground">
-              <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
-                  <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                  Cuadre, estados y barra de acciones
-                </span>
-              </summary>
-              <p className="mt-2 max-w-prose text-pretty leading-snug">
-                Resumen de lb, estado y unidades PT; el reparto técnico (PT vs PF) y los componentes se guardan con <strong>Guardar
-                cambios</strong>. Confirmar o cerrar el proceso usá los botones del pie del modal.
-              </p>
-            </details>
           </DialogHeader>
 
           {weightsRow && processEditModalSnapshot ? (
@@ -2124,29 +2152,34 @@ export function ProcessesPage() {
             {compactGroups.length === 0 ? (
               <p className={emptyStateBanner}>Sin procesos para el filtro actual.</p>
             ) : (
-              compactGroups.map((group) => {
-                const rendTone = rendimientoVisualTone(group.weightedRend);
+              compactGroups.map((group, gi) => {
                 return (
                   <div key={group.key} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
-                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/85">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{group.producerName}</p>
-                        <p className="text-[11px] text-slate-500">
-                          Entrada {fmtLb2(group.lbEntrada)} lb · Packout {fmtLb2(group.lbPackout)} lb · {formatCount(group.count)} proceso(s)
-                        </p>
+                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-muted/40 px-3 py-2 text-[12px] backdrop-blur supports-[backdrop-filter]:bg-muted/35">
+                      <div className="min-w-0 truncate text-slate-800">
+                        <span
+                          className={cn(
+                            'mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle',
+                            ['bg-teal-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500'][gi % 4],
+                          )}
+                        />
+                        <span className="font-semibold">{group.producerName}</span>
+                        <span className="mx-2 text-slate-400">·</span>
+                        <span>{formatCount(group.count)} procesos</span>
+                        <span className="mx-2 text-slate-400">·</span>
+                        <span>{fmtLb2(group.lbEntrada)} lb entrada</span>
+                        <span className="mx-2 text-slate-400">·</span>
+                        <span>Rend. {group.weightedRend != null ? `${formatPercent(group.weightedRend, 1)}%` : '—'}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', rendTone.badge)}>
-                          Rend. {group.weightedRend != null ? `${formatPercent(group.weightedRend, 1)}%` : '—'} · {rendTone.label}
-                        </span>
-                        {group.borradorCount > 0 ? (
-                          <span className="inline-flex rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
-                            Pendientes: {formatCount(group.borradorCount)}
+                        {group.weightedRend != null && group.weightedRend < 75 ? (
+                          <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                            Bajo · Atención
                           </span>
                         ) : null}
-                        {group.hasLowRend || group.hasHighMerma ? (
-                          <span className="inline-flex rounded-full border border-rose-200/90 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-900">
-                            Atención
+                        {group.weightedRend != null && group.weightedRend >= 90 ? (
+                          <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                            Rend. OK
                           </span>
                         ) : null}
                       </div>

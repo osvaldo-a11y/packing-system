@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Info, ListOrdered, Pencil, Plus, Trash2, Truck } from 'lucide-react';
+import { AlertTriangle, Info, ListOrdered, Pencil, Plus, Trash2, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
@@ -75,6 +75,7 @@ type BrandRow = { id: number; codigo?: string; nombre: string };
 type VarietyRow = { id: number; nombre: string; species_id: number };
 /** Maestro `clients` (ids alineados con `cliente_id` del pedido). */
 type ClientMasterRow = { id: number; codigo: string; nombre: string };
+type DispatchDateRow = { id: number; orden_id: number; fecha_despacho: string };
 
 const lineSchema = z.object({
   presentation_format_id: z.coerce.number().int().positive(),
@@ -123,6 +124,10 @@ function fetchOrders() {
   return apiJson<SalesOrderRow[]>('/api/sales-orders');
 }
 
+function fetchDispatchDates() {
+  return apiJson<DispatchDateRow[]>('/api/dispatches');
+}
+
 function brandOptionLabel(b: BrandRow) {
   const c = b.codigo?.trim();
   return c ? `${c} — ${b.nombre}` : b.nombre;
@@ -163,8 +168,9 @@ function formatCondicionComercial(r: SalesOrderRow): string {
   const parts = r.lines.map((l) => l.format_code?.trim() || `#${l.presentation_format_id}`);
   const uniq = [...new Set(parts)];
   if (!uniq.length) return '—';
-  if (uniq.length <= 2) return uniq.join(' · ');
-  return `${uniq.slice(0, 2).join(' · ')} +${uniq.length - 2}`;
+  if (uniq.length === 1) return `${uniq[0]} · ${formatCount(r.requested_boxes)} cajas`;
+  if (uniq.length === 2) return uniq.join(' · ');
+  return `${uniq[0]} +${uniq.length - 1} más`;
 }
 
 function formatLinesPreview(r: SalesOrderRow): string {
@@ -187,6 +193,10 @@ export function SalesOrdersPage() {
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['sales-orders'],
     queryFn: fetchOrders,
+  });
+  const { data: dispatchesForDate } = useQuery({
+    queryKey: ['dispatches', 'sales-order-date-hint'],
+    queryFn: fetchDispatchDates,
   });
 
   const { data: formats } = useQuery({
@@ -424,6 +434,17 @@ export function SalesOrdersPage() {
     };
   }, [filtered]);
 
+  const firstDispatchDateByOrder = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const d of dispatchesForDate ?? []) {
+      const t = new Date(d.fecha_despacho).getTime();
+      if (!Number.isFinite(t)) continue;
+      const prev = m.get(d.orden_id);
+      if (!prev || t < new Date(prev).getTime()) m.set(d.orden_id, d.fecha_despacho);
+    }
+    return m;
+  }, [dispatchesForDate]);
+
   const alertLines = useMemo(() => {
     const lines: { key: string; tone: 'warn' | 'info'; text: string }[] = [];
     if (kpis.vacios > 0) {
@@ -511,9 +532,22 @@ export function SalesOrdersPage() {
                   Nuevo pedido
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl">
+              <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl [&>button]:hidden">
                 <DialogHeader>
-                  <DialogTitle>Nuevo pedido</DialogTitle>
+                  <div className="flex items-center justify-between">
+                    <DialogTitle className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      Nuevo pedido
+                    </DialogTitle>
+                    <button
+                      type="button"
+                      onClick={() => setCreateOpen(false)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                      aria-label="Cerrar"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 </DialogHeader>
                 <form onSubmit={createForm.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3 py-2">
                   <div className="grid gap-2">
@@ -546,27 +580,21 @@ export function SalesOrdersPage() {
                     )}
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="c_order_number">Núm. referencia / código (opcional)</Label>
+                    <Label htmlFor="c_order_number">Núm. referencia / código</Label>
                     <Input
                       id="c_order_number"
                       className={filterInputClass}
-                      placeholder="Ej. SO-00001, BOL-12345, REF-CL-88"
+                      placeholder="Ej. SO-00001, BOL-12345"
                       autoComplete="off"
                       {...createForm.register('order_number')}
                     />
-                    <p className="text-xs text-slate-500">
+                    <p className="text-[10px] text-slate-500">
                       Si lo dejás vacío, el sistema genera automáticamente <strong>SO-#####</strong>.
                     </p>
                     {createForm.formState.errors.order_number ? (
                       <p className="text-sm text-destructive">{createForm.formState.errors.order_number.message}</p>
                     ) : null}
                   </div>
-                  {clientsMaster?.length ? (
-                    <p className="text-xs text-slate-500">
-                      Las marcas por línea se listan según el <strong>cliente comercial</strong> elegido (marcas asignadas a ese cliente en
-                      Maestros, más marcas <strong>sin cliente</strong> — uso general).
-                    </p>
-                  ) : null}
                   <div className="flex items-center justify-between gap-2">
                     <Label>Líneas del pedido</Label>
                     <Button
@@ -658,9 +686,9 @@ export function SalesOrdersPage() {
                     <Button type="button" variant="outline" className="rounded-xl" onClick={() => setCreateOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button
+                <Button
                       type="submit"
-                      className="rounded-xl"
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
                       disabled={createMut.isPending || !formats?.length || !clientsMaster?.length}
                     >
                       {createMut.isPending ? 'Creando…' : 'Crear'}
@@ -689,19 +717,14 @@ export function SalesOrdersPage() {
             <p className={kpiValueLg}>{formatCount(kpis.total)}</p>
             <p className={kpiFootnote}>En vista actual</p>
           </div>
-          <div
-            className={cn(
-              kpiCard,
-              kpis.vacios > 0 ? 'border-amber-200/90 bg-amber-50/35' : '',
-            )}
-          >
+          <div className={cn(kpiCard, kpis.vacios > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Sin cajas</p>
-            <p className={cn(kpiValueLg, kpis.vacios > 0 ? 'text-amber-950' : '')}>{formatCount(kpis.vacios)}</p>
+            <p className={cn(kpiValueLg, kpis.vacios > 0 ? 'text-amber-700' : 'text-green-700')}>{formatCount(kpis.vacios)}</p>
             <p className={cn(kpiFootnote, 'text-slate-500')}>Volumen pedido = 0</p>
           </div>
-          <div className={kpiCard}>
+          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
             <p className={kpiLabel}>Con volumen</p>
-            <p className={kpiValueLg}>{formatCount(kpis.conVolumen)}</p>
+            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(kpis.conVolumen)}</p>
             <p className={kpiFootnote}>Cajas pedidas &gt; 0</p>
           </div>
           <div className={kpiCard}>
@@ -711,9 +734,9 @@ export function SalesOrdersPage() {
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCardSm}>
+          <div className={cn(kpiCardSm, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Cajas totales</p>
-            <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
+            <p className={cn(kpiValueMd, 'text-green-700')}>{formatCount(kpis.totalCajas)}</p>
             <p className={kpiFootnote}>Suma en vista</p>
           </div>
           <div className={kpiCardSm}>
@@ -726,14 +749,9 @@ export function SalesOrdersPage() {
             <p className={kpiValueMd}>{formatCount(kpis.sumLineas)}</p>
             <p className={kpiFootnote}>Σ líneas en pedidos de la vista</p>
           </div>
-          <div
-            className={cn(
-              kpiCardSm,
-              kpis.multiformato > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
-            )}
-          >
+          <div className={cn(kpiCardSm, kpis.multiformato > 0 ? 'border-amber-200 bg-amber-50' : '')}>
             <p className={kpiLabel}>Multiformato</p>
-            <p className={cn(kpiValueMd, kpis.multiformato > 0 ? 'text-violet-950' : '')}>{formatCount(kpis.multiformato)}</p>
+            <p className={cn(kpiValueMd, kpis.multiformato > 0 ? 'text-amber-700' : '')}>{formatCount(kpis.multiformato)}</p>
             <p className={cn(kpiFootnote, 'text-slate-500')}>Pedidos con &gt;1 formato</p>
           </div>
         </div>
@@ -845,8 +863,14 @@ export function SalesOrdersPage() {
                     <TableCell className="max-w-[200px] py-3.5 align-top">
                       <VolumeBadge r={r} />
                     </TableCell>
-                    <TableCell className="align-top text-xs text-slate-400" title="No expuesto en API de listado">
-                      —
+                    <TableCell className="align-top text-xs">
+                      {firstDispatchDateByOrder.get(r.id) ? (
+                        <span className="text-slate-600">
+                          {new Date(firstDispatchDateByOrder.get(r.id)!).toLocaleDateString('es')}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Sin fecha</span>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] align-top">
                       <span className="text-sm">
@@ -864,12 +888,9 @@ export function SalesOrdersPage() {
                       <span className="font-mono text-sm font-medium text-slate-900">{r.order_number}</span>
                       <p className="text-[11px] text-slate-400">ID {r.id}</p>
                     </TableCell>
-                    <TableCell className="max-w-[220px] align-top">
-                      <p className="text-xs font-medium text-slate-800" title={formatLinesPreview(r)}>
+                    <TableCell className="max-w-[220px] align-top" title={formatLinesPreview(r)}>
+                      <p className="text-xs font-medium text-slate-800">
                         {formatCondicionComercial(r)}
-                      </p>
-                      <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500" title={formatLinesPreview(r)}>
-                        {formatLinesPreview(r)}
                       </p>
                     </TableCell>
                     <TableCell className="align-top text-right text-sm tabular-nums text-slate-900">
@@ -944,23 +965,25 @@ export function SalesOrdersPage() {
           if (!o) setEditRow(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle>
-              Editar pedido{' '}
-              <span className="font-mono text-base font-semibold text-primary">
-                {editOrderNumberWatch?.trim() || editRow?.order_number}
-              </span>
-            </DialogTitle>
-            {editRow ? (
-              <p className="pt-1 text-xs text-slate-500">
-                Cliente:{' '}
-                <span className="font-medium text-slate-900">
-                  {editRow.cliente_nombre?.trim() || `ID ${editRow.cliente_id}`}
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Editar pedido{' '}
+                <span className="font-mono text-base font-semibold text-primary">
+                  {editOrderNumberWatch?.trim() || editRow?.order_number}
                 </span>
-                . Las marcas por línea son las del cliente más las genéricas (sin cliente en maestro).
-              </p>
-            ) : null}
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={() => setEditRow(null)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </DialogHeader>
           {editRow && (
             <form
@@ -1072,7 +1095,7 @@ export function SalesOrdersPage() {
                 <Button type="button" variant="outline" className="rounded-xl" onClick={() => setEditRow(null)}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="rounded-xl" disabled={editMut.isPending || !formats?.length}>
+                <Button type="submit" className="rounded-xl bg-emerald-600 hover:bg-emerald-700" disabled={editMut.isPending || !formats?.length}>
                   {editMut.isPending ? 'Guardando…' : 'Guardar'}
                 </Button>
               </DialogFooter>

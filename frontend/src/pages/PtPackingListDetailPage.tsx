@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Box } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -212,7 +212,8 @@ export function PtPackingListDetailPage() {
       ) : data ? (
         <>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900">Detalle Packing List PT</h1>
+            <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Detalle Packing List PT</p>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Detalle Packing List PT</h2>
             <p className="text-sm text-slate-500">Seguimiento comercial y logístico del listado seleccionado.</p>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -303,6 +304,19 @@ export function PtPackingListDetailPage() {
               ) : null}
             </div>
           </div>
+
+          {data.total_boxes === 0 && data.status !== 'borrador' ? (
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" aria-hidden />
+              <p className="text-sm font-medium text-amber-800">
+                Este packing list no tiene Unidades PT asignadas. Las cajas aparecen en 0 porque fue creado por carga
+                masiva.
+              </p>
+            </div>
+          ) : null}
 
           <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
@@ -520,34 +534,47 @@ export function PtPackingListDetailPage() {
               <CardTitle className="text-base">Pallets</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código Unidad PT</TableHead>
-                    <TableHead>Formato</TableHead>
-                    <TableHead className="text-right">Cajas</TableHead>
-                    <TableHead className="text-right">Lb</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.pallets.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-mono text-sm">
-                        <Link className="text-primary hover:underline" to={`/existencias-pt/detalle/${p.id}`}>
-                          {p.codigo_unidad_pt_display?.trim() || p.corner_board_code || `PF-${p.id}`}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{p.format_code ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">{p.boxes}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatLb(p.pounds, 2)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{p.status}</Badge>
-                      </TableCell>
+              {data.pallets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 px-6 py-10 text-center">
+                  <Box className="h-12 w-12 opacity-30" aria-hidden />
+                  <p className="text-sm font-medium text-slate-800">Sin pallets asignados</p>
+                  <p className="text-xs text-slate-500">
+                    Este PL fue creado por carga masiva sin Unidades PT vinculadas.
+                  </p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => navigate('/existencias-pt')}>
+                    Ir a Inventario cámara
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código Unidad PT</TableHead>
+                      <TableHead>Formato</TableHead>
+                      <TableHead className="text-right">Cajas</TableHead>
+                      <TableHead className="text-right">Lb</TableHead>
+                      <TableHead>Estado</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {data.pallets.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-sm">
+                          <Link className="text-primary hover:underline" to={`/existencias-pt/detalle/${p.id}`}>
+                            {p.codigo_unidad_pt_display?.trim() || p.corner_board_code || `PF-${p.id}`}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{p.format_code ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{p.boxes}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatLb(p.pounds, 2)}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{p.status}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </>

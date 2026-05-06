@@ -13,8 +13,9 @@ import { RepalletEvent } from '../final-pallet/repallet.entities';
 import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import { PtPackingList } from '../pt-packing-list/pt-packing-list.entities';
 import { Client } from '../traceability/operational.entities';
-import { Variety } from '../traceability/traceability.entities';
+import { Producer, Variety } from '../traceability/traceability.entities';
 import { FinalPalletModule } from '../final-pallet/final-pallet.module';
+import { PlantModule } from '../plant/plant.module';
 import { ProcessModule } from '../process/process.module';
 import { TraceabilityModule } from '../traceability/traceability.module';
 import { DocumentsController } from './documents.controller';
@@ -30,6 +31,7 @@ import { DocumentsPdfService } from './documents-pdf.service';
       DispatchPtPackingList,
       DispatchTagItem,
       Client,
+      Producer,
       Variety,
       PackingList,
       Invoice,
@@ -42,6 +44,7 @@ import { DocumentsPdfService } from './documents-pdf.service';
     TraceabilityModule,
     ProcessModule,
     FinalPalletModule,
+    PlantModule,
   ],
   controllers: [DocumentsController],
   providers: [DocumentsPdfService],
