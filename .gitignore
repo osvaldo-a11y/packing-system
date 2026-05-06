@@ -1,6 +1,8 @@
 # Secretos y entorno local
 .env
 .env.*.local
+*.dump
+
 
 # Build y dependencias
 /node_modules
