@@ -14,6 +14,7 @@
     .\scripts\restore-db-to-railway.ps1 -DumpPath .\backup_local_completo.dump -Clean
 #>
 param(
+  [Alias('RailwayUrl')]
   [string] $DatabaseUrl = $env:RAILWAY_DATABASE_URL,
   [string] $DumpPath,
   [switch] $Clean
@@ -23,7 +24,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($DatabaseUrl)) {
-  throw "Definí -DatabaseUrl o `$env:RAILWAY_DATABASE_URL (copiá DATABASE_URL desde Railway)."
+  throw "Definí -DatabaseUrl / -RailwayUrl o `$env:RAILWAY_DATABASE_URL (DATABASE_URL desde Railway)."
 }
 
 if ([string]::IsNullOrWhiteSpace($DumpPath)) {
