@@ -29,6 +29,18 @@ export class SalesOrder {
   @Column({ type: 'int', default: 0 })
   requested_boxes: number;
 
+  /** Fecha/hora del pedido (historial / import legado). */
+  @Column({ type: 'timestamptz', nullable: true })
+  fecha_pedido?: Date | null;
+
+  /** Fecha estimada o programada de despacho comunicada en el pedido (import). */
+  @Column({ type: 'timestamptz', nullable: true })
+  fecha_despacho_cliente?: Date | null;
+
+  /** Estado comercial textual (ej. enviado) — paralelo al flujo logístico. */
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  estado_comercial?: string | null;
+
   /** Líneas por formato (fuente de verdad comercial); totales del pedido se derivan de estas filas. */
   @OneToMany(() => SalesOrderLine, (l) => l.sales_order)
   lines?: SalesOrderLine[];

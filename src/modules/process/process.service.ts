@@ -1683,4 +1683,10 @@ export class ProcessService {
     fresh.process_status = next;
     return this.processRepo.save(fresh);
   }
+
+  /** Importación masiva / ajuste admin: recalcular stock PT luego de tocar `pt_tags`. */
+  async refreshPtTagStockAfterImport(tagId: number): Promise<void> {
+    const t = await this.tagRepo.findOne({ where: { id: tagId } });
+    if (t) await this.refreshFinishedPtStockForTag(t);
+  }
 }

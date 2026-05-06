@@ -56,12 +56,14 @@ export class CreateVarietyDto {
   @Type(() => Number) @IsInt() species_id: number;
   @IsOptional() @IsString() @MaxLength(32) codigo?: string;
   @IsString() @MinLength(1) @MaxLength(120) nombre: string;
+  @IsOptional() @IsString() descripcion?: string;
 }
 
 export class UpdateVarietyDto {
   @IsOptional() @Type(() => Number) @IsInt() species_id?: number;
   @IsOptional() @IsString() @MaxLength(32) codigo?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(120) nombre?: string;
+  @IsOptional() @IsString() descripcion?: string | null;
   @IsOptional() @IsBoolean() activo?: boolean;
 }
 

@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Tag,
   Truck,
+  Upload,
   Warehouse,
 } from 'lucide-react';
 import { Fragment } from 'react';
@@ -112,6 +113,7 @@ const navIconClass = (isActive: boolean) =>
 
 export function AppLayout() {
   const { username, role, logout } = useAuth();
+  const isAdmin = role === 'admin';
   const { pathname } = useLocation();
 
   return (
@@ -151,6 +153,25 @@ export function AppLayout() {
               </ul>
             </div>
           ))}
+          {isAdmin && (
+            <div className="mt-3 border-t border-slate-100/80 pt-3">
+              <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                ADMINISTRACIÓN
+              </p>
+              <ul className="space-y-0.5">
+                <li>
+                  <NavLink to="/bulk-import" className={navItemClass}>
+                    {({ isActive }) => (
+                      <>
+                        <Upload className={navIconClass(isActive)} aria-hidden />
+                        <span>Carga masiva</span>
+                      </>
+                    )}
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
           <div className="mt-auto border-t border-slate-100/80 pt-2">
             <a
               href="/api/docs"
@@ -192,6 +213,17 @@ export function AppLayout() {
                   ))}
                 </Fragment>
               ))}
+              {isAdmin && (
+                <Fragment>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+                    ADMINISTRACIÓN
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
+                    <NavLink to="/bulk-import">Carga masiva</NavLink>
+                  </DropdownMenuItem>
+                </Fragment>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
                 <a href="/api/docs" target="_blank" rel="noreferrer">

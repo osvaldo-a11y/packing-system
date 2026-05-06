@@ -13,6 +13,8 @@ import { ReportingModule } from './modules/reporting/reporting.module';
 import { PlantModule } from './modules/plant/plant.module';
 import { TraceabilityModule } from './modules/traceability/traceability.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { ImportModule } from './modules/import/import.module';
+import { BackupModule } from './modules/backup/backup.module';
 import { FinalPalletModule } from './modules/final-pallet/final-pallet.module';
 import { PtPackingListModule } from './modules/pt-packing-list/pt-packing-list.module';
 
@@ -42,6 +44,8 @@ const webImports = existsSync(webIndex)
     PlantModule,
     ReportingModule,
     DocumentsModule,
+    ImportModule,
+    BackupModule,
     ...webImports,
   ],
 })

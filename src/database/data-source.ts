@@ -43,6 +43,7 @@ import {
 } from '../modules/packaging/packaging.entities';
 import { PackingCost, ReportSnapshot } from '../modules/reporting/reporting.entities';
 import { PlantSettings } from '../modules/plant/plant.entities';
+import { ImportLog } from '../modules/import/import-log.entity';
 import {
   Brand,
   Client,
@@ -119,6 +120,7 @@ const entities = [
   ReportSnapshot,
   PackingCost,
   PlantSettings,
+  ImportLog,
   Species,
   Producer,
   Variety,

@@ -52,5 +52,6 @@ import { SalesOrderProgressService } from './sales-order-progress.service';
   ],
   controllers: [DispatchBillingController],
   providers: [DispatchBillingService, SalesOrderProgressService],
+  exports: [DispatchBillingService],
 })
 export class DispatchBillingModule {}

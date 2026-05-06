@@ -839,6 +839,7 @@ export class TraceabilityService {
         species_id: dto.species_id,
         codigo,
         nombre,
+        descripcion: dto.descripcion?.trim() || null,
       }),
     );
   }
@@ -861,6 +862,7 @@ export class TraceabilityService {
     }
     if (dto.codigo !== undefined) row.codigo = nextCodigo;
     if (dto.nombre != null) row.nombre = nextNombre;
+    if (dto.descripcion !== undefined) row.descripcion = dto.descripcion?.trim() || null;
     if (dto.activo != null) row.activo = dto.activo;
     return this.varietyRepo.save(row);
   }

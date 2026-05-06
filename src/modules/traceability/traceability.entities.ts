@@ -90,6 +90,9 @@ export class Variety {
   @Column({ type: 'varchar', length: 120 })
   nombre: string;
 
+  @Column({ type: 'text', nullable: true })
+  descripcion?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 

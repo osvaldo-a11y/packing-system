@@ -15,6 +15,7 @@ import {
   AttachFinalPalletsDto,
   CreateDispatchDto,
   CreateSalesOrderDto,
+  HistoricalDispatchImportInput,
   ModifySalesOrderDto,
   SalesOrderLineInputDto,
   UpdateDispatchBolDto,
@@ -539,6 +540,15 @@ export class DispatchBillingService {
         requested_pallets: 0,
         requested_boxes: 0,
         order_number: orderNumber,
+        fecha_pedido:
+          dto.fecha_pedido !== undefined && String(dto.fecha_pedido ?? '').trim() !== ''
+            ? new Date(dto.fecha_pedido!)
+            : null,
+        fecha_despacho_cliente:
+          dto.fecha_despacho_cliente !== undefined && String(dto.fecha_despacho_cliente ?? '').trim() !== ''
+            ? new Date(dto.fecha_despacho_cliente!)
+            : null,
+        estado_comercial: dto.estado_comercial?.trim() ? dto.estado_comercial.trim().slice(0, 24) : null,
       }),
     );
     await this.replaceOrderLines(order.id, dto.lines);
@@ -1501,6 +1511,101 @@ export class DispatchBillingService {
     );
     await this.recalculateInvoiceTotals(inv.id);
     return this.invRepo.findOne({ where: { id: inv.id } });
+  }
+
+  /**
+   * Despacho + factura histórica: encuentra PT por `pt_tags.bol` = numero_bol.
+   * No ejecuta salida de `finished_pt_stock` vía API de tags (reconstrucción documental).
+   */
+  async importHistoricalDispatch(dto: HistoricalDispatchImportInput): Promise<{ dispatch_id: number }> {
+    const bol = dto.numero_bol.trim();
+    if (!bol) throw new BadRequestException('numero_bol vacío');
+
+    const order = await this.soRepo.findOne({ where: { order_number: dto.order_reference.trim() } });
+    if (!order) throw new BadRequestException(`Pedido no encontrado: ${dto.order_reference}`);
+
+    const dup = await this.dispatchRepo.findOne({ where: { numero_bol: bol } });
+    if (dup) throw new BadRequestException(`numero_bol duplicado: ${bol}`);
+
+    const nameHint = dto.cliente_nombre?.trim();
+    if (nameHint) {
+      const clients = await this.clientRepo.find();
+      const lc = nameHint.toLowerCase();
+      const found = clients.find((c) => (c.nombre ?? '').trim().toLowerCase() === lc);
+      if (found && Number(found.id) !== Number(order.cliente_id)) {
+        throw new BadRequestException(
+          `cliente_nombre (${nameHint}) no coincide con el cliente del pedido ${dto.order_reference}`,
+        );
+      }
+    }
+
+    const tags = await this.ptTagRepo
+      .createQueryBuilder('t')
+      .where(`TRIM(SPLIT_PART(t.bol, '|', 1)) = TRIM(:bol)`, { bol })
+      .orderBy('t.id', 'ASC')
+      .getMany();
+
+    if (!tags.length) {
+      throw new BadRequestException(`Sin pt_tags con bol exacto «${bol}». Verificar import PT / BOL.`);
+    }
+
+    const sumTagCajas = tags.reduce((s, t) => s + Number(t.total_cajas ?? 0), 0);
+    if (sumTagCajas <= 0) {
+      throw new BadRequestException(`Unidades PT con bol ${bol} no tienen cajas cargadas`);
+    }
+
+    const dispatchId = await this.dispatchRepo.manager.transaction(async (em) => {
+      const fecha = dto.fecha_despacho instanceof Date ? dto.fecha_despacho : new Date(dto.fecha_despacho);
+      const disp = em.create(Dispatch, {
+        orden_id: order.id,
+        cliente_id: order.cliente_id,
+        fecha_despacho: fecha,
+        numero_bol: bol,
+        bol_origin: 'dispatch_only',
+        temperatura_f: Number(dto.temperatura_f).toFixed(2),
+        thermograph_serial: dto.thermograph_serial?.trim() || null,
+        thermograph_notes: null,
+        final_pallet_unit_prices: null,
+        client_id: order.cliente_id,
+        status: 'despachado',
+        dispatch_confirmed_at: fecha,
+        dispatch_despachado_at: fecha,
+      });
+      const saved = await em.save(Dispatch, disp);
+
+      const amt = dto.total_amount;
+      for (const tag of tags) {
+        const cajas = Math.max(1, Number(tag.total_cajas));
+        const share = cajas / sumTagCajas;
+        const lineAmt = amt * share;
+        const unitPrice = lineAmt / cajas;
+        const pallets = Math.max(1, Number(tag.total_pallets ?? 1));
+        await em.save(
+          em.create(DispatchTagItem, {
+            dispatch_id: saved.id,
+            tarja_id: tag.id,
+            cajas_despachadas: cajas,
+            pallets_despachados: pallets,
+            unit_price: unitPrice.toFixed(4),
+            pallet_cost: '0.0000',
+          }),
+        );
+      }
+      return saved.id as number;
+    });
+
+    await this.generatePackingList(dispatchId);
+    await this.generateInvoice(dispatchId);
+
+    const inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
+    if (inv && Math.abs(Number(inv.total) - dto.total_amount) > 0.05) {
+      await this.invRepo.update(inv.id, {
+        subtotal: dto.total_amount.toFixed(2),
+        total: dto.total_amount.toFixed(2),
+      });
+    }
+
+    return { dispatch_id: dispatchId };
   }
 
   async deleteManualInvoiceLine(dispatchId: number, itemId: number) {

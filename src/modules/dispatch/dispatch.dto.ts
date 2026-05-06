@@ -32,6 +32,11 @@ export class CreateSalesOrderDto {
   @IsString()
   @MaxLength(40)
   order_number?: string;
+
+  @IsOptional() @IsDateString() fecha_pedido?: string;
+  @IsOptional() @IsDateString() fecha_despacho_cliente?: string;
+  @IsOptional() @IsString() @MaxLength(24) estado_comercial?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -103,6 +108,18 @@ export class AddDispatchTagDto {
   @IsInt() @Min(1) pallets_despachados: number;
   @IsNumber() @Min(0) unit_price: number;
   @IsNumber() @Min(0) pallet_cost: number;
+}
+
+/** Payload parseado desde CSV histórico (import despachos). */
+export interface HistoricalDispatchImportInput {
+  order_reference: string;
+  fecha_despacho: Date;
+  numero_bol: string;
+  cliente_nombre?: string;
+  thermograph_serial?: string | null;
+  temperatura_f: number;
+  total_cajas: number;
+  total_amount: number;
 }
 
 export class ModifySalesOrderDto {

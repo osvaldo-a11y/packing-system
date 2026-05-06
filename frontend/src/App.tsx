@@ -28,6 +28,7 @@ import { ReportingPage } from './pages/ReportingPage';
 import { SystemFlowGuidePage } from './pages/SystemFlowGuidePage';
 import { SalesOrderProgressPage } from './pages/SalesOrderProgressPage';
 import { SalesOrdersPage } from './pages/SalesOrdersPage';
+import { BulkImportPage } from './pages/BulkImportPage';
 
 function ProtectedLayout() {
   const { token, logout } = useAuth();
@@ -111,6 +112,7 @@ function AppRoutes() {
           <Route path="/sales-orders" element={<SalesOrdersPage />} />
           <Route path="/sales-orders/:id/avance" element={<SalesOrderProgressPage />} />
           <Route path="/dispatches" element={<DispatchesPage />} />
+          <Route path="/bulk-import" element={<BulkImportPage />} />
           <Route path="/reporting" element={<ReportingPage />} />
           <Route path="/guide/sistema" element={<SystemFlowGuidePage />} />
         </Route>
