@@ -4,7 +4,7 @@ import { FinalPalletModule } from '../final-pallet/final-pallet.module';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinishedPtInventory } from '../final-pallet/finished-pt-inventory.entity';
 import { DispatchBillingController } from './dispatch-billing.controller';
-import { FruitProcess, PtTag } from '../process/process.entities';
+import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
 import { PresentationFormat, Variety } from '../traceability/traceability.entities';
 import {
@@ -41,6 +41,7 @@ import { SalesOrderProgressService } from './sales-order-progress.service';
       Invoice,
       InvoiceItem,
       PtTag,
+      PtTagItem,
       FinishedPtStock,
       FinishedPtInventory,
       FinalPallet,

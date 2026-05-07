@@ -3,12 +3,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull } from 'typeorm';
 import { Repository } from 'typeorm';
-import { FinalPallet } from '../final-pallet/final-pallet.entities';
+import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService, type UnidadPtTraceability } from '../final-pallet/final-pallet.service';
 import { FinishedPtInventory } from '../final-pallet/finished-pt-inventory.entity';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
 import { PresentationFormat, Variety } from '../traceability/traceability.entities';
-import { FruitProcess, PtTag } from '../process/process.entities';
+import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import {
   AddDispatchTagDto,
   AddManualInvoiceLineDto,
@@ -110,6 +110,7 @@ export class DispatchBillingService {
     @InjectRepository(InvoiceItem) private readonly invItemRepo: Repository<InvoiceItem>,
     @InjectRepository(SalesOrderModification) private readonly soModRepo: Repository<SalesOrderModification>,
     @InjectRepository(PtTag) private readonly ptTagRepo: Repository<PtTag>,
+    @InjectRepository(PtTagItem) private readonly ptTagItemRepo: Repository<PtTagItem>,
     @InjectRepository(FinishedPtStock) private readonly finishedPtRepo: Repository<FinishedPtStock>,
     @InjectRepository(FinishedPtInventory) private readonly finishedPtInventoryRepo: Repository<FinishedPtInventory>,
     @InjectRepository(FinalPallet) private readonly fpRepo: Repository<FinalPallet>,
@@ -1950,6 +1951,21 @@ export class DispatchBillingService {
     return { plsCreados, itemsCreados, despachosVinculados, errores };
   }
 
+  /** Variedad/proceso vía primera fila `pt_tag_items` + `fruit_processes.variedad_id`. */
+  private async deriveVarietyProcessForTarja(
+    tarjaId: number,
+  ): Promise<{ varietyId: number; fruitProcessId: number | null } | null> {
+    const tagItem = await this.ptTagItemRepo.findOne({
+      where: { tarja_id: tarjaId },
+      order: { id: 'ASC' },
+    });
+    if (!tagItem) return null;
+    const proc = await this.fruitProcessRepo.findOne({ where: { id: tagItem.process_id } });
+    const vid = proc?.variedad_id != null ? Number(proc.variedad_id) : 0;
+    if (!(vid > 0)) return null;
+    return { varietyId: vid, fruitProcessId: Number(tagItem.process_id) };
+  }
+
   /**
    * Crea `final_pallets` faltantes para `dispatch_tag_items.tarja_id` que no existen en `final_pallets`,
    * y enlaza cada pallet al PL del despacho (`dispatch_pt_packing_lists`).
@@ -2000,13 +2016,54 @@ export class DispatchBillingService {
       }
 
       const formatCode = (tag.format_code ?? '').trim();
+      let formatEntity: PresentationFormat | null = null;
       let presentationFormatId: number | null = null;
       if (formatCode) {
-        const fmt = await this.formatRepo
+        formatEntity = await this.formatRepo
           .createQueryBuilder('f')
           .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code: formatCode })
           .getOne();
-        presentationFormatId = fmt ? Number(fmt.id) : null;
+        presentationFormatId = formatEntity ? Number(formatEntity.id) : null;
+      }
+
+      const invLine = await this.invItemRepo
+        .createQueryBuilder('ii')
+        .innerJoin(Invoice, 'inv', 'inv.id = ii.invoice_id')
+        .where('inv.dispatch_id = :did', { did: dti.dispatch_id })
+        .andWhere('ii.tarja_id = :tid', { tid: tarjaId })
+        .andWhere('ii.final_pallet_id IS NOT NULL')
+        .orderBy('ii.id', 'ASC')
+        .getOne();
+
+      let tmplPalletRow: FinalPallet | null = null;
+      if (invLine?.final_pallet_id != null && Number(invLine.final_pallet_id) > 0) {
+        tmplPalletRow = await this.fpRepo.findOne({
+          where: { id: Number(invLine.final_pallet_id) },
+          relations: ['lines'],
+        });
+      }
+
+      let sortedTplLines =
+        tmplPalletRow?.lines && tmplPalletRow.lines.length > 0
+          ? [...tmplPalletRow.lines].sort((a, b) => (a.line_order ?? 0) - (b.line_order ?? 0))
+          : [];
+
+      let synthCtx = await this.deriveVarietyProcessForTarja(tarjaId);
+      if (!synthCtx && invLine?.variety_id != null && Number(invLine.variety_id) > 0) {
+        synthCtx = {
+          varietyId: Number(invLine.variety_id),
+          fruitProcessId:
+            invLine.fruit_process_id != null && Number(invLine.fruit_process_id) > 0
+              ? Number(invLine.fruit_process_id)
+              : null,
+        };
+      }
+
+      if (sortedTplLines.length === 0 && !synthCtx) {
+        errores.push(
+          `DTI #${dti.id} (tarja ${tarjaId}): sin líneas de pallet modelo ni variety_id derivable para crear línea.`,
+        );
+        continue;
       }
 
       if (opts.dryRun) {
@@ -2019,11 +2076,29 @@ export class DispatchBillingService {
       await qr.connect();
       await qr.startTransaction();
       try {
+        let tmplPalletInTx: FinalPallet | null = null;
+        if (invLine?.final_pallet_id != null && Number(invLine.final_pallet_id) > 0) {
+          tmplPalletInTx = await qr.manager.findOne(FinalPallet, {
+            where: { id: Number(invLine.final_pallet_id) },
+            relations: ['lines'],
+          });
+        }
+        sortedTplLines =
+          tmplPalletInTx?.lines && tmplPalletInTx.lines.length > 0
+            ? [...tmplPalletInTx.lines].sort((a, b) => (a.line_order ?? 0) - (b.line_order ?? 0))
+            : [];
+
+        const headerSpecies = tmplPalletInTx?.species_id != null ? Number(tmplPalletInTx.species_id) : null;
+        const headerQ =
+          tmplPalletInTx?.quality_grade_id != null ? Number(tmplPalletInTx.quality_grade_id) : null;
+
         const fp = qr.manager.create(FinalPallet, {
           tarja_id: tarjaId,
           status: 'despachado',
           pt_packing_list_id: plId,
           dispatch_id: Number(dti.dispatch_id),
+          species_id: sortedTplLines.length > 0 ? headerSpecies ?? null : null,
+          quality_grade_id: sortedTplLines.length > 0 ? headerQ ?? null : null,
           client_id: tag.client_id != null ? Number(tag.client_id) : null,
           presentation_format_id: presentationFormatId,
           brand_id: tag.brand_id != null ? Number(tag.brand_id) : null,
@@ -2038,6 +2113,53 @@ export class DispatchBillingService {
         const saved = await qr.manager.save(FinalPallet, fp);
         saved.corner_board_code = `PF-${saved.id}`;
         await qr.manager.save(FinalPallet, saved);
+
+        if (sortedTplLines.length > 0) {
+          for (let i = 0; i < sortedTplLines.length; i++) {
+            const ln = sortedTplLines[i];
+            await qr.manager.insert(FinalPalletLine, {
+              final_pallet_id: saved.id,
+              line_order: i,
+              fruit_process_id: ln.fruit_process_id ?? null,
+              fecha: ln.fecha,
+              ref_text: ln.ref_text ?? null,
+              variety_id: ln.variety_id,
+              caliber: ln.caliber ?? null,
+              amount: ln.amount ?? 0,
+              pounds:
+                ln.pounds != null && String(ln.pounds).trim() !== '' ? String(ln.pounds) : '0.000',
+              net_lb:
+                ln.net_lb != null && ln.net_lb !== ''
+                  ? String(ln.net_lb)
+                  : null,
+            });
+          }
+        } else if (synthCtx) {
+          const boxes = Math.max(0, Number(dti.cajas_despachadas ?? 0));
+          let poundsNum = 0;
+          if (formatEntity?.net_weight_lb_per_box != null) {
+            const perBox = Number(formatEntity.net_weight_lb_per_box);
+            if (!Number.isNaN(perBox)) poundsNum = perBox * boxes;
+          } else if (tag.net_weight_lb != null) {
+            const nw = Number(tag.net_weight_lb);
+            if (!Number.isNaN(nw)) poundsNum = nw;
+          }
+          const lbs = poundsNum.toFixed(3);
+          await qr.manager.insert(FinalPalletLine, {
+            final_pallet_id: saved.id,
+            line_order: 0,
+            fruit_process_id: synthCtx.fruitProcessId,
+            fecha: tag.fecha ?? new Date(),
+            ref_text: `legacy:create-legacy-final-pallets:dti=${dti.id}`,
+            variety_id: synthCtx.varietyId,
+            caliber: null,
+            amount: boxes,
+            pounds: lbs,
+            net_lb: poundsNum > 0 ? lbs : null,
+          });
+        } else {
+          throw new Error('Sin líneas de pallet ni datos para línea sintética');
+        }
 
         const existingItem = await qr.manager.findOne(PtPackingListItem, {
           where: { packing_list_id: plId, final_pallet_id: saved.id },
