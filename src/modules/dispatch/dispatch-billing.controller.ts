@@ -196,4 +196,12 @@ export class DispatchBillingController {
     const flag = dryRun === 'true' || dryRun === '1';
     return this.service.createLegacyPackingLists({ dryRun: flag });
   }
+
+  /** Crea `final_pallets` faltantes para tarjas de despacho legacy y los vincula al PL del despacho. */
+  @Post('admin/create-legacy-final-pallets')
+  @Roles(ROLES.ADMIN)
+  createLegacyFinalPallets(@Query('dryRun') dryRun?: string) {
+    const flag = dryRun === 'true' || dryRun === '1';
+    return this.service.createLegacyFinalPallets({ dryRun: flag });
+  }
 }

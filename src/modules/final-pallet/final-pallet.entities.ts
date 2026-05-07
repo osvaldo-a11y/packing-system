@@ -7,6 +7,7 @@ import { PresentationFormat, QualityGrade, Species, Variety } from '../traceabil
 export type FinalPalletStatus =
   | 'borrador'
   | 'definitivo'
+  | 'despachado'
   | 'anulado'
   | 'repaletizado'
   | 'revertido'

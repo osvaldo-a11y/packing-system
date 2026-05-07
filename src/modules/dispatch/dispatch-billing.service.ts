@@ -1949,4 +1949,118 @@ export class DispatchBillingService {
 
     return { plsCreados, itemsCreados, despachosVinculados, errores };
   }
+
+  /**
+   * Crea `final_pallets` faltantes para `dispatch_tag_items.tarja_id` que no existen en `final_pallets`,
+   * y enlaza cada pallet al PL del despacho (`dispatch_pt_packing_lists`).
+   */
+  async createLegacyFinalPallets(opts: { dryRun: boolean }): Promise<{
+    palletsCreados: number;
+    itemsCreados: number;
+    errores: string[];
+  }> {
+    const errores: string[] = [];
+    let palletsCreados = 0;
+    let itemsCreados = 0;
+
+    const missingDti = await this.dtiRepo
+      .createQueryBuilder('dti')
+      .where('dti.tarja_id IS NOT NULL')
+      .andWhere('NOT EXISTS (SELECT 1 FROM final_pallets fp WHERE fp.tarja_id = dti.tarja_id)')
+      .orderBy('dti.id', 'ASC')
+      .getMany();
+
+    const seenTarjas = new Set<number>();
+    for (const dti of missingDti) {
+      const tarjaId = Number(dti.tarja_id);
+      if (!(tarjaId > 0) || seenTarjas.has(tarjaId)) continue;
+      seenTarjas.add(tarjaId);
+
+      const tag = await this.ptTagRepo.findOne({ where: { id: tarjaId } });
+      if (!tag) {
+        errores.push(`DTI #${dti.id}: no existe pt_tag para tarja_id=${tarjaId}.`);
+        continue;
+      }
+
+      const plLinks = await this.dispatchPlRepo.find({
+        where: { dispatch_id: dti.dispatch_id },
+        order: { pt_packing_list_id: 'ASC' },
+      });
+      if (plLinks.length !== 1) {
+        errores.push(
+          `Despacho #${dti.dispatch_id}: se esperaba 1 vínculo en dispatch_pt_packing_lists y se encontraron ${plLinks.length}.`,
+        );
+        continue;
+      }
+      const plId = Number(plLinks[0].pt_packing_list_id);
+      const pl = await this.ptPlRepo.findOne({ where: { id: plId } });
+      if (!pl) {
+        errores.push(`Despacho #${dti.dispatch_id}: no existe pt_packing_list #${plId}.`);
+        continue;
+      }
+
+      const formatCode = (tag.format_code ?? '').trim();
+      let presentationFormatId: number | null = null;
+      if (formatCode) {
+        const fmt = await this.formatRepo
+          .createQueryBuilder('f')
+          .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code: formatCode })
+          .getOne();
+        presentationFormatId = fmt ? Number(fmt.id) : null;
+      }
+
+      if (opts.dryRun) {
+        palletsCreados += 1;
+        itemsCreados += 1;
+        continue;
+      }
+
+      const qr = this.dispatchRepo.manager.connection.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        const fp = qr.manager.create(FinalPallet, {
+          tarja_id: tarjaId,
+          status: 'despachado',
+          pt_packing_list_id: plId,
+          dispatch_id: Number(dti.dispatch_id),
+          client_id: tag.client_id != null ? Number(tag.client_id) : null,
+          presentation_format_id: presentationFormatId,
+          brand_id: tag.brand_id != null ? Number(tag.brand_id) : null,
+          bol: tag.bol ?? null,
+          corner_board_code: '',
+          clamshell_label: '',
+          dispatch_unit: '',
+          packing_type: '',
+          market: '',
+          fruit_quality_mode: 'proceso',
+        });
+        const saved = await qr.manager.save(FinalPallet, fp);
+        saved.corner_board_code = `PF-${saved.id}`;
+        await qr.manager.save(FinalPallet, saved);
+
+        const existingItem = await qr.manager.findOne(PtPackingListItem, {
+          where: { packing_list_id: plId, final_pallet_id: saved.id },
+        });
+        if (!existingItem) {
+          await qr.manager.insert(PtPackingListItem, {
+            packing_list_id: plId,
+            final_pallet_id: saved.id,
+          });
+          itemsCreados += 1;
+        }
+
+        await qr.commitTransaction();
+        palletsCreados += 1;
+      } catch (e) {
+        await qr.rollbackTransaction();
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`DTI #${dti.id} (tarja ${tarjaId}): transacción revertida — ${msg}`);
+      } finally {
+        await qr.release();
+      }
+    }
+
+    return { palletsCreados, itemsCreados, errores };
+  }
 }
