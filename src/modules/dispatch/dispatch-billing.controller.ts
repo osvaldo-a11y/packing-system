@@ -204,4 +204,12 @@ export class DispatchBillingController {
     const flag = dryRun === 'true' || dryRun === '1';
     return this.service.createLegacyFinalPallets({ dryRun: flag });
   }
+
+  /** Completa `final_pallet_lines` ausentes para pallets despachados legacy. */
+  @Post('admin/fix-legacy-final-pallet-lines')
+  @Roles(ROLES.ADMIN)
+  fixLegacyFinalPalletLines(@Query('dryRun') dryRun?: string) {
+    const flag = dryRun === 'true' || dryRun === '1';
+    return this.service.fixLegacyFinalPalletLines({ dryRun: flag });
+  }
 }

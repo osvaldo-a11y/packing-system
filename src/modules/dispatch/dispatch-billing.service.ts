@@ -1966,6 +1966,166 @@ export class DispatchBillingService {
     return { varietyId: vid, fruitProcessId: Number(tagItem.process_id) };
   }
 
+  private async loadPresentationFormatEntityForPtTag(tag: PtTag): Promise<PresentationFormat | null> {
+    const formatCode = (tag.format_code ?? '').trim();
+    if (!formatCode) return null;
+    return this.formatRepo
+      .createQueryBuilder('f')
+      .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code: formatCode })
+      .getOne();
+  }
+
+  /** Misma regla que la línea sintética en `createLegacyFinalPallets`. */
+  private computeLegacySyntheticPoundsFromTagFormat(
+    tag: PtTag,
+    formatEntity: PresentationFormat | null,
+    boxes: number,
+  ): { poundsNum: number; lbs: string } {
+    let poundsNum = 0;
+    if (formatEntity?.net_weight_lb_per_box != null) {
+      const perBox = Number(formatEntity.net_weight_lb_per_box);
+      if (!Number.isNaN(perBox)) poundsNum = perBox * boxes;
+    } else if (tag.net_weight_lb != null) {
+      const nw = Number(tag.net_weight_lb);
+      if (!Number.isNaN(nw)) poundsNum = nw;
+    }
+    const lbs = poundsNum.toFixed(3);
+    return { poundsNum, lbs };
+  }
+
+  private async findInvoiceItemByDispatchAndTarja(
+    dispatchId: number,
+    tarjaId: number,
+    requireFinalPalletId: boolean,
+  ): Promise<InvoiceItem | null> {
+    const qb = this.invItemRepo
+      .createQueryBuilder('ii')
+      .innerJoin(Invoice, 'inv', 'inv.id = ii.invoice_id')
+      .where('inv.dispatch_id = :did', { did: dispatchId })
+      .andWhere('ii.tarja_id = :tid', { tid: tarjaId })
+      .orderBy('ii.id', 'ASC');
+    if (requireFinalPalletId) qb.andWhere('ii.final_pallet_id IS NOT NULL');
+    return qb.getOne();
+  }
+
+  private async resolveSynthVarietyForLegacyTarja(
+    tarjaId: number,
+    invLineAny: InvoiceItem | null,
+  ): Promise<{ varietyId: number; fruitProcessId: number | null } | null> {
+    let synthCtx = await this.deriveVarietyProcessForTarja(tarjaId);
+    if (!synthCtx && invLineAny?.variety_id != null && Number(invLineAny.variety_id) > 0) {
+      synthCtx = {
+        varietyId: Number(invLineAny.variety_id),
+        fruitProcessId:
+          invLineAny.fruit_process_id != null && Number(invLineAny.fruit_process_id) > 0
+            ? Number(invLineAny.fruit_process_id)
+            : null,
+      };
+    }
+    return synthCtx;
+  }
+
+  /**
+   * Completa líneas PT en `final_pallet_lines` para pallets confirmados fuera pero sin líneas detalle.
+   */
+  async fixLegacyFinalPalletLines(opts: { dryRun: boolean }): Promise<{
+    palletsActualizados: number;
+    lineasCreadas: number;
+    errores: string[];
+  }> {
+    const errores: string[] = [];
+    let palletsActualizados = 0;
+    let lineasCreadas = 0;
+
+    const orphanFps = await this.fpRepo
+      .createQueryBuilder('fp')
+      .where('fp.status = :st', { st: 'despachado' })
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM final_pallet_lines fpl WHERE fpl.final_pallet_id = fp.id)`,
+      )
+      .orderBy('fp.id', 'ASC')
+      .getMany();
+
+    for (const fp of orphanFps) {
+      const tarjaId = fp.tarja_id != null ? Number(fp.tarja_id) : null;
+      const dispatchId = fp.dispatch_id != null ? Number(fp.dispatch_id) : null;
+      if (!(tarjaId > 0) || !(dispatchId > 0)) {
+        errores.push(
+          `Final pallet #${fp.id}: faltan tarja_id (${fp.tarja_id ?? 'NULL'}) o dispatch_id (${fp.dispatch_id ?? 'NULL'})`,
+        );
+        continue;
+      }
+
+      const dti = await this.dtiRepo.findOne({
+        where: { dispatch_id: dispatchId, tarja_id: tarjaId },
+        order: { id: 'ASC' },
+      });
+      if (!dti) {
+        errores.push(`Final pallet #${fp.id}: no hay dispatch_tag_item para despacho ${dispatchId}, tarja ${tarjaId}.`);
+        continue;
+      }
+
+      const tag = await this.ptTagRepo.findOne({ where: { id: tarjaId } });
+      if (!tag) {
+        errores.push(`Final pallet #${fp.id}: pt_tag ${tarjaId} no existe.`);
+        continue;
+      }
+
+      const formatEntity = await this.loadPresentationFormatEntityForPtTag(tag);
+      const invAny = await this.findInvoiceItemByDispatchAndTarja(dispatchId, tarjaId, false);
+      const synthCtx = await this.resolveSynthVarietyForLegacyTarja(tarjaId, invAny);
+      if (!synthCtx) {
+        errores.push(`Final pallet #${fp.id}: sin variety_id derivable para línea sintética.`);
+        continue;
+      }
+
+      const boxes = Math.max(0, Number(dti.cajas_despachadas ?? 0));
+      const { poundsNum, lbs } = this.computeLegacySyntheticPoundsFromTagFormat(tag, formatEntity, boxes);
+
+      if (opts.dryRun) {
+        palletsActualizados += 1;
+        lineasCreadas += 1;
+        continue;
+      }
+
+      const qr = this.dispatchRepo.manager.connection.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        const cnt = await qr.manager.count(FinalPalletLine, { where: { final_pallet_id: fp.id } });
+        if (cnt > 0) {
+          await qr.rollbackTransaction();
+          continue;
+        }
+
+        await qr.manager.insert(FinalPalletLine, {
+          final_pallet_id: fp.id,
+          line_order: 0,
+          fruit_process_id: synthCtx.fruitProcessId,
+          fecha: tag.fecha ?? new Date(),
+          ref_text: `legacy:fix-legacy-final-pallet-lines`,
+          variety_id: synthCtx.varietyId,
+          caliber: null,
+          amount: boxes,
+          pounds: lbs,
+          net_lb: poundsNum > 0 ? lbs : null,
+        });
+
+        await qr.commitTransaction();
+        palletsActualizados += 1;
+        lineasCreadas += 1;
+      } catch (e) {
+        await qr.rollbackTransaction();
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`Final pallet #${fp.id}: transacción revertida — ${msg}`);
+      } finally {
+        await qr.release();
+      }
+    }
+
+    return { palletsActualizados, lineasCreadas, errores };
+  }
+
   /**
    * Crea `final_pallets` faltantes para `dispatch_tag_items.tarja_id` que no existen en `final_pallets`,
    * y enlaza cada pallet al PL del despacho (`dispatch_pt_packing_lists`).
@@ -2015,25 +2175,10 @@ export class DispatchBillingService {
         continue;
       }
 
-      const formatCode = (tag.format_code ?? '').trim();
-      let formatEntity: PresentationFormat | null = null;
-      let presentationFormatId: number | null = null;
-      if (formatCode) {
-        formatEntity = await this.formatRepo
-          .createQueryBuilder('f')
-          .where('LOWER(TRIM(f.format_code)) = LOWER(TRIM(:code))', { code: formatCode })
-          .getOne();
-        presentationFormatId = formatEntity ? Number(formatEntity.id) : null;
-      }
+      const formatEntity = await this.loadPresentationFormatEntityForPtTag(tag);
+      const presentationFormatId = formatEntity ? Number(formatEntity.id) : null;
 
-      const invLine = await this.invItemRepo
-        .createQueryBuilder('ii')
-        .innerJoin(Invoice, 'inv', 'inv.id = ii.invoice_id')
-        .where('inv.dispatch_id = :did', { did: dti.dispatch_id })
-        .andWhere('ii.tarja_id = :tid', { tid: tarjaId })
-        .andWhere('ii.final_pallet_id IS NOT NULL')
-        .orderBy('ii.id', 'ASC')
-        .getOne();
+      const invLine = await this.findInvoiceItemByDispatchAndTarja(Number(dti.dispatch_id), tarjaId, true);
 
       let tmplPalletRow: FinalPallet | null = null;
       if (invLine?.final_pallet_id != null && Number(invLine.final_pallet_id) > 0) {
@@ -2048,16 +2193,7 @@ export class DispatchBillingService {
           ? [...tmplPalletRow.lines].sort((a, b) => (a.line_order ?? 0) - (b.line_order ?? 0))
           : [];
 
-      let synthCtx = await this.deriveVarietyProcessForTarja(tarjaId);
-      if (!synthCtx && invLine?.variety_id != null && Number(invLine.variety_id) > 0) {
-        synthCtx = {
-          varietyId: Number(invLine.variety_id),
-          fruitProcessId:
-            invLine.fruit_process_id != null && Number(invLine.fruit_process_id) > 0
-              ? Number(invLine.fruit_process_id)
-              : null,
-        };
-      }
+      const synthCtx = await this.resolveSynthVarietyForLegacyTarja(tarjaId, invLine);
 
       if (sortedTplLines.length === 0 && !synthCtx) {
         errores.push(
@@ -2136,15 +2272,7 @@ export class DispatchBillingService {
           }
         } else if (synthCtx) {
           const boxes = Math.max(0, Number(dti.cajas_despachadas ?? 0));
-          let poundsNum = 0;
-          if (formatEntity?.net_weight_lb_per_box != null) {
-            const perBox = Number(formatEntity.net_weight_lb_per_box);
-            if (!Number.isNaN(perBox)) poundsNum = perBox * boxes;
-          } else if (tag.net_weight_lb != null) {
-            const nw = Number(tag.net_weight_lb);
-            if (!Number.isNaN(nw)) poundsNum = nw;
-          }
-          const lbs = poundsNum.toFixed(3);
+          const { poundsNum, lbs } = this.computeLegacySyntheticPoundsFromTagFormat(tag, formatEntity, boxes);
           await qr.manager.insert(FinalPalletLine, {
             final_pallet_id: saved.id,
             line_order: 0,
