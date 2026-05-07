@@ -940,16 +940,8 @@ export function DashboardPage() {
   }, [ordersForProgress, progressQueries]);
 
   const gaugeRowsRadar = useMemo((): GaugePending[] => {
-    const open = gaugeRowsPending;
-    if (!open.length) return [];
-    const enAvance = open.filter((g) => g.assignedBoxes > 0 || g.dispatchedBoxes > 0 || g.pct > 1);
-    if (enAvance.length > 0) return enAvance.slice(0, 5);
-    return open.slice(0, 5);
-  }, [gaugeRowsPending]);
-
-  const radarShowsOnlyAvance = useMemo(() => {
-    if (!gaugeRowsPending.length) return false;
-    return gaugeRowsPending.some((g) => g.assignedBoxes > 0 || g.dispatchedBoxes > 0 || g.pct > 1);
+    // Mostrar siempre pendientes, incluyendo pedidos nuevos sin avance (0%).
+    return gaugeRowsPending.slice(0, 5);
   }, [gaugeRowsPending]);
 
   const gaugeDisplayRows: Array<GaugePending | GaugeCompleted> =
@@ -1348,10 +1340,10 @@ export function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <div>
+      <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Entrada · Proceso · Salida</div>
           <p className="mt-1 text-[11px] text-slate-500">{describePeriodDashboard(period)}</p>
-        </div>
+      </div>
         {!canLoad ? (
           <div className={emptyStateBanner}>
             Métricas y gráficas requieren sesión iniciada.{' '}
@@ -1510,9 +1502,7 @@ export function DashboardPage() {
           <h2 className={sectionTitle}>Avance de pedidos pendientes</h2>
           <p className={sectionHint}>
             {gaugeRowsRadar.length > 0
-              ? radarShowsOnlyAvance
-                ? 'Prioriza pedidos en avance (PT/despacho); completa la fila hasta 5 con otros pendientes si hay.'
-                : 'Hasta 5 pedidos con saldo (sin PT/despacho aún).'
+              ? 'Hasta 5 pedidos con saldo, incluyendo nuevos sin avance (0%).'
               : 'Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.'}
           </p>
         </div>
@@ -1620,7 +1610,7 @@ export function DashboardPage() {
                           {g.pct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}%
                         </text>
                       </svg>
-                    </div>
+                </div>
                     <footer className={cn('space-y-1 text-center text-xl', pendingTone.text)}>
                       <p className="font-medium">
                         📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
@@ -1631,7 +1621,7 @@ export function DashboardPage() {
                   </article>
                 );
               })}
-          </div>
+              </div>
         )}
       </section>
 
@@ -1639,7 +1629,7 @@ export function DashboardPage() {
         <div>
           <h2 className={sectionTitle}>Recursos de tripaje compartidos</h2>
           <p className={sectionHint}>Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets</p>
-        </div>
+              </div>
         {matsQ.isPending ? (
           <div className="w-full min-w-0 overflow-x-auto pb-1">
             <div className="flex w-full min-w-[min(100%,1100px)] flex-nowrap gap-3">
@@ -1728,7 +1718,7 @@ export function DashboardPage() {
           <div className="grid gap-3 xl:grid-cols-3">
             {capacityCards.map((c) => {
               const badgeGreen = c.bottleneckContainers > 1;
-              return (
+            return (
                 <article
                   key={c.formatId}
                   className={cn(
@@ -1832,7 +1822,7 @@ export function DashboardPage() {
                 const camara = Math.max(0, produced - r.dispatched);
                 const pctCamara = produced > 0 ? clampPct((camara / produced) * 100) : 0;
                 const pctDesp = produced > 0 ? clampPct((r.dispatched / produced) * 100) : 0;
-                return (
+          return (
                   <div key={r.label} className="space-y-2">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="min-w-0 truncate font-medium text-slate-900">{r.label}</span>
@@ -1855,9 +1845,9 @@ export function DashboardPage() {
                       Prod: {format2(produced)} · Cámara: {format2(camara)} · Desp: {format2(r.dispatched)}
                     </p>
                   </div>
-                );
-              })}
-            </div>
+          );
+        })}
+      </div>
           )}
         </div>
       </section>

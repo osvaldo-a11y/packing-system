@@ -100,7 +100,7 @@ function labelProcesoEstadoParaSelector(p: FruitProcessRow) {
   if (st === 'confirmado') return 'confirmado';
   return st;
 }
-const FORMAT_CODE_RE = /^(\d+)x(\d+)oz$/i;
+const FORMAT_CODE_RE = /^(\d+)x(\d+(?:\.\d+)?)oz$/i;
 const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
 
 function toDatetimeLocalValue(iso: string) {
