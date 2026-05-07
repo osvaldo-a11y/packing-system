@@ -188,4 +188,12 @@ export class DispatchBillingController {
     const flag = dryRun === 'true' || dryRun === '1';
     return this.service.reconcileLegacyDispatches({ dryRun: flag });
   }
+
+  /** Crea un `pt_packing_lists` por cada despacho sin vínculo `dispatch_pt_packing_lists` y enlaza pallets vía tarjas del despacho. */
+  @Post('admin/create-legacy-packing-lists')
+  @Roles(ROLES.ADMIN)
+  createLegacyPackingLists(@Query('dryRun') dryRun?: string) {
+    const flag = dryRun === 'true' || dryRun === '1';
+    return this.service.createLegacyPackingLists({ dryRun: flag });
+  }
 }

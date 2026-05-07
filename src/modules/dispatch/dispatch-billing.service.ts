@@ -1796,4 +1796,157 @@ export class DispatchBillingService {
       errores,
     };
   }
+
+  /**
+   * Despacho sin fila en `dispatch_pt_packing_lists`: crea `pt_packing_lists`
+   * (`PL-LEGACY-{id}`, confirmado, BOL/cliente del despacho) y enlaza pallets
+   * vía `dispatch_tag_items.tarja_id` → `final_pallets`.
+   */
+  async createLegacyPackingLists(opts: { dryRun: boolean }): Promise<{
+    plsCreados: number;
+    itemsCreados: number;
+    despachosVinculados: number;
+    errores: string[];
+  }> {
+    const errores: string[] = [];
+    let plsCreados = 0;
+    let itemsCreados = 0;
+    let despachosVinculados = 0;
+    const palletsToReconcileInventory: number[] = [];
+
+    const linkedRows = await this.dispatchPlRepo.find({ select: ['dispatch_id'] });
+    const linkedDispatchIds = new Set(linkedRows.map((r) => Number(r.dispatch_id)));
+
+    const allDispatches = await this.dispatchRepo.find({ order: { id: 'ASC' } });
+    const legacyDispatches = allDispatches.filter((d) => !linkedDispatchIds.has(d.id));
+
+    const listDateFromDispatch = (d: Dispatch): Date => {
+      const fd = d.fecha_despacho ? new Date(d.fecha_despacho) : new Date();
+      return new Date(Date.UTC(fd.getUTCFullYear(), fd.getUTCMonth(), fd.getUTCDate()));
+    };
+
+    for (const d of legacyDispatches) {
+      const listCode = `PL-LEGACY-${d.id}`;
+      const bol = (d.numero_bol ?? '').trim();
+      if (!bol) {
+        errores.push(`Despacho #${d.id}: sin numero_bol; no se puede crear PL legado.`);
+        continue;
+      }
+
+      const clientId = d.client_id != null && Number(d.client_id) > 0 ? Number(d.client_id) : null;
+      if (clientId == null) {
+        errores.push(`Despacho #${d.id}: sin client_id válido; se requiere para crear el PL legado.`);
+        continue;
+      }
+
+      const existingCode = await this.ptPlRepo.findOne({ where: { list_code: listCode }, select: ['id'] });
+      if (existingCode) {
+        errores.push(`Despacho #${d.id}: ya existe pt_packing_lists con list_code="${listCode}" (#${existingCode.id}).`);
+        continue;
+      }
+
+      const dtiRows = await this.dtiRepo.find({
+        where: { dispatch_id: d.id },
+        order: { id: 'ASC' },
+      });
+
+      const fpsOrdered: FinalPallet[] = [];
+      const fpSeen = new Set<number>();
+      let abortDispatch = false;
+
+      for (const dti of dtiRows) {
+        const fps = await this.fpRepo.find({
+          where: { tarja_id: dti.tarja_id },
+          order: { id: 'ASC' },
+        });
+        for (const fp of fps) {
+          if (fpSeen.has(fp.id)) continue;
+          const existingPl = fp.pt_packing_list_id != null ? Number(fp.pt_packing_list_id) : null;
+          if (existingPl != null && existingPl > 0) {
+            errores.push(
+              `Despacho #${d.id}: final_pallet #${fp.id} ya tiene pt_packing_list_id=${existingPl}.`,
+            );
+            abortDispatch = true;
+            break;
+          }
+          fpSeen.add(fp.id);
+          fpsOrdered.push(fp);
+        }
+        if (abortDispatch) break;
+      }
+      if (abortDispatch) continue;
+
+      const newItemsCount = fpsOrdered.length;
+
+      if (opts.dryRun) {
+        plsCreados += 1;
+        itemsCreados += newItemsCount;
+        despachosVinculados += 1;
+        continue;
+      }
+
+      const qr = this.dispatchRepo.manager.connection.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        const listDate = listDateFromDispatch(d);
+        const insertPl = await qr.manager.insert(PtPackingList, {
+          list_code: listCode,
+          client_id: clientId,
+          list_date: listDate,
+          status: 'confirmado',
+          numero_bol: bol,
+          confirmed_at: new Date(),
+        });
+        const plId = Number(insertPl.identifiers[0]?.id ?? 0);
+        if (!(plId > 0)) throw new Error('No se obtuvo id de pt_packing_lists tras insert');
+
+        let itemsThisDispatch = 0;
+        for (const fp of fpsOrdered) {
+          await qr.manager.insert(PtPackingListItem, {
+            packing_list_id: plId,
+            final_pallet_id: fp.id,
+          });
+          itemsThisDispatch += 1;
+
+          const row = await qr.manager.findOne(FinalPallet, { where: { id: fp.id } });
+          if (!row) continue;
+
+          row.pt_packing_list_id = plId;
+          if (row.status === 'definitivo') {
+            row.status = 'asignado_pl';
+            palletsToReconcileInventory.push(Number(row.id));
+          }
+          await qr.manager.save(row);
+        }
+
+        await qr.manager.insert(DispatchPtPackingList, {
+          dispatch_id: d.id,
+          pt_packing_list_id: plId,
+        });
+
+        await qr.commitTransaction();
+        plsCreados += 1;
+        itemsCreados += itemsThisDispatch;
+        despachosVinculados += 1;
+      } catch (e) {
+        await qr.rollbackTransaction();
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`Despacho #${d.id}: transacción revertida — ${msg}`);
+      } finally {
+        await qr.release();
+      }
+    }
+
+    for (const pid of palletsToReconcileInventory) {
+      try {
+        await this.finalPalletService.reconcileInventoryForPallet(pid);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`Inventario PT (pallet #${pid}): ${msg}`);
+      }
+    }
+
+    return { plsCreados, itemsCreados, despachosVinculados, errores };
+  }
 }
