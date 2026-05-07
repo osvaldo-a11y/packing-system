@@ -95,17 +95,36 @@ export class SalesOrderProgressService {
       .innerJoin(PtPackingList, 'pl', 'pl.id = fp.pt_packing_list_id')
       .select('COALESCE(SUM(fpl.amount), 0)', 's');
     this.applyLineDimensions(qb, line);
-    qb.andWhere('fp.status = :st', { st: 'asignado_pl' })
-      .andWhere('fp.pt_packing_list_id IS NOT NULL')
-      .andWhere('pl.status = :pls', { pls: 'confirmado' });
+    qb.andWhere('fp.pt_packing_list_id IS NOT NULL').andWhere('pl.status = :pls', { pls: 'confirmado' });
     if (reversedIds.length) {
       qb.andWhere('pl.id NOT IN (:...rev)', { rev: reversedIds });
     }
     qb.andWhere(
-      new Brackets((w) => {
-        w.where('fp.planned_sales_order_id = :oid', { oid: orderId });
+      new Brackets((root) => {
+        root.where(
+          new Brackets((standard) => {
+            standard.where('fp.status = :stAsign', { stAsign: 'asignado_pl' });
+            standard.andWhere(
+              new Brackets((lnk) => {
+                lnk.where('fp.planned_sales_order_id = :oidAssign', { oidAssign: orderId });
+                if (plIdsFromOrderDispatches.length > 0) {
+                  lnk.orWhere('fp.pt_packing_list_id IN (:...plidsAssign)', {
+                    plidsAssign: plIdsFromOrderDispatches,
+                  });
+                }
+              }),
+            );
+          }),
+        );
         if (plIdsFromOrderDispatches.length > 0) {
-          w.orWhere('fp.pt_packing_list_id IN (:...plids)', { plids: plIdsFromOrderDispatches });
+          root.orWhere(
+            new Brackets((legacy) => {
+              legacy.where('fp.status = :stLegacy', { stLegacy: 'despachado' });
+              legacy.andWhere('fp.pt_packing_list_id IN (:...plidsLegacy)', {
+                plidsLegacy: plIdsFromOrderDispatches,
+              });
+            }),
+          );
         }
       }),
     );
@@ -122,7 +141,7 @@ export class SalesOrderProgressService {
       .innerJoin(Dispatch, 'd', 'd.id = dpl.dispatch_id')
       .select('COALESCE(SUM(fpl.amount), 0)', 's');
     this.applyLineDimensions(qb, line);
-    qb.andWhere('fp.status = :st', { st: 'asignado_pl' })
+    qb.andWhere('fp.status IN (:...fst)', { fst: ['asignado_pl', 'despachado'] })
       .andWhere('pl.status = :pls', { pls: 'confirmado' })
       .andWhere('d.orden_id = :oid2', { oid2: orderId })
       .andWhere('d.status IN (:...dst)', { dst: ['confirmado', 'despachado'] });
