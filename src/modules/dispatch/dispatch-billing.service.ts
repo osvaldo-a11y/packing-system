@@ -1574,6 +1574,19 @@ export class DispatchBillingService {
       });
       const saved = await em.save(Dispatch, disp);
 
+      const listDate = new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
+      const pl = await em.save(
+        PtPackingList,
+        em.create(PtPackingList, {
+          list_code: `PL-IMP-${saved.id}`,
+          client_id: order.cliente_id,
+          list_date: listDate,
+          status: 'confirmado',
+          numero_bol: bol,
+          confirmed_at: fecha,
+        }),
+      );
+
       const amt = dto.total_amount;
       for (const tag of tags) {
         const cajas = Math.max(1, Number(tag.total_cajas));
@@ -1591,7 +1604,101 @@ export class DispatchBillingService {
             pallet_cost: '0.0000',
           }),
         );
+
+        const formatEntity = await this.loadPresentationFormatEntityForPtTag(tag);
+        const existingFp = await em.findOne(FinalPallet, { where: { tarja_id: tag.id } });
+
+        if (!existingFp) {
+          const createdFp = await em.save(
+            FinalPallet,
+            em.create(FinalPallet, {
+              tarja_id: tag.id,
+              status: 'despachado',
+              pt_packing_list_id: pl.id,
+              dispatch_id: saved.id,
+              client_id: order.cliente_id,
+              presentation_format_id: formatEntity?.id != null ? Number(formatEntity.id) : null,
+              brand_id: tag.brand_id != null ? Number(tag.brand_id) : null,
+              bol: tag.bol ?? bol,
+              corner_board_code: '',
+              clamshell_label: '',
+              dispatch_unit: '',
+              packing_type: '',
+              market: '',
+              fruit_quality_mode: 'proceso',
+            }),
+          );
+          createdFp.corner_board_code = `PF-${createdFp.id}`;
+          await em.save(FinalPallet, createdFp);
+
+          const tagItem = await em.findOne(PtTagItem, {
+            where: { tarja_id: tag.id },
+            order: { id: 'ASC' },
+          });
+          if (!tagItem) {
+            throw new BadRequestException(`PT tag #${tag.id} sin pt_tag_items para crear final_pallet_line`);
+          }
+          const proc = await em.findOne(FruitProcess, { where: { id: Number(tagItem.process_id) } });
+          const varietyId = proc?.variedad_id != null ? Number(proc.variedad_id) : 0;
+          if (!(varietyId > 0)) {
+            throw new BadRequestException(`PT tag #${tag.id}: no se pudo derivar variety_id para final_pallet_line`);
+          }
+          const { poundsNum, lbs } = this.computeLegacySyntheticPoundsFromTagFormat(tag, formatEntity, cajas);
+          await em.save(
+            FinalPalletLine,
+            em.create(FinalPalletLine, {
+              final_pallet_id: createdFp.id,
+              line_order: 0,
+              fruit_process_id: Number(tagItem.process_id),
+              fecha: tag.fecha ?? fecha,
+              ref_text: `legacy:importHistoricalDispatch:dispatch=${saved.id}`,
+              variety_id: varietyId,
+              caliber: null,
+              amount: cajas,
+              pounds: lbs,
+              net_lb: poundsNum > 0 ? lbs : null,
+            }),
+          );
+
+          const existsItem = await em.findOne(PtPackingListItem, {
+            where: { packing_list_id: pl.id, final_pallet_id: createdFp.id },
+          });
+          if (!existsItem) {
+            await em.save(
+              PtPackingListItem,
+              em.create(PtPackingListItem, {
+                packing_list_id: pl.id,
+                final_pallet_id: createdFp.id,
+              }),
+            );
+          }
+        } else {
+          existingFp.pt_packing_list_id = pl.id;
+          await em.save(FinalPallet, existingFp);
+
+          const existsItem = await em.findOne(PtPackingListItem, {
+            where: { packing_list_id: pl.id, final_pallet_id: existingFp.id },
+          });
+          if (!existsItem) {
+            await em.save(
+              PtPackingListItem,
+              em.create(PtPackingListItem, {
+                packing_list_id: pl.id,
+                final_pallet_id: existingFp.id,
+              }),
+            );
+          }
+        }
       }
+
+      await em.save(
+        DispatchPtPackingList,
+        em.create(DispatchPtPackingList, {
+          dispatch_id: saved.id,
+          pt_packing_list_id: pl.id,
+        }),
+      );
+
       return saved.id as number;
     });
 
