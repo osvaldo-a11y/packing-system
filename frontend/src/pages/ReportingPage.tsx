@@ -239,7 +239,8 @@ const REPORT_MODULE_TABS: {
   {
     id: 'decision',
     label: 'Decisión',
-    subtitle: '¿Qué debo producir? Contexto de MP y simulación de pallets/formato.',
+    subtitle:
+      '¿Qué debo producir? Contexto de MP y simulación — sin filtros del reporte económico; liquidación desde Cierre.',
     excelCtaHint: 'En Documentos podés exportar el libro completo con los mismos filtros.',
   },
   {
@@ -3504,6 +3505,15 @@ export function ReportingPage() {
     generateMut.mutate(next);
   }
 
+  /** Tabs Operación / Decisión no usan el generado — el panel de período está en Cierre / Documentos. */
+  function goToCierrePeriodPanel() {
+    setReportTab('cierre');
+    setFiltersOpen(true);
+    window.setTimeout(() => {
+      document.getElementById('rep-filtros-globales')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+
   function loadSavedReport(r: SavedReportRow) {
     const parsed = parsePayload(r.payload);
     if (!parsed) {
@@ -3566,6 +3576,203 @@ export function ReportingPage() {
   );
   const canManagePackingCosts = role === 'admin' || role === 'supervisor';
 
+  const periodFilterFieldsGrid = (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-desde">
+          Desde
+        </label>
+        <Input
+          id="rep-desde"
+          type="date"
+          className={filterInputClass}
+          value={draft.fecha_desde ?? filters.fecha_desde ?? ''}
+          onChange={(e) => setDraft((d) => ({ ...d, fecha_desde: e.target.value || undefined }))}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-hasta">
+          Hasta
+        </label>
+        <Input
+          id="rep-hasta"
+          type="date"
+          className={filterInputClass}
+          value={draft.fecha_hasta ?? filters.fecha_hasta ?? ''}
+          onChange={(e) => setDraft((d) => ({ ...d, fecha_hasta: e.target.value || undefined }))}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-page">
+          Página
+        </label>
+        <Input
+          id="rep-page"
+          type="number"
+          min={1}
+          className={filterInputClass}
+          value={draft.page ?? filters.page}
+          onChange={(e) => setDraft((d) => ({ ...d, page: Math.max(1, Number(e.target.value) || 1) }))}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-limit">
+          Límite (máx. 100)
+        </label>
+        <Input
+          id="rep-limit"
+          type="number"
+          min={1}
+          max={100}
+          className={filterInputClass}
+          value={draft.limit ?? filters.limit}
+          onChange={(e) =>
+            setDraft((d) => ({
+              ...d,
+              limit: Math.min(100, Math.max(1, Number(e.target.value) || 100)),
+            }))
+          }
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-productor">
+          Productor
+        </label>
+        <select
+          id="rep-productor"
+          className={reportFilterCatalogSelectClass}
+          value={
+            (draft.productor_id ?? filters.productor_id) != null ? String(draft.productor_id ?? filters.productor_id) : ''
+          }
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft((d) => ({
+              ...d,
+              productor_id: v === '' ? undefined : Number(v) || undefined,
+            }));
+          }}
+        >
+          <option value="">Todos los productores</option>
+          {producersSorted.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-cliente">
+          Cliente
+        </label>
+        <select
+          id="rep-cliente"
+          className={reportFilterCatalogSelectClass}
+          value={(draft.cliente_id ?? filters.cliente_id) != null ? String(draft.cliente_id ?? filters.cliente_id) : ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft((d) => ({
+              ...d,
+              cliente_id: v === '' ? undefined : Number(v) || undefined,
+            }));
+          }}
+        >
+          <option value="">Todos los clientes</option>
+          {clientsSorted.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-variedad">
+          Variedad
+        </label>
+        <select
+          id="rep-variedad"
+          className={reportFilterCatalogSelectClass}
+          value={(draft.variedad_id ?? filters.variedad_id) != null ? String(draft.variedad_id ?? filters.variedad_id) : ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft((d) => ({
+              ...d,
+              variedad_id: v === '' ? undefined : Number(v) || undefined,
+            }));
+          }}
+        >
+          <option value="">Todas las variedades</option>
+          {varietiesSorted.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-tarja">
+          Tarja id
+        </label>
+        <Input
+          id="rep-tarja"
+          type="number"
+          min={0}
+          className={filterInputClass}
+          placeholder="Opcional"
+          value={draft.tarja_id ?? ''}
+          onChange={(e) =>
+            setDraft((d) => ({
+              ...d,
+              tarja_id: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
+            }))
+          }
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-format">
+          Código formato
+        </label>
+        <Input
+          id="rep-format"
+          className={filterInputClass}
+          placeholder="Opcional"
+          value={draft.format_code ?? ''}
+          onChange={(e) => setDraft((d) => ({ ...d, format_code: e.target.value || undefined }))}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-precio-packing">
+          Precio packing / lb (manual)
+        </label>
+        <Input
+          id="rep-precio-packing"
+          type="number"
+          step="0.0001"
+          className={filterInputClass}
+          placeholder="Opcional"
+          value={draft.precio_packing_por_lb ?? ''}
+          onChange={(e) =>
+            setDraft((d) => ({
+              ...d,
+              precio_packing_por_lb: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
+            }))
+          }
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label className={filterLabel} htmlFor="rep-calidad">
+          Calidad
+        </label>
+        <Input
+          id="rep-calidad"
+          className={filterInputClass}
+          placeholder="Opcional"
+          value={draft.calidad ?? ''}
+          onChange={(e) => setDraft((d) => ({ ...d, calidad: e.target.value || undefined }))}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className={pageStack}>
       <div className={pageHeaderRow}>
@@ -3582,7 +3789,8 @@ export function ReportingPage() {
             </button>
           </div>
           <p className={cn(pageSubtitle, 'mt-1')}>
-            Flujo recomendado: Operación → Decisión → Cierre → Documentos. Un solo generado alimenta tablas y exportaciones.
+            Flujo recomendado: Operación → Decisión → Cierre → Documentos. Operación y Decisión no usan el período liquidación; para eso
+            generá en <strong>Cierre</strong> (Actualizar cierre) y exportá en <strong>Documentos</strong>.
           </p>
           <Link
             to="/guide/sistema"
@@ -3616,255 +3824,107 @@ export function ReportingPage() {
         </p>
       </div>
 
-      <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Datos del reporte:</span>{' '}
-            {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
-          </div>
-          <Button
-            type="button"
-            className={cn(btnToolbarPrimary, 'gap-2')}
-            onClick={runMergedGenerate}
-            disabled={generateMut.isPending}
-          >
-            <BarChart3 className="h-4 w-4" />
-            {generateMut.isPending ? 'Generando…' : 'Actualizar datos'}
-          </Button>
-        </div>
-
-        <details
-          id="rep-filtros-globales"
-          className={cn(
-            'group rounded-lg border border-slate-200 bg-slate-50/40 open:border-slate-300 open:bg-white',
-            reportTab === 'documentos' ? 'shadow-sm' : '',
+      {reportTab === 'operacion' || reportTab === 'decision' ? (
+        <div className={cn(contentCard, 'space-y-3 p-4 sm:p-5')}>
+          {reportTab === 'operacion' ? (
+            <p className="text-sm leading-relaxed text-slate-700">
+              En <span className="font-semibold text-slate-900">Operación</span> los totales, el fin del día y los KPIs siguen la{' '}
+              <span className="font-semibold text-slate-900">fecha operativa</span> del bloque de planificación (abajo). Los filtros del
+              reporte de liquidación no aplican acá — usá <strong>Cierre</strong> cuando necesites período, productor o cliente para el
+              generado.
+            </p>
+          ) : (
+            <p className="text-sm leading-relaxed text-slate-700">
+              En <span className="font-semibold text-slate-900">Decisión</span> MP y la calculadora comercial trabajan sobre recepciones
+              actuales, <span className="font-semibold text-slate-900">no</span> sobre el período de liquidación. Para aplicar filtros de
+              fechas o catálogo al reporte económico, pasá por <strong>Cierre</strong>.
+            </p>
           )}
-          open={filtersOpen}
-          onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
-        >
-          <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
-            Filtros del período (fechas, paginación, productor, cliente, formato…)
-          </summary>
-          <div className="space-y-3 border-t border-slate-200 px-3 py-3">
-            <p className={sectionHint}>
-              {reportTab === 'documentos'
-                ? 'Definí el período y los límites; luego pulsá Actualizar datos y exportá con los mismos filtros.'
-                : 'Colapsado por defecto para que la pantalla muestre solo el contenido de la categoría. Abrí cuando necesites ajustar el período para Cierre o exportaciones.'}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-desde">
-                  Desde
-                </label>
-                <Input
-                  id="rep-desde"
-                  type="date"
-                  className={filterInputClass}
-                  value={draft.fecha_desde ?? filters.fecha_desde ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, fecha_desde: e.target.value || undefined }))}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-hasta">
-                  Hasta
-                </label>
-                <Input
-                  id="rep-hasta"
-                  type="date"
-                  className={filterInputClass}
-                  value={draft.fecha_hasta ?? filters.fecha_hasta ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, fecha_hasta: e.target.value || undefined }))}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-page">
-                  Página
-                </label>
-                <Input
-                  id="rep-page"
-                  type="number"
-                  min={1}
-                  className={filterInputClass}
-                  value={draft.page ?? filters.page}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, page: Math.max(1, Number(e.target.value) || 1) }))
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-limit">
-                  Límite (máx. 100)
-                </label>
-                <Input
-                  id="rep-limit"
-                  type="number"
-                  min={1}
-                  max={100}
-                  className={filterInputClass}
-                  value={draft.limit ?? filters.limit}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      limit: Math.min(100, Math.max(1, Number(e.target.value) || 100)),
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-productor">
-                  Productor
-                </label>
-                <select
-                  id="rep-productor"
-                  className={reportFilterCatalogSelectClass}
-                  value={
-                    (draft.productor_id ?? filters.productor_id) != null
-                      ? String(draft.productor_id ?? filters.productor_id)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setDraft((d) => ({
-                      ...d,
-                      productor_id: v === '' ? undefined : Number(v) || undefined,
-                    }));
-                  }}
-                >
-                  <option value="">Todos los productores</option>
-                  {producersSorted.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-cliente">
-                  Cliente
-                </label>
-                <select
-                  id="rep-cliente"
-                  className={reportFilterCatalogSelectClass}
-                  value={
-                    (draft.cliente_id ?? filters.cliente_id) != null
-                      ? String(draft.cliente_id ?? filters.cliente_id)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setDraft((d) => ({
-                      ...d,
-                      cliente_id: v === '' ? undefined : Number(v) || undefined,
-                    }));
-                  }}
-                >
-                  <option value="">Todos los clientes</option>
-                  {clientsSorted.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-variedad">
-                  Variedad
-                </label>
-                <select
-                  id="rep-variedad"
-                  className={reportFilterCatalogSelectClass}
-                  value={
-                    (draft.variedad_id ?? filters.variedad_id) != null
-                      ? String(draft.variedad_id ?? filters.variedad_id)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setDraft((d) => ({
-                      ...d,
-                      variedad_id: v === '' ? undefined : Number(v) || undefined,
-                    }));
-                  }}
-                >
-                  <option value="">Todas las variedades</option>
-                  {varietiesSorted.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-tarja">
-                  Tarja id
-                </label>
-                <Input
-                  id="rep-tarja"
-                  type="number"
-                  min={0}
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.tarja_id ?? ''}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      tarja_id: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-format">
-                  Código formato
-                </label>
-                <Input
-                  id="rep-format"
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.format_code ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, format_code: e.target.value || undefined }))}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-precio-packing">
-                  Precio packing / lb (manual)
-                </label>
-                <Input
-                  id="rep-precio-packing"
-                  type="number"
-                  step="0.0001"
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.precio_packing_por_lb ?? ''}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      precio_packing_por_lb:
-                        e.target.value === '' ? undefined : Number(e.target.value) || undefined,
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <label className={filterLabel} htmlFor="rep-calidad">
-                  Calidad
-                </label>
-                <Input
-                  id="rep-calidad"
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.calidad ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, calidad: e.target.value || undefined }))}
-                />
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Tras cambiar valores, pulsá <strong>Actualizar datos</strong> arriba.
-            </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={goToCierrePeriodPanel}>
+              Ir a Cierre · filtros y generar liquidación
+            </Button>
           </div>
-        </details>
-      </div>
+        </div>
+      ) : reportTab === 'cierre' ? (
+        <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Liquidación · período y límites activos:</span>{' '}
+            {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
+          </p>
+          <details
+            id="rep-filtros-globales"
+            className="group rounded-lg border border-slate-200 bg-slate-50/40 open:border-slate-300 open:bg-white"
+            open={filtersOpen}
+            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
+              Filtros del período (fechas, paginación, productor, cliente, formato…)
+            </summary>
+            <div className="space-y-3 border-t border-slate-200 px-3 py-3">
+              <p className={sectionHint}>
+                Ajustá fechas, paginación y filtros; al terminar pulsá <strong>Actualizar cierre</strong> debajo para regenerar la
+                liquidación.
+              </p>
+              {periodFilterFieldsGrid}
+              <p className="text-[11px] text-muted-foreground">
+                Tras cambiar valores, pulsá <strong>Actualizar cierre</strong> debajo.
+              </p>
+            </div>
+          </details>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              className={cn(btnToolbarPrimary, 'gap-2')}
+              onClick={runMergedGenerate}
+              disabled={generateMut.isPending}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Datos del reporte:</span>{' '}
+              {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
+            </div>
+            <Button
+              type="button"
+              className={cn(btnToolbarPrimary, 'gap-2')}
+              onClick={runMergedGenerate}
+              disabled={generateMut.isPending}
+            >
+              <BarChart3 className="h-4 w-4" />
+              {generateMut.isPending ? 'Generando…' : 'Actualizar datos'}
+            </Button>
+          </div>
+
+          <details
+            id="rep-filtros-globales"
+            className="group rounded-lg border border-slate-200 bg-slate-50/40 open:border-slate-300 open:bg-white shadow-sm"
+            open={filtersOpen}
+            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
+              Filtros del período (fechas, paginación, productor, cliente, formato…)
+            </summary>
+            <div className="space-y-3 border-t border-slate-200 px-3 py-3">
+              <p className={sectionHint}>
+                Definí el período y los límites; luego pulsá Actualizar datos y exportá con los mismos filtros.
+              </p>
+              {periodFilterFieldsGrid}
+              <p className="text-[11px] text-muted-foreground">
+                Tras cambiar valores, pulsá <strong>Actualizar datos</strong> arriba.
+              </p>
+            </div>
+          </details>
+        </div>
+      )}
 
       {activeSavedId != null && canSave && (
         <Card className="border-primary/40 bg-primary/5">
@@ -3919,7 +3979,10 @@ export function ReportingPage() {
                 <CardHeader className="pb-2">
                   <ReportCategoryBadge kind="operativo" />
                   <CardTitle className="text-base text-slate-900">Operación</CardTitle>
-                  <CardDescription>¿Qué pasó hoy? Primero el cierre del día; después KPIs del turno; al final el período generado si ya actualizaste datos.</CardDescription>
+                  <CardDescription>
+                    ¿Qué pasó hoy? Primero el fin del día; KPIs del turno; después el período generado si ya corriste liquidación desde{' '}
+                    <strong>Cierre</strong>.
+                  </CardDescription>
                 </CardHeader>
               </Card>
               <EodPlanningSection
@@ -3943,7 +4006,8 @@ export function ReportingPage() {
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-semibold text-slate-900">Producción vs despacho</CardTitle>
                           <CardDescription className="text-xs">
-                            Misma ventana de fechas que usaste en <strong>Actualizar datos</strong> (no es el día operativo de arriba).
+                            Misma ventana de fechas que usaste al generar en <strong>Cierre</strong> o{' '}
+                            <strong>Documentos</strong> (no es el día operativo de arriba).
                           </CardDescription>
                         </CardHeader>
                         <CardContent className={kpiGrid3}>
@@ -3962,8 +4026,9 @@ export function ReportingPage() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Pulsá <strong>Actualizar datos</strong> con los filtros del período para ver PT vs despacho y la muestra de tabla.
-                      El <strong>Fin del día</strong> y los KPIs de arriba no requieren ese paso.
+                      Para esta vista opcional generá el reporte en <strong>Cierre</strong> (panel de filtros +{' '}
+                      <strong>Actualizar cierre</strong>) o en <strong>Documentos</strong> (<strong>Actualizar datos</strong>). El{' '}
+                      <strong>Fin del día</strong> y los KPIs de arriba no lo requieren.
                     </p>
                   )}
                 </div>
@@ -4015,17 +4080,14 @@ export function ReportingPage() {
                     />
                   </div>
                   <p className="rounded-md border border-violet-100 bg-white/80 px-3 py-2 text-xs text-slate-700">
-                    <span className="font-semibold text-slate-900">Resumen de período en filtros:</span>{' '}
+                    <span className="font-semibold text-slate-900">Período configurado para liquidación (Cierre):</span>{' '}
                     {(filters.fecha_desde ?? '—') + ' → ' + (filters.fecha_hasta ?? '—')}
                     {reportData ? (
-                      <>
-                        {' '}
-                        · último generado alineado a esas fechas.
-                      </>
+                      <> · último generado alineado a esas fechas.</>
                     ) : (
                       <>
                         {' '}
-                        · pulsá <strong>Actualizar datos</strong> cuando quieras cruzar con el reporte guardado.
+                        · todavía sin generado; en <strong>Cierre</strong> abrí filtros y pulsá <strong>Actualizar cierre</strong>.
                       </>
                     )}
                   </p>
@@ -4038,63 +4100,14 @@ export function ReportingPage() {
           {reportTab === 'cierre' && reportData ? (
             <div className="space-y-4">
               <Card className="border-slate-200/90 bg-white shadow-sm">
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-3">
                   <ReportCategoryBadge kind="financiero" />
                   <CardTitle className="text-base text-slate-900">Cierre / liquidación final</CardTitle>
                   <CardDescription className="max-w-[52rem] text-sm">
-                    Período del generado y acceso rápido a filtros completos. Actualizá el cierre después de cambiar fechas.
+                    Liquidación según el último período que generaste. Para cambiar fechas, límites o filtros — y volver a generar —
+                    usá el panel superior <strong>Filtros del período</strong> y <strong>Actualizar cierre</strong>.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 border-t border-slate-100 pt-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="grid gap-1.5">
-                      <label className={filterLabel} htmlFor="cierre-desde">
-                        Desde
-                      </label>
-                      <Input
-                        id="cierre-desde"
-                        type="date"
-                        className={filterInputClass}
-                        value={draft.fecha_desde ?? filters.fecha_desde ?? ''}
-                        onChange={(e) => setDraft((d) => ({ ...d, fecha_desde: e.target.value || undefined }))}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <label className={filterLabel} htmlFor="cierre-hasta">
-                        Hasta
-                      </label>
-                      <Input
-                        id="cierre-hasta"
-                        type="date"
-                        className={filterInputClass}
-                        value={draft.fecha_hasta ?? filters.fecha_hasta ?? ''}
-                        onChange={(e) => setDraft((d) => ({ ...d, fecha_hasta: e.target.value || undefined }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      className={cn(btnToolbarPrimary, 'gap-2')}
-                      onClick={runMergedGenerate}
-                      disabled={generateMut.isPending}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
-                    </Button>
-                    <a
-                      href="#rep-filtros-globales"
-                      className="text-xs text-primary underline-offset-2 hover:underline"
-                      onClick={() => setFiltersOpen(true)}
-                    >
-                      Más filtros (paginación, productor global…)
-                    </a>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Último período aplicado: {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} ·{' '}
-                    {filters.limit} filas por sección.
-                  </p>
-                </CardContent>
               </Card>
 
               <CierreEstadoDelCierreStrip
@@ -4770,8 +4783,8 @@ export function ReportingPage() {
 
       {!reportData && !generateMut.isPending && reportTab === 'cierre' && (
         <div className={cn(emptyStateInset, 'py-8 text-center text-sm')}>
-          Esta pantalla muestra solo liquidación económica. Pulsá <strong>Actualizar datos</strong> después de configurar período en los filtros
-          (abrí desde el grupo arriba).
+          Esta pantalla muestra solo liquidación económica. Configurá el período en <strong>Filtros del período</strong> (arriba) y pulsá{' '}
+          <strong>Actualizar cierre</strong>.
         </div>
       )}
 
