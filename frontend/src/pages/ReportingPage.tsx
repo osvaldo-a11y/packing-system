@@ -196,6 +196,15 @@ type GenerateResponse = {
 };
 
 type SpeciesRow = { id: number; nombre: string };
+
+/** Opciones compactas para filtros de reporte (catálogos masters). */
+type ReportMasterProducer = { id: number; nombre: string };
+type ReportMasterClient = { id: number; nombre: string; codigo?: string | null };
+type ReportMasterVariety = { id: number; nombre: string; species_id: number };
+
+const reportFilterCatalogSelectClass =
+  'flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm';
+
 type PackingCostRow = {
   id: number;
   species_id: number;
@@ -864,11 +873,22 @@ function computeExecutiveKpis(d: GenerateResponse): ExecutiveKpis {
   };
 }
 
-function KpiTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function KpiTile({
+  label,
+  value,
+  hint,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** Color semántico u otras clases para el valor (p. ej. liquidación KPIs). */
+  valueClassName?: string;
+}) {
   return (
     <div className={kpiCardSm}>
       <p className={kpiLabel}>{label}</p>
-      <p className={kpiValueMd}>{value}</p>
+      <p className={cn(kpiValueMd, valueClassName)}>{value}</p>
       {hint ? <p className={kpiFootnoteLead}>{hint}</p> : null}
     </div>
   );
@@ -1735,6 +1755,43 @@ function SettlementDetailByProducerTable({
   );
 }
 
+type CierreEstadoCardTone = 'ok' | 'warning' | 'error' | 'neutral';
+
+function CierreEstadoChecklistCard({
+  tone,
+  icon,
+  title,
+  description,
+}: {
+  tone: CierreEstadoCardTone;
+  icon: ReactNode;
+  title: string;
+  description: ReactNode;
+}) {
+  const toneClass: Record<CierreEstadoCardTone, string> = {
+    ok: 'border-emerald-200 bg-emerald-50/50',
+    warning: 'border-amber-200 bg-amber-50/50',
+    error: 'border-red-200 bg-red-50/50',
+    neutral: 'border-border bg-muted/30',
+  };
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-2 rounded-md border px-3 py-2 text-xs',
+        toneClass[tone],
+      )}
+    >
+      <span className="mt-0.5 shrink-0 [&_svg]:h-4 [&_svg]:w-4" aria-hidden>
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">{title}</p>
+        <div className="mt-0.5 text-muted-foreground">{description}</div>
+      </div>
+    </div>
+  );
+}
+
 /** Validación visual previa a exportar (solo lectura de datos ya generados). */
 function CierreEstadoDelCierreStrip({
   packingManual,
@@ -1762,103 +1819,182 @@ function CierreEstadoDelCierreStrip({
     if (arr.length <= max) return arr.join(', ');
     return `${arr.slice(0, max).join(', ')} (+${arr.length - max})`;
   };
+
+  type StripCard = {
+    key: string;
+    column: 'ok' | 'issue';
+    tone: CierreEstadoCardTone;
+    icon: ReactNode;
+    title: string;
+    description: ReactNode;
+  };
+
+  const cards: StripCard[] = [];
+
+  if (packingManual) {
+    cards.push({
+      key: 'tar',
+      column: 'ok',
+      tone: 'neutral',
+      icon: <Circle className="text-muted-foreground" />,
+      title: 'Tarifas packing',
+      description: <>Neutro — precio manual; no aplica tarifa por especie.</>,
+    });
+  } else if (tariffsOk) {
+    cards.push({
+      key: 'tar',
+      column: 'ok',
+      tone: 'ok',
+      icon: <CheckCircle2 className="text-emerald-600" />,
+      title: 'Tarifas packing',
+      description: <>Listo — todas las especies usadas tienen tarifa activa.</>,
+    });
+  } else {
+    cards.push({
+      key: 'tar',
+      column: 'issue',
+      tone: 'error',
+      icon: <AlertTriangle className="text-red-600" />,
+      title: 'Tarifas packing',
+      description: (
+        <>
+          <p className="text-muted-foreground">
+            Pendiente — faltan tarifas activas:{' '}
+            <span className="font-medium text-foreground">{fmtList(missingTariffLabels)}</span>.
+          </p>
+          <p className="mt-1.5 font-medium text-foreground">Impacto</p>
+          {missingTariffLabels.map((lab) => (
+            <p key={lab} className="mt-1">
+              Falta tarifa en <strong>{lab}</strong> → el packing por lb de esa especie no entra en la liquidación (puede figurar en $0).
+            </p>
+          ))}
+        </>
+      ),
+    });
+  }
+
+  if (kpisPackingZeroNoManual) {
+    cards.push({
+      key: 'packing-global',
+      column: 'issue',
+      tone: 'error',
+      icon: <AlertTriangle className="text-red-600" />,
+      title: 'Packing global en $0',
+      description: (
+        <>
+          Revisá tarifas por especie o datos de formato/LB en el período; el neto puede quedar inflado si el packing no se aplicó.
+        </>
+      ),
+    });
+  }
+
+  if (zeroCostLines.length > 0) {
+    cards.push({
+      key: 'zero-cost',
+      column: 'issue',
+      tone: 'warning',
+      icon: <AlertTriangle className="text-amber-600" />,
+      title: 'Costos en $0 con ventas',
+      description: <>{fmtList(zeroCostLines, 3)}</>,
+    });
+  }
+
+  if (detailOk) {
+    cards.push({
+      key: 'detalle',
+      column: 'ok',
+      tone: 'ok',
+      icon: <CheckCircle2 className="text-emerald-600" />,
+      title: 'Detalle operativo',
+      description: <>Listo — todos los productores tienen líneas de detalle.</>,
+    });
+  } else {
+    cards.push({
+      key: 'detalle',
+      column: 'issue',
+      tone: 'warning',
+      icon: <AlertTriangle className="text-amber-600" />,
+      title: 'Detalle operativo',
+      description: (
+        <>
+          Sin detalle operativo en la respuesta:{' '}
+          <span className="font-medium text-foreground">{fmtList(producersMissingDetail)}</span>. El PDF puede quedar incompleto para esos casos.
+        </>
+      ),
+    });
+  }
+
+  if (informeProducerId == null) {
+    cards.push({
+      key: 'informe',
+      column: 'ok',
+      tone: 'neutral',
+      icon: <Circle className="text-muted-foreground" />,
+      title: 'Informe productor',
+      description: <>Elegí un productor para emitir informe individual.</>,
+    });
+  } else if (informeProducerReady) {
+    cards.push({
+      key: 'informe',
+      column: 'ok',
+      tone: 'ok',
+      icon: <CheckCircle2 className="text-emerald-600" />,
+      title: 'Informe productor',
+      description: <>Listo para exportar PDF / Excel con los datos actuales.</>,
+    });
+  } else {
+    cards.push({
+      key: 'informe',
+      column: 'issue',
+      tone: 'error',
+      icon: <XCircle className="text-red-600" />,
+      title: 'Informe productor',
+      description: (
+        <>
+          Faltan datos: <span className="font-medium text-foreground">{informeProducerIssues.join(' · ')}</span>
+        </>
+      ),
+    });
+  }
+
+  const leftCards = cards.filter((c) => c.column === 'ok');
+  const issueCards = cards.filter((c) => c.column === 'issue');
+  const problemaCount = issueCards.length;
+
   return (
-    <div
-      className="rounded-md border border-slate-200 bg-slate-50/90 px-3 py-2 shadow-sm"
-      role="region"
-      aria-label="Estado del cierre"
-    >
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado del cierre</p>
-      <ul className="grid gap-1.5 text-[12px] leading-snug text-slate-800">
-        <li className="flex gap-2">
-          {packingManual ? (
-            <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-          ) : tariffsOk ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-          ) : (
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
-          )}
-          <span>
-            <span className="font-semibold text-slate-900">Tarifas packing.</span>{' '}
-            {packingManual ? (
-              <span className="text-muted-foreground">Neutro — precio manual; no aplica tarifa por especie.</span>
-            ) : tariffsOk ? (
-              <span className="text-emerald-900">Listo — todas las especies usadas tienen tarifa activa.</span>
-            ) : (
-              <span className="text-amber-950">
-                Pendiente — faltan tarifas activas: <span className="font-medium text-red-900">{fmtList(missingTariffLabels)}</span>.
-              </span>
-            )}
-          </span>
-        </li>
-        {!packingManual && missingTariffLabels.length > 0 ? (
-          <li className="ml-6 border-l border-red-200 pl-2 text-[11px] text-red-950">
-            <span className="font-semibold text-red-900">Impacto: </span>
-            {missingTariffLabels.map((lab) => (
-              <span key={lab} className="mt-0.5 block">
-                Falta tarifa en <strong>{lab}</strong> → el packing por lb de esa especie no entra en la liquidación (puede figurar en $0).
-              </span>
-            ))}
-          </li>
-        ) : null}
-        {kpisPackingZeroNoManual ? (
-          <li className="flex gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
-            <span className="text-red-950">
-              <span className="font-semibold text-red-900">Packing global en $0.</span> Revisá tarifas por especie o datos de formato/LB
-              en el período; el neto puede quedar inflado si el packing no se aplicó.
-            </span>
-          </li>
-        ) : null}
-        {zeroCostLines.length > 0 ? (
-          <li className="flex gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
-            <span>
-              <span className="font-semibold text-red-900">Costos en $0 con ventas.</span>{' '}
-              <span className="text-red-950">{fmtList(zeroCostLines, 3)}</span>
-            </span>
-          </li>
-        ) : null}
-        <li className="flex gap-2">
-          {detailOk ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-          ) : (
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-          )}
-          <span>
-            <span className="font-semibold text-slate-900">Detalle operativo.</span>{' '}
-            {detailOk ? (
-              <span className="text-emerald-900">Listo — todos los productores tienen líneas de detalle.</span>
-            ) : (
-              <span className="text-amber-950">
-                Atención — sin detalle operativo en la respuesta: <span className="font-medium">{fmtList(producersMissingDetail)}</span>.
-                El PDF puede quedar incompleto para esos casos.
-              </span>
-            )}
-          </span>
-        </li>
-        <li className="flex gap-2">
-          {informeProducerId == null ? (
-            <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-          ) : informeProducerReady ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-          ) : (
-            <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
-          )}
-          <span>
-            <span className="font-semibold text-slate-900">Informe productor.</span>{' '}
-            {informeProducerId == null ? (
-              <span className="text-muted-foreground">Elegí un productor para emitir informe individual.</span>
-            ) : informeProducerReady ? (
-              <span className="text-emerald-900">Listo para exportar PDF / Excel con los datos actuales.</span>
-            ) : (
-              <span className="text-red-950">
-                Faltan datos: <span className="font-medium">{informeProducerIssues.join(' · ')}</span>
-              </span>
-            )}
-          </span>
-        </li>
-      </ul>
+    <div role="region" aria-label="Estado del cierre" className="min-w-0">
+      <p className="mb-3 text-[11px] uppercase tracking-wide text-muted-foreground">Estado del cierre</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          {leftCards.map((c) => (
+            <CierreEstadoChecklistCard
+              key={c.key}
+              tone={c.tone}
+              icon={c.icon}
+              title={c.title}
+              description={c.description}
+            />
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          {issueCards.map((c) => (
+            <CierreEstadoChecklistCard
+              key={c.key}
+              tone={c.tone}
+              icon={c.icon}
+              title={c.title}
+              description={c.description}
+            />
+          ))}
+        </div>
+      </div>
+      {problemaCount === 0 ? (
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Cierre listo para exportar</p>
+      ) : (
+        <p className="mt-2 text-xs font-medium text-amber-700">
+          {problemaCount} item(s) requieren revisión antes de exportar
+        </p>
+      )}
     </div>
   );
 }
@@ -2083,6 +2219,9 @@ function LiquidacionFinalModule({
 
   const totalVentas = kpis.ventas > 0 ? kpis.ventas : 1;
   const summaryRows = (summary?.rows ?? []) as Record<string, unknown>[];
+  const filt = reportData.filters as Record<string, unknown> | undefined;
+  const periodoDesde = filt?.fecha_desde != null ? String(filt.fecha_desde) : '—';
+  const periodoHasta = filt?.fecha_hasta != null ? String(filt.fecha_hasta) : '—';
 
   useEffect(() => {
     if (expandProducerIdRequest == null || expandProducerIdRequest <= 0) return;
@@ -2138,15 +2277,36 @@ function LiquidacionFinalModule({
           ) : (
             <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-                <KpiTile label="Ventas totales" value={fmtMoney(kpis.ventas)} />
+                <KpiTile
+                  label="Ventas totales"
+                  value={fmtMoney(kpis.ventas)}
+                  valueClassName={kpis.ventas > 0 ? 'text-[#1D9E75]' : undefined}
+                />
                 <KpiTile label="Cajas totales" value={fmtQty(kpis.cajas, 2)} />
                 <KpiTile label="LB totales" value={fmtQty(kpis.lb, 2)} />
-                <KpiTile label="Costo materiales" value={fmtMoney(kpis.materiales)} />
-                <KpiTile label="Costo packing" value={fmtMoney(kpis.packing)} />
+                <KpiTile
+                  label="Costo materiales"
+                  value={fmtMoney(kpis.materiales)}
+                  valueClassName={
+                    kpis.materiales === 0 && kpis.ventas > 0 ? 'text-amber-600' : undefined
+                  }
+                />
+                <KpiTile
+                  label="Costo packing"
+                  value={fmtMoney(kpis.packing)}
+                  valueClassName={kpis.packing === 0 && kpis.ventas > 0 ? 'text-amber-600' : undefined}
+                />
                 <KpiTile
                   label="Neto productores"
                   value={fmtMoney(kpis.netoSum)}
                   hint="Suma de neto por fila (página cargada)."
+                  valueClassName={
+                    kpis.netoSum > 0
+                      ? 'text-emerald-600'
+                      : kpis.netoSum < 0
+                        ? 'text-rose-600'
+                        : undefined
+                  }
                 />
                 <KpiTile
                   label="Sin asignar / incompleto"
@@ -2196,7 +2356,74 @@ function LiquidacionFinalModule({
               </details>
 
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Por productor</p>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Por productor
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {summaryRows.length} productor(es) · período {periodoDesde} → {periodoHasta}
+                  </p>
+                </div>
+                {summaryRows.length > 0 && summaryRows.length <= 8 ? (
+                  <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {summaryRows.map((raw, cardIdx) => {
+                      const r = raw as Record<string, unknown>;
+                      const pct = (toNum(r.ventas) / totalVentas) * 100;
+                      const netoN = toNum(r.neto_productor);
+                      const cajasN = toNum(r.cajas);
+                      const ventas = r.ventas;
+                      const netoBadgeClass =
+                        netoN > 0
+                          ? 'border-emerald-300 text-emerald-800'
+                          : netoN < 0
+                            ? 'border-rose-300 text-rose-800'
+                            : 'border-slate-300 text-slate-800';
+                      const cardKey = `${producerDetailKey(r.productor_id)}-card-${cardIdx}`;
+                      return (
+                        <div
+                          key={cardKey}
+                          className="rounded-lg border border-border bg-background p-4"
+                        >
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground" title={toStr(r.productor_nombre)}>
+                              {toStr(r.productor_nombre)}
+                            </p>
+                            <Badge variant="outline" className={cn('max-w-[min(140px,45%)] shrink-0 truncate tabular-nums text-xs font-medium', netoBadgeClass)}>
+                              {netoN >= 0 ? '+' : ''}
+                              {fmtMoney(netoN)}
+                            </Badge>
+                          </div>
+                          <div className="mb-3 h-1.5 rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-[#1D9E75]"
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <p className="text-muted-foreground">Cajas</p>
+                              <p className="font-medium">{fmtQty(r.cajas, 0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">LB</p>
+                              <p className="font-medium">{fmtQty(r.lb, 0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Ventas</p>
+                              <p className="font-medium tabular-nums">{fmtMoney(ventas)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">$/caja</p>
+                              <p className="font-medium tabular-nums">
+                                {cajasN > 0 ? fmtMoney(netoN / cajasN) : '—'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                   <div className="max-w-full overflow-x-auto md:overflow-x-visible">
                     <Table className="table-fixed md:min-w-0 [&_tbody_tr:last-child_td]:border-0">
@@ -2274,16 +2501,30 @@ function LiquidacionFinalModule({
                                   unassigned ? 'border-l-4 border-l-amber-500 bg-amber-50/[0.45]' : '',
                                 )}
                               >
-                                <TableCell className="max-w-[1px] truncate px-3 py-2.5 align-middle text-sm font-medium text-slate-900 md:max-w-none">
-                                  <span className="line-clamp-2 md:line-clamp-1 md:truncate" title={toStr(r.productor_nombre)}>
+                                <TableCell className="max-w-[min(280px,40vw)] px-3 py-2.5 align-middle md:max-w-none">
+                                  <span
+                                    className="line-clamp-2 md:line-clamp-1 md:truncate block text-sm font-medium text-slate-900"
+                                    title={toStr(r.productor_nombre)}
+                                  >
                                     {toStr(r.productor_nombre)}
                                   </span>
+                                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className="h-full rounded-full bg-[#1D9E75]"
+                                      style={{ width: `${Math.min(pct, 100)}%` }}
+                                    />
+                                  </div>
                                 </TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtQty(r.cajas, 2)}</TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtQty(r.lb, 2)}</TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtMoney(r.ventas)}</TableCell>
-                                <TableCell className={cn('px-2 py-2.5 text-right align-middle text-sm tabular-nums font-bold md:text-[15px]', netoColor)}>
-                                  {fmtMoney(r.neto_productor)}
+                                <TableCell className="px-2 py-2.5 text-right align-middle">
+                                  <p className={cn('tabular-nums font-bold md:text-[15px]', netoColor)}>
+                                    {fmtMoney(r.neto_productor)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground tabular-nums">
+                                    {cajasN > 0 ? `${fmtMoney(netoN / cajasN)}/caja` : ''}
+                                  </p>
                                 </TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-xs tabular-nums text-slate-700">
                                   {costoPromCaja != null ? fmtMoney(costoPromCaja) : '—'}
@@ -2991,6 +3232,34 @@ export function ReportingPage() {
     queryFn: () => apiJson<SpeciesRow[]>('/api/masters/species'),
   });
 
+  const { data: producersCatalog } = useQuery({
+    queryKey: ['masters', 'producers'],
+    queryFn: () => apiJson<ReportMasterProducer[]>('/api/masters/producers'),
+  });
+
+  const { data: clientsCatalog } = useQuery({
+    queryKey: ['masters', 'clients'],
+    queryFn: () => apiJson<ReportMasterClient[]>('/api/masters/clients'),
+  });
+
+  const { data: varietiesCatalog } = useQuery({
+    queryKey: ['masters', 'varieties'],
+    queryFn: () => apiJson<ReportMasterVariety[]>('/api/masters/varieties'),
+  });
+
+  const producersSorted = useMemo(
+    () => [...(producersCatalog ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [producersCatalog],
+  );
+  const clientsSorted = useMemo(
+    () => [...(clientsCatalog ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [clientsCatalog],
+  );
+  const varietiesSorted = useMemo(
+    () => [...(varietiesCatalog ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [varietiesCatalog],
+  );
+
   const { data: packingCosts, isPending: packingCostsLoading } = useQuery({
     queryKey: ['reporting', 'packing-costs'],
     queryFn: () => apiJson<PackingCostRow[]>('/api/reporting/packing-costs'),
@@ -3444,60 +3713,87 @@ export function ReportingPage() {
               </div>
               <div className="grid gap-1.5">
                 <label className={filterLabel} htmlFor="rep-productor">
-                  Productor id
+                  Productor
                 </label>
-                <Input
+                <select
                   id="rep-productor"
-                  type="number"
-                  min={0}
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.productor_id ?? ''}
-                  onChange={(e) =>
+                  className={reportFilterCatalogSelectClass}
+                  value={
+                    (draft.productor_id ?? filters.productor_id) != null
+                      ? String(draft.productor_id ?? filters.productor_id)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setDraft((d) => ({
                       ...d,
-                      productor_id: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
-                    }))
-                  }
-                />
+                      productor_id: v === '' ? undefined : Number(v) || undefined,
+                    }));
+                  }}
+                >
+                  <option value="">Todos los productores</option>
+                  {producersSorted.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-1.5">
                 <label className={filterLabel} htmlFor="rep-cliente">
-                  Cliente id
+                  Cliente
                 </label>
-                <Input
+                <select
                   id="rep-cliente"
-                  type="number"
-                  min={0}
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.cliente_id ?? ''}
-                  onChange={(e) =>
+                  className={reportFilterCatalogSelectClass}
+                  value={
+                    (draft.cliente_id ?? filters.cliente_id) != null
+                      ? String(draft.cliente_id ?? filters.cliente_id)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setDraft((d) => ({
                       ...d,
-                      cliente_id: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
-                    }))
-                  }
-                />
+                      cliente_id: v === '' ? undefined : Number(v) || undefined,
+                    }));
+                  }}
+                >
+                  <option value="">Todos los clientes</option>
+                  {clientsSorted.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-1.5">
                 <label className={filterLabel} htmlFor="rep-variedad">
-                  Variedad id
+                  Variedad
                 </label>
-                <Input
+                <select
                   id="rep-variedad"
-                  type="number"
-                  min={0}
-                  className={filterInputClass}
-                  placeholder="Opcional"
-                  value={draft.variedad_id ?? ''}
-                  onChange={(e) =>
+                  className={reportFilterCatalogSelectClass}
+                  value={
+                    (draft.variedad_id ?? filters.variedad_id) != null
+                      ? String(draft.variedad_id ?? filters.variedad_id)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setDraft((d) => ({
                       ...d,
-                      variedad_id: e.target.value === '' ? undefined : Number(e.target.value) || undefined,
-                    }))
-                  }
-                />
+                      variedad_id: v === '' ? undefined : Number(v) || undefined,
+                    }));
+                  }}
+                >
+                  <option value="">Todas las variedades</option>
+                  {varietiesSorted.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-1.5">
                 <label className={filterLabel} htmlFor="rep-tarja">

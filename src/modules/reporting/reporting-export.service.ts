@@ -1075,8 +1075,8 @@ export class ReportingExportService {
     return new Promise((resolve, reject) => {
       doc.on('end', () => {
         resolve({
-          buffer: Buffer.concat(chunks),
-          mime: 'application/pdf',
+      buffer: Buffer.concat(chunks),
+      mime: 'application/pdf',
           filename,
         });
       });

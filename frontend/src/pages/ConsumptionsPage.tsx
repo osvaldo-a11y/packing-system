@@ -722,9 +722,9 @@ export function ConsumptionsPage() {
               recipe_id: t.recipe_id,
               pallet_count: t.pallet_count,
               boxes_count: t.boxes_count,
-              tape_linear_meters: 0,
-              corner_boards_qty: 0,
-              labels_qty: 0,
+        tape_linear_meters: 0,
+        corner_boards_qty: 0,
+        labels_qty: 0,
             }),
           });
           ok += 1;
@@ -791,7 +791,7 @@ export function ConsumptionsPage() {
               <Package className="h-4 w-4" />
               Materiales
             </Link>
-          </Button>
+            </Button>
         </div>
       </div>
 
@@ -800,7 +800,7 @@ export function ConsumptionsPage() {
           <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500" htmlFor="consum-client">
             Cliente (capacidad)
           </label>
-          <select
+                <select
             id="consum-client"
             className="h-8 min-w-[200px] rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
             value={capClientId === 'all' ? 'all' : String(capClientId)}
@@ -813,10 +813,10 @@ export function ConsumptionsPage() {
             {(clients ?? []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+                    </option>
+                  ))}
+                </select>
+              </div>
       </div>
 
       {materialsPending || recipesPending || formatsPending ? (
@@ -849,11 +849,11 @@ export function ConsumptionsPage() {
                         <span className="font-semibold tabular-nums text-slate-900">
                           {f.palletsProduced.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                      </div>
+              </div>
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-slate-500">Consumo $</span>
                         <span className="font-semibold tabular-nums text-slate-900">{formatMoney(f.consumoTotal)}</span>
-                      </div>
+              </div>
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-slate-500">Contenedores</span>
                         <span className="font-semibold tabular-nums text-sky-900">
@@ -861,9 +861,9 @@ export function ConsumptionsPage() {
                             ? f.contenedoresPosibles.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                             : '—'}
                         </span>
-                      </div>
-                    </div>
-                  </div>
+                </div>
+                </div>
+              </div>
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-7">
                     {f.categories.map((c) => {
@@ -906,7 +906,7 @@ export function ConsumptionsPage() {
                               <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/90">Contenedores</p>
                               <p className="mt-0.5 text-sm font-bold tabular-nums leading-tight text-sky-950">{contStr}</p>
                             </div>
-                          </div>
+              </div>
                           {c.key === 'tape' && c.tapeItems.length > 1 ? (
                             <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
                               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stock por material (receta)</p>
@@ -917,10 +917,10 @@ export function ConsumptionsPage() {
                                     <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-800">
                                       {formatCount(Math.round(e.stock))}
                                     </span>
-                                  </div>
+                </div>
                                 ))}
-                              </div>
-                            </div>
+                </div>
+              </div>
                           ) : null}
                           {c.key === 'etiqueta' && c.etiquetas.length > 1 ? (
                             <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
@@ -932,7 +932,7 @@ export function ConsumptionsPage() {
                                     <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-800">
                                       {formatCount(Math.round(e.stock))}
                                     </span>
-                                  </div>
+      </div>
                                 ))}
                               </div>
                             </div>
@@ -941,8 +941,8 @@ export function ConsumptionsPage() {
                       );
                     })}
                   </div>
-                </CardContent>
-              </Card>
+        </CardContent>
+      </Card>
             ))}
           </div>
         </section>

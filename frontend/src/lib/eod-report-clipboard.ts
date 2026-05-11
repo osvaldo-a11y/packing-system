@@ -8,14 +8,44 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+const DIAS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const;
+const MESES_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
+
+/** Ej. `YYYY-MM-DD` → `Sábado 10 de mayo, 2026` (calendario local). */
+export function formatDayKeySpanishLong(dayKey: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey.trim());
+  if (!m) return dayKey.trim();
+  const y = Number(m[1]);
+  const monthIndex = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || monthIndex < 0 || monthIndex > 11 || !Number.isFinite(d)) return dayKey.trim();
+  const date = new Date(y, monthIndex, d);
+  if (Number.isNaN(date.getTime())) return dayKey.trim();
+  const wd = DIAS_ES[date.getDay()] ?? '';
+  const mes = MESES_ES[monthIndex] ?? '';
+  const wdCap = wd.charAt(0).toUpperCase() + wd.slice(1);
+  return `${wdCap} ${d} de ${mes}, ${y}`;
+}
+
 /** Estilos inline pensados para clientes de correo (Outlook/Gmail): compacto, ejecutivo. */
 const ROOT =
   'line-height:1.45;color:#334155;font-size:13px;max-width:600px;-webkit-font-smoothing:antialiased;';
 const HDR_BLOCK = 'margin:0 0 14px 0;padding:0 0 12px 0;border-bottom:1px solid #e2e8f0;';
 const H1 =
   'font-size:19px;font-weight:700;letter-spacing:-0.02em;margin:0 0 2px 0;color:#0f172a;line-height:1.2;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
-const FECHA =
-  'font-size:12px;font-weight:600;margin:0;color:#64748b;letter-spacing:0.04em;text-transform:uppercase;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
 const MP_WRAP =
   'margin:0;padding:10px 12px;background:#f8fafc;border:1px solid #e8ecf0;border-radius:4px;font-size:12px;line-height:1.4;color:#475569;';
 const MP_LABEL =
@@ -27,24 +57,52 @@ const SECTION_NEXT =
   'margin:44px 0 0 0;padding:40px 0 0 0;border-top:1px solid #e2e8f0;';
 const CLIENTH3 =
   'font-size:12px;font-weight:700;margin:0 0 6px 0;padding:0 0 5px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;letter-spacing:0.08em;text-transform:uppercase;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
-const FORMATO_P = 'margin:0 0 6px 0;font-size:12px;line-height:1.35;color:#334155;';
-const FORMATO_LABEL =
-  'color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;';
-const FORMATO_VAL = 'color:#0f172a;font-weight:600;font-size:12px;';
-const TABLE =
-  'border-collapse:collapse;width:100%;max-width:600px;margin:0;font-family:Segoe UI,Arial,Helvetica,sans-serif;font-size:12px;color:#1e293b;border:1px solid #e8ecf0;';
-const TH =
-  'border:1px solid #e2e8f0;border-bottom:1px solid #cbd5e1;background:#f1f5f9;color:#334155;padding:5px 10px;text-align:left;font-weight:600;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;';
-const TH_R =
-  'border:1px solid #e2e8f0;border-bottom:1px solid #cbd5e1;background:#f1f5f9;color:#334155;padding:5px 10px;text-align:right;font-weight:600;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;';
-const TD =
-  'border:1px solid #eef1f5;background:#ffffff;padding:4px 10px;vertical-align:middle;color:#334155;line-height:1.35;';
-/** Primera columna cuando es nombre de formato (tabla ancha). */
-const TD_FMT =
-  'border:1px solid #eef1f5;background:#ffffff;padding:4px 10px;vertical-align:middle;color:#0f172a;font-weight:600;font-size:12px;line-height:1.35;';
-const TD_R =
-  'border:1px solid #eef1f5;background:#ffffff;padding:4px 10px;text-align:right;vertical-align:middle;color:#0f172a;font-variant-numeric:tabular-nums;font-weight:600;font-size:12px;line-height:1.35;';
 const EMPTY_P = 'margin:12px 0;font-size:12px;color:#64748b;';
+const CARD_WRAP =
+  'border:1px solid #e8ecf0;border-radius:8px;padding:12px 14px;margin:10px 0 0 0;background:#ffffff;';
+const FMT_CARD_TITLE =
+  'font-size:12px;font-weight:700;margin:0 0 10px 0;color:#0f172a;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+const METRIC_LABEL_MAIL =
+  'font-size:10px;color:#64748b;margin:0 0 4px 0;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+const METRIC_VAL_MAIL =
+  'font-size:18px;font-weight:700;margin:0;color:#0f172a;font-variant-numeric:tabular-nums;font-family:Segoe UI,Arial,Helvetica,sans-serif;line-height:1.2;';
+const METRIC_VAL_CAM_MAIL =
+  'font-size:18px;font-weight:700;margin:0;color:#1D9E75;font-variant-numeric:tabular-nums;font-family:Segoe UI,Arial,Helvetica,sans-serif;line-height:1.2;';
+const THREE_COL_TBL = 'border-collapse:collapse;width:100%;margin:8px 0 0 0;';
+const TD_METRIC_CELL =
+  'vertical-align:top;text-align:center;padding:6px 4px;width:33.33%;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+const TD_METRIC_MID =
+  'vertical-align:top;text-align:center;padding:6px 4px;width:33.33%;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
+
+function htmlFormatMetricCard(label: string, n: { packed: number; camara: number; shipped: number }): string {
+  return (
+    `<div style="${CARD_WRAP}">` +
+    `<p style="${FMT_CARD_TITLE}">${esc(label)}</p>` +
+    `<table style="${THREE_COL_TBL}" cellpadding="0" cellspacing="0" role="presentation"><tr>` +
+    `<td style="${TD_METRIC_CELL}">` +
+    `<p style="${METRIC_LABEL_MAIL}">Packed</p>` +
+    `<p style="${METRIC_VAL_MAIL}">${esc(formatCount(n.packed))}</p>` +
+    `</td>` +
+    `<td style="${TD_METRIC_MID}">` +
+    `<p style="${METRIC_LABEL_MAIL}">En cámara</p>` +
+    `<p style="${METRIC_VAL_CAM_MAIL}">${esc(formatCount(n.camara))}</p>` +
+    `</td>` +
+    `<td style="${TD_METRIC_CELL}">` +
+    `<p style="${METRIC_LABEL_MAIL}">Shipped</p>` +
+    `<p style="${METRIC_VAL_MAIL}">${esc(formatCount(n.shipped))}</p>` +
+    `</td>` +
+    `</tr></table></div>`
+  );
+}
+
+function normsWithAnyCajas(block: EodReportClientBlock): string[] {
+  return [...block.norms]
+    .filter((nk) => {
+      const n = block.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
+      return n.packed + n.camara + n.shipped > 0;
+    })
+    .sort((a, b) => a.localeCompare(b));
+}
 
 export type EodReportClientBlock = {
   label: string;
@@ -55,14 +113,14 @@ export type EodReportClientBlock = {
 };
 
 export function buildEodReportPlain(params: {
-  fechaDdMmYyyy: string;
+  /** Fecha legible en español, misma que en el encabezado HTML. */
+  fechaHeaderEs: string;
   mpLine: string;
   blocks: EodReportClientBlock[];
 }): string {
-  const { fechaDdMmYyyy, mpLine, blocks } = params;
+  const { fechaHeaderEs, mpLine, blocks } = params;
   const lines: string[] = [
-    'FIN DEL DÍA – UNIDAD PT',
-    `Fecha: ${fechaDdMmYyyy}`,
+    `FIN DEL DÍA – UNIDAD PT · ${fechaHeaderEs}`,
     '',
     'Materia prima disponible para proceso:',
     mpLine,
@@ -77,47 +135,19 @@ export function buildEodReportPlain(params: {
   for (const b of blocks) {
     lines.push('');
     lines.push(`CLIENTE: ${b.label}`);
-    const sorted = [...b.norms].sort((a, b) => a.localeCompare(b));
-    if (sorted.length === 0) {
+    const withData = normsWithAnyCajas(b);
+    if (withData.length === 0) {
       lines.push('');
-      lines.push('Métrica       Cajas');
-      lines.push('');
-      lines.push('---');
-      lines.push('');
-      lines.push(`Packed        ${formatCount(0)}`);
-      lines.push(`En cámara     ${formatCount(0)}`);
-      lines.push(`Shipped       ${formatCount(0)}`);
+      lines.push('Sin cajas por formato para este cliente en la fecha.');
       lines.push('');
       lines.push('────────────────────────────────────');
       continue;
     }
-    if (sorted.length === 1) {
-      const nk = sorted[0]!;
+    for (const nk of withData) {
       const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
-      lines.push(`Formato: ${b.formatLabel(nk)}`);
       lines.push('');
-      lines.push('Métrica       Cajas');
-      lines.push('');
-      lines.push('---');
-      lines.push('');
-      lines.push(`Packed        ${formatCount(n.packed)}`);
-      lines.push(`En cámara     ${formatCount(n.camara)}`);
-      lines.push(`Shipped       ${formatCount(n.shipped)}`);
-      lines.push('');
-      lines.push('────────────────────────────────────');
-      continue;
-    }
-    lines.push('');
-    lines.push('Formato               Packed   En cámara   Shipped');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    for (const nk of sorted) {
-      const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
-      const lab = b.formatLabel(nk);
-      lines.push(
-        `${lab.padEnd(20)} ${String(formatCount(n.packed)).padStart(8)} ${String(formatCount(n.camara)).padStart(10)} ${String(formatCount(n.shipped)).padStart(7)}`,
-      );
+      lines.push(`— ${b.formatLabel(nk)}`);
+      lines.push(`   Packed · ${formatCount(n.packed)}  |  En cámara · ${formatCount(n.camara)}  |  Shipped · ${formatCount(n.shipped)}`);
     }
     lines.push('');
     lines.push('────────────────────────────────────');
@@ -126,16 +156,15 @@ export function buildEodReportPlain(params: {
 }
 
 export function buildEodReportHtml(params: {
-  fechaDdMmYyyy: string;
+  fechaHeaderEs: string;
   mpLine: string;
   blocks: EodReportClientBlock[];
 }): string {
-  const { fechaDdMmYyyy, mpLine, blocks } = params;
+  const { fechaHeaderEs, mpLine, blocks } = params;
   const parts: string[] = [];
   parts.push(
     `<div style="${HDR_BLOCK}">` +
-      `<p style="${H1}">FIN DEL DÍA – UNIDAD PT</p>` +
-      `<p style="${FECHA}">Fecha · ${esc(fechaDdMmYyyy)}</p>` +
+      `<p style="${H1}">FIN DEL DÍA – UNIDAD PT · ${esc(fechaHeaderEs)}</p>` +
       `</div>`,
   );
   parts.push(
@@ -153,46 +182,16 @@ export function buildEodReportHtml(params: {
     const sectionStyle = i === 0 ? SECTION_FIRST : SECTION_NEXT;
     parts.push(`<div style="${sectionStyle}">`);
     parts.push(`<h3 style="${CLIENTH3}">CLIENTE: ${esc(b.label)}</h3>`);
-    const sorted = [...b.norms].sort((a, b) => a.localeCompare(b));
-    if (sorted.length === 0) {
-      parts.push(
-        `<table style="${TABLE}" cellpadding="0" cellspacing="0"><thead><tr><th style="${TH}">Métrica</th><th style="${TH_R}">Cajas</th></tr></thead><tbody>` +
-          `<tr><td style="${TD}">Packed</td><td style="${TD_R}">${esc(formatCount(0))}</td></tr>` +
-          `<tr><td style="${TD}">En cámara</td><td style="${TD_R}">${esc(formatCount(0))}</td></tr>` +
-          `<tr><td style="${TD}">Shipped</td><td style="${TD_R}">${esc(formatCount(0))}</td></tr></tbody></table>`,
-      );
+    const withData = normsWithAnyCajas(b);
+    if (withData.length === 0) {
+      parts.push(`<p style="${EMPTY_P}">Sin cajas por formato para este cliente en la fecha.</p>`);
       parts.push('</div>');
       continue;
     }
-    if (sorted.length === 1) {
-      const nk = sorted[0]!;
+    for (const nk of withData) {
       const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
-      parts.push(
-        `<p style="${FORMATO_P}"><span style="${FORMATO_LABEL}">Formato · </span><span style="${FORMATO_VAL}">${esc(b.formatLabel(nk))}</span></p>`,
-      );
-      parts.push(
-        `<table style="${TABLE}" cellpadding="0" cellspacing="0"><thead><tr><th style="${TH}">Métrica</th><th style="${TH_R}">Cajas</th></tr></thead><tbody>` +
-          `<tr><td style="${TD}">Packed</td><td style="${TD_R}">${esc(formatCount(n.packed))}</td></tr>` +
-          `<tr><td style="${TD}">En cámara</td><td style="${TD_R}">${esc(formatCount(n.camara))}</td></tr>` +
-          `<tr><td style="${TD}">Shipped</td><td style="${TD_R}">${esc(formatCount(n.shipped))}</td></tr></tbody></table>`,
-      );
-      parts.push('</div>');
-      continue;
+      parts.push(htmlFormatMetricCard(b.formatLabel(nk), n));
     }
-    parts.push(
-      `<table style="${TABLE}" cellpadding="0" cellspacing="0"><thead><tr>` +
-        `<th style="${TH}">Formato</th><th style="${TH_R}">Packed</th><th style="${TH_R}">En cámara</th><th style="${TH_R}">Shipped</th></tr></thead><tbody>`,
-    );
-    for (const nk of sorted) {
-      const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
-      parts.push(
-        `<tr><td style="${TD_FMT}">${esc(b.formatLabel(nk))}</td>` +
-          `<td style="${TD_R}">${esc(formatCount(n.packed))}</td>` +
-          `<td style="${TD_R}">${esc(formatCount(n.camara))}</td>` +
-          `<td style="${TD_R}">${esc(formatCount(n.shipped))}</td></tr>`,
-      );
-    }
-    parts.push('</tbody></table>');
     parts.push('</div>');
   }
 

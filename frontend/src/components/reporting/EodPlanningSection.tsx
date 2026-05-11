@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, Clipboard } from 'lucide-react';
+import { ChevronDown, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
 import { CommercialOfferCalculatorBlock } from '@/components/pt-tags/CommercialOfferCalculatorBlock';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   buildEodReportHtml,
   buildEodReportPlain,
+  formatDayKeySpanishLong,
   wrapHtmlFragmentForClipboard,
   type EodReportClientBlock,
 } from '@/lib/eod-report-clipboard';
@@ -77,12 +77,6 @@ function escDay(isoOrDate: string | Date): string {
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function formatDayKeyDDMMYYYY(dayKey: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey.trim());
-  if (!m) return dayKey;
-  return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
 function normFormatKey(raw: string): string {
@@ -398,7 +392,7 @@ export function EodPlanningSection({
       mpDisponibleProceso != null && mpDisponibleProceso.totalLb > 0
         ? `${formatLb(mpDisponibleProceso.totalLb, 2)} lb`
         : 'Sin stock disponible';
-    const fecha = formatDayKeyDDMMYYYY(opsDayKey);
+    const fechaHeaderEs = formatDayKeySpanishLong(opsDayKey);
     const blocks: EodReportClientBlock[] = endOfDayByClient.map((r) => {
       const pM = breakdownRowsToNormQty(r.packed);
       const cM = breakdownRowsToNormQty(r.cooler);
@@ -420,8 +414,8 @@ export function EodPlanningSection({
           stripParenthesesText(nk === '—' ? '—' : (formatCanonicalByNorm.get(nk) ?? titleCaseFormatFallback(nk))),
       };
     });
-    const htmlFragment = buildEodReportHtml({ fechaDdMmYyyy: fecha, mpLine, blocks });
-    const plain = buildEodReportPlain({ fechaDdMmYyyy: fecha, mpLine, blocks });
+    const htmlFragment = buildEodReportHtml({ fechaHeaderEs, mpLine, blocks });
+    const plain = buildEodReportPlain({ fechaHeaderEs, mpLine, blocks });
     const htmlDoc = wrapHtmlFragmentForClipboard(htmlFragment);
     return { htmlDoc, plain, htmlFragment };
   }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm]);
@@ -438,11 +432,9 @@ export function EodPlanningSection({
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día</p>
           <p className="text-xs text-slate-500">Cierre por cliente y formato · copiar al correo</p>
         </div>
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 shrink-0 gap-1.5"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-[#1D9E75] px-3 text-xs font-medium text-white hover:bg-[#178a65]"
           onMouseDown={(e) => e.preventDefault()}
           onClick={(e) => {
             e.preventDefault();
@@ -467,9 +459,9 @@ export function EodPlanningSection({
             })();
           }}
         >
-          <Clipboard className="h-3.5 w-3.5" />
+          <Copy className="h-3 w-3" aria-hidden />
           Copiar
-        </Button>
+        </button>
       </summary>
       <div className="border-t border-slate-100 px-4 pb-4 pt-2 sm:px-5">
         <div
