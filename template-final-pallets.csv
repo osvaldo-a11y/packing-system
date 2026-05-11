@@ -1,0 +1,46 @@
+﻿status,species_id,quality_grade_id,corner_board_code,clamshell_label,brand_id,dispatch_unit,packing_type,market,bol,planned_sales_order_id,client_id,fruit_quality_mode,presentation_format_id,dispatch_id,pt_packing_list_id,tarja_id
+# varchar | requerido(si) | campo status,# Number | requerido(no) | FK species.id,# Number | requerido(no) | FK quality_grades.id,# varchar | requerido(si) | campo corner_board_code,# varchar | requerido(si) | campo clamshell_label,# Number | requerido(no) | FK brands.id,# varchar | requerido(si) | campo dispatch_unit,# varchar | requerido(si) | campo packing_type,# varchar | requerido(si) | campo market,# varchar | requerido(no) | campo bol,# Number | requerido(no) | FK sales_orders.id,# Number | requerido(no) | FK clients.id,# varchar | requerido(si) | campo fruit_quality_mode,# Number | requerido(no) | FK presentation_formats.id,# bigint | requerido(no) | FK dispatches.id,# bigint | requerido(no) | FK pt_packing_lists.id,# Number | requerido(no) | FK pt_tags.id
+borrador,ARA,FRESH_BERRIES,,BLUE ARÁNDANO,BRAND01,18x500g,IQF,USA,BOL-7790,,ALPINE,proceso,12x18oz,,,50
+definitivo,ARA,IQF_A,,BLUE ARÁNDANO,BRAND01,12x4.4oz,IQF,USA,,,ALPINE,proceso,8x18oz,,,51
+#
+# Los datos a importar deben ir ANTES de esta sección (no agregar filas debajo del bloque Catálogos).
+# --- Catálogos (instantánea al generar esta plantilla; usar ids en el CSV) ---
+"# productores: id,codigo,nombre"
+"# 2,PB,PINEBLOOM FARMS"
+"# 3,JDS,JDS FARMS"
+"# 51,HBF,HIERS FARMS"
+"# 52,KK,K&K FARMS"
+"# 53,RF,RENTZ FARMS"
+"# 54,JER,JER"
+#
+"# especies: id,codigo,nombre"
+"# 2,ARA,ARANDANOS"
+"# 3,NAR,NARANJAS"
+#
+"# variedades: id,species_id,codigo,nombre"
+"# 2,2,POP,POP"
+"# 3,2,GD,GEORGIA DAWN"
+"# 41,2,SEN,SENTINEL"
+"# 42,2,PATR,PATRACIA"
+"# 43,2,MWL,MEADOWLARK"
+"# 44,2,KC,KEE CRISP"
+"# 45,2,FAR,FARTHING"
+"# 50,2,MULTI,Multivariety"
+"# 51,2,BEAUTY,Beauty"
+#
+"# formatos presentación: id,format_code,descripcion"
+"# 1,12x18oz,"
+"# 2,8x18oz,"
+"# 32,PINTA REGULAR,Clamshell pinta regular"
+"# 33,PINTA LOW PROFILE,Clamshell pinta low profile"
+"# 34,12x32oz,"
+"# 35,12x6oz,"
+"# 36,12x9.8oz,"
+#
+"# clientes: id,nombre"
+"# 1,ALPINE"
+"# 2,FRESHWAVE"
+"# 32,PINEBLOOM FARMS"
+"# 37,JAEMOR FARMS"
+#
+# Fin catálogos

@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LucideIcon } from 'lucide-react';
 import {
+  BarChart2,
   Box,
   Boxes,
   Check,
@@ -329,6 +330,14 @@ function formatMoneySimple(v: string | number): string {
   const n = Number(v);
   if (!Number.isFinite(n)) return '—';
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const materialCardFieldLabelClass = 'text-[11px] uppercase tracking-wide text-muted-foreground';
+
+function stockDisplayClass(stockNum: number): string {
+  if (stockNum <= 0) return 'text-red-600';
+  if (stockNum < 100) return 'text-amber-600';
+  return 'text-foreground';
 }
 
 const KARDEX_MATERIAL_GROUP_ORDER = ['Etiquetas', 'Cajas', 'Clamshell', 'Otros'] as const;
@@ -1611,6 +1620,7 @@ export function MaterialsPage() {
                                 ? 'Requerido: cantidad distinta de cero y motivo.'
                                 : 'Requerido: cantidad inicial distinta de cero.'}
                           </p>
+                          <p className={cn(materialCardFieldLabelClass, 'mb-2')}>Historial reciente</p>
                           <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-lg border border-border lg:min-h-[200px]">
                             <Table>
                               <TableHeader>
@@ -1682,19 +1692,19 @@ export function MaterialsPage() {
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Materiales activos</p>
+              <p className={materialCardFieldLabelClass}>Materiales activos</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.activeMaterials}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categorías con inventario</p>
+              <p className={materialCardFieldLabelClass}>Categorías con inventario</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.categories}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Con stock visible</p>
+              <p className={materialCardFieldLabelClass}>Con stock visible</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.stockLines}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Valor referencial stock</p>
+              <p className={materialCardFieldLabelClass}>Valor referencial stock</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">${formatMoneySimple(inventorySummary.stockValue)}</p>
             </div>
           </div>
@@ -1762,7 +1772,10 @@ export function MaterialsPage() {
                   </div>
                 </div>
                 <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {group.items.map((row) => (
+                  {group.items.map((row) => {
+                    const stockNum = Number(row.cantidad_disponible);
+                    const stockN = Number.isFinite(stockNum) ? stockNum : 0;
+                    return (
                     <article key={`card-${row.id}`} className="rounded-lg border border-slate-200/80 bg-white p-2.5 shadow-sm">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -1774,13 +1787,27 @@ export function MaterialsPage() {
                           </Badge>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-wide text-slate-500">Stock actual</p>
-                          <p className="text-lg font-semibold tabular-nums leading-none text-slate-900">{formatQty(row.cantidad_disponible)}</p>
+                          <p className={materialCardFieldLabelClass}>Stock actual</p>
+                          <div className="mt-0.5 flex flex-col items-end gap-1">
+                            <p
+                              className={cn(
+                                'text-lg font-semibold tabular-nums leading-none',
+                                stockDisplayClass(stockN),
+                              )}
+                            >
+                              {formatQty(row.cantidad_disponible)}
+                            </p>
+                            {stockN <= 0 ? (
+                              <Badge variant="outline" className="border-red-200 bg-red-50 px-1.5 py-0 text-[10px] text-red-700">
+                                Sin stock
+                              </Badge>
+                            ) : null}
+                          </div>
                           <p className="text-[11px] text-slate-500">{row.unidad_medida}</p>
                         </div>
                       </div>
                       <div className="mt-1.5 flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-[11px]">
-                        <span className="uppercase tracking-wide text-slate-500">Costo maestro</span>
+                        <span className={materialCardFieldLabelClass}>Costo maestro</span>
                         <span className="font-semibold tabular-nums text-slate-900">${formatMoneySimple(row.costo_unitario)}</span>
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -1837,12 +1864,16 @@ export function MaterialsPage() {
                         </Button>
                       </div>
                       <div className="mt-1.5">
-                        <Button asChild type="button" size="sm" className="h-8 w-full text-[11px]">
-                          <Link to={`/packaging/kardex?material=${row.id}`}>Ver Kardex</Link>
+                        <Button asChild type="button" variant="outline" size="sm" className="h-8 w-full gap-1.5 text-[11px]">
+                          <Link to={`/packaging/kardex?material=${row.id}`}>
+                            <BarChart2 className="h-3.5 w-3.5" aria-hidden />
+                            Kardex
+                          </Link>
                         </Button>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
               );

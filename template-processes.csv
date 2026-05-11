@@ -1,0 +1,46 @@
+﻿recepcion_id,fecha_proceso,productor_id,variedad_id,peso_procesado_lb,merma_lb,porcentaje_procesado,resultado,tarja_id,reception_line_id,process_machine_id,temperatura_f,nota,lb_entrada,lb_iqf,lb_packout,lb_sobrante,lb_producto_terminado,lb_desecho,lb_jugo,lb_merma_balance,balance_closed,process_status
+# Number | requerido(si) | FK receptions.id,# timestamp | requerido(si) | campo fecha_proceso,# bigint | requerido(si) | FK productores.id,# bigint | requerido(si) | FK varieties.id,# decimal | requerido(si) | lb ingresadas al proceso (texto decimal),# decimal | requerido(si) | campo merma_lb,# decimal | requerido(si) | campo porcentaje_procesado,# enum(IQF|cajas|jugo|perdido|otro) | requerido(si) | IQF|cajas|jugo|perdido|otro,# bigint | requerido(no) | FK pt_tags.id,# Number | requerido(no) | FK reception_lines.id — una línea por fila de import,# Number | requerido(no) | campo process_machine_id,# decimal | requerido(no) | campo temperatura_f,# text | requerido(no) | campo nota,# decimal | requerido(no) | campo lb_entrada,# decimal | requerido(no) | campo lb_iqf,# decimal | requerido(no) | campo lb_packout,# decimal | requerido(no) | campo lb_sobrante,# decimal | requerido(no) | campo lb_producto_terminado,# decimal | requerido(no) | campo lb_desecho,# decimal | requerido(no) | campo lb_jugo,# decimal | requerido(no) | campo lb_merma_balance,# boolean | requerido(si) | campo balance_closed,# varchar | requerido(si) | campo process_status
+10,2024-07-12T10:00:00.000Z,PB,GD,5000.00,120.00,0.0000,IQF,,101,1,32.00,Proceso histórico,5000.000,,,,,,,,false,borrador
+11,2024-07-13T11:00:00.000Z,JDS,FAR,3200.50,80.00,0.0000,cajas,,102,,31.50,,3200.500,,,,,,,,false,borrador
+#
+# Los datos a importar deben ir ANTES de esta sección (no agregar filas debajo del bloque Catálogos).
+# --- Catálogos (instantánea al generar esta plantilla; usar ids en el CSV) ---
+"# productores: id,codigo,nombre"
+"# 2,PB,PINEBLOOM FARMS"
+"# 3,JDS,JDS FARMS"
+"# 51,HBF,HIERS FARMS"
+"# 52,KK,K&K FARMS"
+"# 53,RF,RENTZ FARMS"
+"# 54,JER,JER"
+#
+"# especies: id,codigo,nombre"
+"# 2,ARA,ARANDANOS"
+"# 3,NAR,NARANJAS"
+#
+"# variedades: id,species_id,codigo,nombre"
+"# 2,2,POP,POP"
+"# 3,2,GD,GEORGIA DAWN"
+"# 41,2,SEN,SENTINEL"
+"# 42,2,PATR,PATRACIA"
+"# 43,2,MWL,MEADOWLARK"
+"# 44,2,KC,KEE CRISP"
+"# 45,2,FAR,FARTHING"
+"# 50,2,MULTI,Multivariety"
+"# 51,2,BEAUTY,Beauty"
+#
+"# formatos presentación: id,format_code,descripcion"
+"# 1,12x18oz,"
+"# 2,8x18oz,"
+"# 32,PINTA REGULAR,Clamshell pinta regular"
+"# 33,PINTA LOW PROFILE,Clamshell pinta low profile"
+"# 34,12x32oz,"
+"# 35,12x6oz,"
+"# 36,12x9.8oz,"
+#
+"# clientes: id,nombre"
+"# 1,ALPINE"
+"# 2,FRESHWAVE"
+"# 32,PINEBLOOM FARMS"
+"# 37,JAEMOR FARMS"
+#
+# Fin catálogos

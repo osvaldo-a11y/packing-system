@@ -1,0 +1,46 @@
+﻿tag_code,fecha,resultado,format_code,cajas_por_pallet,total_cajas,total_pallets,client_id,brand_id,bol,net_weight_lb
+# varchar | requerido(si) | código único de unidad PT,# timestamp | requerido(si) | campo fecha,# enum(IQF|cajas|jugo|perdido|otro) | requerido(si) | IQF|cajas|jugo|perdido|otro,# varchar | requerido(si) | formato presentación (ej. 12x4.4oz),# int | requerido(si) | campo cajas_por_pallet,# int | requerido(si) | campo total_cajas,# int | requerido(si) | campo total_pallets,# Number | requerido(no) | FK clients.id,# Number | requerido(no) | FK brands.id,# varchar | requerido(no) | campo bol,# decimal | requerido(no) | campo net_weight_lb
+TAR-240001,2024-07-12T12:00:00.000Z,IQF,12x4.4oz,56,560,10,ALPINE,,BOL-7788,2464.000
+TAR-240002,2024-07-13T09:00:00.000Z,cajas,8x4.4oz,60,480,8,FRESHWAVE,BRAND01,BOL-7789,2112.000
+#
+# Los datos a importar deben ir ANTES de esta sección (no agregar filas debajo del bloque Catálogos).
+# --- Catálogos (instantánea al generar esta plantilla; usar ids en el CSV) ---
+"# productores: id,codigo,nombre"
+"# 2,PB,PINEBLOOM FARMS"
+"# 3,JDS,JDS FARMS"
+"# 51,HBF,HIERS FARMS"
+"# 52,KK,K&K FARMS"
+"# 53,RF,RENTZ FARMS"
+"# 54,JER,JER"
+#
+"# especies: id,codigo,nombre"
+"# 2,ARA,ARANDANOS"
+"# 3,NAR,NARANJAS"
+#
+"# variedades: id,species_id,codigo,nombre"
+"# 2,2,POP,POP"
+"# 3,2,GD,GEORGIA DAWN"
+"# 41,2,SEN,SENTINEL"
+"# 42,2,PATR,PATRACIA"
+"# 43,2,MWL,MEADOWLARK"
+"# 44,2,KC,KEE CRISP"
+"# 45,2,FAR,FARTHING"
+"# 50,2,MULTI,Multivariety"
+"# 51,2,BEAUTY,Beauty"
+#
+"# formatos presentación: id,format_code,descripcion"
+"# 1,12x18oz,"
+"# 2,8x18oz,"
+"# 32,PINTA REGULAR,Clamshell pinta regular"
+"# 33,PINTA LOW PROFILE,Clamshell pinta low profile"
+"# 34,12x32oz,"
+"# 35,12x6oz,"
+"# 36,12x9.8oz,"
+#
+"# clientes: id,nombre"
+"# 1,ALPINE"
+"# 2,FRESHWAVE"
+"# 32,PINEBLOOM FARMS"
+"# 37,JAEMOR FARMS"
+#
+# Fin catálogos

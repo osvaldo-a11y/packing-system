@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +21,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   btnToolbarPrimary,
-  contentCard,
   emptyStatePanel,
   errorStateCard,
   filterInputClass,
@@ -32,6 +30,7 @@ import {
   pageTitle,
   tableShell,
 } from '@/lib/page-ui';
+import { formatMoney } from '@/lib/number-format';
 import { cn } from '@/lib/utils';
 
 export type RecipeItemApi = {
@@ -60,6 +59,8 @@ type MaterialOption = {
   nombre_material: string;
   unidad_medida: string;
   activo: boolean;
+  /** Costo unitario del maestro (para estimar costo/caja en el listado). */
+  costo_unitario?: string;
   material_category?: { id: number; codigo: string; nombre: string };
 };
 
@@ -84,6 +85,37 @@ type DraftLine = {
   qty_per_unit: number;
   base_unidad: 'box' | 'pallet';
 };
+
+const recipeTableHeadClass = 'text-[11px] font-medium uppercase tracking-wide text-muted-foreground';
+
+/** Estimación costo $/caja desde maestro de materiales (líneas por caja; pallet ÷ cajas/pallet si hay dato). */
+function estimateRecipeCostPerBox(
+  recipe: RecipeApi,
+  materialById: Map<number, MaterialOption>,
+  maxBoxesPerPallet: number | null,
+): number | null {
+  let total = 0;
+  let counted = 0;
+  const bpp = maxBoxesPerPallet != null && maxBoxesPerPallet > 0 ? maxBoxesPerPallet : null;
+
+  for (const it of recipe.items) {
+    const m = materialById.get(it.material_id);
+    const rawCost = m?.costo_unitario;
+    if (rawCost == null || rawCost === '') continue;
+    const unitCost = Number(rawCost);
+    const qty = Number(it.qty_per_unit);
+    if (!Number.isFinite(unitCost) || !Number.isFinite(qty)) continue;
+    let line = qty * unitCost;
+    if (it.base_unidad === 'pallet') {
+      if (bpp == null) return null;
+      line /= bpp;
+    }
+    total += line;
+    counted += 1;
+  }
+  if (counted === 0) return null;
+  return total;
+}
 
 const addItemSchema = z
   .object({
@@ -130,7 +162,7 @@ function draftToPayload(line: DraftLine): AddItemForm {
 
 export function RecipesPage() {
   const { role } = useAuth();
-  const canReset = role === 'admin' || role === 'supervisor';
+  const canSeeDangerZone = role === 'admin';
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
@@ -184,6 +216,11 @@ export function RecipesPage() {
   );
 
   const materialById = useMemo(() => new Map(activeMaterials.map((m) => [m.id, m])), [activeMaterials]);
+
+  /** Incluye inactivos para costo estimado en el listado. */
+  const materialByIdForCost = useMemo(() => new Map((materials ?? []).map((m) => [m.id, m])), [materials]);
+
+  const formatById = useMemo(() => new Map((formats ?? []).map((f) => [f.id, f])), [formats]);
 
   const recipeKeys = useMemo(
     () =>
@@ -442,27 +479,6 @@ export function RecipesPage() {
         </Button>
       </div>
 
-      {canReset ? (
-        <Card className={cn(contentCard, 'border-dashed border-amber-200/70 bg-amber-50/40')}>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
-            <p className="text-sm text-slate-600">Borra todas las recetas (solo admin/supervisor).</p>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="rounded-xl"
-                disabled={resetRecipesMut.isPending}
-              onClick={() => {
-                if (!confirm('¿Eliminar TODAS las recetas y sus líneas?')) return;
-                resetRecipesMut.mutate();
-              }}
-            >
-              Reiniciar todo
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
       {!hasAnyRecipes ? (
         <div className={emptyStatePanel}>
           <p className="text-base font-semibold text-slate-900">No hay recetas configuradas</p>
@@ -526,18 +542,24 @@ export function RecipesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-100 hover:bg-transparent">
-                      <TableHead className="text-xs font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marca</TableHead>
-                      <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Líneas
-                      </TableHead>
-                      <TableHead className="w-[200px] text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Acciones
-                      </TableHead>
+                      <TableHead className={recipeTableHeadClass}>Formato</TableHead>
+                      <TableHead className={recipeTableHeadClass}>Marca</TableHead>
+                      <TableHead className={cn(recipeTableHeadClass, 'text-right')}>Líneas</TableHead>
+                      <TableHead className={cn(recipeTableHeadClass, 'text-right')}>Costo/caja</TableHead>
+                      <TableHead className={cn(recipeTableHeadClass, 'w-[200px] text-right')}>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {listForTable.map((recipe) => (
+                    {listForTable.map((recipe) => {
+                      const fmt = formatById.get(recipe.presentation_format_id);
+                      const bpp = fmt?.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : null;
+                      const costoCaja = estimateRecipeCostPerBox(
+                        recipe,
+                        materialByIdForCost,
+                        Number.isFinite(bpp) ? bpp : null,
+                      );
+                      const lineas = recipe.items.length;
+                      return (
                       <TableRow key={recipe.id} className="border-slate-100/90">
                         <TableCell>
                           <span className="font-mono text-sm font-medium text-slate-900">{recipe.format_code}</span>
@@ -545,10 +567,17 @@ export function RecipesPage() {
                             <span className="mt-0.5 block truncate text-xs text-slate-500">{recipe.descripcion}</span>
                           ) : null}
                         </TableCell>
-                        <TableCell className="text-sm text-slate-700">
+                        <TableCell className="text-sm text-muted-foreground">
                           {recipe.brand?.nombre ?? <span className="text-slate-400">Genérica</span>}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-sm text-slate-700">{recipe.items.length}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                            {lineas} {lineas === 1 ? 'ingrediente' : 'ingredientes'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                          {costoCaja != null ? formatMoney(costoCaja) : '—'}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-1">
                             <Button
@@ -596,7 +625,8 @@ export function RecipesPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -604,6 +634,30 @@ export function RecipesPage() {
           )}
         </>
       )}
+
+      {canSeeDangerZone ? (
+        <details className="rounded-lg border border-red-200 bg-red-50/30 px-4 py-3">
+          <summary className="cursor-pointer text-sm font-medium text-red-800 marker:content-none [&::-webkit-details-marker]:hidden">
+            ⚠ Zona peligrosa (solo admin)
+          </summary>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-red-700">
+              Borra todas las recetas permanentemente. No se puede deshacer.
+            </p>
+            <button
+              type="button"
+              className="h-8 shrink-0 rounded-md border border-red-300 bg-white px-3 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
+              disabled={resetRecipesMut.isPending}
+              onClick={() => {
+                if (!confirm('¿Eliminar TODAS las recetas y sus líneas?')) return;
+                resetRecipesMut.mutate();
+              }}
+            >
+              Reiniciar todo
+            </button>
+          </div>
+        </details>
+      ) : null}
 
       {/* Crear: formato → base → líneas */}
       <Dialog

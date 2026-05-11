@@ -671,6 +671,8 @@ export function ConsumptionsPage() {
         palletsProduced,
         consumoTotal,
         contenedoresPosibles,
+        /** Subtítulo en cards de categoría: criterio según si el formato define cajas por pallet. */
+        contenedoresSub: maxBp > 0 ? ('cajas posibles' as const) : ('pallets posibles' as const),
         categories,
       };
     });
@@ -830,6 +832,15 @@ export function ConsumptionsPage() {
           <h2 id="consum-mat-heading" className={sectionTitle}>
             Consumo por material
           </h2>
+          {formatMaterialSections.length > 0 && formatMaterialSections.every((f) => f.consumoTotal <= 0) ? (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <span aria-hidden>⚠</span>
+              <span>
+                El costo de materiales aparece en $0 porque las recetas no tienen costo unitario configurado en los materiales.
+                Configurá los costos en Materiales para ver el costo real por formato.
+              </span>
+            </div>
+          ) : null}
           <div className="space-y-3">
             {formatMaterialSections.map((f) => (
               <Card key={f.formatCode} className={cn(contentCard, 'border-slate-200/90 shadow-sm')}>
@@ -839,31 +850,20 @@ export function ConsumptionsPage() {
                       <p className="font-mono text-[14px] font-semibold text-slate-900">{f.formatCode}</p>
                       <p className="mt-0.5 text-[10px] text-slate-500">Consumo por categoría</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-slate-500">Cajas</span>
-                        <span className="font-semibold tabular-nums text-slate-900">{formatCount(f.boxesProduced)}</span>
-                      </div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-slate-500">Pallets</span>
-                        <span className="font-semibold tabular-nums text-slate-900">
-                          {f.palletsProduced.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-foreground">
+                        {formatCount(Math.round(f.boxesProduced))} cajas
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-foreground">
+                        {f.palletsProduced.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} pallets
+                      </span>
+                      {f.consumoTotal > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700">
+                          ${formatMoney(f.consumoTotal)}
                         </span>
-              </div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-slate-500">Consumo $</span>
-                        <span className="font-semibold tabular-nums text-slate-900">{formatMoney(f.consumoTotal)}</span>
-              </div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-slate-500">Contenedores</span>
-                        <span className="font-semibold tabular-nums text-sky-900">
-                          {f.contenedoresPosibles != null
-                            ? f.contenedoresPosibles.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : '—'}
-                        </span>
-                </div>
-                </div>
-              </div>
+                      ) : null}
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-7">
                     {f.categories.map((c) => {
@@ -873,13 +873,16 @@ export function ConsumptionsPage() {
                           : c.status === 'yellow'
                             ? 'border-amber-200/90 bg-amber-50/40'
                             : 'border-rose-200/90 bg-rose-50/35';
-                      const contStr =
-                        c.containers != null && Number.isFinite(c.containers)
-                          ? c.containers.toLocaleString('es-AR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : '—';
+                      const contNum =
+                        c.containers != null && Number.isFinite(Number(c.containers)) ? Number(c.containers) : null;
+                      const contColorClass =
+                        contNum == null
+                          ? 'text-muted-foreground'
+                          : contNum <= 0
+                            ? 'text-red-600'
+                            : contNum < 10
+                              ? 'text-amber-600'
+                              : 'text-[#1D9E75]';
                       return (
                         <div
                           key={c.key}
@@ -903,8 +906,11 @@ export function ConsumptionsPage() {
                               </span>
                             </div>
                             <div>
-                              <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-800/90">Contenedores</p>
-                              <p className="mt-0.5 text-sm font-bold tabular-nums leading-tight text-sky-950">{contStr}</p>
+                              <p className="text-[10px] font-semibold leading-tight text-slate-800">Contenedores posibles</p>
+                              <p className="text-[9px] leading-tight text-slate-500">{f.contenedoresSub}</p>
+                              <p className={cn('mt-0.5 text-lg font-bold tabular-nums leading-tight', contColorClass)}>
+                                {contNum != null ? contNum.toFixed(2) : '—'}
+                              </p>
                             </div>
               </div>
                           {c.key === 'tape' && c.tapeItems.length > 1 ? (

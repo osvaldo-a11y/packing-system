@@ -22,7 +22,6 @@ import {
   contentCard,
   emptyStateInset,
   filterInputClass,
-  filterLabel,
   filterPanel,
   filterSelectClass,
   kpiCardSm,
@@ -80,14 +79,6 @@ function movementEffectiveMs(m: MaterialMovementRow): number {
   return new Date(iso).getTime();
 }
 
-function matchesMoveTypeFilter(ref: string | null, moveType: string): boolean {
-  const rt = (ref ?? '').trim().toLowerCase();
-  if (moveType === 'manual') {
-    return rt === 'manual' || rt === 'ajuste' || rt === 'correccion' || rt === '';
-  }
-  return rt === moveType.toLowerCase();
-}
-
 const MOVE_FILTER_ALL = 'all';
 
 /** Alineado con filtros de tipo; movimientos no mapeados van a `other`. */
@@ -101,48 +92,27 @@ function movementBucketForRow(ref: string | null): string {
   return 'other';
 }
 
-const MOVE_TYPE_KPI_META: Array<{
+/** Misma regla que los KPI por tipo (sinónimos consumo/consumption, etc.). */
+function matchesMoveTypeFilter(ref: string | null, moveType: string): boolean {
+  return movementBucketForRow(ref) === moveType;
+}
+
+/** Bucket para tarjetas KPI: «Compra» agrupa movimientos `entrada` y `compra`. */
+function movementKpiBucketForRow(ref: string | null): string {
+  const b = movementBucketForRow(ref);
+  return b === 'entrada' ? 'compra' : b;
+}
+
+type MoveTypeKpiMetaItem = {
   bucket: string;
   label: string;
   desc: string;
   shell: string;
   Icon: typeof Package;
-}> = [
-  {
-    bucket: 'consumption',
-    label: 'Consumo PT',
-    desc: 'Salidas por tarja',
-    shell: 'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/40 to-white',
-    Icon: ArrowDownRight,
-  },
-  {
-    bucket: 'consumption_revert',
-    label: 'Reverso consumo',
-    desc: 'Entradas por reverso',
-    shell: 'border-l-[3px] border-l-emerald-400 bg-gradient-to-br from-emerald-50/35 to-white',
-    Icon: ArrowUpRight,
-  },
-  {
-    bucket: 'manual',
-    label: 'Manual / corr.',
-    desc: 'Ajustes y correcciones',
-    shell: 'border-l-[3px] border-l-slate-400 bg-gradient-to-br from-slate-50/50 to-white',
-    Icon: ArrowLeftRight,
-  },
-  {
-    bucket: 'entrada',
-    label: 'Ingreso',
-    desc: 'Entradas operativas',
-    shell: 'border-l-[3px] border-l-sky-400 bg-gradient-to-br from-sky-50/40 to-white',
-    Icon: ArrowUpRight,
-  },
-  {
-    bucket: 'compra',
-    label: 'Compra',
-    desc: 'OC / recepciones',
-    shell: 'border-l-[3px] border-l-teal-400 bg-gradient-to-br from-teal-50/40 to-white',
-    Icon: Package,
-  },
+};
+
+/** Tarjetas KPI salvo consumo bruto/reverso (tarjeta neta + desglose en details). */
+const MOVE_TYPE_KPI_META_BEFORE_PT: MoveTypeKpiMetaItem[] = [
   {
     bucket: 'inventario_inicial',
     label: 'Inv. inicial',
@@ -151,25 +121,59 @@ const MOVE_TYPE_KPI_META: Array<{
     Icon: Warehouse,
   },
   {
+    bucket: 'compra',
+    label: 'Compra',
+    desc: 'Entradas por compra',
+    shell: 'border-l-[3px] border-l-teal-400 bg-gradient-to-br from-teal-50/40 to-white',
+    Icon: Package,
+  },
+];
+
+const MOVE_TYPE_KPI_META_AFTER_PT: MoveTypeKpiMetaItem[] = [
+  {
     bucket: 'salida',
-    label: 'Salida / merma',
-    desc: 'Egresos',
+    label: 'Salida / Merma',
+    desc: 'Mermas manuales',
     shell: 'border-l-[3px] border-l-orange-400 bg-gradient-to-br from-orange-50/35 to-white',
     Icon: ArrowDownRight,
   },
   {
+    bucket: 'manual',
+    label: 'Ajuste manual',
+    desc: 'Correcciones manuales',
+    shell: 'border-l-[3px] border-l-slate-400 bg-gradient-to-br from-slate-50/50 to-white',
+    Icon: ArrowLeftRight,
+  },
+  {
     bucket: 'final_inventario',
     label: 'Cierre inv.',
-    desc: 'Ajuste de cierre',
+    desc: 'Cierre de temporada',
     shell: 'border-l-[3px] border-l-amber-400 bg-gradient-to-br from-amber-50/40 to-white',
     Icon: Layers,
   },
   {
     bucket: 'other',
-    label: 'Otros tipos',
-    desc: 'Códigos especiales',
+    label: 'Otros',
+    desc: 'Tipos no clasificados',
     shell: 'border-l-[3px] border-l-slate-300 bg-white',
     Icon: Boxes,
+  },
+];
+
+const MOVE_TYPE_KPI_CONSUMPTION_DETAIL: MoveTypeKpiMetaItem[] = [
+  {
+    bucket: 'consumption',
+    label: 'Consumo PT',
+    desc: 'Salidas por empaque',
+    shell: 'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/40 to-white',
+    Icon: ArrowDownRight,
+  },
+  {
+    bucket: 'consumption_revert',
+    label: 'Reverso consumo',
+    desc: 'Corrección al recalcular consumos',
+    shell: 'border-l-[3px] border-l-emerald-400 bg-gradient-to-br from-emerald-50/35 to-white',
+    Icon: ArrowUpRight,
   },
 ];
 
@@ -181,6 +185,22 @@ function movementDeltaTone(delta: number): string {
   if (delta > 0) return 'text-emerald-700 font-semibold tabular-nums';
   if (delta < 0) return 'text-rose-700 font-semibold tabular-nums';
   return 'text-slate-600 tabular-nums';
+}
+
+function movementKpiValueColorClass(bucket: string, count: number, netValue: number): string {
+  if (count === 0) return 'text-muted-foreground opacity-40';
+  if (bucket === 'consumption') return 'text-rose-600';
+  if (bucket === 'consumption_revert') return 'text-[#1D9E75]';
+  if (bucket === 'inventario_inicial' || bucket === 'compra' || bucket === 'entrada') {
+    return netValue > 0 ? 'text-[#1D9E75]' : 'text-muted-foreground';
+  }
+  if (bucket === 'salida') return 'text-amber-600';
+  if (bucket === 'manual') {
+    if (netValue > 0) return 'text-[#1D9E75]';
+    if (netValue < 0) return 'text-amber-600';
+    return 'text-muted-foreground';
+  }
+  return 'text-muted-foreground';
 }
 
 function refOriginLine(ref: string | null, refId: number | null): string {
@@ -256,7 +276,11 @@ export function KardexPage() {
     [materials, materialId],
   );
 
-  const { data: movements, isFetching: movementsLoading } = useQuery({
+  const {
+    data: movements,
+    isFetching: movementsLoading,
+    isError: movementsQueryError,
+  } = useQuery({
     queryKey: ['packaging', 'movements', materialId],
     queryFn: () => apiJson<MaterialMovementRow[]>(`/api/packaging/materials/${materialId}/movements`),
     enabled: materialId > 0,
@@ -324,9 +348,12 @@ export function KardexPage() {
   const movementTypeKpiTotals = useMemo(() => {
     const next = (): { count: number; net: number } => ({ count: 0, net: 0 });
     const map = new Map<string, { count: number; net: number }>();
-    for (const m of MOVE_TYPE_KPI_META) map.set(m.bucket, next());
+    for (const m of MOVE_TYPE_KPI_META_BEFORE_PT) map.set(m.bucket, next());
+    for (const m of MOVE_TYPE_KPI_META_AFTER_PT) map.set(m.bucket, next());
+    map.set('consumption', next());
+    map.set('consumption_revert', next());
     for (const m of rowsForMovementTypeKpis) {
-      const b = movementBucketForRow(m.ref_type);
+      const b = movementKpiBucketForRow(m.ref_type);
       const tgt = map.get(b) ?? map.get('other')!;
       const d = Number(m.quantity_delta);
       if (!Number.isFinite(d)) continue;
@@ -396,6 +423,8 @@ export function KardexPage() {
     ? stockSaldoClass(stockSaldoTone(Number(selectedMaterial.cantidad_disponible)))
     : '';
 
+  const kardexFilterLabelClass = 'text-[11px] uppercase tracking-wide text-muted-foreground';
+
   return (
     <div className="space-y-5">
       <div className={pageHeaderRow}>
@@ -408,7 +437,7 @@ export function KardexPage() {
       <div className={filterPanel}>
         <div className="grid gap-4 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-3">
-            <Label className={filterLabel}>Categoría</Label>
+            <Label className={kardexFilterLabelClass}>Categoría</Label>
             <select
               className={cn(filterSelectClass, 'mt-1.5')}
               value={categoryFilter}
@@ -431,7 +460,7 @@ export function KardexPage() {
             </select>
           </div>
           <div className="lg:col-span-4">
-            <Label className={filterLabel}>Material</Label>
+            <Label className={kardexFilterLabelClass}>Material</Label>
             <select
               className={cn(filterSelectClass, 'mt-1.5')}
               value={materialId || ''}
@@ -446,15 +475,15 @@ export function KardexPage() {
             </select>
           </div>
           <div className="lg:col-span-2">
-            <Label className={filterLabel}>Desde</Label>
+            <Label className={kardexFilterLabelClass}>Desde</Label>
             <Input type="date" className={cn(filterInputClass, 'mt-1.5')} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="lg:col-span-2">
-            <Label className={filterLabel}>Hasta</Label>
+            <Label className={kardexFilterLabelClass}>Hasta</Label>
             <Input type="date" className={cn(filterInputClass, 'mt-1.5')} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
           <div className="lg:col-span-3">
-            <Label className={filterLabel}>Tipo de movimiento</Label>
+            <Label className={kardexFilterLabelClass}>Tipo de movimiento</Label>
             <select className={cn(filterSelectClass, 'mt-1.5')} value={moveType} onChange={(e) => setMoveType(e.target.value)}>
               {moveFilterOptions.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -470,6 +499,12 @@ export function KardexPage() {
             <p className="text-sm font-semibold text-slate-900">{selectedMaterial.nombre_material}</p>
             <p className="text-xs text-slate-500">{describeAlcance(selectedMaterial, formatById, clientById)}</p>
           </div>
+        ) : null}
+        {materialId > 0 && !movementsLoading && movementsQueryError ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            No se pudieron cargar los movimientos. Revisá la conexión o probá de nuevo; el resumen operativo puede no mostrarse hasta que el
+            historial responda.
+          </p>
         ) : null}
       </div>
 
@@ -552,12 +587,7 @@ export function KardexPage() {
                 </div>
               </div>
             </>
-          ) : (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-[13px] leading-snug text-amber-950">
-              No se pudo cargar el resumen operativo del material. Siguen disponibles los movimientos y los totales por tipo abajo si el
-              historial respondió bien.
-            </div>
-          )}
+          ) : null}
 
           {!movementsLoading && materialId > 0 ? (
             <div className="space-y-3 pt-1">
@@ -591,16 +621,18 @@ export function KardexPage() {
                 </div>
               ) : (
                 <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                  {MOVE_TYPE_KPI_META.map(({ bucket, label, desc, shell, Icon }) => {
-                    const agg = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
-                    const inactive = agg.count === 0;
+                  {MOVE_TYPE_KPI_META_BEFORE_PT.map(({ bucket, label, desc, shell, Icon }) => {
+                    const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
+                    const netValue = totals.net ?? 0;
+                    const count = totals.count ?? 0;
+                    const valueColor = movementKpiValueColorClass(bucket, count, netValue);
                     return (
                       <div
                         key={bucket}
                         className={cn(
-                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm transition-opacity',
+                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
                           shell,
-                          inactive ? 'opacity-[0.45]' : '',
+                          count === 0 && 'opacity-50',
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -608,12 +640,131 @@ export function KardexPage() {
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
                             <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
                           </div>
-                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', !inactive && 'text-slate-400')} aria-hidden />
+                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
                         </div>
-                        <p className={cn('mt-2.5 text-lg font-semibold tabular-nums leading-none', movementDeltaTone(agg.net))}>
-                          {formatInventoryQty(agg.net)} <span className="text-xs font-normal text-slate-500">{uom}</span>
+                        <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
+                          {formatInventoryQty(netValue)}{' '}
+                          <span className="text-xs font-normal text-slate-500">{uom}</span>
                         </p>
-                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(agg.count)} mov.</p>
+                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
+                      </div>
+                    );
+                  })}
+                  {(() => {
+                    const tCons = movementTypeKpiTotals.get('consumption') ?? { count: 0, net: 0 };
+                    const tRev = movementTypeKpiTotals.get('consumption_revert') ?? { count: 0, net: 0 };
+                    const netCons = tCons.net ?? 0;
+                    const netRev = tRev.net ?? 0;
+                    const consumoNeto = netCons + netRev;
+                    const countCons = tCons.count ?? 0;
+                    const countRev = tRev.count ?? 0;
+                    const countPt = countCons + countRev;
+                    const consumoBruto = formatInventoryQty(netCons);
+                    const reversos = formatInventoryQty(netRev);
+                    const netoColor =
+                      consumoNeto < 0 ? 'text-rose-600' : consumoNeto > 0 ? 'text-amber-600' : 'text-muted-foreground';
+                    return (
+                      <div key="consumo-pt-bloque" className="col-span-full flex min-w-0 flex-col gap-1">
+                        <div
+                          className={cn(
+                            'w-full max-w-sm rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
+                            'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/30 via-white to-emerald-50/20',
+                            countPt === 0 && 'opacity-50',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Consumo neto PT
+                              </p>
+                              <p className="line-clamp-2 text-[10px] text-slate-400">
+                                Consumo por empaque menos reverso en el período
+                              </p>
+                            </div>
+                            <ArrowDownRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                          </div>
+                          <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', netoColor)}>
+                            {formatInventoryQty(consumoNeto)} <span className="text-xs font-normal text-slate-500">{uom}</span>
+                          </p>
+                          {countRev > 0 ? (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              Bruto: {consumoBruto} · Reversos: {reversos}
+                            </p>
+                          ) : null}
+                          <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(countPt)} mov.</p>
+                        </div>
+                        <details className="col-span-full mt-1 w-full">
+                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                            Ver desglose bruto/reverso
+                          </summary>
+                          <div className="mt-2 grid gap-2.5 sm:grid-cols-2 xl:max-w-2xl">
+                            {MOVE_TYPE_KPI_CONSUMPTION_DETAIL.map(({ bucket, label, desc, shell, Icon }) => {
+                              const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
+                              const netValue = totals.net ?? 0;
+                              const count = totals.count ?? 0;
+                              const valueColor = movementKpiValueColorClass(bucket, count, netValue);
+                              return (
+                                <div
+                                  key={bucket}
+                                  className={cn(
+                                    'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
+                                    shell,
+                                    count === 0 && 'opacity-50',
+                                  )}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                        {label}
+                                      </p>
+                                      <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
+                                      {bucket === 'consumption_revert' ? (
+                                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                          Corrección al recalcular consumos de tarjas
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
+                                  </div>
+                                  <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
+                                    {formatInventoryQty(netValue)}{' '}
+                                    <span className="text-xs font-normal text-slate-500">{uom}</span>
+                                  </p>
+                                  <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })()}
+                  {MOVE_TYPE_KPI_META_AFTER_PT.map(({ bucket, label, desc, shell, Icon }) => {
+                    const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
+                    const netValue = totals.net ?? 0;
+                    const count = totals.count ?? 0;
+                    const valueColor = movementKpiValueColorClass(bucket, count, netValue);
+                    return (
+                      <div
+                        key={bucket}
+                        className={cn(
+                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
+                          shell,
+                          count === 0 && 'opacity-50',
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+                            <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
+                          </div>
+                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
+                        </div>
+                        <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
+                          {formatInventoryQty(netValue)}{' '}
+                          <span className="text-xs font-normal text-slate-500">{uom}</span>
+                        </p>
+                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
                       </div>
                     );
                   })}
@@ -632,9 +783,7 @@ export function KardexPage() {
             <CardContent>
               {kardexLoading ? (
                 <Skeleton className="h-24 w-full" />
-              ) : kardexOp && kardexOp.por_formato.length === 0 ? (
-                <p className="text-sm text-slate-500">Sin tarjas PT con formato vinculado o sin receta por caja para este material.</p>
-              ) : kardexOp ? (
+              ) : kardexOp && kardexOp.por_formato.length > 0 ? (
                 <div className="overflow-x-auto rounded-lg border border-slate-200/90">
                   <Table>
                     <TableHeader>
@@ -671,7 +820,11 @@ export function KardexPage() {
                     </TableBody>
                   </Table>
                 </div>
-              ) : null}
+              ) : (
+                <p className="py-4 text-sm text-muted-foreground">
+                  Sin consumos por formato registrados para este material en el período.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

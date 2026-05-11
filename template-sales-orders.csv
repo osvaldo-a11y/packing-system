@@ -1,0 +1,46 @@
+﻿order_number,cliente_id,requested_pallets,requested_boxes,fecha_pedido,fecha_despacho_cliente,estado_comercial,order_reference,presentation_format_id,unit_price,brand_id,variety_id
+# varchar | requerido(si) | campo order_number,# bigint | requerido(si) | FK clients.id (pedidos/despachos),# int | requerido(si) | campo requested_pallets,# int | requerido(si) | campo requested_boxes,# timestamptz | requerido(no) | campo fecha_pedido,# timestamptz | requerido(no) | campo fecha_despacho_cliente,# varchar | requerido(no) | campo estado_comercial,# string | requerido(no) | clave agrupación pedido + líneas,# int|string | requerido(no) | línea pedido: formato id/format_code,# decimal | requerido(no) | línea pedido: precio por caja,# int|string | requerido(no) | línea pedido: marca id/código,# int|string | requerido(no) | línea pedido: variedad id/código
+SO-HIST-001,ALPINE,20,,ejemplo,ejemplo,ejemplo,SO-20260427-001,12x18oz,18.75,BRAND01,GD
+SO-HIST-002,FRESHWAVE,15,,ejemplo2,ejemplo2,ejemplo2,SO-20260427-002,8x18oz,19.2,,FAR
+#
+# Los datos a importar deben ir ANTES de esta sección (no agregar filas debajo del bloque Catálogos).
+# --- Catálogos (instantánea al generar esta plantilla; usar ids en el CSV) ---
+"# productores: id,codigo,nombre"
+"# 2,PB,PINEBLOOM FARMS"
+"# 3,JDS,JDS FARMS"
+"# 51,HBF,HIERS FARMS"
+"# 52,KK,K&K FARMS"
+"# 53,RF,RENTZ FARMS"
+"# 54,JER,JER"
+#
+"# especies: id,codigo,nombre"
+"# 2,ARA,ARANDANOS"
+"# 3,NAR,NARANJAS"
+#
+"# variedades: id,species_id,codigo,nombre"
+"# 2,2,POP,POP"
+"# 3,2,GD,GEORGIA DAWN"
+"# 41,2,SEN,SENTINEL"
+"# 42,2,PATR,PATRACIA"
+"# 43,2,MWL,MEADOWLARK"
+"# 44,2,KC,KEE CRISP"
+"# 45,2,FAR,FARTHING"
+"# 50,2,MULTI,Multivariety"
+"# 51,2,BEAUTY,Beauty"
+#
+"# formatos presentación: id,format_code,descripcion"
+"# 1,12x18oz,"
+"# 2,8x18oz,"
+"# 32,PINTA REGULAR,Clamshell pinta regular"
+"# 33,PINTA LOW PROFILE,Clamshell pinta low profile"
+"# 34,12x32oz,"
+"# 35,12x6oz,"
+"# 36,12x9.8oz,"
+#
+"# clientes: id,nombre"
+"# 1,ALPINE"
+"# 2,FRESHWAVE"
+"# 32,PINEBLOOM FARMS"
+"# 37,JAEMOR FARMS"
+#
+# Fin catálogos
