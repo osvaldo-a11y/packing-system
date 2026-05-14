@@ -92,5 +92,16 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) {
     return undefined as T;
   }
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (trimmed === '') {
+    return undefined as T;
+  }
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    throw new Error(
+      `Respuesta no JSON (${path}): ${trimmed.slice(0, 200)}${trimmed.length > 200 ? '…' : ''}`,
+    );
+  }
 }

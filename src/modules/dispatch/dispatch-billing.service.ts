@@ -5,6 +5,7 @@ import { In, IsNull } from 'typeorm';
 import { Repository } from 'typeorm';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService, type UnidadPtTraceability } from '../final-pallet/final-pallet.service';
+import { SalesOrderProgressService } from './sales-order-progress.service';
 import { FinishedPtInventory } from '../final-pallet/finished-pt-inventory.entity';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
 import { PresentationFormat, Variety } from '../traceability/traceability.entities';
@@ -119,7 +120,25 @@ export class DispatchBillingService {
     @InjectRepository(PtPackingList) private readonly ptPlRepo: Repository<PtPackingList>,
     @InjectRepository(PtPackingListItem) private readonly ptPlItemRepo: Repository<PtPackingListItem>,
     @InjectRepository(FruitProcess) private readonly fruitProcessRepo: Repository<FruitProcess>,
+    private readonly salesOrderProgress: SalesOrderProgressService,
   ) {}
+
+  /**
+   * Número de factura único en `invoices.invoice_number`.
+   * No usar `COUNT(*) + 1`: si se borró una factura (p. ej. reversa maestro de PL que elimina despacho),
+   * el conteo baja pero los sufijos INV-##### más altos siguen ocupados → violación de unique constraint.
+   */
+  private async allocateNextInvoiceNumber(): Promise<string> {
+    const rows = await this.invRepo.find({ select: ['invoice_number'] });
+    let maxSeq = 0;
+    const re = /^INV-(\d+)$/i;
+    for (const { invoice_number } of rows) {
+      const m = re.exec(String(invoice_number ?? '').trim());
+      if (m) maxSeq = Math.max(maxSeq, Number.parseInt(m[1], 10));
+    }
+    const seq = maxSeq + 1;
+    return `INV-${String(seq).padStart(5, '0')}`;
+  }
 
   private async dispatchPlIds(dispatchId: number): Promise<number[]> {
     const rows = await this.dispatchPlRepo.find({ where: { dispatch_id: dispatchId } });
@@ -258,6 +277,12 @@ export class DispatchBillingService {
       cliente_nombre: clienteNombreById.get(Number(o.cliente_id)) ?? null,
       requested_pallets: o.requested_pallets,
       requested_boxes: o.requested_boxes,
+      estado_comercial: o.estado_comercial?.trim() || null,
+      fecha_despacho_cliente: o.fecha_despacho_cliente
+        ? (o.fecha_despacho_cliente instanceof Date
+            ? o.fecha_despacho_cliente.toISOString()
+            : String(o.fecha_despacho_cliente))
+        : null,
       lines,
     };
   }
@@ -302,6 +327,37 @@ export class DispatchBillingService {
     });
     const clienteNombreById = await this.clientNombresByIds(rows.map((r) => Number(r.cliente_id)));
     return rows.map((o) => this.mapSalesOrderToRow(o, clienteNombreById));
+  }
+
+  /**
+   * Pedidos del cliente (`cliente_id` = maestro clients) con cajas aún pendientes de despacho,
+   * ordenados por `order_number` (orden numérico en texto cuando aplica).
+   */
+  async listSalesOrdersForDispatchCliente(clienteId: number) {
+    if (!Number.isFinite(clienteId) || clienteId <= 0) {
+      throw new BadRequestException('cliente_id inválido');
+    }
+    const rows = await this.soRepo.find({
+      where: { cliente_id: clienteId },
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      order: { id: 'ASC' },
+      take: 500,
+    });
+    const nombreMap = await this.clientNombresByIds([clienteId]);
+    const pending: ReturnType<DispatchBillingService['mapSalesOrderToRow']>[] = [];
+    for (const o of rows) {
+      const prog = await this.salesOrderProgress.getProgress(o.id);
+      if (prog.totals.pending_boxes > 0) {
+        pending.push(this.mapSalesOrderToRow(o, nombreMap));
+      }
+    }
+    pending.sort((a, b) =>
+      String(a.order_number).localeCompare(String(b.order_number), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      }),
+    );
+    return pending;
   }
 
   async listDispatchesWithItems() {
@@ -605,6 +661,9 @@ export class DispatchBillingService {
 
     const dispatches = await this.dispatchRepo.find({ where: { orden_id: orderId } });
     for (const d of dispatches) {
+      const merged = this.mergeOrderPricesIntoDispatchStoredPrices(d, afterOrder.lines);
+      d.final_pallet_unit_prices = Object.keys(merged).length ? merged : null;
+      await this.dispatchRepo.save(d);
       await this.generatePackingList(d.id);
       await this.generateInvoice(d.id);
     }
@@ -656,7 +715,7 @@ export class DispatchBillingService {
       bolOrigin = 'manual_entry';
     }
 
-    const order = await this.soRepo.findOne({ where: { id: dto.orden_id } });
+    const order = await this.soRepo.findOne({ where: { id: dto.orden_id }, relations: ['lines'] });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     if (Number(order.cliente_id) !== Number(dto.cliente_id)) {
       throw new BadRequestException('cliente_id no coincide con el pedido seleccionado.');
@@ -666,6 +725,14 @@ export class DispatchBillingService {
       throw new BadRequestException(
         `La BOL ${finalBol} coincide con el pedido #${bolMatchesOtherOrder.id} (${bolMatchesOtherOrder.order_number}). Verificá el pedido del despacho.`,
       );
+    }
+
+    let priceMap: Record<string, number> =
+      dto.final_pallet_unit_prices && Object.keys(dto.final_pallet_unit_prices).length > 0
+        ? { ...dto.final_pallet_unit_prices }
+        : {};
+    if (Object.keys(priceMap).length === 0) {
+      priceMap = { ...priceMap, ...this.orderLinesToFormatPrices(order.lines) };
     }
 
     const row = await this.dispatchRepo.save(
@@ -679,10 +746,7 @@ export class DispatchBillingService {
         client_id: dto.client_id ?? null,
         thermograph_serial: dto.thermograph_serial?.trim() || null,
         thermograph_notes: dto.thermograph_notes?.trim() || null,
-        final_pallet_unit_prices:
-          dto.final_pallet_unit_prices && Object.keys(dto.final_pallet_unit_prices).length > 0
-            ? dto.final_pallet_unit_prices
-            : null,
+        final_pallet_unit_prices: Object.keys(priceMap).length > 0 ? priceMap : null,
         status: 'borrador',
       }),
     );
@@ -968,7 +1032,7 @@ export class DispatchBillingService {
   async updateDispatchOrderLink(dispatchId: number, dto: UpdateDispatchOrderLinkDto) {
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
-    const order = await this.soRepo.findOne({ where: { id: dto.orden_id } });
+    const order = await this.soRepo.findOne({ where: { id: dto.orden_id }, relations: ['lines'] });
     if (!order) throw new NotFoundException('Pedido no encontrado');
 
     dispatch.orden_id = order.id;
@@ -981,6 +1045,8 @@ export class DispatchBillingService {
       const prev = dispatch.thermograph_notes?.trim() ?? '';
       dispatch.thermograph_notes = prev ? `${prev}\n${stamp}` : stamp;
     }
+    const merged = this.mergeOrderPricesIntoDispatchStoredPrices(dispatch, order.lines);
+    dispatch.final_pallet_unit_prices = Object.keys(merged).length ? merged : null;
     await this.dispatchRepo.save(dispatch);
     return this.listDispatchesWithItems();
   }
@@ -1241,17 +1307,63 @@ export class DispatchBillingService {
     );
   }
 
+  /**
+   * Precios por `presentation_format_id` (clave string) desde líneas del pedido.
+   * Si hay varias líneas con el mismo formato, vence la última (sort_order / id).
+   */
+  private orderLinesToFormatPrices(lines: SalesOrderLine[] | undefined): Record<string, number> {
+    const out: Record<string, number> = {};
+    if (!lines?.length) return out;
+    const sorted = [...lines].sort(
+      (a, b) =>
+        Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0) || Number(a.id) - Number(b.id),
+    );
+    for (const l of sorted) {
+      const fid = l.presentation_format_id != null ? Number(l.presentation_format_id) : NaN;
+      if (!Number.isFinite(fid) || fid <= 0) continue;
+      if (l.unit_price == null || String(l.unit_price).trim() === '') continue;
+      const n = Number(l.unit_price);
+      if (!Number.isFinite(n) || n < 0) continue;
+      out[String(fid)] = n;
+    }
+    return out;
+  }
+
+  /**
+   * Mapa para facturación: base = precios ya guardados en el despacho; el pedido **pisa** por cada
+   * `presentation_format_id` que tenga `unit_price` en el pedido. Así, al corregir el pedido y volver a
+   * «Generar factura», se actualizan los precios descambiados. Formatos solo en despacho (sin línea con precio en el pedido) se conservan.
+   */
+  private mergeOrderPricesIntoDispatchStoredPrices(
+    dispatch: Dispatch,
+    orderLines: SalesOrderLine[] | undefined,
+  ): Record<string, number> {
+    const fromOrder = this.orderLinesToFormatPrices(orderLines);
+    return { ...(dispatch.final_pallet_unit_prices ?? {}), ...fromOrder };
+  }
+
   async generateInvoice(dispatchId: number) {
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
+
+    if (dispatch.orden_id != null && Number(dispatch.orden_id) > 0) {
+      const ord = await this.soRepo.findOne({
+        where: { id: Number(dispatch.orden_id) },
+        relations: ['lines'],
+      });
+      const merged = this.mergeOrderPricesIntoDispatchStoredPrices(dispatch, ord?.lines);
+      dispatch.final_pallet_unit_prices = Object.keys(merged).length ? merged : null;
+      await this.dispatchRepo.save(dispatch);
+    }
+
     const rows = await this.dtiRepo.find({ where: { dispatch_id: dispatchId } });
     let inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
     if (!inv) {
-      const seq = (await this.invRepo.count()) + 1;
+      const invoice_number = await this.allocateNextInvoiceNumber();
       inv = await this.invRepo.save(
         this.invRepo.create({
           dispatch_id: dispatchId,
-          invoice_number: `INV-${String(seq).padStart(5, '0')}`,
+          invoice_number,
           subtotal: '0.00',
           total_cost: '0.00',
           total: '0.00',
@@ -1471,11 +1583,11 @@ export class DispatchBillingService {
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
     let inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
     if (!inv) {
-      const seq = (await this.invRepo.count()) + 1;
+      const invoice_number = await this.allocateNextInvoiceNumber();
       inv = await this.invRepo.save(
         this.invRepo.create({
           dispatch_id: dispatchId,
-          invoice_number: `INV-${String(seq).padStart(5, '0')}`,
+          invoice_number,
           subtotal: '0.00',
           total_cost: '0.00',
           total: '0.00',

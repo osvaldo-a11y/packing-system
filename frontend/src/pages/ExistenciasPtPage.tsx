@@ -352,6 +352,7 @@ export function ExistenciasPtPage() {
   const [excluirAnulados, setExcluirAnulados] = useState(true);
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [bolFilter, setBolFilter] = useState('');
   const [bolDialogOpen, setBolDialogOpen] = useState(false);
   const [bolInput, setBolInput] = useState('');
   const [unitsForPalletId, setUnitsForPalletId] = useState<number | null>(null);
@@ -372,6 +373,7 @@ export function ExistenciasPtPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setBolFilter('');
   }, [queryStr]);
 
   const { data: species } = useQuery({
@@ -425,12 +427,40 @@ export function ExistenciasPtPage() {
     return m;
   }, [processes]);
 
-  const kpiTotals = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const list = rows ?? [];
+    const b = bolFilter.trim().toLowerCase();
+    if (!b) return list;
+    return list.filter((r) => (r.bol ?? '').trim().toLowerCase() === b);
+  }, [rows, bolFilter]);
+
+  useEffect(() => {
+    const visible = new Set(filteredRows.map((r) => r.id));
+    setSelectedIds((prev) => {
+      const next = new Set<number>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [filteredRows]);
+
+  const bolOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const r of rows ?? []) {
+      const t = (r.bol ?? '').trim();
+      if (t) uniq.add(t);
+    }
+    return [...uniq].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [rows]);
+
+  const kpiTotals = useMemo(() => {
+    const list = filteredRows;
     const cajas = list.reduce((s, r) => s + r.boxes, 0);
     const lb = list.reduce((s, r) => s + r.pounds, 0);
     return { cajas, lb };
-  }, [rows]);
+  }, [filteredRows]);
 
   const kpiPtDisponibles = useMemo(() => {
     if (!ptTags || !processes) return null;
@@ -456,7 +486,7 @@ export function ExistenciasPtPage() {
 
   const kpiUnidadesReservadasPl = reservedPlPending ? null : (reservedPlRows?.length ?? 0);
 
-  const prefetchTraceIds = useMemo(() => (rows ?? []).slice(0, TRACE_PREFETCH).map((r) => r.id), [rows]);
+  const prefetchTraceIds = useMemo(() => filteredRows.slice(0, TRACE_PREFETCH).map((r) => r.id), [filteredRows]);
 
   const tracePrefetchQueries = useQueries({
     queries: prefetchTraceIds.map((id) => ({
@@ -544,7 +574,7 @@ export function ExistenciasPtPage() {
     return 'hide';
   }
 
-  const eligibleRows = useMemo(() => (rows ?? []).filter(canBulkBol), [rows]);
+  const eligibleRows = useMemo(() => filteredRows.filter(canBulkBol), [filteredRows]);
 
   const bulkBolMut = useMutation({
     mutationFn: (bol: string) =>
@@ -619,7 +649,20 @@ export function ExistenciasPtPage() {
     if (el) el.indeterminate = someEligibleSelected;
   }, [someEligibleSelected]);
 
-  const totalEnListado = rows?.length ?? 0;
+  const totalEnListado = filteredRows.length;
+
+  const selectionByFormat = useMemo(() => {
+    const m = new Map<string, { boxes: number; pallets: number }>();
+    for (const r of filteredRows) {
+      if (!selectedIds.has(r.id)) continue;
+      const fmt = (r.format_code ?? '—').trim() || '—';
+      const cur = m.get(fmt) ?? { boxes: 0, pallets: 0 };
+      cur.boxes += Number.isFinite(r.boxes) ? r.boxes : 0;
+      cur.pallets += 1;
+      m.set(fmt, cur);
+    }
+    return [...m.entries()].sort((a, b) => b[1].boxes - a[1].boxes);
+  }, [filteredRows, selectedIds]);
 
   const groupedByFormat = useMemo(() => {
     const map = new Map<
@@ -637,7 +680,7 @@ export function ExistenciasPtPage() {
         hasDispatched: boolean;
       }
     >();
-    for (const r of rows ?? []) {
+    for (const r of filteredRows) {
       const fmt = (r.format_code ?? '—').trim() || '—';
       const g = map.get(fmt) ?? {
         format: fmt,
@@ -676,7 +719,7 @@ export function ExistenciasPtPage() {
         return { ...g, rows: sortedRows, principalClient };
       })
       .sort((a, b) => b.totalBoxes - a.totalBoxes);
-  }, [rows]);
+  }, [filteredRows]);
 
   return (
     <div className="space-y-8">
@@ -767,7 +810,7 @@ export function ExistenciasPtPage() {
           <button
             type="button"
             className={pageInfoButton}
-            title="Especie, variedad, formato, cliente y estado de pallet."
+            title="Especie, variedad, formato, cliente, estado y BOL (en el lote cargado, máx. 500)."
             aria-label="Ayuda filtros"
           >
             <Info className="h-3.5 w-3.5" />
@@ -866,6 +909,23 @@ export function ExistenciasPtPage() {
               </p>
             ) : null}
           </div>
+          <div className="grid gap-2">
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">BOL</Label>
+            <select
+              className={filterSelectClass}
+              value={bolFilter}
+              onChange={(e) => setBolFilter(e.target.value)}
+              title="Filtra en el listado ya cargado (máx. 500 filas). No cambia la consulta al servidor."
+            >
+              <option value="">Todos</option>
+              {bolOptions.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground">Solo BOL presentes en este lote.</p>
+          </div>
           <div className="grid gap-2 sm:col-span-2 lg:col-span-3 xl:col-span-6">
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -896,6 +956,45 @@ export function ExistenciasPtPage() {
         </div>
       </div>
 
+      {selectedIds.size > 0 ? (
+        <div className="sticky top-0 z-40 flex flex-col gap-2 rounded-xl border border-slate-200 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          {selectionByFormat.length > 0 ? (
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-slate-800">
+              {selectionByFormat.map(([fmt, t]) => (
+                <span key={fmt} className="tabular-nums">
+                  <span className="font-mono font-semibold text-slate-900">{fmt}</span>
+                  <span className="text-slate-500"> · </span>
+                  <span className="font-semibold text-slate-900">{formatCount(t.boxes)}</span>
+                  <span className="text-slate-600"> cajas</span>
+                  <span className="text-slate-500"> · </span>
+                  <span className="font-semibold text-slate-900">{t.pallets}</span>
+                  <span className="text-slate-600">{t.pallets === 1 ? ' pallet' : ' pallets'}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-2 text-sm sm:border-0 sm:pt-0">
+            <span className="font-semibold tabular-nums text-slate-800">{selectedIds.size} seleccionado(s)</span>
+            <Button type="button" size="sm" className="h-9 rounded-lg" onClick={() => setBolDialogOpen(true)}>
+              Asignar BOL
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-9 rounded-lg"
+              disabled={createPlMut.isPending}
+              onClick={() => createPlMut.mutate()}
+            >
+              {createPlMut.isPending ? 'Creando…' : 'Crear packing list'}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-9 rounded-lg" onClick={() => setSelectedIds(new Set())}>
+              Quitar selección
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <section className="space-y-3" aria-labelledby="ex-inventario">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -903,7 +1002,8 @@ export function ExistenciasPtPage() {
               Inventario cámara
             </h3>
             <p className={sectionHint}>
-              {rows?.length ?? 0} fila(s) · máx. 500
+              {filteredRows.length} en vista
+              {(rows?.length ?? 0) !== filteredRows.length ? ` · ${rows?.length ?? 0} cargadas` : ''} · máx. 500
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -968,27 +1068,6 @@ export function ExistenciasPtPage() {
             </details>
           </div>
         </div>
-        {selectedIds.size > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm">
-            <span className="font-semibold tabular-nums text-slate-800">{selectedIds.size} seleccionado(s)</span>
-            <Button type="button" size="sm" className="h-9 rounded-lg" onClick={() => setBolDialogOpen(true)}>
-              Asignar BOL
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="h-9 rounded-lg"
-              disabled={createPlMut.isPending}
-              onClick={() => createPlMut.mutate()}
-            >
-              {createPlMut.isPending ? 'Creando…' : 'Crear packing list'}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-9 rounded-lg" onClick={() => setSelectedIds(new Set())}>
-              Quitar selección
-            </Button>
-          </div>
-        ) : null}
           {isPending ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full rounded-xl" />
@@ -1001,6 +1080,8 @@ export function ExistenciasPtPage() {
             </div>
           ) : !rows?.length ? (
             <p className={emptyStatePanel}>No hay Unidades PT que coincidan con los filtros.</p>
+          ) : !filteredRows.length ? (
+            <p className={emptyStatePanel}>Ningún pallet con el BOL elegido en este lote (máx. 500). Elegí Todos en BOL o ampliá filtros.</p>
           ) : viewMode === 'compact' ? (
             <div className="space-y-4">
               {groupedByFormat.map((group) => (
@@ -1185,7 +1266,7 @@ export function ExistenciasPtPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((r) => {
+                  {filteredRows.map((r) => {
                     const producerCell = producerLabelForPallet(r.id);
                     const vu = verUnidadesVisibility(r);
                     const codeDisplay =

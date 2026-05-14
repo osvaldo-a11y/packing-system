@@ -7,6 +7,7 @@ import {
   Pencil,
   Plus,
   Printer,
+  Trash2,
   Waypoints,
   X,
 } from 'lucide-react';
@@ -27,7 +28,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -494,6 +501,7 @@ export function PtTagsPage() {
   const [showAllPrinters, setShowAllPrinters] = useState(false);
   const [localDefaultPrinter, setLocalDefaultPrinter] = useState<string | undefined>(undefined);
   const [detailTag, setDetailTag] = useState<PtTagApi | null>(null);
+  const [deleteConfirmTag, setDeleteConfirmTag] = useState<PtTagApi | null>(null);
   const prevTagOpenRef = useRef(false);
   /** Evita condición de carrera: al abrir con el trigger «Nueva», Radix llama onOpenChange(true) antes que setEditTag(null) del botón y el modal quedaba en modo edición. */
   const openPtModalForEditRef = useRef(false);
@@ -1235,6 +1243,18 @@ export function PtTagsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deletePtTagMut = useMutation({
+    mutationFn: (id: number) => apiJson<{ ok: true }>(`/api/pt-tags/${id}`, { method: 'DELETE' }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
+      queryClient.invalidateQueries({ queryKey: ['processes'] });
+      toast.success('Unidad PT eliminada');
+      setDeleteConfirmTag(null);
+      setDetailTag((cur) => (cur?.id === id ? null : cur));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function clientLabel(t: PtTagApi) {
     const id = t.client_id != null ? Number(t.client_id) : null;
     if (!id || id <= 0) return '—';
@@ -1285,10 +1305,12 @@ export function PtTagsPage() {
       }
       const archivo = result.filename;
       const descRespaldo = `Se descargó ${archivo} como respaldo. Podés imprimirlo manualmente desde el equipo de planta.`;
+      const sinBrowserPrint =
+        'No hace falta Zebra Browser Print: en este PC ejecutá run-print-service.bat (carpeta local-zebra-print-service del proyecto, con Node) y volvé a «Imprimir».';
       if (result.reason === 'service_unavailable') {
         toast.warning('No se detectó el servicio local de impresión Zebra en este equipo.', {
-          description: descRespaldo,
-          duration: 10_000,
+          description: `${sinBrowserPrint} ${descRespaldo}`,
+          duration: 12_000,
         });
         return;
       }
@@ -1441,11 +1463,24 @@ export function PtTagsPage() {
   }
 
   if (isError) {
+    const msg = error instanceof Error ? error.message : 'Reintentá más tarde.';
     return (
       <div className="font-inter">
         <div className="rounded-2xl border border-rose-100 bg-rose-50/50 px-5 py-4 text-sm text-rose-900">
           <p className="font-semibold">Error al cargar unidades PT</p>
-          <p className="mt-1 text-rose-800/90">{error instanceof Error ? error.message : 'Reintentá más tarde.'}</p>
+          <p className="mt-1 whitespace-pre-wrap text-rose-800/90">{msg}</p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-rose-800/85">
+            <li>
+              En desarrollo: API en <code className="rounded bg-rose-100/80 px-1">http://127.0.0.1:3000</code> y front
+              con proxy Vite (<code className="rounded bg-rose-100/80 px-1">npm run dev:web</code> o{' '}
+              <code className="rounded bg-rose-100/80 px-1">npm run dev:full</code>).
+            </li>
+            <li>
+              Si definiste <code className="rounded bg-rose-100/80 px-1">VITE_API_URL</code>, debe ser alcanzable
+              (mismo protocolo que la página: http/https).
+            </li>
+            <li>Sesión: si el token venció, cerrá sesión y volvé a entrar.</li>
+          </ul>
         </div>
       </div>
     );
@@ -2236,6 +2271,14 @@ export function PtTagsPage() {
                                       <FileDown className="mr-2 h-4 w-4" />
                                       Descargar ZPL etiqueta
                                     </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setDeleteConfirmTag(tag)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Eliminar
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -2369,6 +2412,14 @@ export function PtTagsPage() {
                               <Printer className="mr-2 h-4 w-4" />
                               Imprimir etiqueta PT
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteConfirmTag(tag)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -2494,12 +2545,61 @@ export function PtTagsPage() {
                     Editar
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteConfirmTag(detailTag)}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  Eliminar
+                </Button>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDetailTag(null)}>
               Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteConfirmTag != null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteConfirmTag(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar unidad PT</DialogTitle>
+            <DialogDescription>
+              Se borra la tarja, sus ítems de proceso vinculados en esta unidad, consumos de embalaje asociados y pallets
+              finales en borrador. No se puede si la unidad está en un despacho, en una factura, en un merge, o si un
+              pallet final ya está en packing list o despachado: en esos casos el sistema mostrará el motivo.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteConfirmTag ? (
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm font-semibold text-slate-900">
+              {deleteConfirmTag.tag_code}
+              <span className="ml-2 font-normal text-slate-500">#{deleteConfirmTag.id}</span>
+            </p>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setDeleteConfirmTag(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!deleteConfirmTag || deletePtTagMut.isPending}
+              onClick={() => {
+                if (!deleteConfirmTag) return;
+                deletePtTagMut.mutate(deleteConfirmTag.id);
+              }}
+            >
+              {deletePtTagMut.isPending ? 'Eliminando…' : 'Eliminar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2625,6 +2725,11 @@ export function PtTagsPage() {
                   <p>
                     No se detectó el servicio local en este equipo. Podés usar «Descargar ZPL» o iniciar el servicio en el PC
                     de planta y volver a abrir este diálogo.
+                  </p>
+                  <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">
+                    No usamos Zebra Browser Print (no hace falta descargarlo). «Imprimir» usa el servicio Node del repo:
+                    carpeta <span className="font-mono">local-zebra-print-service</span>, archivo{' '}
+                    <span className="font-mono">run-print-service.bat</span> en el mismo PC donde abrís el sistema.
                   </p>
                   {localServiceMessage ? (
                     <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">

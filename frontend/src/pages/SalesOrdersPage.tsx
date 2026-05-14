@@ -67,6 +67,10 @@ export type SalesOrderRow = {
   requested_boxes: number;
   /** Pallets estimados según max cajas/pallet del formato, cuando está cargado en el maestro. */
   requested_pallets: number;
+  /** Fecha despacho comunicada por el cliente (import / pedido), si existe. */
+  fecha_despacho_cliente?: string | null;
+  /** Estado comercial libre (ej. «en proceso») — UI / dashboard. */
+  estado_comercial?: string | null;
   lines: SalesOrderLineApi[];
 };
 

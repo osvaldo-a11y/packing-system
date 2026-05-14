@@ -83,7 +83,8 @@ export function extractCsvRecords(text: string): ExtractedCsv {
     if (isCommentOrBlankRow(cells)) continue;
 
     if (!headerArr) {
-      headerArr = cells.map((h) => h.trim());
+      /** Cabeceras: trim + BOM por celda (Excel a veces mete BOM solo en la primera columna). */
+      headerArr = cells.map((h) => stripBom(h).trim());
       continue;
     }
 

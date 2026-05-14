@@ -49,6 +49,13 @@ export class DispatchBillingController {
     return this.service.listSalesOrders();
   }
 
+  /** Pedidos pendientes (cajas por despachar) de un cliente; debe declararse antes de `sales-orders/:id/...`. */
+  @Get('sales-orders/for-dispatch')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  listSalesOrdersForDispatch(@Query('cliente_id', ParseIntPipe) clienteId: number) {
+    return this.service.listSalesOrdersForDispatchCliente(clienteId);
+  }
+
   @Get('sales-orders/:id/progress')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   getSalesOrderProgress(@Param('id', ParseIntPipe) id: number) {

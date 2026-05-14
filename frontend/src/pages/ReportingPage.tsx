@@ -134,11 +134,13 @@ async function fetchMpDisponibleProcesoResumenForReports(): Promise<{
   lineCount: number;
   producerCount: number;
 }> {
-  const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp');
-  let totalLb = 0;
-  let lineCount = 0;
-  for (const pid of ids) {
-    const lines = await apiJson<Array<{ available_lb: number }>>(`/api/processes/eligible-lines?producer_id=${pid}`);
+    const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp?planning_only=1');
+    let totalLb = 0;
+    let lineCount = 0;
+    for (const pid of ids) {
+      const lines = await apiJson<Array<{ available_lb: number }>>(
+        `/api/processes/eligible-lines?producer_id=${pid}&planning_only=1`,
+      );
     for (const ln of lines) {
       const a = Number(ln.available_lb);
       if (Number.isFinite(a) && a > 0) {
@@ -3192,6 +3194,8 @@ export function ReportingPage() {
   const [packingPrice, setPackingPrice] = useState('');
   const [packingActive, setPackingActive] = useState(true);
   const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
+  /** Tarifas packing: abierto por defecto en Cierre para configurar antes de generar liquidación. */
+  const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   /** Productor elegido solo para informe PDF/Excel por productor en Cierre (no altera el generado global). */
   const [cierreInformeProducerId, setCierreInformeProducerId] = useState<number | null>(null);
@@ -3847,6 +3851,7 @@ export function ReportingPage() {
           </div>
         </div>
       ) : reportTab === 'cierre' ? (
+        <div className="space-y-3">
         <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Liquidación · período y límites activos:</span>{' '}
@@ -3884,6 +3889,156 @@ export function ReportingPage() {
               {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
             </Button>
           </div>
+        </div>
+
+        <details
+          id="rep-cierre-config"
+          className="scroll-mt-24 rounded-lg border border-slate-200 bg-muted/30 open:bg-white"
+          open={packingTariffsSectionOpen}
+          onToggle={(e) => setPackingTariffsSectionOpen((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="mr-2 text-slate-400">▸</span>
+            Tarifas packing por especie (global, antes del cierre)
+          </summary>
+          <div className="border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
+            Maestro <strong>por especie</strong>, independiente del productor: precio USD/lb de servicio de packing que usará la liquidación
+            (lb del período × tarifa). Podés configurarlo <strong>antes</strong> de pulsar «Actualizar cierre». Si en filtros cargás{' '}
+            <strong>Precio packing / lb (manual)</strong>, ese valor reemplaza a estas tarifas para ese reporte.
+          </div>
+          <div className="bg-white px-2 pb-4 sm:px-4">
+            <div className="flex flex-wrap items-center gap-4 py-3 text-sm">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input"
+                  checked={showInactivePackingCosts}
+                  onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
+                />
+                <span>Mostrar especies inactivas</span>
+              </label>
+              {hiddenPackingSpeciesIds.size > 0 ? (
+                <Button type="button" variant="link" className="h-auto p-0 text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
+                  Restaurar especies ocultas ({hiddenPackingSpeciesIds.size})
+                </Button>
+              ) : null}
+            </div>
+            {canManagePackingCosts ? (
+              <div className="mb-4 grid gap-3 rounded-md border border-border p-3 md:grid-cols-4">
+                <div className="grid gap-2">
+                  <Label>Especie</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    value={packingSpeciesId}
+                    onChange={(e) => setPackingSpeciesId(Number(e.target.value))}
+                  >
+                    <option value={0}>Elegir…</option>
+                    {(species ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Temporada (opcional)</Label>
+                  <Input value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Precio por lb</Label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    min={0}
+                    value={packingPrice}
+                    onChange={(e) => setPackingPrice(e.target.value)}
+                    placeholder="0.120000"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Activo</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
+                    value={packingActive ? '1' : '0'}
+                    onChange={(e) => setPackingActive(e.target.value === '1')}
+                  >
+                    <option value="1">Sí</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
+                <div className="md:col-span-4">
+                  <Button
+                    type="button"
+                    disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''}
+                    onClick={() => upsertPackingCostMut.mutate()}
+                  >
+                    {upsertPackingCostMut.isPending ? 'Guardando…' : 'Guardar tarifa'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {packingCostsLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : (
+              <div className="overflow-x-auto rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Especie</TableHead>
+                      <TableHead>Temporada</TableHead>
+                      <TableHead>Precio/lb</TableHead>
+                      <TableHead>Activo</TableHead>
+                      <TableHead className="min-w-[11rem]">Estado (cierre)</TableHead>
+                      <TableHead className="w-[120px]">Vista</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visiblePackingCosts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          {packingCosts?.length ? 'Ninguna fila visible (ocultas o inactivas).' : 'Sin configuración.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      visiblePackingCosts.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell>{r.species_name ?? `#${r.species_id}`}</TableCell>
+                          <TableCell>{r.season ?? '—'}</TableCell>
+                          <TableCell className="font-mono tabular-nums">{formatMoney(Number(r.price_per_lb))}</TableCell>
+                          <TableCell>{r.active ? 'Sí' : 'No'}</TableCell>
+                          <TableCell className="max-w-[14rem] text-xs leading-snug">
+                            {cierrePackingManualMode ? (
+                              <span className="text-muted-foreground">Neutro: período con precio packing manual.</span>
+                            ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
+                              <span className="font-medium text-red-700">
+                                Falta tarifa activa para esta especie (packing no incluido en liquidación para ese volumen).
+                              </span>
+                            ) : r.active && Number(r.price_per_lb) > 0 ? (
+                              <span className="text-emerald-800">Tarifa activa en maestro.</span>
+                            ) : (
+                              <span className="text-amber-800">Sin tarifa efectiva (&gt;0) o fila inactiva.</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}
+                            >
+                              Ocultar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </details>
         </div>
       ) : (
         <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
@@ -4283,149 +4438,6 @@ export function ReportingPage() {
                   </p>
                 </CardContent>
               </Card>
-
-              <details id="rep-cierre-config" className="scroll-mt-24 rounded-lg border border-slate-200 bg-muted/30 open:bg-white">
-                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="mr-2 text-slate-400">▸</span>
-                  Tarifas packing por especie
-                </summary>
-                <div className="border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
-                  Estas tarifas alimentan el costo packing de la liquidación: lb productor × tarifa especie (cuando no usás precio packing
-                  manual en filtros globales).
-                </div>
-                <div className="bg-white px-2 pb-4 sm:px-4">
-                  <div className="flex flex-wrap items-center gap-4 py-3 text-sm">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-input"
-                        checked={showInactivePackingCosts}
-                        onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
-                      />
-                      <span>Mostrar especies inactivas</span>
-                    </label>
-                    {hiddenPackingSpeciesIds.size > 0 ? (
-                      <Button type="button" variant="link" className="h-auto p-0 text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
-                        Restaurar especies ocultas ({hiddenPackingSpeciesIds.size})
-                      </Button>
-                    ) : null}
-                  </div>
-                  {canManagePackingCosts ? (
-                    <div className="mb-4 grid gap-3 rounded-md border border-border p-3 md:grid-cols-4">
-                      <div className="grid gap-2">
-                        <Label>Especie</Label>
-                        <select
-                          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                          value={packingSpeciesId}
-                          onChange={(e) => setPackingSpeciesId(Number(e.target.value))}
-                        >
-                          <option value={0}>Elegir…</option>
-                          {(species ?? []).map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Temporada (opcional)</Label>
-                        <Input value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Precio por lb</Label>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          min={0}
-                          value={packingPrice}
-                          onChange={(e) => setPackingPrice(e.target.value)}
-                          placeholder="0.120000"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Activo</Label>
-                        <select
-                          className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                          value={packingActive ? '1' : '0'}
-                          onChange={(e) => setPackingActive(e.target.value === '1')}
-                        >
-                          <option value="1">Sí</option>
-                          <option value="0">No</option>
-                        </select>
-                      </div>
-                      <div className="md:col-span-4">
-                        <Button
-                          type="button"
-                          disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''}
-                          onClick={() => upsertPackingCostMut.mutate()}
-                        >
-                          {upsertPackingCostMut.isPending ? 'Guardando…' : 'Guardar tarifa'}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {packingCostsLoading ? (
-                    <Skeleton className="h-24 w-full" />
-                  ) : (
-                    <div className="overflow-x-auto rounded-md border border-border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Especie</TableHead>
-                            <TableHead>Temporada</TableHead>
-                            <TableHead>Precio/lb</TableHead>
-                            <TableHead>Activo</TableHead>
-                            <TableHead className="min-w-[11rem]">Estado (cierre)</TableHead>
-                            <TableHead className="w-[120px]">Vista</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {visiblePackingCosts.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                {packingCosts?.length ? 'Ninguna fila visible (ocultas o inactivas).' : 'Sin configuración.'}
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            visiblePackingCosts.map((r) => (
-                              <TableRow key={r.id}>
-                                <TableCell>{r.species_name ?? `#${r.species_id}`}</TableCell>
-                                <TableCell>{r.season ?? '—'}</TableCell>
-                                <TableCell className="font-mono tabular-nums">{formatMoney(Number(r.price_per_lb))}</TableCell>
-                                <TableCell>{r.active ? 'Sí' : 'No'}</TableCell>
-                                <TableCell className="max-w-[14rem] text-xs leading-snug">
-                                  {cierrePackingManualMode ? (
-                                    <span className="text-muted-foreground">Neutro: período con precio packing manual.</span>
-                                  ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
-                                    <span className="font-medium text-red-700">
-                                      Falta tarifa activa para esta especie (packing no incluido en liquidación para ese volumen).
-                                    </span>
-                                  ) : r.active && Number(r.price_per_lb) > 0 ? (
-                                    <span className="text-emerald-800">Tarifa activa en maestro.</span>
-                                  ) : (
-                                    <span className="text-amber-800">Sin tarifa efectiva (&gt;0) o fila inactiva.</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-2 text-xs"
-                                    onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}
-                                  >
-                                    Ocultar
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </div>
-              </details>
 
               <Card className="border-slate-200/90 bg-white shadow-sm" id="rep-cierre-exportaciones">
                 <CardHeader className="pb-2">

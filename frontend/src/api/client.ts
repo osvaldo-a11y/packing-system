@@ -52,7 +52,19 @@ export async function apiFetch(path: string, init: ApiFetchInit = {}): Promise<R
   if (rest.body && typeof rest.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  const res = await fetch(`${apiBase()}${path}`, { ...rest, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBase()}${path}`, { ...rest, headers });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const base = apiBase() || 'mismo origen que el front (proxy Vite en dev)';
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError')) {
+      throw new Error(
+        `No se pudo contactar el API (${base}). Revisá que el backend esté corriendo y VITE_API_URL si abrís el front sin proxy.`,
+      );
+    }
+    throw e;
+  }
   if (res.status === 401 && !path.includes('/auth/login')) {
     setToken(null);
     if (!window.location.hash.includes('login')) {

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
+import { useAuth } from '@/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -79,13 +80,37 @@ function DocumentStateBadge({ codigo, nombre }: { codigo?: string | null; nombre
   );
 }
 
-function receptionNetLb(r: ReceptionRow): number {
+/** Parse lb desde API (string decimal); tolera miles con punto y coma decimal. */
+function parseApiLbString(s: string | null | undefined): number {
+  if (s == null || s === '') return 0;
+  const t = String(s).trim();
+  const lastComma = t.lastIndexOf(',');
+  const lastDot = t.lastIndexOf('.');
+  let normalized: string;
+  if (lastComma !== -1 && lastComma > lastDot) {
+    normalized = t.replace(/\./g, '').replace(',', '.');
+  } else {
+    normalized = t.replace(/,/g, '');
+  }
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function sumLinesNetLb(r: ReceptionRow): number {
   let t = 0;
   for (const ln of r.lines ?? []) {
-    const n = Number(ln.net_lb);
-    if (Number.isFinite(n)) t += n;
+    t += parseApiLbString(ln.net_lb);
   }
   return t;
+}
+
+/** Neto mostrado: suma líneas; si es 0, usa neto de cabecera (`net_weight_lb`) que el servidor guarda. */
+function receptionNetLb(r: ReceptionRow): number {
+  const lineSum = sumLinesNetLb(r);
+  if (lineSum > 0) return lineSum;
+  const hdr = parseApiLbString(r.net_weight_lb);
+  if (hdr > 0) return hdr;
+  return lineSum;
 }
 
 function formatReceptionDate(iso: string) {
@@ -231,6 +256,7 @@ function toDatetimeLocalValue(iso: string) {
 const headerSchema = z.object({
   received_at: z.string().min(1),
   document_number: z.string().optional(),
+  reference_code: z.string().max(64).optional(),
   producer_id: z.coerce.number().int().positive(),
   notes: z.string().optional(),
   plant_code: z.string().optional(),
@@ -272,25 +298,74 @@ function formatLbInput(v?: string | number | null): string {
   return n % 1 === 0 ? String(Math.trunc(n)) : String(parseFloat(n.toFixed(2)));
 }
 
+function asIntId(v: unknown, fallback = 0): number {
+  const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
 function lineFromApi(ln: ReceptionLineRow): LineDraft {
   return {
-    species_id: ln.species_id,
-    variety_id: ln.variety_id,
-    quality_grade_id: ln.quality_grade_id ?? 0,
+    species_id: asIntId(ln.species_id),
+    variety_id: asIntId(ln.variety_id),
+    quality_grade_id: ln.quality_grade_id != null ? asIntId(ln.quality_grade_id) : 0,
     gross_lb: formatLbInput(ln.gross_lb),
     net_lb: formatLbInput(ln.net_lb),
     quantity: ln.quantity != null ? String(ln.quantity) : '',
-    returnable_container_id: ln.returnable_container_id ?? ln.returnable_container?.id ?? 0,
+    returnable_container_id: asIntId(ln.returnable_container_id ?? ln.returnable_container?.id, 0),
     temperature_str: ln.temperature_f != null ? String(ln.temperature_f) : '',
     lot_code: ln.lot_code ?? null,
   };
 }
 
+/**
+ * Borrador del modal alineado con lo que guardó el servidor:
+ * - import CSV “solo encabezado” deja `lines` vacías pero pesos/variedad en cabecera;
+ * - si las líneas tienen neto 0 pero el encabezado tiene `net_weight_lb`, el listado usa ese neto — el formulario debe mostrarlo en la primera línea para poder editar.
+ */
+function lineDraftsFromReception(r: ReceptionRow): LineDraft[] {
+  const apiLines = r.lines ?? [];
+  if (apiLines.length > 0) {
+    const drafts = apiLines.map(lineFromApi);
+    const lineNetSum = sumLinesNetLb(r);
+    const headerNet = parseApiLbString(r.net_weight_lb);
+    if (lineNetSum <= 0 && headerNet > 0) {
+      const next = drafts.slice();
+      const first = { ...next[0] };
+      first.net_lb = formatLbInput(headerNet);
+      if (!first.gross_lb.trim() && r.gross_weight_lb) {
+        first.gross_lb = formatLbInput(r.gross_weight_lb);
+      }
+      next[0] = first;
+      return next;
+    }
+    return drafts;
+  }
+  const speciesId = r.variety?.species?.id ?? 0;
+  const varietyId = r.variety_id ?? 0;
+  return [
+    {
+      species_id: speciesId,
+      variety_id: varietyId,
+      quality_grade_id: 0,
+      gross_lb: formatLbInput(r.gross_weight_lb),
+      net_lb: formatLbInput(r.net_weight_lb),
+      quantity: '',
+      returnable_container_id: 0,
+      temperature_str: '',
+      lot_code: undefined,
+    },
+  ];
+}
+
 export function ReceptionPage() {
   const queryClient = useQueryClient();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
+  /** Admin en recepción no borrador: modal editable solo para cambiar estado documento. */
+  const [adminStateOnlyEdit, setAdminStateOnlyEdit] = useState(false);
   const [serverReference, setServerReference] = useState<string | null>(null);
   const [copyFromPreviousLine, setCopyFromPreviousLine] = useState(true);
   const [applyVarietyToInvolvedLines, setApplyVarietyToInvolvedLines] = useState(true);
@@ -476,12 +551,18 @@ export function ReceptionPage() {
     }
 
     for (const r of filteredReceptions) {
+      totalNet += receptionNetLb(r);
+    }
+
+    for (const r of filteredReceptions) {
+      const displayNet = receptionNetLb(r);
       const rtCodigo = r.reception_type?.codigo ?? '';
       const producerName = r.producer?.nombre ?? '—';
+      let allocated = 0;
       for (const ln of r.lines ?? []) {
-        const n = Number(ln.net_lb);
-        if (!Number.isFinite(n)) continue;
-        totalNet += n;
+        const n = parseApiLbString(ln.net_lb);
+        if (n <= 0) continue;
+        allocated += n;
         const vn = ln.variety?.nombre ?? '—';
         byVariety.set(vn, (byVariety.get(vn) ?? 0) + n);
         byProducer.set(producerName, (byProducer.get(producerName) ?? 0) + n);
@@ -497,6 +578,25 @@ export function ReceptionPage() {
           lbMaquina += n;
         } else {
           lbOtroTipo += n;
+        }
+      }
+      const rest = Math.max(0, displayNet - allocated);
+      if (rest > 0.0001) {
+        const vn = r.variety?.nombre ?? '—';
+        byVariety.set(vn, (byVariety.get(vn) ?? 0) + rest);
+        byProducer.set(producerName, (byProducer.get(producerName) ?? 0) + rest);
+        if (
+          (handPickTypeId > 0 && r.reception_type_id === handPickTypeId) ||
+          rtCodigo === 'hand_picking'
+        ) {
+          lbManual += rest;
+        } else if (
+          (machinePickTypeId > 0 && r.reception_type_id === machinePickTypeId) ||
+          rtCodigo === 'machine_picking'
+        ) {
+          lbMaquina += rest;
+        } else {
+          lbOtroTipo += rest;
         }
       }
     }
@@ -576,6 +676,7 @@ export function ReceptionPage() {
     defaultValues: {
       received_at: toDatetimeLocalValue(new Date().toISOString()),
       document_number: '',
+      reference_code: '',
       producer_id: 0,
       notes: '',
       plant_code: DEFAULT_PLANT,
@@ -600,9 +701,10 @@ export function ReceptionPage() {
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   };
 
-  const buildPayload = (h: HeaderForm, lines: Record<string, unknown>[]) => ({
+  const buildPayload = (h: HeaderForm, lines: Record<string, unknown>[], forCreate: boolean) => ({
     received_at: new Date(h.received_at).toISOString(),
     document_number: h.document_number?.trim() || undefined,
+    ...(forCreate && h.reference_code?.trim() ? { reference_code: h.reference_code.trim() } : {}),
     producer_id: h.producer_id,
     notes: h.notes?.trim() || undefined,
     plant_code: h.plant_code?.trim() || undefined,
@@ -619,6 +721,7 @@ export function ReceptionPage() {
       apiJson('/api/receptions', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
       toast.success('Recepción registrada');
       closeDialog();
     },
@@ -630,6 +733,7 @@ export function ReceptionPage() {
       apiJson(`/api/receptions/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
       toast.success('Recepción actualizada');
       closeDialog();
     },
@@ -644,6 +748,7 @@ export function ReceptionPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
       toast.success('Estado actualizado');
       closeDialog();
     },
@@ -658,6 +763,70 @@ export function ReceptionPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /** Borrador → confirmado → cerrado para la lista dada; una invalidación al final (sin N toasts). */
+  const bulkConfirmCloseDraftsMut = useMutation({
+    mutationFn: async (drafts: ReceptionRow[]) => {
+      if (!confirmadoStateId || !cerradoStateId) {
+        throw new Error('Catálogo de estados incompleto (confirmado/cerrado).');
+      }
+      let closed = 0;
+      const failures: string[] = [];
+      for (const r of drafts) {
+        if (!r.lines?.length) {
+          failures.push(`#${r.id}: sin líneas de detalle`);
+          continue;
+        }
+        if (!r.reference_code?.trim()) {
+          failures.push(`#${r.id}: sin referencia`);
+          continue;
+        }
+        try {
+          await apiJson(`/api/receptions/${r.id}/state`, {
+            method: 'PATCH',
+            body: JSON.stringify({ document_state_id: confirmadoStateId }),
+          });
+          await apiJson(`/api/receptions/${r.id}/state`, {
+            method: 'PATCH',
+            body: JSON.stringify({ document_state_id: cerradoStateId }),
+          });
+          closed += 1;
+        } catch (e) {
+          failures.push(`#${r.id}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      return { closed, failures };
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
+      if (data.closed > 0) {
+        toast.success(`${data.closed} recepción(es) confirmadas y cerradas.`);
+      }
+      if (data.failures.length > 0) {
+        const sample = data.failures.slice(0, 5).join(' · ');
+        const more = data.failures.length > 5 ? ` (+${data.failures.length - 5} más)` : '';
+        toast.error(`Algunas no se pudieron cerrar: ${sample}${more}`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const adminPatchStateMut = useMutation({
+    mutationFn: ({ id, document_state_id }: { id: number; document_state_id: number }) =>
+      apiJson(`/api/receptions/${id}/state-admin`, {
+        method: 'PATCH',
+        body: JSON.stringify({ document_state_id }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['receptions'] });
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
+      toast.success('Estado del documento actualizado');
+      closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -673,35 +842,29 @@ export function ReceptionPage() {
   }
 
   async function confirmAllDraftsFromList() {
-    if (!confirmadoStateId) return;
+    if (!confirmadoStateId || !cerradoStateId) return;
     const drafts = filteredReceptions.filter((r) => r.document_state?.codigo === 'borrador');
     if (!drafts.length) return;
     const ok = window.confirm(
-      `¿Confirmar ${drafts.length} recepciones en borrador? Esta acción marcará todas como operativas.`,
+      `¿Confirmar y cerrar ${drafts.length} recepción(es) en borrador de la vista actual?\n\n` +
+        `Cada una pasará a «confirmado» y luego a «cerrado» (cierre documental). Las que no tengan líneas o referencia se omiten y se reportan al final.`,
     );
     if (!ok) return;
-    let done = 0;
-    for (const r of drafts) {
-      try {
-        await confirmReceptionMut.mutateAsync({ id: r.id, document_state_id: confirmadoStateId });
-        done += 1;
-      } catch {
-        // onError muestra toast individual
-      }
-    }
-    if (done > 0) toast.success(`${done} recepciones confirmadas`);
+    await bulkConfirmCloseDraftsMut.mutateAsync(drafts);
   }
 
   function closeDialog() {
     setOpen(false);
     setEditingId(null);
     setViewOnly(false);
+    setAdminStateOnlyEdit(false);
     setViewStateCodigo(null);
     setServerReference(null);
     setLineDrafts([emptyLine()]);
     form.reset({
       received_at: toDatetimeLocalValue(new Date().toISOString()),
       document_number: '',
+      reference_code: '',
       producer_id: 0,
       notes: '',
       plant_code: DEFAULT_PLANT,
@@ -714,12 +877,14 @@ export function ReceptionPage() {
   function openNew() {
     setEditingId(null);
     setViewOnly(false);
+    setAdminStateOnlyEdit(false);
     setViewStateCodigo(null);
     setServerReference(null);
     setLineDrafts([emptyLine()]);
     form.reset({
       received_at: toDatetimeLocalValue(new Date().toISOString()),
       document_number: '',
+      reference_code: '',
       producer_id: 0,
       notes: '',
       plant_code: DEFAULT_PLANT,
@@ -733,17 +898,41 @@ export function ReceptionPage() {
   async function openEdit(id: number) {
     try {
       const r = await apiJson<ReceptionRow>(`/api/receptions/${id}`);
-      if (r.document_state?.codigo !== 'borrador') {
-        toast.error('Solo se editan recepciones en borrador.');
+      const codigo = r.document_state?.codigo ?? '';
+      if (codigo !== 'borrador') {
+        if (!isAdmin) {
+          toast.error('Solo se editan recepciones en borrador.');
+          return;
+        }
+        setAdminStateOnlyEdit(true);
+        setEditingId(id);
+        setViewOnly(false);
+        setServerReference(r.reference_code ?? null);
+        setViewStateCodigo(codigo || null);
+        form.reset({
+          received_at: toDatetimeLocalValue(r.received_at),
+          document_number: r.document_number ?? '',
+          reference_code: '',
+          producer_id: r.producer_id,
+          notes: r.notes ?? '',
+          plant_code: r.plant_code ?? DEFAULT_PLANT,
+          document_state_id: r.document_state_id,
+          reception_type_id: r.reception_type_id,
+          mercado_id: r.mercado_id ?? 0,
+        });
+        setLineDrafts(lineDraftsFromReception(r));
+        setOpen(true);
         return;
       }
+      setAdminStateOnlyEdit(false);
       setEditingId(id);
       setViewOnly(false);
       setServerReference(r.reference_code ?? null);
-      setViewStateCodigo(r.document_state?.codigo ?? null);
+      setViewStateCodigo(codigo || null);
       form.reset({
         received_at: toDatetimeLocalValue(r.received_at),
         document_number: r.document_number ?? '',
+        reference_code: '',
         producer_id: r.producer_id,
         notes: r.notes ?? '',
         plant_code: r.plant_code ?? DEFAULT_PLANT,
@@ -751,11 +940,7 @@ export function ReceptionPage() {
         reception_type_id: r.reception_type_id,
         mercado_id: r.mercado_id ?? 0,
       });
-      if (r.lines?.length) {
-        setLineDrafts(r.lines.map(lineFromApi));
-      } else {
-        setLineDrafts([emptyLine()]);
-      }
+      setLineDrafts(lineDraftsFromReception(r));
       setOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al cargar');
@@ -765,6 +950,7 @@ export function ReceptionPage() {
   async function openView(id: number) {
     try {
       const r = await apiJson<ReceptionRow>(`/api/receptions/${id}`);
+      setAdminStateOnlyEdit(false);
       setEditingId(id);
       setViewOnly(true);
       setServerReference(r.reference_code ?? null);
@@ -772,6 +958,7 @@ export function ReceptionPage() {
       form.reset({
         received_at: toDatetimeLocalValue(r.received_at),
         document_number: r.document_number ?? '',
+        reference_code: '',
         producer_id: r.producer_id,
         notes: r.notes ?? '',
         plant_code: r.plant_code ?? DEFAULT_PLANT,
@@ -779,11 +966,7 @@ export function ReceptionPage() {
         reception_type_id: r.reception_type_id,
         mercado_id: r.mercado_id ?? 0,
       });
-      if (r.lines?.length) {
-        setLineDrafts(r.lines.map(lineFromApi));
-      } else {
-        setLineDrafts([emptyLine()]);
-      }
+      setLineDrafts(lineDraftsFromReception(r));
       setOpen(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al cargar');
@@ -792,6 +975,15 @@ export function ReceptionPage() {
 
   function onSubmit(h: HeaderForm) {
     if (viewOnly) return;
+    if (adminStateOnlyEdit) {
+      if (editingId == null) return;
+      if (h.document_state_id <= 0) {
+        toast.error('Elegí un estado de documento válido.');
+        return;
+      }
+      adminPatchStateMut.mutate({ id: editingId, document_state_id: h.document_state_id });
+      return;
+    }
     if (h.document_state_id <= 0 || h.reception_type_id <= 0) {
       toast.error('Esperá a que carguen los catálogos (estado / tipo de recepción) o recargá la página.');
       return;
@@ -840,7 +1032,7 @@ export function ReceptionPage() {
       lines.push(linePayload);
     }
 
-    const payload = buildPayload(h, lines);
+    const payload = buildPayload(h, lines, editingId == null);
     if (editingId != null) {
       updateMut.mutate({ id: editingId, payload });
     } else {
@@ -872,15 +1064,27 @@ export function ReceptionPage() {
     return { net, gross, qty };
   }, [lineDrafts]);
 
+  const lockNonStateFields = viewOnly || adminStateOnlyEdit;
+
   const showConfirmReceptionButton =
-    !viewOnly && editingId != null && viewStateCodigo === 'borrador' && confirmadoStateId > 0;
+    !viewOnly && !adminStateOnlyEdit && editingId != null && viewStateCodigo === 'borrador' && confirmadoStateId > 0;
+
+  /** Doc./guía o, si no hay, la referencia del sistema; el #id es siempre el id interno de base. */
+  const receptionHumanLabel =
+    (form.watch('document_number') ?? '').trim() || (serverReference ?? '').trim() || '';
 
   const receptionDialogTitle =
     viewOnly && editingId != null
-      ? `Recepción #${editingId} (solo lectura)`
-      : editingId != null
-        ? `Editar recepción #${editingId}`
-        : 'Registrar recepción';
+      ? receptionHumanLabel
+        ? `Recepción · ${receptionHumanLabel} (#${editingId}, solo lectura)`
+        : `Recepción #${editingId} (solo lectura)`
+      : adminStateOnlyEdit && editingId != null
+        ? `Admin · estado documento · #${editingId}`
+        : editingId != null
+          ? receptionHumanLabel
+            ? `Editar recepción · ${receptionHumanLabel} (#${editingId})`
+            : `Editar recepción #${editingId}`
+          : 'Registrar recepción';
 
   const helpTitle =
     'Informe PDF formal para el productor. Cerrado (documento): estado «cerrado» — cierre administrativo; no usar para nuevos procesos. Abierto: aún no cerrado; el saldo de lb por línea se controla al crear procesos. Una recepción queda consumida en la práctica cuando no queda MP disponible en sus líneas; el documento puede seguir «abierto» hasta que operación cierre el estado.';
@@ -946,6 +1150,14 @@ export function ReceptionPage() {
             </div>
           </DialogHeader>
 
+          {adminStateOnlyEdit ? (
+            <div className="mx-6 -mt-1 mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-950">
+              Modo administrador: solo podés cambiar el <span className="font-semibold">estado del documento</span>. El
+              resto queda bloqueado. «Anulado» usa el mismo flujo que siempre (p. ej. no se permite si ya hay procesos
+              con MP de esta recepción).
+            </div>
+          ) : null}
+
           <form onSubmit={form.handleSubmit(onSubmit)} className={operationalModalFormClass}>
             <div className={cn(operationalModalBodyClass, 'overflow-y-auto px-0 py-0')}>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
@@ -964,7 +1176,7 @@ export function ReceptionPage() {
                       <label className={compactFieldLabelClass}>Fecha y hora</label>
                       <Input
                         type="datetime-local"
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
                         {...form.register('received_at')}
                       />
@@ -973,7 +1185,7 @@ export function ReceptionPage() {
                       <label className={compactFieldLabelClass}>Productor grower</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         {...form.register('producer_id', { valueAsNumber: true })}
                       >
                         <option value={0}>Elegir…</option>
@@ -988,7 +1200,7 @@ export function ReceptionPage() {
                       <label className={compactFieldLabelClass}>Tipo fruta</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         {...form.register('reception_type_id', { valueAsNumber: true })}
                       >
                         {(receptionTypes ?? [])
@@ -1008,7 +1220,7 @@ export function ReceptionPage() {
                       <label className={compactFieldLabelClass}>Mercado</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         {...form.register('mercado_id', { valueAsNumber: true })}
                       >
                         <option value={0}>—</option>
@@ -1041,20 +1253,35 @@ export function ReceptionPage() {
                     <div className="grid gap-[10px]" style={{ gridTemplateColumns: '1fr 1fr' }}>
                     <div className="min-w-0 space-y-1.5">
                       <label className={compactFieldLabelClass}>Referencia</label>
-                      <div
-                        className={cn(
-                          'flex h-8 items-center rounded-md border border-border bg-background px-2 py-1.5 text-xs',
-                          serverReference ? 'text-foreground' : 'text-muted-foreground',
-                        )}
-                      >
-                        {serverReference ??
-                          (editingId == null ? 'Se asignará al guardar' : '—')}
-                      </div>
+                      {editingId == null && !viewOnly ? (
+                        <div className="space-y-0.5">
+                          <Input
+                            className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase"
+                            maxLength={64}
+                            placeholder="Ej. JDS410 (opcional; vacío = automático)"
+                            autoComplete="off"
+                            {...form.register('reference_code')}
+                          />
+                          <p className="text-[10px] leading-tight text-muted-foreground">
+                            Misma referencia puede repetirse en otra recepción (ej. mano/máquina). El lote de línea incluye el id de recepción. &gt; en CSV opcional; se guarda en mayúsculas.
+                          </p>
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            'flex h-8 items-center rounded-md border border-border bg-background px-2 py-1.5 text-xs',
+                            serverReference ? 'font-mono text-foreground' : 'text-muted-foreground',
+                          )}
+                        >
+                          {serverReference ??
+                            (editingId == null ? 'Se asignará al guardar' : '—')}
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0 space-y-1.5">
                       <label className={compactFieldLabelClass}>Documento / guía</label>
                       <Input
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
                         maxLength={10}
                         placeholder="Máx. 10 car."
@@ -1085,7 +1312,7 @@ export function ReceptionPage() {
                         <input
                           type="checkbox"
                           checked={copyFromPreviousLine}
-                          disabled={viewOnly}
+                          disabled={lockNonStateFields}
                           onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
                         />
                         Copiar última línea
@@ -1094,7 +1321,7 @@ export function ReceptionPage() {
                         <input
                           type="checkbox"
                           checked={applyVarietyToInvolvedLines}
-                          disabled={viewOnly}
+                          disabled={lockNonStateFields}
                           onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
                         />
                         Aplicar variedad a líneas involucradas
@@ -1102,7 +1329,7 @@ export function ReceptionPage() {
                       <button
                         type="button"
                         className={modalFormSoftGreenButton}
-                        disabled={viewOnly}
+                        disabled={lockNonStateFields}
                         onClick={() =>
                           setLineDrafts((d) => {
                             const prev = d[d.length - 1];
@@ -1143,7 +1370,7 @@ export function ReceptionPage() {
                                 (speciesList ?? []).find((s) => s.id === L.species_id)?.nombre ??
                                 '—'
                               }
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               value={L.species_id}
                               onChange={(e) => {
                                 const sid = Number(e.target.value);
@@ -1170,7 +1397,7 @@ export function ReceptionPage() {
                               title={
                                 sortedVarieties.find((v) => v.id === L.variety_id)?.nombre ?? '—'
                               }
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               value={L.variety_id}
                               onChange={(e) => {
                                 const vid = Number(e.target.value);
@@ -1207,7 +1434,7 @@ export function ReceptionPage() {
                                 (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.nombre ??
                                 '—'
                               }
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               value={L.quality_grade_id}
                               onChange={(e) => {
                                 const v = Number(e.target.value);
@@ -1228,7 +1455,7 @@ export function ReceptionPage() {
                               type="number"
                               step="0.01"
                               placeholder="0"
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
                               value={L.gross_lb}
                               onChange={(e) =>
@@ -1243,7 +1470,7 @@ export function ReceptionPage() {
                             <Input
                               type="number"
                               step="0.01"
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
                               value={L.net_lb}
                               onChange={(e) =>
@@ -1256,7 +1483,7 @@ export function ReceptionPage() {
                           <div className="min-w-0 space-y-1">
                             <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Cant.</label>
                             <Input
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
                               value={L.quantity}
                               onChange={(e) =>
@@ -1277,7 +1504,7 @@ export function ReceptionPage() {
                                   return `${c.tipo}${c.capacidad ? ` · ${c.capacidad}` : ''}`;
                                 })()
                               }
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               value={L.returnable_container_id}
                               onChange={(e) => {
                                 const v = Number(e.target.value);
@@ -1298,7 +1525,7 @@ export function ReceptionPage() {
                           <div className="min-w-0 space-y-1">
                             <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Temp °F</label>
                             <Input
-                              disabled={viewOnly}
+                              disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                               value={L.temperature_str}
                               onChange={(e) =>
@@ -1315,7 +1542,7 @@ export function ReceptionPage() {
                               aria-label={`Eliminar línea ${idx + 1}`}
                               title="Eliminar línea"
                               onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
-                              disabled={viewOnly || lineDrafts.length <= 1}
+                              disabled={lockNonStateFields || lineDrafts.length <= 1}
                             >
                               <Trash2 className="h-4 w-4 shrink-0" />
                             </button>
@@ -1338,7 +1565,7 @@ export function ReceptionPage() {
                   <textarea
                     id="reception-notes"
                     rows={2}
-                    disabled={viewOnly}
+                    disabled={lockNonStateFields}
                     className="h-auto min-h-[56px] w-full resize-y rounded-md border border-border px-2 py-1.5 text-xs"
                     placeholder="Opcional"
                     {...form.register('notes')}
@@ -1393,9 +1620,13 @@ export function ReceptionPage() {
                   <button
                     type="submit"
                     className={modalFormPrimaryButton}
-                    disabled={createMut.isPending || updateMut.isPending}
+                    disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
-                    {createMut.isPending || updateMut.isPending ? 'Guardando…' : 'Guardar'}
+                    {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending
+                      ? 'Guardando…'
+                      : adminStateOnlyEdit
+                        ? 'Guardar estado'
+                        : 'Guardar'}
                   </button>
                 ) : null}
               </div>
@@ -1583,20 +1814,22 @@ export function ReceptionPage() {
             Historial operativo
           </h2>
           <p className={sectionHint}>
-            {filteredReceptions.length} registro(s) · lb netas suman líneas; cabecera bruto/neto si el servidor lo envía
+            {filteredReceptions.length} registro(s) · lb netas: suma de líneas; si todas dan 0, se muestra el neto de
+            cabecera (net_weight_lb).
           </p>
           </div>
           <div className="flex items-center gap-2">
-            {receptionKpis.nBorrador > 0 ? (
+            {receptionKpis.nBorrador > 0 && confirmadoStateId > 0 && cerradoStateId > 0 ? (
               <Button
                 type="button"
                 variant="outline"
                 className="h-8 gap-1.5 border-green-200 text-xs text-green-700 hover:bg-green-50"
+                title="Pasa cada borrador de esta vista a confirmado y luego a cerrado"
                 onClick={() => void confirmAllDraftsFromList()}
-                disabled={confirmReceptionMut.isPending}
+                disabled={bulkConfirmCloseDraftsMut.isPending || confirmReceptionMut.isPending}
               >
                 <CheckCircle className="h-3.5 w-3.5" />
-                Confirmar todos los borradores
+                Confirmar y cerrar borradores
               </Button>
             ) : null}
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
@@ -1703,7 +1936,7 @@ export function ReceptionPage() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 gap-1 px-1.5 text-xs"
-                                    onClick={() => (r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
+                                    onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
                                     Editar
@@ -1843,7 +2076,7 @@ export function ReceptionPage() {
                               variant="ghost"
                               size="sm"
                               className="h-6 gap-1 px-1.5 text-xs"
-                              onClick={() => (r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
+                              onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               Editar

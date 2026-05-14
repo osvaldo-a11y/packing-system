@@ -17,6 +17,8 @@ export type SalesOrderProgressLineDto = {
   variety_id: number | null;
   variety_nombre: string | null;
   produced_depot_boxes: number;
+  /** Cajas en cámara con pallet `planned_sales_order_id` = pedido. */
+  reserved_depot_boxes: number;
   assigned_pl_boxes: number;
   dispatched_boxes: number;
   pending_boxes: number;
@@ -36,6 +38,8 @@ export type SalesOrderProgressDto = {
   totals: {
     requested_boxes: number;
     produced_depot_boxes: number;
+    /** Cajas en cámara (pallet definitivo, sin PL) con `planned_sales_order_id` = este pedido. */
+    reserved_depot_boxes: number;
     assigned_pl_boxes: number;
     dispatched_boxes: number;
     pending_boxes: number;
@@ -79,6 +83,21 @@ export class SalesOrderProgressService {
     qb.andWhere('fp.status = :st', { st: 'definitivo' })
       .andWhere('fp.pt_packing_list_id IS NULL')
       .andWhere('(fp.dispatch_id IS NULL OR fp.dispatch_id = 0)');
+    const r = await qb.getRawOne<{ s: string }>();
+    return Number(r?.s ?? 0);
+  }
+
+  /** Mismo criterio que `sumDepot`, pero solo pallets ya etiquetados hacia este pedido (Existencias PT). */
+  private async sumDepotReservedForOrder(line: SalesOrderLine, orderId: number): Promise<number> {
+    const qb = this.fpLineRepo
+      .createQueryBuilder('fpl')
+      .innerJoin(FinalPallet, 'fp', 'fp.id = fpl.final_pallet_id')
+      .select('COALESCE(SUM(fpl.amount), 0)', 's');
+    this.applyLineDimensions(qb, line);
+    qb.andWhere('fp.status = :st', { st: 'definitivo' })
+      .andWhere('fp.pt_packing_list_id IS NULL')
+      .andWhere('(fp.dispatch_id IS NULL OR fp.dispatch_id = 0)')
+      .andWhere('fp.planned_sales_order_id = :oid', { oid: orderId });
     const r = await qb.getRawOne<{ s: string }>();
     return Number(r?.s ?? 0);
   }
@@ -173,12 +192,14 @@ export class SalesOrderProgressService {
     const lines: SalesOrderProgressLineDto[] = [];
     let tr = 0,
       tp = 0,
+      tpr = 0,
       ta = 0,
       td = 0,
       tpend = 0;
 
     for (const line of sortedLines) {
       const produced = await this.sumDepot(line);
+      const reservedDepot = await this.sumDepotReservedForOrder(line, orderId);
       const assigned = await this.sumAssigned(line, orderId, plIdsFromOrderDispatches, reversedIds);
       const dispatched = await this.sumDispatched(line, orderId, reversedIds);
       const pending = Math.max(0, line.requested_boxes - dispatched);
@@ -199,6 +220,7 @@ export class SalesOrderProgressService {
 
       tr += line.requested_boxes;
       tp += produced;
+      tpr += reservedDepot;
       ta += assigned;
       td += dispatched;
       tpend += pending;
@@ -214,6 +236,7 @@ export class SalesOrderProgressService {
         variety_id: line.variety_id != null ? Number(line.variety_id) : null,
         variety_nombre: line.variety?.nombre ?? null,
         produced_depot_boxes: produced,
+        reserved_depot_boxes: reservedDepot,
         assigned_pl_boxes: assigned,
         dispatched_boxes: dispatched,
         pending_boxes: pending,
@@ -234,6 +257,7 @@ export class SalesOrderProgressService {
       totals: {
         requested_boxes: tr,
         produced_depot_boxes: tp,
+        reserved_depot_boxes: tpr,
         assigned_pl_boxes: ta,
         dispatched_boxes: td,
         pending_boxes: tpend,

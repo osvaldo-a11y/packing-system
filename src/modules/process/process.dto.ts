@@ -56,6 +56,10 @@ export class CreateFruitProcessDto {
 export class UpdateProcessWeightsDto {
   @IsOptional() @IsNumber() @Min(0) lb_iqf?: number;
   @IsOptional() @IsNumber() @Min(0) lb_sobrante?: number;
+  /** Registro de merma cuando la fila MERMA en componentes está vacía (evita doble conteo con lb_sobrante legacy). */
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) merma_lb?: number;
+  /** Solo si no hay reparto MP por líneas (Σ allocations ≈ 0); si hay reparto, el servidor fija entrada desde allocations. */
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) lb_entrada?: number;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => UpdateProcessWeightComponentDto)
   components?: UpdateProcessWeightComponentDto[];
   @IsOptional() @IsString() @MaxLength(2000) nota?: string;

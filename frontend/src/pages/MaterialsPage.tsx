@@ -413,6 +413,7 @@ export function MaterialsPage() {
   const [scopeFormatIds, setScopeFormatIds] = useState<number[]>([]);
   const [scopeClientIds, setScopeClientIds] = useState<number[]>([]);
   const [renameRow, setRenameRow] = useState<PackagingMaterialRow | null>(null);
+  const [deleteConfirmRow, setDeleteConfirmRow] = useState<PackagingMaterialRow | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   const { data, isPending, isError, error } = useQuery({
@@ -681,6 +682,7 @@ export function MaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'recipes'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'summary-by-format'] });
       toast.success('Material eliminado');
+      setDeleteConfirmRow(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1863,6 +1865,20 @@ export function MaterialsPage() {
                           Editar
                         </Button>
                       </div>
+                      {canDelete ? (
+                        <div className="mt-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-full border-red-200 text-[11px] text-red-700 hover:bg-red-50"
+                            disabled={deleteMut.isPending}
+                            onClick={() => setDeleteConfirmRow(row)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      ) : null}
                       <div className="mt-1.5">
                         <Button asChild type="button" variant="outline" size="sm" className="h-8 w-full gap-1.5 text-[11px]">
                           <Link to={`/packaging/kardex?material=${row.id}`}>
@@ -2095,6 +2111,39 @@ export function MaterialsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={deleteConfirmRow != null} onOpenChange={(o) => !o && setDeleteConfirmRow(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar material</DialogTitle>
+            <DialogDescription>
+              Se quita del inventario y se borran los movimientos de kardex. Si falla, suele ser: receta activa que
+              aún lo lista, o historial de costo por tarja (breakdown de embalajes ya cargados), distinto de la receta
+              actual.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteConfirmRow ? (
+            <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
+              {deleteConfirmRow.nombre_material}
+            </p>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setDeleteConfirmRow(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!deleteConfirmRow || deleteMut.isPending}
+              onClick={() => {
+                if (!deleteConfirmRow) return;
+                deleteMut.mutate(deleteConfirmRow.id);
+              }}
+            >
+              {deleteMut.isPending ? 'Eliminando…' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader className="pb-2">

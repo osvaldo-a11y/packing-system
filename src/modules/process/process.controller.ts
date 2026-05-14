@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -54,14 +55,27 @@ export class ProcessController {
 
   @Get('processes/eligible-lines')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  eligibleLines(@Query('producer_id', ParseIntPipe) producerId: number) {
-    return this.service.listEligibleMpLinesForProducer(producerId);
+  eligibleLines(
+    @Query('producer_id', ParseIntPipe) producerId: number,
+    /** Solo recepciones confirmadas/cerradas (KPI planificación). Sin flag: incluye borrador (alta de proceso). */
+    @Query('planning_only') planningOnlyRaw?: string,
+    /** Solo recepciones en borrador (workaround alta proceso / import masivo). */
+    @Query('borrador_only') borradorOnlyRaw?: string,
+  ) {
+    const planningOnly = planningOnlyRaw === '1' || String(planningOnlyRaw ?? '').toLowerCase() === 'true';
+    const borradorOnly = borradorOnlyRaw === '1' || String(borradorOnlyRaw ?? '').toLowerCase() === 'true';
+    return this.service.listEligibleMpLinesForProducer(producerId, { planningOnly, borradorOnly });
   }
 
   @Get('processes/producers-with-eligible-mp')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  producersWithEligibleMp() {
-    return this.service.listProducerIdsWithEligibleMp();
+  producersWithEligibleMp(
+    @Query('planning_only') planningOnlyRaw?: string,
+    @Query('borrador_only') borradorOnlyRaw?: string,
+  ) {
+    const planningOnly = planningOnlyRaw === '1' || String(planningOnlyRaw ?? '').toLowerCase() === 'true';
+    const borradorOnly = borradorOnlyRaw === '1' || String(borradorOnlyRaw ?? '').toLowerCase() === 'true';
+    return this.service.listProducerIdsWithEligibleMp({ planningOnly, borradorOnly });
   }
 
   @Patch('processes/:id/weights')
@@ -153,5 +167,13 @@ export class ProcessController {
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   updateTag(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtTagDto) {
     return this.service.updateTag(id, dto);
+  }
+
+  /** Elimina la unidad PT si no está en despacho, factura, merge ni pallet final logístico (misma lógica que carga masiva). */
+  @Delete('pt-tags/:id')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  async deletePtTag(@Param('id', ParseIntPipe) id: number) {
+    await this.service.purgePtTagById(id);
+    return { ok: true as const };
   }
 }

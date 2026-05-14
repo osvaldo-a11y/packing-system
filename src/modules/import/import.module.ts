@@ -15,8 +15,17 @@ import {
   SalesOrderLine,
   SalesOrderModification,
 } from '../dispatch/dispatch.entities';
-import { FinalPallet } from '../final-pallet/final-pallet.entities';
-import { FruitProcess, PtTag, PtTagItem, RawMaterialMovement } from '../process/process.entities';
+import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
+import { RepalletLineProvenance } from '../final-pallet/repallet.entities';
+import {
+  FruitProcess,
+  FruitProcessLineAllocation,
+  PtTag,
+  PtTagItem,
+  PtTagMerge,
+  PtTagMergeSource,
+  RawMaterialMovement,
+} from '../process/process.entities';
 import {
   PresentationFormat,
   ProcessMachine,
@@ -50,9 +59,14 @@ import { ImportTemplateService } from './import-template.service';
       Invoice,
       InvoiceItem,
       FinalPallet,
+      FinalPalletLine,
+      RepalletLineProvenance,
       FruitProcess,
+      FruitProcessLineAllocation,
       PtTag,
       PtTagItem,
+      PtTagMerge,
+      PtTagMergeSource,
       RawMaterialMovement,
       Reception,
       ReceptionLine,

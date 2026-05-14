@@ -20,6 +20,8 @@ export type SalesOrderProgressLineApi = {
   variety_id: number | null;
   variety_nombre: string | null;
   produced_depot_boxes: number;
+  /** Cámara con `planned_sales_order_id` = este pedido. */
+  reserved_depot_boxes: number;
   assigned_pl_boxes: number;
   dispatched_boxes: number;
   pending_boxes: number;
@@ -33,6 +35,7 @@ export type SalesOrderProgressApi = {
   totals: {
     requested_boxes: number;
     produced_depot_boxes: number;
+    reserved_depot_boxes: number;
     assigned_pl_boxes: number;
     dispatched_boxes: number;
     pending_boxes: number;
@@ -137,9 +140,10 @@ export function SalesOrderProgressPage() {
           <details className="rounded-md border border-blue-200 bg-blue-50 p-2">
             <summary className="cursor-pointer text-sm font-medium text-blue-700">ℹ ¿Cómo funciona el avance?</summary>
             <CardDescription className="mt-2 text-slate-600">
-              Depósito = pallets finales en estado definitivo sin PL ni despacho. Asignado PL = en packing list PT confirmado (no reversado)
-              vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con despacho confirmado o
-              despachado. El filtro por línea usa formato + marca/variedad cuando están definidos en el pedido.
+              Depósito = pallets finales en estado definitivo sin PL ni despacho (mismo formato/marca/variedad que la línea).
+              Reservado pedido = subset del depósito con «pedido previsto» = este pedido en Existencias PT. Asignado PL = en packing list PT
+              confirmado (no reversado) vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con
+              despacho confirmado o despachado.
             </CardDescription>
           </details>
         </CardHeader>
@@ -156,6 +160,7 @@ export function SalesOrderProgressPage() {
                   <TableHead className="text-right">$/caja</TableHead>
                   <TableHead className="text-right">Pedido</TableHead>
                   <TableHead className="text-right">Depósito</TableHead>
+                  <TableHead className="text-right">Reservado</TableHead>
                   <TableHead className="text-right">Asign. PL</TableHead>
                   <TableHead className="text-right">Despachado</TableHead>
                   <TableHead className="text-right">Pendiente</TableHead>
@@ -174,6 +179,7 @@ export function SalesOrderProgressPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{row.requested_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.produced_depot_boxes}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.reserved_depot_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.assigned_pl_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.dispatched_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.pending_boxes}</TableCell>
@@ -192,6 +198,7 @@ export function SalesOrderProgressPage() {
                   <TableCell colSpan={4}>Totales</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.requested_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.produced_depot_boxes}</TableCell>
+                  <TableCell className="text-right tabular-nums">{data.totals.reserved_depot_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.assigned_pl_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.dispatched_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.pending_boxes}</TableCell>

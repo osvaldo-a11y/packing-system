@@ -11,8 +11,10 @@ import {
   ReceptionLine,
   SpeciesProcessResultComponent,
 } from '../traceability/traceability.entities';
+import { DispatchTagItem, InvoiceItem } from '../dispatch/dispatch.entities';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService } from '../final-pallet/final-pallet.service';
+import { PackagingPalletConsumption } from '../packaging/packaging.entities';
 import { TraceabilityService } from '../traceability/traceability.service';
 import {
   AddPtTagItemDto,
@@ -269,6 +271,39 @@ export class ProcessService {
     return Number(proc.peso_procesado_lb) || 0;
   }
 
+  /**
+   * Merma en columnas legacy (`merma_lb`, `lb_sobrante`, `lb_merma_balance`) cuando la fila del componente MERMA
+   * está vacía o no aplica — mismo criterio que el modal (mermaRegistrada vs componente MERMA).
+   */
+  private extraMermaLbOutsideComponents(
+    fresh: FruitProcess,
+    freshValues: FruitProcessComponentValue[],
+    activeComponents: Array<{ id: number; codigo: string }>,
+  ): number {
+    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaRowVal = mermaComp
+      ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
+      : 0;
+    if (mermaRowVal > BALANCE_EPS) return 0;
+    const sob = Number(fresh.lb_sobrante ?? 0);
+    const bal = Number(fresh.lb_merma_balance ?? 0);
+    if (sob + bal > BALANCE_EPS) return sob + bal;
+    return Number(fresh.merma_lb ?? 0);
+  }
+
+  /** IQF en `lb_iqf` cuando el componente IQF no tiene lb en tabla de valores (misma idea que merma). */
+  private extraIqfLbOutsideComponents(
+    fresh: FruitProcess,
+    freshValues: FruitProcessComponentValue[],
+    activeComponents: Array<{ id: number; codigo: string }>,
+  ): number {
+    const iqfComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'IQF');
+    if (!iqfComp) return 0;
+    const iqfRowVal = Number(freshValues.find((v) => Number(v.component_id) === Number(iqfComp.id))?.lb_value ?? 0);
+    if (iqfRowVal > BALANCE_EPS) return 0;
+    return Number(fresh.lb_iqf ?? 0);
+  }
+
   private ensureProcessEditableBorrador(proc: FruitProcess): void {
     if (proc.process_status !== 'borrador') {
       throw new BadRequestException('Solo se puede editar un proceso en estado borrador');
@@ -374,17 +409,24 @@ export class ProcessService {
   private async repalletUnifiedTarjaIds(tagIds: number[]): Promise<Set<number>> {
     const uniq = [...new Set(tagIds)].filter((id) => id > 0);
     if (uniq.length === 0) return new Set();
-    const rows = await this.ds.query(
-      `SELECT DISTINCT fp.tarja_id AS tid
-       FROM final_pallets fp
-       INNER JOIN repallet_events re
-         ON re.result_final_pallet_id = fp.id AND re.reversed_at IS NULL
-       WHERE fp.tarja_id IS NOT NULL AND fp.tarja_id = ANY($1::bigint[])`,
-      [uniq],
-    );
-    return new Set(
-      (rows as { tid: string | number }[]).map((r) => Number(r.tid)).filter((n) => Number.isFinite(n) && n > 0),
-    );
+    const out = new Set<number>();
+    const CHUNK = 8000;
+    for (let i = 0; i < uniq.length; i += CHUNK) {
+      const slice = uniq.slice(i, i + CHUNK);
+      const rows = await this.ds.query(
+        `SELECT DISTINCT fp.tarja_id AS tid
+         FROM final_pallets fp
+         INNER JOIN repallet_events re
+           ON re.result_final_pallet_id = fp.id AND re.reversed_at IS NULL
+         WHERE fp.tarja_id IS NOT NULL AND fp.tarja_id = ANY($1::bigint[])`,
+        [slice],
+      );
+      for (const r of rows as { tid: string | number }[]) {
+        const n = Number(r.tid);
+        if (Number.isFinite(n) && n > 0) out.add(n);
+      }
+    }
+    return out;
   }
 
   /** Suma lb de PT por proceso: Σ (cajas en tarja × lb netas por caja según formato). */
@@ -704,6 +746,7 @@ export class ProcessService {
       };
       return {
         id: r.id,
+        csv_process_ref: r.csv_process_ref != null ? Number(r.csv_process_ref) : null,
         recepcion_id: Number(r.recepcion_id),
         reception_line_id: r.reception_line_id != null ? Number(r.reception_line_id) : null,
         process_machine_id: r.process_machine_id != null ? Number(r.process_machine_id) : null,
@@ -786,8 +829,39 @@ export class ProcessService {
     const mergeResultIds = new Set(mergeRows.map((m) => Number(m.result_tarja_id)));
     const tagIdsNum = tags.map((t) => Number(t.id));
     const excluidaSumaPackout = await this.repalletUnifiedTarjaIds(tagIdsNum);
-    const allItems = await this.tagItemRepo.find({ order: { id: 'ASC' } });
-    const processes = await this.processRepo.find();
+
+    const itemsByTarjaId = new Map<number, PtTagItem[]>();
+    const TAG_CHUNK = 500;
+    for (let i = 0; i < tagIdsNum.length; i += TAG_CHUNK) {
+      const slice = tagIdsNum.slice(i, i + TAG_CHUNK);
+      if (slice.length === 0) continue;
+      const part = await this.tagItemRepo.find({
+        where: { tarja_id: In(slice) },
+        order: { id: 'ASC' },
+      });
+      for (const it of part) {
+        const tid = Number(it.tarja_id);
+        let list = itemsByTarjaId.get(tid);
+        if (!list) {
+          list = [];
+          itemsByTarjaId.set(tid, list);
+        }
+        list.push(it);
+      }
+    }
+
+    const processIdSet = new Set<number>();
+    for (const list of itemsByTarjaId.values()) {
+      for (const it of list) processIdSet.add(Number(it.process_id));
+    }
+    const processIds = [...processIdSet];
+    const processes: FruitProcess[] = [];
+    const PROC_CHUNK = 500;
+    for (let i = 0; i < processIds.length; i += PROC_CHUNK) {
+      const slice = processIds.slice(i, i + PROC_CHUNK);
+      const part = await this.processRepo.find({ where: { id: In(slice) } });
+      processes.push(...part);
+    }
     const procById = new Map(processes.map((p) => [p.id, p]));
     return tags.map((t) => ({
       id: t.id,
@@ -809,57 +883,78 @@ export class ProcessService {
       brand_id: t.brand_id ?? null,
       bol: t.bol ?? null,
       net_weight_lb: t.net_weight_lb ?? null,
-      items: allItems
-        .filter((i) => Number(i.tarja_id) === t.id)
-        .map((i) => {
-          const proc = procById.get(Number(i.process_id));
-          return {
-            id: i.id,
-            tarja_id: Number(i.tarja_id),
-            process_id: Number(i.process_id),
-            productor_id: Number(i.productor_id),
-            cajas_generadas: i.cajas_generadas,
-            pallets_generados: i.pallets_generados,
-            process: proc
-              ? {
-                  id: proc.id,
-                  peso_procesado_lb: proc.peso_procesado_lb,
-                  merma_lb: proc.merma_lb,
-                  resultado: proc.resultado,
-                  fecha_proceso: proc.fecha_proceso,
-                }
-              : null,
-          };
-        }),
+      items: (itemsByTarjaId.get(Number(t.id)) ?? []).map((i) => {
+        const proc = procById.get(Number(i.process_id));
+        return {
+          id: i.id,
+          tarja_id: Number(i.tarja_id),
+          process_id: Number(i.process_id),
+          productor_id: Number(i.productor_id),
+          cajas_generadas: i.cajas_generadas,
+          pallets_generados: i.pallets_generados,
+          process: proc
+            ? {
+                id: proc.id,
+                peso_procesado_lb: proc.peso_procesado_lb,
+                merma_lb: proc.merma_lb,
+                resultado: proc.resultado,
+                fecha_proceso: proc.fecha_proceso,
+              }
+            : null,
+        };
+      }),
     }));
   }
 
   /** Productores que tienen al menos una línea de recepción con saldo disponible para procesar. */
-  async listProducerIdsWithEligibleMp(): Promise<number[]> {
-    const raw = await this.receptionLineRepo
+  async listProducerIdsWithEligibleMp(opts?: { planningOnly?: boolean; borradorOnly?: boolean }): Promise<number[]> {
+    const qb = this.receptionLineRepo
       .createQueryBuilder('rl')
       .innerJoin('rl.reception', 'r')
-      .select('DISTINCT r.producer_id', 'pid')
-      .getRawMany();
+      .innerJoin('r.document_state', 'rds')
+      .select('DISTINCT r.producer_id', 'pid');
+    if (opts?.planningOnly) {
+      qb.where("rds.codigo IN ('confirmado', 'cerrado')");
+    } else if (opts?.borradorOnly) {
+      qb.where("rds.codigo = 'borrador'");
+    } else {
+      qb.where("rds.codigo <> 'anulado'");
+    }
+    const raw = await qb.getRawMany();
     const out: number[] = [];
     for (const row of raw) {
       const pid = Number((row as { pid: string }).pid);
       if (!Number.isFinite(pid) || pid <= 0) continue;
-      const lines = await this.listEligibleMpLinesForProducer(pid);
+      const lines = await this.listEligibleMpLinesForProducer(pid, opts);
       if (lines.length > 0) out.push(pid);
     }
     return out.sort((a, b) => a - b);
   }
 
   /** Líneas de MP con saldo > 0 para vaciar a proceso (mismo productor). */
-  async listEligibleMpLinesForProducer(producerId: number) {
-    const lines = await this.receptionLineRepo
+  async listEligibleMpLinesForProducer(producerId: number, opts?: { planningOnly?: boolean; borradorOnly?: boolean }) {
+    const qb = this.receptionLineRepo
       .createQueryBuilder('rl')
       .innerJoinAndSelect('rl.reception', 'r')
+      .innerJoin('r.document_state', 'rds')
       .leftJoinAndSelect('rl.species', 'sp')
       .leftJoinAndSelect('rl.variety', 'v')
-      .where('r.producer_id = :pid', { pid: producerId })
-      .orderBy('r.received_at', 'DESC')
+      .where('r.producer_id = :pid', { pid: producerId });
+    if (opts?.planningOnly) {
+      /**
+       * Planificación / KPI: solo recepción confirmada o cerrada (no borrador).
+       * En anulado no listamos líneas aunque queden movimientos viejos en BD.
+       */
+      qb.andWhere("rds.codigo IN ('confirmado', 'cerrado')");
+    } else if (opts?.borradorOnly) {
+      qb.andWhere("rds.codigo = 'borrador'");
+    } else {
+      /** Alta de proceso (por defecto): incluye borrador; excluye solo anulado. */
+      qb.andWhere("rds.codigo <> 'anulado'");
+    }
+    const lines = await qb
+      /** FIFO: primero la fruta más antigua (misma lógica operativa que “vaciar” recepciones viejas). */
+      .orderBy('r.received_at', 'ASC')
       .addOrderBy('rl.line_order', 'ASC')
       .getMany();
 
@@ -943,6 +1038,8 @@ export class ProcessService {
     const allocSum = await this.sumAllocationsLb(proc.id);
     if (allocSum > BALANCE_EPS) {
       proc.lb_entrada = allocSum.toFixed(3);
+    } else if (dto.lb_entrada !== undefined) {
+      proc.lb_entrada = dto.lb_entrada.toFixed(3);
     }
 
     if (dto.lb_iqf !== undefined) proc.lb_iqf = dto.lb_iqf.toFixed(3);
@@ -967,11 +1064,22 @@ export class ProcessService {
       proc.lb_sobrante = (row ? Number(row.lb_value) : 0).toFixed(3);
     }
 
+    if (dto.merma_lb !== undefined) {
+      proc.merma_lb = dto.merma_lb.toFixed(3);
+      const mermaRowLb = mermaComp
+        ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
+        : 0;
+      if (mermaRowLb <= BALANCE_EPS) {
+        proc.lb_sobrante = '0.000';
+        proc.lb_merma_balance = undefined;
+      }
+    }
+
     if (dto.nota !== undefined) proc.nota = dto.nota?.trim() || undefined;
 
     await this.processRepo.save(proc);
     await this.refreshLbPackoutForProcessIds([proc.id]);
-    const freshProc = await this.processRepo.findOne({ where: { id: proc.id } });
+    const freshProc = (await this.processRepo.findOne({ where: { id: proc.id } })) ?? proc;
     const cachedPack = freshProc?.lb_packout != null ? Number(freshProc.lb_packout) : 0;
     const computedPack = (await this.computeLbPackoutForProcessIds([proc.id])).get(proc.id) ?? 0;
     const packFromTags =
@@ -979,13 +1087,25 @@ export class ProcessService {
     const usedOnPallets = (await this.computeUsedLbFromFinalPallets([proc.id])).get(proc.id) ?? 0;
     /** Tarjas y pallets finales suelen ser canales alternativos; max evita duplicar si ambos reflejan el mismo PT. */
     const packProductLb = Math.max(packFromTags, usedOnPallets);
+    const extraMerma = this.extraMermaLbOutsideComponents(freshProc, freshValues, activeComponents);
+    const extraIqf = this.extraIqfLbOutsideComponents(freshProc, freshValues, activeComponents);
+    const destinos = packProductLb + componentTotal + extraMerma + extraIqf;
 
-    if (dto.components != null || dto.lb_iqf !== undefined || dto.lb_sobrante !== undefined) {
+    if (
+      dto.components != null ||
+      dto.lb_iqf !== undefined ||
+      dto.lb_sobrante !== undefined ||
+      dto.merma_lb !== undefined ||
+      dto.lb_entrada !== undefined
+    ) {
       const entrada = this.computeEntradaLb(proc, await this.sumAllocationsLb(proc.id));
-      if (Math.abs(entrada - (packProductLb + componentTotal)) > BALANCE_EPS) {
-        const diff = entrada - (packProductLb + componentTotal);
+      if (Math.abs(entrada - destinos) > BALANCE_EPS) {
+        const diff = entrada - destinos;
         throw new BadRequestException(
-          `Balance: lb entrada (${entrada.toFixed(3)}) debe ser packout producto (${packProductLb.toFixed(3)} = máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes (${componentTotal.toFixed(3)}). Diferencia: ${diff.toFixed(3)} lb.`,
+          `Balance: lb entrada (${entrada.toFixed(3)}) debe ser packout producto (${packProductLb.toFixed(3)} = máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes (${componentTotal.toFixed(3)})` +
+            (extraMerma > BALANCE_EPS ? ` + merma fuera de tabla (${extraMerma.toFixed(3)})` : '') +
+            (extraIqf > BALANCE_EPS ? ` + IQF fuera de tabla (${extraIqf.toFixed(3)})` : '') +
+            `. Diferencia: ${diff.toFixed(3)} lb.`,
         );
       }
     }
@@ -1144,7 +1264,8 @@ export class ProcessService {
   async addProcessToTag(tagId: number, dto: AddPtTagItemDto) {
     const tag = await this.tagRepo.findOne({ where: { id: tagId } });
     const proc = await this.processRepo.findOne({ where: { id: dto.process_id } });
-    if (!tag || !proc) throw new NotFoundException('Unidad PT o proceso no encontrado');
+    if (!tag) throw new NotFoundException(`Unidad PT id=${tagId} no encontrada`);
+    if (!proc) throw new NotFoundException(`Proceso id=${dto.process_id} no encontrado`);
 
     const exists = await this.tagItemRepo.findOne({ where: { tarja_id: tagId, process_id: dto.process_id } });
     if (exists) throw new BadRequestException('Proceso ya agregado a esta unidad PT');
@@ -1165,7 +1286,8 @@ export class ProcessService {
     const out = await this.ds.transaction(async (em) => {
       const tagEnt = await em.findOne(PtTag, { where: { id: tagId } });
       const procEnt = await em.findOne(FruitProcess, { where: { id: dto.process_id } });
-      if (!tagEnt || !procEnt) throw new NotFoundException('Unidad PT o proceso no encontrado');
+      if (!tagEnt) throw new NotFoundException(`Unidad PT id=${tagId} no encontrada`);
+      if (!procEnt) throw new NotFoundException(`Proceso id=${dto.process_id} no encontrado`);
 
       const dup = await em.findOne(PtTagItem, { where: { tarja_id: tagId, process_id: dto.process_id } });
       if (dup) throw new BadRequestException('Proceso ya agregado a esta unidad PT');
@@ -1590,10 +1712,16 @@ export class ProcessService {
       computedPack > BALANCE_EPS ? computedPack : Math.max(cachedPack, computedPack);
     const usedOnPallets = (await this.computeUsedLbFromFinalPallets([proc.id])).get(proc.id) ?? 0;
     const packProductLb = Math.max(packFromTags, usedOnPallets);
-    const diff = entrada - (packProductLb + componentTotal);
+    const extraMerma = this.extraMermaLbOutsideComponents(fresh, freshValues, activeComponents);
+    const extraIqf = this.extraIqfLbOutsideComponents(fresh, freshValues, activeComponents);
+    const destinos = packProductLb + componentTotal + extraMerma + extraIqf;
+    const diff = entrada - destinos;
     if (Math.abs(diff) > BALANCE_EPS) {
       throw new BadRequestException(
-        `Balance no cuadra: entrada ${entrada.toFixed(3)} ≠ packout producto ${packProductLb.toFixed(3)} (máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes ${componentTotal.toFixed(3)} (diferencia ${diff.toFixed(3)} lb).`,
+        `Balance no cuadra: entrada ${entrada.toFixed(3)} ≠ packout producto ${packProductLb.toFixed(3)} (máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes ${componentTotal.toFixed(3)}` +
+          (extraMerma > BALANCE_EPS ? ` + merma fuera de tabla (${extraMerma.toFixed(3)})` : '') +
+          (extraIqf > BALANCE_EPS ? ` + IQF fuera de tabla (${extraIqf.toFixed(3)})` : '') +
+          ` (diferencia ${diff.toFixed(3)} lb).`,
       );
     }
 
@@ -1688,5 +1816,91 @@ export class ProcessService {
   async refreshPtTagStockAfterImport(tagId: number): Promise<void> {
     const t = await this.tagRepo.findOne({ where: { id: tagId } });
     if (t) await this.refreshFinishedPtStockForTag(t);
+  }
+
+  /**
+   * Elimina una unidad PT y sus vínculos internos (ítems, consumos de packaging, pallet técnico borrador).
+   * No permite si hay despacho, factura, merge, o pallet final ya logístico/despachado.
+   */
+  async purgePtTagById(tagId: number): Promise<void> {
+    const id = Number(tagId);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new BadRequestException('tarja_id inválido');
+    }
+    const tag = await this.tagRepo.findOne({ where: { id } });
+    if (!tag) throw new NotFoundException('Unidad PT no encontrada');
+
+    const dtiRepo = this.ds.getRepository(DispatchTagItem);
+    const dti = await dtiRepo.count({ where: { tarja_id: id } });
+    if (dti > 0) {
+      throw new BadRequestException(
+        `No se puede borrar la tarja ${id}: figura en ${dti} línea(s) de despacho. Quitála del despacho primero.`,
+      );
+    }
+
+    const invRepo = this.ds.getRepository(InvoiceItem);
+    const inv = await invRepo.count({ where: { tarja_id: id } });
+    if (inv > 0) {
+      throw new BadRequestException(
+        `No se puede borrar la tarja ${id}: tiene ${inv} línea(s) en facturas.`,
+      );
+    }
+
+    const mergeAsResult = await this.tagMergeRepo.count({ where: { result_tarja_id: id } });
+    const mergeSrcRepo = this.ds.getRepository(PtTagMergeSource);
+    const mergeAsSource = await mergeSrcRepo.count({ where: { source_tarja_id: id } });
+    if (mergeAsResult > 0 || mergeAsSource > 0) {
+      throw new BadRequestException(
+        'No se puede borrar: la tarja participa en un merge (origen o resultado). Resolvé el merge antes.',
+      );
+    }
+
+    const fpRepo = this.ds.getRepository(FinalPallet);
+    const fps = await fpRepo.find({ where: { tarja_id: id } });
+    for (const fp of fps) {
+      if (fp.dispatch_id != null || fp.pt_packing_list_id != null) {
+        throw new BadRequestException(
+          `No se puede borrar: el pallet final ${fp.id} (${fp.corner_board_code}) está en packing list o despacho.`,
+        );
+      }
+      if (fp.status === 'despachado' || fp.status === 'asignado_pl') {
+        throw new BadRequestException(
+          `No se puede borrar: el pallet final ${fp.id} tiene estado «${fp.status}».`,
+        );
+      }
+    }
+
+    const items = await this.tagItemRepo.find({ where: { tarja_id: id } });
+    const processIds = [...new Set(items.map((it) => Number(it.process_id)).filter((n) => n > 0))];
+    const formatKey = tag.format_code.trim().toLowerCase();
+    const clientKey = tag.client_id ?? null;
+    const brandKey = tag.brand_id ?? null;
+
+    const consRepo = this.ds.getRepository(PackagingPalletConsumption);
+
+    await this.ds.transaction(async (em) => {
+      await em.query(
+        `DELETE FROM packaging_cost_breakdowns WHERE consumption_id IN (SELECT id FROM packaging_pallet_consumptions WHERE tarja_id = $1)`,
+        [id],
+      );
+      await em.delete(PackagingPalletConsumption, { tarja_id: id });
+      await em.delete(PtTagAudit, { tarja_id: id });
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(PtTagLineage)
+        .where('ancestor_tarja_id = :id OR descendant_tarja_id = :id', { id })
+        .execute();
+      await em.delete(PtTagItem, { tarja_id: id });
+      await em.update(FruitProcess, { tarja_id: id }, { tarja_id: null });
+      await em.delete(FinalPallet, { tarja_id: id });
+      await em.delete(PtTag, { id });
+    });
+
+    for (const pid of processIds) {
+      await this.syncFruitProcessTarjaIdFromItems(pid);
+    }
+    await this.refreshFinishedPtStockAggregate(formatKey, clientKey, brandKey);
+    await this.refreshLbPackoutForProcessIds(processIds);
   }
 }

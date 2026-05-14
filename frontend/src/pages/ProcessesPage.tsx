@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
@@ -100,6 +100,8 @@ type ProcessAllocationApi = { reception_line_id: number; lot_code: string; lb_al
 
 export type FruitProcessRow = {
   id: number;
+  /** Nº de proceso en CSV de import (si difiere del id de BD). */
+  csv_process_ref?: number | null;
   recepcion_id: number;
   reception_line_id: number | null;
   process_machine_id?: number | null;
@@ -181,15 +183,38 @@ type PtTagListRow = {
 
 function processRowMatchesGlobalSearch(r: FruitProcessRow, s: string): boolean {
   if (!s) return true;
-  if (String(r.id).includes(s)) return true;
-  if (r.productor_nombre?.toLowerCase().includes(s)) return true;
-  if (r.variedad_nombre?.toLowerCase().includes(s)) return true;
-  if (r.especie_nombre?.toLowerCase().includes(s)) return true;
-  if (r.nota?.toLowerCase().includes(s)) return true;
+  const trimmed = s.trim();
+  const t = trimmed.toLowerCase();
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number(trimmed);
+    if (Number.isFinite(n) && (r.id === n || (r.csv_process_ref != null && r.csv_process_ref === n))) return true;
+    if (String(r.id).includes(trimmed)) return true;
+    if (r.csv_process_ref != null && String(r.csv_process_ref).includes(trimmed)) return true;
+    return false;
+  }
+  if (String(r.id).toLowerCase().includes(t)) return true;
+  if (r.csv_process_ref != null && String(r.csv_process_ref).includes(trimmed)) return true;
+  if (r.productor_nombre?.toLowerCase().includes(t)) return true;
+  if (r.variedad_nombre?.toLowerCase().includes(t)) return true;
+  if (r.especie_nombre?.toLowerCase().includes(t)) return true;
+  if (r.nota?.toLowerCase().includes(t)) return true;
   for (const a of r.allocations ?? []) {
-    if (a.lot_code?.toLowerCase().includes(s)) return true;
+    if (a.lot_code?.toLowerCase().includes(t)) return true;
   }
   return false;
+}
+
+function matchesProcessIdFilter(r: FruitProcessRow, raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) return false;
+    if (r.id === n || (r.csv_process_ref != null && r.csv_process_ref === n)) return true;
+    return String(r.id).includes(trimmed) || (r.csv_process_ref != null && String(r.csv_process_ref).includes(trimmed));
+  }
+  const t = trimmed.toLowerCase();
+  return String(r.id).toLowerCase().includes(t) || (r.csv_process_ref != null && String(r.csv_process_ref).toLowerCase().includes(t));
 }
 
 function palletDisponibleDeposito(r: ExistenciaSnapRow): boolean {
@@ -293,32 +318,15 @@ function mermaRegistradaLb(r: FruitProcessRow): number {
   return Number(r.merma_lb ?? 0);
 }
 
-/** Columna tabla: componentes activos con lb; respaldo a columnas legacy si no hay filas en `fruit_process_component_values`. */
-function processComponentsTableCell(r: FruitProcessRow) {
-  const comps = r.components ?? [];
-  const parts: string[] = [];
-  const titleParts: string[] = [];
-  for (const c of comps) {
-    const n = Number(c.lb_value);
-    if (!Number.isFinite(n) || Math.abs(n) < 0.001) continue;
-    const pct = c.pct_of_entrada != null && c.pct_of_entrada !== '—' ? ` · ${c.pct_of_entrada}%` : '';
-    parts.push(`${c.nombre}: ${fmtLb2(c.lb_value)} lb${pct}`);
-    titleParts.push(`${c.nombre} (${c.codigo}): ${fmtLb2(c.lb_value)} lb — ${c.pct_of_entrada ?? '—'}% de lb entrada`);
+/** Suma lb del componente resultado MERMA en el borrador (evita doble resta si ya va en `components`). */
+function sumMermaComponentDraft(row: FruitProcessRow, draft: Record<number, number>): number {
+  let s = 0;
+  for (const c of row.components ?? []) {
+    if ((c.codigo ?? '').toUpperCase() === 'MERMA') {
+      s += Number(draft[c.id] ?? 0);
+    }
   }
-  if (parts.length > 0) {
-    return (
-      <span className="text-xs leading-snug max-w-[min(320px,32vw)] inline-block align-top" title={titleParts.join(' · ')}>
-        {parts.join(' · ')}
-      </span>
-    );
-  }
-  const legacy: string[] = [];
-  if (r.lb_iqf != null && Number(r.lb_iqf) > 0.001) legacy.push(`iqf ${fmtLb2(r.lb_iqf)}`);
-  if (r.lb_sobrante != null && Number(r.lb_sobrante) > 0.001) legacy.push(`merma ${fmtLb2(r.lb_sobrante)}`);
-  if (legacy.length > 0) {
-    return <span className="text-xs leading-snug">{legacy.join(' · ')}</span>;
-  }
-  return <span className="text-muted-foreground">—</span>;
+  return s;
 }
 
 function toDatetimeLocalValue(iso: string) {
@@ -337,11 +345,25 @@ type CreateProcessForm = z.infer<typeof createProcessSchema>;
 
 const weightsPatchSchema = z.object({
   nota: z.string().optional(),
+  lb_entrada: z.coerce.number().min(0),
+  merma_lb: z.coerce.number().min(0),
 });
 
 type WeightsPatchForm = z.infer<typeof weightsPatchSchema>;
 
 const ALLOC_EPS = 0.02;
+
+/** Valor inicial de `merma_lb` al abrir el modal: si la fila MERMA en server está vacía, usa el mismo criterio que la tarjeta (sob+balance o merma_lb). */
+function initialMermaLbFormValue(row: FruitProcessRow): number {
+  let mermaRowSum = 0;
+  for (const c of row.components ?? []) {
+    if ((c.codigo ?? '').toUpperCase() === 'MERMA') {
+      mermaRowSum += Number(c.lb_value ?? 0);
+    }
+  }
+  if (mermaRowSum > ALLOC_EPS) return Number(row.merma_lb ?? 0) || 0;
+  return mermaRegistradaLb(row);
+}
 
 type ProcessStatusUi = 'borrador' | 'confirmado' | 'cerrado';
 
@@ -356,7 +378,9 @@ function fetchProcesses() {
 }
 
 function fetchEligibleLines(producerId: number) {
-  return apiJson<EligibleMpLine[]>(`/api/processes/eligible-lines?producer_id=${producerId}`);
+  return apiJson<EligibleMpLine[]>(
+    `/api/processes/eligible-lines?producer_id=${producerId}&borrador_only=1`,
+  );
 }
 
 export function ProcessesPage() {
@@ -389,8 +413,8 @@ export function ProcessesPage() {
   });
 
   const { data: producerIdsWithMp } = useQuery({
-    queryKey: ['processes', 'producers-with-eligible-mp'],
-    queryFn: () => apiJson<number[]>('/api/processes/producers-with-eligible-mp'),
+    queryKey: ['processes', 'producers-with-eligible-mp', 'borrador'],
+    queryFn: () => apiJson<number[]>('/api/processes/producers-with-eligible-mp?borrador_only=1'),
   });
 
   const { data: ptTags } = useQuery({
@@ -423,6 +447,7 @@ export function ProcessesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterProcessClient, setFilterProcessClient] = useState(0);
   const [filterProcessFormat, setFilterProcessFormat] = useState('');
+  const [filterProcessId, setFilterProcessId] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const producersForCreate = useMemo(() => {
@@ -493,7 +518,7 @@ export function ProcessesPage() {
   }, [presFormats, ptTags]);
 
   const { data: eligibleLines, isFetching: eligibleLoading } = useQuery({
-    queryKey: ['processes', 'eligible-lines', producerId],
+    queryKey: ['processes', 'eligible-lines', producerId, 'borrador'],
     queryFn: () => fetchEligibleLines(producerId),
     enabled: open && producerId > 0,
   });
@@ -572,24 +597,69 @@ export function ProcessesPage() {
 
   const weightsForm = useForm<WeightsPatchForm>({
     resolver: zodResolver(weightsPatchSchema),
-    defaultValues: {},
+    defaultValues: {
+      nota: '',
+      lb_entrada: 0,
+      merma_lb: 0,
+    },
   });
+  const lbEntradaWatched = useWatch({ control: weightsForm.control, name: 'lb_entrada' });
+  const mermaLbWatched = useWatch({ control: weightsForm.control, name: 'merma_lb' });
+
+  const weightsMpAllocSumLb = useMemo(() => {
+    if (!weightsRow?.allocations?.length) return 0;
+    return weightsRow.allocations.reduce((s, a) => s + Number(a.lb_allocated ?? 0), 0);
+  }, [weightsRow?.allocations]);
+  const entradaLockedByMp = weightsMpAllocSumLb > ALLOC_EPS;
+
+  const weightsModalCanEditMermaLb = useMemo(
+    () => !!weightsRow && sumMermaComponentDraft(weightsRow, weightComponentsDraft) <= ALLOC_EPS,
+    [weightsRow, weightComponentsDraft],
+  );
+  const weightsModalCanEditWeights = useMemo(() => {
+    if (!weightsRow) return false;
+    const st = weightsRow.process_status ?? 'borrador';
+    return !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
+  }, [weightsRow, isAdmin]);
+
   const componentsEditTotal = Object.values(weightComponentsDraft).reduce((s, n) => s + (Number.isFinite(n) ? n : 0), 0);
 
   /** Valores de reparto / KPI del modal editar proceso (alineado al PATCH de pesos). */
   const processEditModalSnapshot = useMemo(() => {
     if (!weightsRow) return null;
-    const entrada =
-      weightsRow.lb_entrada != null && weightsRow.lb_entrada !== ''
-        ? Number(weightsRow.lb_entrada)
-        : Number(weightsRow.peso_procesado_lb);
-    const packTarjas = Number(weightsRow.lb_packout_planned ?? 0);
+    const entrada = entradaLockedByMp
+      ? weightsMpAllocSumLb
+      : (() => {
+          const w = Number(lbEntradaWatched);
+          if (Number.isFinite(w)) return w;
+          return weightsRow.lb_entrada != null && weightsRow.lb_entrada !== ''
+            ? Number(weightsRow.lb_entrada)
+            : Number(weightsRow.peso_procesado_lb);
+        })();
+    const packTarjasApi = Number(weightsRow.lb_packout_planned ?? 0);
+    /** Si /api/processes quedó stale (p. ej. tras import PT sin invalidar procesos), alineamos con tarjas ya cargadas. */
+    const packTarjasFromVinculos =
+      linkedPtRowsForModal.length > 0 && Number(weightsRow.id) > 0 ? linkedPtModalStats.lbSum : 0;
+    const packTarjas = Math.max(packTarjasApi, packTarjasFromVinculos);
     const packPallets = Number(weightsRow.lb_packout_asociado ?? 0);
     const packoutProductLb = Math.max(packTarjas, packPallets);
     const components = componentsEditTotal;
-    const pendiente = entrada - packoutProductLb - components;
+    const mermaEnComponentes = sumMermaComponentDraft(weightsRow, weightComponentsDraft);
+    const sobBal = Number(weightsRow.lb_sobrante ?? 0) + Number(weightsRow.lb_merma_balance ?? 0);
+    const mermaReg =
+      mermaEnComponentes > ALLOC_EPS
+        ? mermaEnComponentes
+        : sobBal > 1e-6
+          ? sobBal
+          : (() => {
+              const w = Number(mermaLbWatched);
+              if (Number.isFinite(w)) return w;
+              return Number(weightsRow.merma_lb ?? 0);
+            })();
+    /** Merma en `merma_lb` / sob / balance que aún no está en la suma de componentes del modal. */
+    const mermaFueraDeComponentes = Math.max(0, mermaReg - mermaEnComponentes);
+    const pendiente = entrada - packoutProductLb - components - mermaFueraDeComponentes;
     const ok = Math.abs(pendiente) < ALLOC_EPS;
-    const merma = Number(weightsRow.merma_lb ?? 0);
     return {
       entrada,
       lbEnPtPlan: packTarjas,
@@ -598,9 +668,19 @@ export function ProcessesPage() {
       components,
       pendiente,
       ok,
-      merma,
+      merma: mermaReg,
     };
-  }, [weightsRow, componentsEditTotal]);
+  }, [
+    weightsRow,
+    componentsEditTotal,
+    weightComponentsDraft,
+    linkedPtRowsForModal,
+    linkedPtModalStats.lbSum,
+    entradaLockedByMp,
+    weightsMpAllocSumLb,
+    lbEntradaWatched,
+    mermaLbWatched,
+  ]);
 
   type CreateMutationBody = CreateProcessForm & {
     allocations: { reception_line_id: number; lb_allocated: number }[];
@@ -623,8 +703,13 @@ export function ProcessesPage() {
       if (body.components?.length) payload.components = body.components;
       return apiJson('/api/processes', { method: 'POST', body: JSON.stringify(payload) });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['processes'] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['processes'] }),
+        queryClient.invalidateQueries({ queryKey: ['processes', 'eligible-lines'] }),
+        queryClient.invalidateQueries({ queryKey: ['processes', 'producers-with-eligible-mp'] }),
+        queryClient.invalidateQueries({ queryKey: ['receptions'] }),
+      ]);
       toast.success('Proceso registrado');
       setOpen(false);
     },
@@ -632,8 +717,18 @@ export function ProcessesPage() {
   });
 
   const weightsMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: WeightsPatchForm & { components?: Array<{ component_id: number; lb_value: number }> } }) =>
-      apiJson(`/api/processes/${id}/weights`, { method: 'PATCH', body: JSON.stringify(body) }),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: {
+        nota?: string;
+        lb_entrada?: number;
+        merma_lb?: number;
+        components: Array<{ component_id: number; lb_value: number }>;
+      };
+    }) => apiJson(`/api/processes/${id}/weights`, { method: 'PATCH', body: JSON.stringify(body) }),
     onSuccess: async (_data, variables) => {
       toast.success('Pesos actualizados');
       await queryClient.invalidateQueries({ queryKey: ['processes'] });
@@ -649,7 +744,11 @@ export function ProcessesPage() {
           nextDraft[c.id] = Number(c.lb_value || 0);
         }
         setWeightComponentsDraft(nextDraft);
-        weightsForm.reset({ nota: row.nota ?? '' });
+        weightsForm.reset({
+          nota: row.nota ?? '',
+          lb_entrada: Number(row.lb_entrada ?? row.peso_procesado_lb) || 0,
+          merma_lb: initialMermaLbFormValue(row),
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -695,7 +794,11 @@ export function ProcessesPage() {
           nextDraft[c.id] = Number(c.lb_value || 0);
         }
         setWeightComponentsDraft(nextDraft);
-        weightsForm.reset({ nota: row.nota ?? '' });
+        weightsForm.reset({
+          nota: row.nota ?? '',
+          lb_entrada: Number(row.lb_entrada ?? row.peso_procesado_lb) || 0,
+          merma_lb: initialMermaLbFormValue(row),
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -760,6 +863,8 @@ export function ProcessesPage() {
       setWeightsRow(row);
       weightsForm.reset({
         nota: row.nota ?? '',
+        lb_entrada: Number(row.lb_entrada ?? row.peso_procesado_lb) || 0,
+        merma_lb: initialMermaLbFormValue(row),
       });
       const nextDraft: Record<number, number> = {};
       for (const c of row.components ?? []) {
@@ -826,8 +931,20 @@ export function ProcessesPage() {
         return Number(tag?.client_id ?? 0) === filterProcessClient;
       });
     }
+    if (filterProcessId.trim()) {
+      rows = rows.filter((r) => matchesProcessIdFilter(r, filterProcessId));
+    }
     return rows;
-  }, [data, filterProducer, filterVariedad, filterStatus, filterProcessFormat, filterProcessClient, tagById]);
+  }, [
+    data,
+    filterProducer,
+    filterVariedad,
+    filterStatus,
+    filterProcessFormat,
+    filterProcessClient,
+    filterProcessId,
+    tagById,
+  ]);
 
   const sortedFilteredProcesses = useMemo(() => {
     return [...filteredProcesses].sort((a, b) => b.id - a.id);
@@ -1037,9 +1154,22 @@ export function ProcessesPage() {
         },
       },
       {
-        id: 'componentes',
-        header: 'Componentes',
-        cell: ({ row }) => processComponentsTableCell(row.original),
+        id: 'process_ids',
+        header: 'ID proceso',
+        cell: ({ row }) => {
+          const r = row.original;
+          const ref = r.csv_process_ref;
+          return (
+            <div className="font-mono text-xs leading-tight text-slate-800">
+              <span className="font-semibold tabular-nums">#{r.id}</span>
+              {ref != null && ref !== r.id ? (
+                <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground tabular-nums">
+                  Hoja {ref}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         id: 'acciones',
@@ -1210,7 +1340,8 @@ export function ProcessesPage() {
                       </select>
                       {producerIdsWithMp && producersForCreate.length === 0 ? (
                         <p className="text-sm text-amber-700 dark:text-amber-500">
-                          Ningún productor tiene fruta disponible en recepción para procesar. Revisá recepciones abiertas.
+                          Ningún productor tiene fruta con saldo en recepción (no anulada). Revisá que la recepción tenga líneas
+                          con lb, que no esté anulada y que el productor coincida.
                         </p>
                       ) : null}
                       {eligibleLoading && producerId > 0 ? (
@@ -1223,13 +1354,14 @@ export function ProcessesPage() {
                       ) : null}
                     </div>
                       {eligibleLines && eligibleLines.length > 0 ? (
-                        <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-card p-3">
+                        <div className="flex min-h-0 max-h-[min(58vh,560px)] flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card p-3">
                           <Label className="shrink-0 text-sm">Vaciar MP (varias recepciones / líneas)</Label>
                           <p className="shrink-0 text-xs text-muted-foreground">
                             Indicá cuántas lb tomás de cada línea (hasta el saldo disponible). La suma define las{' '}
-                            <strong>lb entrada</strong>.
+                            <strong>lb entrada</strong>. Orden: recepciones más antiguas primero. Solo se listan
+                            recepciones en estado <strong>borrador</strong>.
                           </p>
-                          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
+                          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
                             {eligibleLines.map((ln) => (
                               <div
                                 key={ln.reception_line_id}
@@ -1541,6 +1673,9 @@ export function ProcessesPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm text-slate-700">
                 <span className="font-semibold text-slate-900">#{focusRow.id}</span>
+                {focusRow.csv_process_ref != null && focusRow.csv_process_ref !== focusRow.id ? (
+                  <span className="text-slate-500"> (hoja {focusRow.csv_process_ref})</span>
+                ) : null}
                 <span className="mx-2 text-slate-300">·</span>
                 <span className="text-slate-600">
                   Packout {fmtLb2(focusRow.lb_packout_asociado)} / {fmtLb2(focusRow.lb_packout_restante)} · Ajustá el 100% en editar.
@@ -1592,6 +1727,12 @@ export function ProcessesPage() {
                   )}
                 />
                 Proceso #{weightsRow?.id ?? '—'}
+                {weightsRow?.csv_process_ref != null && weightsRow.csv_process_ref !== weightsRow.id ? (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {' '}
+                    · nº hoja {weightsRow.csv_process_ref}
+                  </span>
+                ) : null}
               </DialogTitle>
               <button
                 type="button"
@@ -1863,7 +2004,10 @@ export function ProcessesPage() {
                   <form
                     id="process-edit-weights-form"
                     onSubmit={weightsForm.handleSubmit((vals) => {
-                      const body: WeightsPatchForm & {
+                      const body: {
+                        nota?: string;
+                        lb_entrada?: number;
+                        merma_lb?: number;
                         components: Array<{ component_id: number; lb_value: number }>;
                       } = {
                         nota: vals.nota,
@@ -1872,6 +2016,12 @@ export function ProcessesPage() {
                           lb_value: Number(lb_value || 0),
                         })),
                       };
+                      if (!entradaLockedByMp) {
+                        body.lb_entrada = Number(vals.lb_entrada);
+                      }
+                      if (weightsModalCanEditMermaLb) {
+                        body.merma_lb = Number(vals.merma_lb);
+                      }
                       weightsMut.mutate({ id: weightsRow.id, body });
                     })}
                     className="grid gap-3 border-t border-border/60 pt-4"
@@ -1911,13 +2061,37 @@ export function ProcessesPage() {
                         </div>
                       </div>
                       <div className="flex min-w-[10rem] max-w-full flex-1 flex-col justify-center rounded-lg border border-border bg-card px-3 py-2 shadow-sm sm:max-w-none sm:flex-[1_1_11rem]">
-                        <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">Merma</p>
-                        <p className="mt-0.5 text-lg font-bold tabular-nums leading-none">{fmtLb2(processEditModalSnapshot.merma)}</p>
-                        <p className="mt-1 text-[9px] text-muted-foreground">Registro del proceso</p>
+                        <Label
+                          htmlFor="process-edit-merma-lb"
+                          className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground"
+                        >
+                          Merma
+                        </Label>
+                        {weightsModalCanEditWeights && weightsModalCanEditMermaLb ? (
+                          <Input
+                            id="process-edit-merma-lb"
+                            type="number"
+                            step="0.001"
+                            className="mt-1 h-10 border-input bg-background text-lg font-bold tabular-nums leading-none shadow-sm"
+                            {...weightsForm.register('merma_lb')}
+                          />
+                        ) : (
+                          <p className="mt-0.5 text-lg font-bold tabular-nums leading-none">{fmtLb2(processEditModalSnapshot.merma)}</p>
+                        )}
+                        <p className="mt-1 text-[9px] leading-snug text-muted-foreground">
+                          {weightsModalCanEditWeights && weightsModalCanEditMermaLb
+                            ? 'Editable · se guarda con «Guardar cambios».'
+                            : !weightsModalCanEditMermaLb
+                              ? 'Con libras en el componente MERMA de la lista, editá ahí el valor.'
+                              : 'Registro del proceso'}
+                        </p>
                       </div>
                     </div>
                     {!processEditModalSnapshot.ok ? (
-                      <p className="text-xs text-destructive">Pendiente distinto de 0: ajustá componentes o PT/pallets hasta cuadrar.</p>
+                      <p className="text-xs text-destructive">
+                        Pendiente distinto de 0: ajustá componentes, lb de merma o entrada (si el formulario lo permite), o PT/pallets hasta
+                        cuadrar.
+                      </p>
                     ) : null}
                     <details className="rounded-md border border-border/60 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
                       <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/30">
@@ -1929,14 +2103,13 @@ export function ProcessesPage() {
                           {fmtLb2(processEditModalSnapshot.packPallets)}. El cuadre usa el máximo de ambos como &quot;ya en producto&quot;.
                         </p>
                         <p>
-                          Podés editar componentes y nota en borrador o confirmado hasta cuadrar; luego confirmá o cerrá el proceso desde la
-                          barra inferior.
+                          Podés editar componentes, nota, la tarjeta MERMA (registro) cuando aplica, y la entrada sin reparto MP; luego
+                          confirmá o cerrá el proceso desde la barra inferior.
                         </p>
                       </div>
                     </details>
                     {(() => {
                       const st = weightsRow.process_status ?? 'borrador';
-                      const canEditWeights = !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
                       return (
                         <>
                           {st === 'cerrado' && isAdmin ? (
@@ -1951,7 +2124,7 @@ export function ProcessesPage() {
                                 type="number"
                                 step="0.001"
                                 className="h-9"
-                                disabled={!canEditWeights}
+                                disabled={!weightsModalCanEditWeights}
                                 value={weightComponentsDraft[c.id] ?? 0}
                                 onChange={(e) =>
                                   setWeightComponentsDraft((prev) => ({
@@ -1963,8 +2136,28 @@ export function ProcessesPage() {
                             </div>
                           ))}
                           <div className="grid max-w-md gap-1.5">
+                            <Label className="text-xs">Lb entrada (cuadre)</Label>
+                            <Input
+                              type="number"
+                              step="0.001"
+                              className="h-9"
+                              disabled={!weightsModalCanEditWeights || entradaLockedByMp}
+                              {...weightsForm.register('lb_entrada')}
+                            />
+                            {entradaLockedByMp ? (
+                              <p className="text-[10px] leading-snug text-muted-foreground">
+                                La entrada la fija el reparto por líneas de recepción ({fmtLb2(weightsMpAllocSumLb)} lb en total). Para corregir
+                                la MP, ajustá el reparto en recepciones o import.
+                              </p>
+                            ) : (
+                              <p className="text-[10px] leading-snug text-muted-foreground">
+                                Solo cuando no hay lb asignadas desde recepción al proceso; coincide con el cuadre del servidor.
+                              </p>
+                            )}
+                          </div>
+                          <div className="grid max-w-md gap-1.5">
                             <Label className="text-xs">Nota</Label>
-                            <Input className="h-9" disabled={!canEditWeights} {...weightsForm.register('nota')} />
+                            <Input className="h-9" disabled={!weightsModalCanEditWeights} {...weightsForm.register('nota')} />
                           </div>
                         </>
                       );
@@ -1979,39 +2172,31 @@ export function ProcessesPage() {
                 <Button type="button" variant="outline" onClick={() => setWeightsOpen(false)}>
                   Cerrar
                 </Button>
-                {(() => {
-                  const st = weightsRow.process_status ?? 'borrador';
-                  const canEditWeights = !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
-                  return (
-                    <>
-                      {canEditWeights ? (
-                        <Button type="submit" form="process-edit-weights-form" disabled={weightsMut.isPending}>
-                          {weightsMut.isPending ? 'Guardando…' : 'Guardar cambios'}
-                        </Button>
-                      ) : null}
-                      {weightsRow.process_status === 'borrador' ? (
-                        <Button
-                          type="button"
-                          variant="default"
-                          disabled={confirmMut.isPending}
-                          onClick={() => confirmMut.mutate(weightsRow.id)}
-                        >
-                          Confirmar proceso
-                        </Button>
-                      ) : null}
-                      {weightsRow.process_status === 'confirmado' ? (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={cerradoMut.isPending}
-                          onClick={() => cerradoMut.mutate(weightsRow.id)}
-                        >
-                          Marcar cerrado
-                        </Button>
-                      ) : null}
-                    </>
-                  );
-                })()}
+                {weightsModalCanEditWeights ? (
+                  <Button type="submit" form="process-edit-weights-form" disabled={weightsMut.isPending}>
+                    {weightsMut.isPending ? 'Guardando…' : 'Guardar cambios'}
+                  </Button>
+                ) : null}
+                {weightsRow.process_status === 'borrador' ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    disabled={confirmMut.isPending}
+                    onClick={() => confirmMut.mutate(weightsRow.id)}
+                  >
+                    Confirmar proceso
+                  </Button>
+                ) : null}
+                {weightsRow.process_status === 'confirmado' ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={cerradoMut.isPending}
+                    onClick={() => cerradoMut.mutate(weightsRow.id)}
+                  >
+                    Marcar cerrado
+                  </Button>
+                ) : null}
               </DialogFooter>
             </div>
           ) : null}
@@ -2101,6 +2286,17 @@ export function ProcessesPage() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="min-w-0 flex-[1_1_9rem]">
+            <Label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">ID proceso</Label>
+            <Input
+              className={cn(filterInputClass, 'h-9')}
+              inputMode="numeric"
+              placeholder="p. ej. 748"
+              value={filterProcessId}
+              onChange={(e) => setFilterProcessId(e.target.value)}
+              title="Filtra por id de base (#) o por nº de hoja CSV (csv_process_ref)"
+            />
           </div>
         </div>
       </div>
@@ -2284,7 +2480,7 @@ export function ProcessesPage() {
             <DataTable
               columns={columns}
               data={sortedFilteredProcesses}
-              searchPlaceholder="Buscar por productor, variedad, lote o ID de proceso"
+              searchPlaceholder="Buscar por productor, variedad, lote o ID (también filtro ID arriba)"
               customGlobalFilter={(row, s) => processRowMatchesGlobalSearch(row, s)}
               initialPageSize={25}
               scrollToRowId={focusPid}

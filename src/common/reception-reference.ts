@@ -14,6 +14,19 @@ export function receptionDateKey(d: Date): string {
 }
 
 /**
+ * Sufijo mes+día compacto para clave fuerte de recepción (ej. abril 10 → `410`, octubre 5 → `1005`).
+ * Mes 1–9 sin cero inicial; día siempre 2 dígitos; mes ≥ 10 con 2 dígitos.
+ */
+export function receptionCompactDateKey(d: Date): string {
+  if (Number.isNaN(d.getTime())) return '0000';
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const dd = String(day).padStart(2, '0');
+  if (m < 10) return `${m}${dd}`;
+  return `${String(m).padStart(2, '0')}${dd}`;
+}
+
+/**
  * Tara del envase vacío (lb), p. ej. bandeja ~3.25 lb — útil para razonar bruto vs neto.
  * No es “lb de fruta por lug”; no debe usarse para validar neto ≈ cantidad × este valor.
  */
@@ -33,7 +46,7 @@ export function parseContainerTareLb(capacidad: string | null | undefined): numb
   return null;
 }
 
-/** Misma regla que recepción: `reference_code` de la recepción o abreviación productor + MMDD (ej. PB0407). */
+/** `reference_code` guardado o, si falta, vista compacta productor+mesdía (misma regla que auto de alta). */
 export function receptionReferenceDisplay(rec: {
   reference_code?: string | null;
   received_at: Date | string;
@@ -46,7 +59,5 @@ export function receptionReferenceDisplay(rec: {
   const base = raw.replace(/[^A-Z0-9]/g, '') || 'REF';
   const ra = new Date(rec.received_at);
   if (Number.isNaN(ra.getTime())) return base;
-  const mm = String(ra.getMonth() + 1).padStart(2, '0');
-  const dd = String(ra.getDate()).padStart(2, '0');
-  return `${base}${mm}${dd}`;
+  return `${base}${receptionCompactDateKey(ra)}`;
 }

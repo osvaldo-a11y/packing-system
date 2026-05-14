@@ -236,6 +236,23 @@ function fetchSalesOrders() {
   return apiJson<SalesOrderRow[]>('/api/sales-orders');
 }
 
+function fetchSalesOrdersForDispatchCliente(clienteId: number) {
+  return apiJson<SalesOrderRow[]>(`/api/sales-orders/for-dispatch?cliente_id=${clienteId}`);
+}
+
+function defaultNewDispatchFormValues(): DispatchForm {
+  return {
+    orden_id: 1,
+    cliente_id: 1,
+    client_id: 0,
+    fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
+    numero_bol: '',
+    temperatura_f: 34,
+    thermograph_serial: '',
+    thermograph_notes: '',
+  };
+}
+
 function fetchPtTags() {
   return apiJson<PtTagApi[]>('/api/pt-tags');
 }
@@ -514,6 +531,20 @@ export function DispatchesPage() {
     return { value: bols.length === 1 ? bols[0]! : null, conflict: false };
   }, [linkablePtPl, selectedPlIds]);
 
+  /** Cliente comercial en los PL seleccionados: un solo valor permite heredar; varios distintos = conflicto. */
+  const plCommercialPreview = useMemo(() => {
+    if (!linkablePtPl || selectedPlIds.length === 0) return { unified: null as number | null, conflict: false };
+    const selected = linkablePtPl.filter((p) => selectedPlIds.includes(p.id));
+    const ids = [
+      ...new Set(
+        selected.map((p) => p.client_id).filter((x): x is number => x != null && x > 0),
+      ),
+    ];
+    if (ids.length > 1) return { unified: null, conflict: true };
+    if (ids.length === 1) return { unified: ids[0]!, conflict: false };
+    return { unified: null, conflict: false };
+  }, [linkablePtPl, selectedPlIds]);
+
   const { data: allFinalPallets } = useQuery({
     queryKey: ['final-pallets'],
     queryFn: () => apiJson<FinalPalletApi[]>('/api/final-pallets'),
@@ -537,17 +568,27 @@ export function DispatchesPage() {
 
   const dispatchForm = useForm<DispatchForm>({
     resolver: zodResolver(dispatchSchema),
-    defaultValues: {
-      orden_id: 1,
-      cliente_id: 1,
-      client_id: 0,
-      fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
-      numero_bol: '',
-      temperatura_f: 34,
-      thermograph_serial: '',
-      thermograph_notes: '',
-    },
+    defaultValues: defaultNewDispatchFormValues(),
   });
+
+  const dispatchPedidoClienteId = useMemo(() => {
+    if (selectedPlIds.length === 0) return null;
+    if (plCommercialPreview.conflict) return null;
+    if (plCommercialPreview.unified != null && plCommercialPreview.unified > 0) return plCommercialPreview.unified;
+    return null;
+  }, [selectedPlIds, plCommercialPreview.conflict, plCommercialPreview.unified]);
+
+  const { data: salesOrdersForDispatch, isFetching: salesOrdersForDispatchFetching } = useQuery({
+    queryKey: ['sales-orders', 'for-dispatch', dispatchPedidoClienteId],
+    queryFn: () => fetchSalesOrdersForDispatchCliente(dispatchPedidoClienteId!),
+    enabled: dispatchOpen && dispatchPedidoClienteId != null,
+    staleTime: 15_000,
+  });
+
+  const pedidoOptions = useMemo(
+    () => (dispatchPedidoClienteId != null ? salesOrdersForDispatch ?? [] : []),
+    [dispatchPedidoClienteId, salesOrdersForDispatch],
+  );
 
   const availableFinalPallets = useMemo(() => {
     const did = attachFpDispatchId;
@@ -600,28 +641,14 @@ export function DispatchesPage() {
 
   const ordenW = dispatchForm.watch('orden_id');
   const selectedSalesOrder = useMemo(
-    () => salesOrders?.find((x) => x.id === ordenW),
-    [salesOrders, ordenW],
+    () => pedidoOptions.find((x) => x.id === ordenW) ?? salesOrders?.find((x) => x.id === ordenW),
+    [pedidoOptions, salesOrders, ordenW],
   );
 
   useEffect(() => {
-    const o = salesOrders?.find((x) => x.id === ordenW);
+    const o = pedidoOptions.find((x) => x.id === ordenW) ?? salesOrders?.find((x) => x.id === ordenW);
     if (o) dispatchForm.setValue('cliente_id', o.cliente_id);
-  }, [ordenW, salesOrders, dispatchForm]);
-
-  /** Cliente comercial en los PL seleccionados: un solo valor permite heredar; varios distintos = conflicto. */
-  const plCommercialPreview = useMemo(() => {
-    if (!linkablePtPl || selectedPlIds.length === 0) return { unified: null as number | null, conflict: false };
-    const selected = linkablePtPl.filter((p) => selectedPlIds.includes(p.id));
-    const ids = [
-      ...new Set(
-        selected.map((p) => p.client_id).filter((x): x is number => x != null && x > 0),
-      ),
-    ];
-    if (ids.length > 1) return { unified: null, conflict: true };
-    if (ids.length === 1) return { unified: ids[0]!, conflict: false };
-    return { unified: null, conflict: false };
-  }, [linkablePtPl, selectedPlIds]);
+  }, [ordenW, pedidoOptions, salesOrders, dispatchForm]);
 
   useEffect(() => {
     if (!dispatchOpen) return;
@@ -641,20 +668,43 @@ export function DispatchesPage() {
   }, [dispatchOpen, selectedPlIds, plCommercialPreview, dispatchForm]);
 
   useEffect(() => {
-    if (dispatchOpen && salesOrders?.length) {
-      const first = salesOrders[0];
+    if (!dispatchOpen) return;
+    if (dispatchPedidoClienteId == null) return;
+    if (salesOrdersForDispatchFetching) return;
+    const list = salesOrdersForDispatch ?? [];
+    const cid = plCommercialPreview.unified ?? 0;
+    const base = {
+      fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
+      numero_bol: '',
+      temperatura_f: 34,
+      thermograph_serial: '',
+      thermograph_notes: '',
+      client_id: cid,
+    };
+    if (list.length === 0) {
       dispatchForm.reset({
-        orden_id: first.id,
-        cliente_id: first.cliente_id,
-        client_id: 0,
-        fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
-        numero_bol: '',
-        temperatura_f: 34,
-        thermograph_serial: '',
-        thermograph_notes: '',
+        ...base,
+        orden_id: 1,
+        cliente_id: dispatchPedidoClienteId,
       });
+      return;
     }
-  }, [dispatchOpen, salesOrders, dispatchForm]);
+    const cur = dispatchForm.getValues('orden_id');
+    const keep = list.some((o) => o.id === cur);
+    const pick = keep ? list.find((o) => o.id === cur)! : list[0]!;
+    dispatchForm.reset({
+      ...base,
+      orden_id: pick.id,
+      cliente_id: pick.cliente_id,
+    });
+  }, [
+    dispatchOpen,
+    dispatchPedidoClienteId,
+    salesOrdersForDispatch,
+    salesOrdersForDispatchFetching,
+    plCommercialPreview.unified,
+    dispatchForm,
+  ]);
 
   useEffect(() => {
     if (!dispatchOpen) return;
@@ -686,6 +736,7 @@ export function DispatchesPage() {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
       queryClient.invalidateQueries({ queryKey: ['dispatches', 'linkable-pt-packing-lists'] });
       queryClient.invalidateQueries({ queryKey: ['pt-packing-lists'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', 'for-dispatch'] });
       toast.success('Despacho creado');
       setDispatchOpen(false);
       setSelectedPlIds([]);
@@ -1207,7 +1258,10 @@ export function DispatchesPage() {
           open={dispatchOpen}
           onOpenChange={(o) => {
             setDispatchOpen(o);
-            if (!o) setSelectedPlIds([]);
+            if (!o) {
+              setSelectedPlIds([]);
+              dispatchForm.reset(defaultNewDispatchFormValues());
+            }
           }}
         >
           <DialogTrigger asChild>
@@ -1237,6 +1291,30 @@ export function DispatchesPage() {
               onSubmit={dispatchForm.handleSubmit((v) => {
                 if (selectedPlIds.length === 0) {
                   toast.error('Seleccioná al menos un packing list PT confirmado.');
+                  return;
+                }
+                if (plCommercialPreview.conflict) {
+                  toast.error(
+                    'Los packing lists tienen cliente comercial distinto. Unificá clientes en los PL (Existencias PT) o ajustá la selección.',
+                  );
+                  return;
+                }
+                if (dispatchPedidoClienteId == null) {
+                  toast.error(
+                    'Los packing lists seleccionados no tienen cliente comercial cargado. Asignalo en Existencias PT para listar pedidos pendientes de ese cliente.',
+                  );
+                  return;
+                }
+                if (salesOrdersForDispatchFetching) {
+                  toast.error('Cargando pedidos… esperá un momento e intentá de nuevo.');
+                  return;
+                }
+                if (pedidoOptions.length === 0) {
+                  toast.error('No hay pedidos pendientes de despacho para el cliente de estos packing lists.');
+                  return;
+                }
+                if (!pedidoOptions.some((o) => o.id === v.orden_id)) {
+                  toast.error('Elegí un pedido válido de la lista.');
                   return;
                 }
                 if (inheritedBolPreview.conflict) {
@@ -1288,20 +1366,44 @@ export function DispatchesPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label>Pedido</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  {...dispatchForm.register('orden_id', { valueAsNumber: true })}
-                >
-                  {(salesOrders ?? []).map((o) => (
-                    <option key={o.id} value={o.id}>
-                          {o.order_number}
-                          {o.cliente_nombre?.trim()
-                            ? ` · ${o.cliente_nombre}`
-                            : ` · cliente #${o.cliente_id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                      disabled={
+                        dispatchPedidoClienteId == null ||
+                        pedidoOptions.length === 0 ||
+                        salesOrdersForDispatchFetching
+                      }
+                      {...dispatchForm.register('orden_id', { valueAsNumber: true })}
+                    >
+                      {dispatchPedidoClienteId == null ? (
+                        <option value="">Seleccioná packing lists con el mismo cliente</option>
+                      ) : salesOrdersForDispatchFetching ? (
+                        <option value="">Cargando pedidos…</option>
+                      ) : pedidoOptions.length === 0 ? (
+                        <option value="">Sin pedidos pendientes para este cliente</option>
+                      ) : (
+                        pedidoOptions.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.order_number}
+                            {o.cliente_nombre?.trim()
+                              ? ` · ${o.cliente_nombre}`
+                              : ` · cliente #${o.cliente_id}`}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    {dispatchPedidoClienteId != null ? (
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        Solo pedidos <strong>pendientes</strong> de este cliente (cajas por despachar), ordenados por nº de pedido.
+                      </p>
+                    ) : selectedPlIds.length > 0 ? (
+                      <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+                        Los PL deben tener el mismo <strong>cliente comercial</strong> cargado en Existencias PT para filtrar pedidos.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] leading-snug text-muted-foreground">Elegí primero uno o más packing lists PT.</p>
+                    )}
+                  </div>
                   <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
                     Cliente: {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
                     <span className="font-mono text-xs">#{selectedSalesOrder?.id ?? '—'}</span>

@@ -115,6 +115,13 @@ export class FruitProcess {
   @Column({ type: 'varchar', length: 20, default: 'borrador' })
   process_status: FruitProcessStatus;
 
+  /**
+   * Número del proceso en CSV de import (`process_id` / ordinal con `auto_process_id`).
+   * Puede coincidir con `id` o no; sirve para mostrar «nº 1» y para enlazar PT con `process_id` pequeño.
+   */
+  @Column({ type: 'int', nullable: true })
+  csv_process_ref?: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -20,11 +20,12 @@ import {
   UpdateVarietyDto,
   UpdateSpeciesProcessComponentsDto,
   TransitionReceptionStateDto,
+  BulkCloseBorradorReceptionsDto,
 } from './traceability.dto';
-import { RawMaterialMovement } from '../process/process.entities';
+import { RawMaterialMovement, FruitProcessLineAllocation } from '../process/process.entities';
 import { QueryFailedError } from 'typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
-import { receptionDateKey, sanitizeProducerCodeForReference } from '../../common/reception-reference';
+import { receptionCompactDateKey, sanitizeProducerCodeForReference } from '../../common/reception-reference';
 import {
   PresentationFormat,
   ProcessResultComponent,
@@ -365,27 +366,32 @@ export class TraceabilityService {
     return NaN;
   }
 
-  /** Formato: [código productor]-[YYYYMMDD]-[NNN], único por día y productor. */
-  private async allocateReceptionReferenceCode(
-    em: EntityManager,
-    producer: Producer,
-    receivedAt: Date,
-  ): Promise<string> {
-    const pc = sanitizeProducerCodeForReference(producer);
-    const dk = receptionDateKey(receivedAt);
-    const prefix = `${pc}-${dk}`;
-    const rows = (await em.query(
-      `SELECT reference_code FROM receptions WHERE reference_code LIKE $1 ORDER BY reference_code DESC`,
-      [`${prefix}-%`],
-    )) as { reference_code: string }[];
-    let max = 0;
-    const re = new RegExp(`^${pc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-${dk}-(\\d{3})$`);
-    for (const r of rows) {
-      const m = re.exec(r.reference_code);
-      if (m) max = Math.max(max, parseInt(m[1], 10));
+  /** Normaliza `reference_code` manual: trim, quita `>` inicial, valida charset y longitud. Puede repetirse entre recepciones. */
+  private normalizeIncomingReceptionReferenceCode(raw?: string | null): string | null {
+    let t = (raw ?? '').trim();
+    if (!t) return null;
+    if (t.startsWith('>')) t = t.slice(1).trim();
+    if (!t) return null;
+    if (t.length > 64) {
+      throw new BadRequestException('reference_code: máximo 64 caracteres');
     }
-    const next = max + 1;
-    return `${prefix}-${String(next).padStart(3, '0')}`;
+    if (t.length < 2) {
+      throw new BadRequestException('reference_code: mínimo 2 caracteres');
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(t)) {
+      throw new BadRequestException('reference_code: solo letras, números y los símbolos . _ -');
+    }
+    return t.toUpperCase();
+  }
+
+  /**
+   * Valor por defecto de `reference_code`: [código productor][mesdía] (ej. JDS410).
+   * Puede repetirse entre recepciones; `lot_code` incluye `reception_id` para unicidad global.
+   */
+  private allocateReceptionReferenceCodeAuto(producer: Producer, receivedAt: Date): string {
+    const pc = sanitizeProducerCodeForReference(producer);
+    const dk = receptionCompactDateKey(receivedAt);
+    return `${pc}${dk}`;
   }
 
   private async insertReceptionLinesAndMovements(
@@ -434,7 +440,7 @@ export class TraceabilityService {
       if (grossPart > 0) sumGross += grossPart;
       sumNet += net;
       const formatCode = [rc.tipo, rc.capacidad].filter(Boolean).join(' · ') || rc.tipo;
-      const lotCode = `${ref}-L${lineNum}`;
+      const lotCode = `${ref}-R${receptionId}-L${lineNum}`;
       /** INSERT explícito: si el `dist` compilado no incluye `lot_code` en la entidad, TypeORM omitía la columna. */
       const inserted = await em.query(
         `INSERT INTO reception_lines (
@@ -534,7 +540,7 @@ export class TraceabilityService {
       if (grossPart > 0) sumGross += grossPart;
       sumNet += net;
       const formatCode = [rc.tipo, rc.capacidad].filter(Boolean).join(' · ') || rc.tipo;
-      const lotCode = `${ref}-L${lineNum}`;
+      const lotCode = `${ref}-R${receptionId}-L${lineNum}`;
 
       await em.update(
         ReceptionLine,
@@ -1086,11 +1092,34 @@ export class TraceabilityService {
     }
 
     return this.receptionRepo.manager.transaction(async (em) => {
+      const receivedAt = new Date(dto.received_at);
+      const manualRef = this.normalizeIncomingReceptionReferenceCode(dto.reference_code);
+
       let saved: Reception | null = null;
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const ref = await this.allocateReceptionReferenceCode(em, pr, new Date(dto.received_at));
+      if (manualRef) {
         const rec = em.create(Reception, {
-          received_at: new Date(dto.received_at),
+          received_at: receivedAt,
+          document_number: dto.document_number?.trim() || null,
+          producer_id: dto.producer_id,
+          variety_id: headerVarietyId,
+          gross_weight_lb: dto.gross_weight_lb != null ? dto.gross_weight_lb.toFixed(2) : null,
+          net_weight_lb: dto.net_weight_lb != null ? dto.net_weight_lb.toFixed(2) : null,
+          notes: dto.notes?.trim() || null,
+          reference_code: manualRef,
+          plant_code: dto.plant_code?.trim() || null,
+          mercado_id: mercadoId,
+          lbs_reference: dto.lbs_reference != null ? dto.lbs_reference.toFixed(2) : null,
+          lbs_difference: dto.lbs_difference != null ? dto.lbs_difference.toFixed(2) : null,
+          document_state_id: docState.id,
+          reception_type_id: recType.id,
+          weight_basis: weightBasis,
+          quality_intent: qualityIntent,
+        });
+        saved = await em.save(Reception, rec);
+      } else {
+        const ref = this.allocateReceptionReferenceCodeAuto(pr, receivedAt);
+        const rec = em.create(Reception, {
+          received_at: receivedAt,
           document_number: dto.document_number?.trim() || null,
           producer_id: dto.producer_id,
           variety_id: headerVarietyId,
@@ -1107,13 +1136,7 @@ export class TraceabilityService {
           weight_basis: weightBasis,
           quality_intent: qualityIntent,
         });
-        try {
-          saved = await em.save(Reception, rec);
-          break;
-        } catch (e) {
-          if (!this.isPgUniqueViolation(e)) throw e;
-          if (attempt === 11) throw new BadRequestException('No se pudo asignar referencia única; reintentá.');
-        }
+        saved = await em.save(Reception, rec);
       }
       if (!saved) throw new BadRequestException('No se pudo crear la recepción');
       const refCode = saved.reference_code!;
@@ -1209,16 +1232,8 @@ export class TraceabilityService {
       const needsRefAlloc = lines.length > 0 && !existing.reference_code?.trim();
       let saved: Reception | undefined;
       if (needsRefAlloc) {
-        for (let attempt = 0; attempt < 12; attempt++) {
-          existing.reference_code = await this.allocateReceptionReferenceCode(em, pr, new Date(dto.received_at));
-          try {
-            saved = await em.save(Reception, existing);
-            break;
-          } catch (e) {
-            if (!this.isPgUniqueViolation(e)) throw e;
-            if (attempt === 11) throw new BadRequestException('No se pudo asignar referencia única; reintentá.');
-          }
-        }
+        existing.reference_code = this.allocateReceptionReferenceCodeAuto(pr, new Date(dto.received_at));
+        saved = await em.save(Reception, existing);
       } else {
         saved = await em.save(Reception, existing);
       }
@@ -1292,9 +1307,175 @@ export class TraceabilityService {
         throw new BadRequestException('No se puede confirmar sin referencia asignada.');
       }
     }
-    r.document_state_id = next.id;
-    await this.receptionRepo.save(r);
+    if (next.codigo === 'anulado') {
+      const lineIds = (r.lines ?? []).map((l) => Number(l.id)).filter((id) => Number.isFinite(id) && id > 0);
+      await this.receptionRepo.manager.transaction(async (em) => {
+        const alloc =
+          lineIds.length > 0
+            ? await em.getRepository(FruitProcessLineAllocation).count({ where: { reception_line_id: In(lineIds) } })
+            : 0;
+        if (alloc > 0) {
+          throw new BadRequestException(
+            'No se puede anular: hay procesos que ya tomaron MP de esta recepción. Ajustá o eliminá esos procesos antes.',
+          );
+        }
+        if (lineIds.length > 0) {
+          await em.delete(RawMaterialMovement, { reception_line_id: In(lineIds) });
+        }
+        await em.update(Reception, { id: r.id }, { document_state_id: next.id });
+      });
+      return this.getReception(id);
+    }
+    /** `save(r)` con `document_state` cargado puede re-persistir el FK viejo; `update` evita esa condición. */
+    await this.receptionRepo.update({ id: r.id }, { document_state_id: next.id });
     return this.getReception(id);
+  }
+
+  /**
+   * Admin: fija `document_state_id` sin el grafo de transiciones (corrección documental).
+   * Pasar a **anulado** delega en `transitionReceptionState` (borra movimientos MP si aplica).
+   */
+  async patchAdminReceptionDocumentState(id: number, dto: TransitionReceptionStateDto) {
+    const next = await this.documentStateRepo.findOne({ where: { id: dto.document_state_id } });
+    if (!next) throw new BadRequestException('document_state_id inválido');
+    if (next.codigo === 'anulado') {
+      return this.transitionReceptionState(id, dto);
+    }
+    const r = await this.receptionRepo.findOne({ where: { id }, relations: ['document_state'] });
+    if (!r) throw new NotFoundException('Recepción no encontrada');
+    await this.receptionRepo.update({ id: r.id }, { document_state_id: next.id });
+    return this.getReception(id);
+  }
+
+  /**
+   * Admin: recepciones en borrador que matchean fechas → confirmado → cerrado en una transacción por recepción.
+   * No anula movimientos ni valida cruce PT; opcionalmente exige saldo MP 0 por línea.
+   */
+  async bulkCloseBorradorReceptions(dto: BulkCloseBorradorReceptionsDto): Promise<{
+    dry_run: boolean;
+    matched_ids: number[];
+    summary: { matched: number; closed_ok: number; failed: number };
+    details: Array<{ id: number; reference_code: string | null; ok: boolean; error?: string }>;
+  }> {
+    const hasBefore = Boolean(dto.received_on_or_before?.trim());
+    const hasOn = Boolean(dto.received_on?.trim());
+    if (!hasBefore && !hasOn) {
+      throw new BadRequestException('Indicá received_on_or_before y/o received_on (YYYY-MM-DD).');
+    }
+
+    const borrador = await this.documentStateRepo.findOne({ where: { codigo: 'borrador' } });
+    const confirmado = await this.documentStateRepo.findOne({ where: { codigo: 'confirmado' } });
+    const cerrado = await this.documentStateRepo.findOne({ where: { codigo: 'cerrado' } });
+    if (!borrador || !confirmado || !cerrado) {
+      throw new BadRequestException('Catálogo document_states incompleto (borrador/confirmado/cerrado).');
+    }
+
+    const orParts: string[] = [];
+    const params: Record<string, string> = {};
+    let pi = 0;
+    if (hasBefore) {
+      const k = `d${++pi}`;
+      orParts.push(`CAST(r.received_at AS date) <= CAST(:${k} AS date)`);
+      params[k] = dto.received_on_or_before!.trim();
+    }
+    if (hasOn) {
+      const k = `d${++pi}`;
+      orParts.push(`CAST(r.received_at AS date) = CAST(:${k} AS date)`);
+      params[k] = dto.received_on!.trim();
+    }
+
+    const targets = await this.receptionRepo
+      .createQueryBuilder('r')
+      .where('r.document_state_id = :bid', { bid: borrador.id })
+      .andWhere(`(${orParts.join(' OR ')})`, params)
+      .orderBy('r.id', 'ASC')
+      .getMany();
+
+    const matched_ids = targets.map((t) => t.id);
+    const details: Array<{ id: number; reference_code: string | null; ok: boolean; error?: string }> = [];
+
+    if (dto.dry_run === true) {
+      return {
+        dry_run: true,
+        matched_ids,
+        summary: { matched: matched_ids.length, closed_ok: 0, failed: 0 },
+        details,
+      };
+    }
+
+    const requireZero = dto.require_zero_balance_per_line === true;
+    for (const t of targets) {
+      details.push(
+        await this.closeOneBorradorReceptionTransactional(t.id, borrador.id, confirmado.id, cerrado.id, requireZero),
+      );
+    }
+
+    const closed_ok = details.filter((d) => d.ok).length;
+    return {
+      dry_run: false,
+      matched_ids,
+      summary: { matched: matched_ids.length, closed_ok, failed: details.length - closed_ok },
+      details,
+    };
+  }
+
+  private async sumMpBalanceLbForLine(em: EntityManager, receptionLineId: number): Promise<number> {
+    const raw = await em
+      .getRepository(RawMaterialMovement)
+      .createQueryBuilder('m')
+      .select('COALESCE(SUM(m.quantity_delta_lb),0)', 's')
+      .where('m.reception_line_id = :id', { id: receptionLineId })
+      .getRawOne<{ s: string }>();
+    return Number(raw?.s ?? 0);
+  }
+
+  private async closeOneBorradorReceptionTransactional(
+    id: number,
+    borradorId: number,
+    confirmadoId: number,
+    cerradoId: number,
+    requireZeroBalancePerLine: boolean,
+  ): Promise<{ id: number; reference_code: string | null; ok: boolean; error?: string }> {
+    try {
+      return await this.receptionRepo.manager.transaction(async (em) => {
+        const r = await em.findOne(Reception, {
+          where: { id },
+          relations: ['document_state', 'lines'],
+        });
+        if (!r) return { id, reference_code: null, ok: false, error: 'Recepción no encontrada' };
+        const ref = r.reference_code ?? null;
+        if (r.document_state_id !== borradorId || r.document_state?.codigo !== 'borrador') {
+          return { id, reference_code: ref, ok: false, error: 'Ya no está en borrador' };
+        }
+        if (!r.lines?.length) {
+          return { id, reference_code: ref, ok: false, error: 'No se puede confirmar una recepción sin líneas de detalle.' };
+        }
+        if (!r.reference_code?.trim()) {
+          return { id, reference_code: ref, ok: false, error: 'No se puede confirmar sin referencia asignada.' };
+        }
+
+        if (requireZeroBalancePerLine) {
+          for (const line of r.lines) {
+            const bal = await this.sumMpBalanceLbForLine(em, line.id);
+            if (Math.abs(bal) > 1e-6) {
+              return {
+                id,
+                reference_code: ref,
+                ok: false,
+                error: `Saldo MP ≠ 0 en línea ${line.id} (${bal} lb)`,
+              };
+            }
+          }
+        }
+
+        await em.update(Reception, { id }, { document_state_id: confirmadoId });
+        await em.update(Reception, { id }, { document_state_id: cerradoId });
+        return { id, reference_code: ref, ok: true };
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { id, reference_code: null, ok: false, error: msg };
+    }
   }
 
   async assertReceptionExists(id: number): Promise<Reception> {

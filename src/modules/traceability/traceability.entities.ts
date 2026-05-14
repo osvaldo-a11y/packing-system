@@ -240,7 +240,7 @@ export class ReceptionLine {
   @Column({ type: 'int', default: 0 })
   line_order: number;
 
-  /** Identificador único de lote: `{referencia_recepción}-L{n}` (n = orden de línea 1-based). */
+  /** Identificador único de lote en sistema: `{reference_code}-R{reception_id}-L{n}` (n = orden 1-based). */
   @Column({ type: 'varchar', length: 96 })
   lot_code: string;
 

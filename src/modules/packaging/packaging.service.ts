@@ -389,19 +389,33 @@ export class PackagingService {
   async deleteMaterial(id: number) {
     const row = await this.materialRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Material no encontrado');
-    const inRecipes = await this.recipeItemRepo.count({ where: { material_id: id } });
-    if (inRecipes > 0) {
+
+    const inActiveRecipes = await this.recipeRepo
+      .createQueryBuilder('r')
+      .innerJoin(PackagingRecipeItem, 'pri', 'pri.recipe_id = r.id')
+      .where('pri.material_id = :id', { id })
+      .andWhere('r.activo = true')
+      .getCount();
+
+    const inBreakdown = await this.breakdownRepo.count({ where: { material_id: id } });
+
+    if (inActiveRecipes > 0) {
       throw new BadRequestException(
-        `No se puede eliminar: el material está usado en ${inRecipes} línea(s) de receta. Quitalo de recetas primero.`,
+        `No se puede eliminar: el material está en ${inActiveRecipes} receta(s) activa(s). Quitá esas líneas desde Recetas (o desactivá la receta) y volvé a intentar.`,
       );
     }
-    const inBreakdown = await this.breakdownRepo.count({ where: { material_id: id } });
     if (inBreakdown > 0) {
       throw new BadRequestException(
-        'No se puede eliminar: el material tiene consumos históricos registrados (breakdown).',
+        `No se puede eliminar: hay ${inBreakdown} registro(s) de costo por tarja (breakdown) con este material. Eso es historial de embalaje, no la receta actual. Si es dato erróneo, hace falta corregir la base o el consumo asociado.`,
       );
     }
-    await this.materialRepo.delete({ id });
+
+    await this.dataSource.transaction(async (em) => {
+      await em.delete(PackagingRecipeItem, { material_id: id });
+      await em.update(Brand, { label_material_id: id }, { label_material_id: null });
+      await em.delete(PackagingMaterialMovement, { material_id: id });
+      await em.delete(PackagingMaterial, { id });
+    });
     return { ok: true, deleted_material_id: id };
   }
 

@@ -190,11 +190,13 @@ async function fetchMpDisponibleProcesoResumen(): Promise<{
   lineCount: number;
   producerCount: number;
 }> {
-  const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp');
+  const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp?planning_only=1');
   let totalLb = 0;
   let lineCount = 0;
   for (const pid of ids) {
-    const lines = await apiJson<Array<{ available_lb: number }>>(`/api/processes/eligible-lines?producer_id=${pid}`);
+    const lines = await apiJson<Array<{ available_lb: number }>>(
+      `/api/processes/eligible-lines?producer_id=${pid}&planning_only=1`,
+    );
     for (const ln of lines) {
       const a = Number(ln.available_lb);
       if (Number.isFinite(a) && a > 0) {
@@ -521,8 +523,8 @@ export function EodPlanningSection({
             {mpDisponibleProceso == null
               ? 'Cargando recepción…'
               : mpDisponibleProceso.totalLb > 0
-                ? `${mpDisponibleProceso.lineCount} línea(s) aptas`
-                : 'Sin fruta disponible para reparto'}
+                ? `${mpDisponibleProceso.lineCount} línea(s) aptas · solo recepciones confirmadas o cerradas`
+                : 'Sin fruta disponible para reparto (confirmadas/cerradas con saldo)'}
           </p>
         </div>
       </div>

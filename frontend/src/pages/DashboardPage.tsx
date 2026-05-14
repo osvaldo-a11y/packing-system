@@ -50,6 +50,8 @@ type SalesOrderProgressLite = {
   order: { id: number; order_number: string; cliente_nombre: string | null };
   totals: {
     requested_boxes: number;
+    produced_depot_boxes: number;
+    reserved_depot_boxes: number;
     assigned_pl_boxes: number;
     dispatched_boxes: number;
     pending_boxes: number;
@@ -451,6 +453,7 @@ function orderLoadDateIso(o: SalesOrderRow): string | null {
     isoFromUnknown(anyOrder.loading_date) ??
     isoFromUnknown(anyOrder.fecha_carga) ??
     isoFromUnknown(anyOrder.ship_date) ??
+    isoFromUnknown(anyOrder.fecha_despacho_cliente) ??
     isoFromUnknown(anyOrder.created_at)
   );
 }
@@ -864,6 +867,13 @@ export function DashboardPage() {
     noProgress: boolean;
     assignedBoxes: number;
     dispatchedBoxes: number;
+    /** Cajas en cámara con `planned_sales_order_id` = este pedido (Existencias PT). */
+    depotReservedBoxes: number;
+    /** Cajas en cámara que matchean formato/marca/variedad del pedido (puede incluir stock sin reservar). */
+    depotProducedBoxes: number;
+    estadoComercial: string | null;
+    /** Hay fruta reservada al pedido pero el % del arco sigue en 0 (aún no hay PL confirmado). */
+    waitingPackingFromDepot: boolean;
   };
   type GaugeCompleted = {
     mode: 'completed';
@@ -885,6 +895,8 @@ export function DashboardPage() {
         if (pendingBoxes <= 0) return null;
         const producedBoxes = parseNum(p.totals.assigned_pl_boxes);
         const dispatchedBoxes = parseNum(p.totals.dispatched_boxes);
+        const depotReservedBoxes = parseNum(p.totals.reserved_depot_boxes);
+        const depotProducedBoxes = parseNum(p.totals.produced_depot_boxes);
         const reqPallets = parseNum(o.requested_pallets) > 0 ? parseNum(o.requested_pallets) : reqBoxes / 24;
         const producedPallets = producedBoxes / 24;
         const pendingPallets = Math.max(0, reqPallets - producedPallets);
@@ -893,6 +905,8 @@ export function DashboardPage() {
         const dueLabel = dueIso ? new Date(dueIso).toLocaleDateString('es-AR') : 'Sin fecha';
         const urgent = dueIso ? new Date(dueIso).getTime() <= new Date(Date.now() + 86_400_000).getTime() : false;
         const hasNoProgress = pct <= 0.001;
+        const estadoComercial = (o.estado_comercial ?? '').trim() || null;
+        const waitingPackingFromDepot = hasNoProgress && depotReservedBoxes > 0;
         return {
           mode: 'pending' as const,
           id: o.id,
@@ -905,6 +919,10 @@ export function DashboardPage() {
           noProgress: hasNoProgress,
           assignedBoxes: producedBoxes,
           dispatchedBoxes,
+          depotReservedBoxes,
+          depotProducedBoxes,
+          estadoComercial,
+          waitingPackingFromDepot,
         };
       })
       .filter((x): x is GaugePending => x != null)
@@ -1502,7 +1520,7 @@ export function DashboardPage() {
           <h2 className={sectionTitle}>Avance de pedidos pendientes</h2>
           <p className={sectionHint}>
             {gaugeRowsRadar.length > 0
-              ? 'Hasta 5 pedidos con saldo, incluyendo nuevos sin avance (0%).'
+              ? 'Hasta 5 pedidos con saldo. El arco refleja cajas en packing list confirmado; la cámara reservada al pedido se muestra abajo cuando aplica.'
               : 'Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.'}
           </p>
         </div>
@@ -1569,7 +1587,13 @@ export function DashboardPage() {
                 }
                 const arc = arcPath(100, 100, 70, 180, 180 + (180 * clampPct(g.pct)) / 100);
                 const pendingTone =
-                  g.pct <= 1
+                  g.waitingPackingFromDepot
+                    ? {
+                        card: 'border-amber-200 bg-amber-50/90',
+                        arc: '#D97706',
+                        text: 'text-amber-950',
+                      }
+                    : g.pct <= 1
                     ? {
                         card: 'border-[#F5B3B3] bg-[#FDF2F2]',
                         arc: '#E24B4A',
@@ -1616,7 +1640,30 @@ export function DashboardPage() {
                         📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
                       </p>
                       <p>Falt. {format2(g.pendingPallets)} pal</p>
-                      {g.noProgress ? <p className="text-base text-slate-500">en proceso</p> : null}
+                      {g.waitingPackingFromDepot ? (
+                        <p className="text-base font-semibold leading-snug">
+                          Cámara p/ este pedido:{' '}
+                          <span className="tabular-nums">{Math.round(g.depotReservedBoxes).toLocaleString('es-AR')}</span> cajas — a la
+                          espera de packing list (pallets listos → PL → confirmar).
+                        </p>
+                      ) : null}
+                      {g.waitingPackingFromDepot && g.estadoComercial ? (
+                        <p className="text-sm text-slate-600">Estado comercial: {g.estadoComercial}</p>
+                      ) : null}
+                      {!g.waitingPackingFromDepot && g.noProgress && g.depotProducedBoxes >= 1 ? (
+                        <p className="text-base leading-snug text-slate-600">
+                          En cámara hay{' '}
+                          <span className="tabular-nums font-medium">
+                            {Math.round(g.depotProducedBoxes).toLocaleString('es-AR')}
+                          </span>{' '}
+                          cajas de este formato sin reserva a este pedido: en Existencias PT asigná «pedido previsto» para que figure acá.
+                        </p>
+                      ) : null}
+                      {g.noProgress && !g.waitingPackingFromDepot ? (
+                        <p className="text-base text-slate-600">
+                          {g.estadoComercial ? `Estado comercial: ${g.estadoComercial}` : 'Pedido con saldo — sin cajas en PL confirmado aún'}
+                        </p>
+                      ) : null}
                     </footer>
                   </article>
                 );

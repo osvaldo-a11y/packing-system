@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -121,7 +122,11 @@ export class CreateReceptionDto {
   @IsOptional() @IsNumber() @Min(0) gross_weight_lb?: number;
   @IsOptional() @IsNumber() @Min(0) net_weight_lb?: number;
   @IsOptional() @IsString() notes?: string;
-  /** Ignorado: la referencia la asigna el servidor al guardar. */
+  /**
+   * Opcional: referencia compartida (ej. JDS410; se acepta un `>` inicial decorativo).
+   * Puede repetirse entre recepciones distintas (ej. mano y máquina el mismo día).
+   * Si no se envía, el servidor usa `[código productor][mesdía]` (ej. JDS410). Los lotes de línea incluyen el id de recepción para unicidad global.
+   */
   @IsOptional() @IsString() @MaxLength(64) reference_code?: string;
   @IsOptional() @IsString() @MaxLength(64) plant_code?: string;
   @IsOptional() @IsNumber() lbs_reference?: number;
@@ -141,6 +146,20 @@ export class UpdateReceptionDto extends CreateReceptionDto {}
 
 export class TransitionReceptionStateDto {
   @Type(() => Number) @IsInt() document_state_id: number;
+}
+
+/**
+ * Cierre masivo admin: recepciones en **borrador** cuyo `received_at` cae en el filtro de fechas
+ * → `confirmado` → `cerrado` (misma regla que transiciones manuales).
+ */
+export class BulkCloseBorradorReceptionsDto {
+  /** Incluye recepciones con día de recepción (fecha local del servidor, cast de `received_at`) <= este día. */
+  @IsOptional() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) received_on_or_before?: string;
+  /** Incluye recepciones cuyo día de recepción es exactamente esta fecha (útil p. ej. solo el 13). */
+  @IsOptional() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) received_on?: string;
+  @IsOptional() @Type(() => Boolean) @IsBoolean() dry_run?: boolean;
+  /** Si true, solo cierra cuando cada línea tiene suma de movimientos MP = 0 (cruce completo a procesos). */
+  @IsOptional() @Type(() => Boolean) @IsBoolean() require_zero_balance_per_line?: boolean;
 }
 
 export class CreateQualityGradeDto {

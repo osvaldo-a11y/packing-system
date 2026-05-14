@@ -4,7 +4,7 @@ import { MastersController } from './masters.controller';
 import { ReceptionController } from './reception.controller';
 import { TraceabilityDashboardController } from './traceability-dashboard.controller';
 import { TraceabilityDashboardService } from './traceability-dashboard.service';
-import { RawMaterialMovement } from '../process/process.entities';
+import { RawMaterialMovement, FruitProcessLineAllocation } from '../process/process.entities';
 import { PackagingMaterial } from '../packaging/packaging.entities';
 import { DocumentState, MaterialCategory, Mercado, ReceptionType } from './catalog.entities';
 import {
@@ -34,7 +34,7 @@ import { TraceabilityService } from './traceability.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
+      TypeOrmModule.forFeature([
       Species,
       Producer,
       Variety,
@@ -46,6 +46,7 @@ import { TraceabilityService } from './traceability.service';
       ProcessResultComponent,
       SpeciesProcessResultComponent,
       RawMaterialMovement,
+      FruitProcessLineAllocation,
       Client,
       Brand,
       PackingSupplier,
