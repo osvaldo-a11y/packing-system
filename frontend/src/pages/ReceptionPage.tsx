@@ -1542,6 +1542,7 @@ export function ReceptionPage() {
                             </button>
                           </div>
                         </div>
+                        </div>
                       </div>
                     ))}
                     </div>
