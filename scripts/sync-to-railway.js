@@ -34,9 +34,8 @@ async function loadColumnTypes(client, table) {
   return new Map(res.rows.map((r) => [r.column_name, r.udt_name]));
 }
 
-async function syncTable(local, railway, table, colTypes) {
+async function insertTable(local, railway, table, colTypes) {
   const rows = await local.query(`SELECT * FROM "${table}"`);
-  await railway.query(`TRUNCATE TABLE "${table}" CASCADE`);
   if (rows.rows.length === 0) {
     console.log(`⬜ ${table}: vacía`);
     return 0;
@@ -123,12 +122,22 @@ async function sync() {
       await railway.query('SET session_replication_role = replica;');
     }
 
+    if (!onlyTable) {
+      console.log('🗑️  Vaciando todas las tablas en Railway (una sola pasada)…');
+      for (const table of tables) {
+        await railway.query(`TRUNCATE TABLE "${table}" CASCADE`);
+      }
+    }
+
     let totalRows = 0;
     const failed = [];
     for (const table of tables) {
       try {
+        if (onlyTable) {
+          await railway.query(`TRUNCATE TABLE "${table}" CASCADE`);
+        }
         const colTypes = await loadColumnTypes(local, table);
-        totalRows += await syncTable(local, railway, table, colTypes);
+        totalRows += await insertTable(local, railway, table, colTypes);
       } catch (e) {
         failed.push({ table, msg: e.message });
         console.log(`⚠️  ${table}: ${e.message}`);
