@@ -22,6 +22,7 @@ import {
 import { Fragment } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/AuthContext';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -242,6 +243,7 @@ export function AppLayout() {
         </header>
 
         <header className="hidden h-12 shrink-0 items-center justify-end border-b border-slate-200/50 bg-white/85 px-5 backdrop-blur-md md:flex">
+          <LanguageToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

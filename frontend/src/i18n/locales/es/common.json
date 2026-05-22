@@ -1,0 +1,36 @@
+{
+  "appName": "Pinebloom Packing",
+  "language": {
+    "es": "Español",
+    "en": "English"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "search": "Buscar",
+    "refresh": "Actualizar",
+    "loading": "Cargando…"
+  },
+  "errors": {
+    "generic": "Ocurrió un error. Intentá de nuevo.",
+    "unauthorized": "No tenés permiso para esta acción.",
+    "notFound": "No se encontró el recurso solicitado."
+  },
+  "login": {
+    "subtitle": "Acceso al panel de operaciones",
+    "cardTitle": "Iniciar sesión",
+    "cardDescription": "Usuario y contraseña definidos en tu archivo `.env` (`AUTH_USERS_JSON`).",
+    "fieldUsername": "Usuario",
+    "fieldPassword": "Contraseña",
+    "errorUsernameRequired": "Usuario requerido",
+    "errorPasswordRequired": "Contraseña requerida",
+    "errorInvalidCredentials": "Credenciales inválidas",
+    "submitting": "Entrando…",
+    "submit": "Entrar",
+    "toastSuccess": "Sesión iniciada"
+  }
+}
