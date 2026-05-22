@@ -20,6 +20,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 import { Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/AuthContext';
 import { LanguageToggle } from '@/components/LanguageToggle';
@@ -41,62 +42,64 @@ type NavItem = { to: string; label: string; icon: NavIcon; end?: boolean };
 
 type NavGroup = { id: string; label: string; items: NavItem[] };
 
-const navGroups: NavGroup[] = [
-  {
-    id: 'principal',
-    label: 'Principal',
-    items: [{ to: '/', label: 'Inicio', icon: LayoutDashboard, end: true }],
-  },
-  {
-    id: 'config',
-    label: 'Planta y datos',
-    items: [
-      { to: '/plant', label: 'Planta', icon: Factory },
-      { to: '/masters', label: 'Mantenedores', icon: Library },
-    ],
-  },
-  {
-    id: 'packaging',
-    label: 'Packaging',
-    items: [
-      { to: '/packaging/materials', label: 'Materiales', icon: Package },
-      { to: '/packaging/kardex', label: 'Kardex', icon: ScrollText },
-      { to: '/packaging/recipes', label: 'Recetas', icon: ScrollText },
-      { to: '/packaging/consumptions', label: 'Consumos', icon: ClipboardList },
-    ],
-  },
-  {
-    id: 'operacion',
-    label: 'Operación',
-    items: [
-      { to: '/receptions', label: 'Recepciones', icon: Import },
-      { to: '/processes', label: 'Procesos', icon: Box },
-      { to: '/pt-tags', label: 'Unidad PT', icon: Tag },
-      { to: '/existencias-pt', label: 'Existencias PT', icon: Warehouse },
-    ],
-  },
-  {
-    id: 'comercial',
-    label: 'Comercial y logística',
-    items: [
-      { to: '/sales-orders', label: 'Pedidos', icon: ShoppingCart },
-      { to: '/dispatches', label: 'Despachos', icon: Truck },
-    ],
-  },
-  {
-    id: 'analisis',
-    label: 'Análisis',
-    items: [{ to: '/reporting', label: 'Reportes', icon: BarChart3 }],
-  },
-  {
-    id: 'sistema',
-    label: 'Ayuda',
-    items: [
-      { to: '/guide/sistema', label: 'Guía del sistema', icon: GitBranch },
-      { to: '/about', label: 'Acerca', icon: Info },
-    ],
-  },
-];
+function getNavGroups(t: (key: string) => string): NavGroup[] {
+  return [
+    {
+      id: 'principal',
+      label: t('nav.groups.principal'),
+      items: [{ to: '/', label: t('nav.items.inicio'), icon: LayoutDashboard, end: true }],
+    },
+    {
+      id: 'config',
+      label: t('nav.groups.config'),
+      items: [
+        { to: '/plant', label: t('nav.items.planta'), icon: Factory },
+        { to: '/masters', label: t('nav.items.mantenedores'), icon: Library },
+      ],
+    },
+    {
+      id: 'packaging',
+      label: t('nav.groups.packaging'),
+      items: [
+        { to: '/packaging/materials', label: t('nav.items.materiales'), icon: Package },
+        { to: '/packaging/kardex', label: t('nav.items.kardex'), icon: ScrollText },
+        { to: '/packaging/recipes', label: t('nav.items.recetas'), icon: ScrollText },
+        { to: '/packaging/consumptions', label: t('nav.items.consumos'), icon: ClipboardList },
+      ],
+    },
+    {
+      id: 'operacion',
+      label: t('nav.groups.operacion'),
+      items: [
+        { to: '/receptions', label: t('nav.items.recepciones'), icon: Import },
+        { to: '/processes', label: t('nav.items.procesos'), icon: Box },
+        { to: '/pt-tags', label: t('nav.items.unidadPt'), icon: Tag },
+        { to: '/existencias-pt', label: t('nav.items.existenciasPt'), icon: Warehouse },
+      ],
+    },
+    {
+      id: 'comercial',
+      label: t('nav.groups.comercial'),
+      items: [
+        { to: '/sales-orders', label: t('nav.items.pedidos'), icon: ShoppingCart },
+        { to: '/dispatches', label: t('nav.items.despachos'), icon: Truck },
+      ],
+    },
+    {
+      id: 'analisis',
+      label: t('nav.groups.analisis'),
+      items: [{ to: '/reporting', label: t('nav.items.reportes'), icon: BarChart3 }],
+    },
+    {
+      id: 'sistema',
+      label: t('nav.groups.sistema'),
+      items: [
+        { to: '/guide/sistema', label: t('nav.items.guia'), icon: GitBranch },
+        { to: '/about', label: t('nav.items.acerca'), icon: Info },
+      ],
+    },
+  ];
+}
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -113,6 +116,8 @@ const navIconClass = (isActive: boolean) =>
   );
 
 export function AppLayout() {
+  const { t } = useTranslation('common');
+  const navGroups = getNavGroups(t);
   const { username, role, logout } = useAuth();
   const isAdmin = role === 'admin';
   const { pathname } = useLocation();
@@ -157,7 +162,7 @@ export function AppLayout() {
           {isAdmin && (
             <div className="mt-3 border-t border-slate-100/80 pt-3">
               <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                ADMINISTRACIÓN
+                {t('nav.groups.admin').toUpperCase()}
               </p>
               <ul className="space-y-0.5">
                 <li>
@@ -165,7 +170,7 @@ export function AppLayout() {
                     {({ isActive }) => (
                       <>
                         <Upload className={navIconClass(isActive)} aria-hidden />
-                        <span>Carga masiva</span>
+                        <span>{t('nav.items.cargaMasiva')}</span>
                       </>
                     )}
                   </NavLink>
@@ -181,7 +186,7 @@ export function AppLayout() {
               className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
             >
               <BookOpen className="h-[15px] w-[15px] shrink-0 stroke-[1.75] text-slate-400" aria-hidden />
-              API docs
+              {t('nav.items.apiDocs')}
             </a>
           </div>
         </nav>
@@ -218,17 +223,17 @@ export function AppLayout() {
                 <Fragment>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-                    ADMINISTRACIÓN
+                    {t('nav.groups.admin').toUpperCase()}
                   </DropdownMenuLabel>
                   <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
-                    <NavLink to="/bulk-import">Carga masiva</NavLink>
+                    <NavLink to="/bulk-import">{t('nav.items.cargaMasiva')}</NavLink>
                   </DropdownMenuItem>
                 </Fragment>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
                 <a href="/api/docs" target="_blank" rel="noreferrer">
-                  API docs
+                  {t('nav.items.apiDocs')}
                 </a>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

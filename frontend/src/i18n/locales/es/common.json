@@ -32,5 +32,37 @@
     "submitting": "Entrando…",
     "submit": "Entrar",
     "toastSuccess": "Sesión iniciada"
+  },
+  "nav": {
+    "groups": {
+      "principal": "Principal",
+      "config": "Planta y datos",
+      "packaging": "Packaging",
+      "operacion": "Operación",
+      "comercial": "Comercial y logística",
+      "analisis": "Análisis",
+      "sistema": "Ayuda",
+      "admin": "Administración"
+    },
+    "items": {
+      "inicio": "Inicio",
+      "planta": "Planta",
+      "mantenedores": "Mantenedores",
+      "materiales": "Materiales",
+      "kardex": "Kardex",
+      "recetas": "Recetas",
+      "consumos": "Consumos",
+      "recepciones": "Recepciones",
+      "procesos": "Procesos",
+      "unidadPt": "Unidad PT",
+      "existenciasPt": "Existencias PT",
+      "pedidos": "Pedidos",
+      "despachos": "Despachos",
+      "reportes": "Reportes",
+      "guia": "Guía del sistema",
+      "acerca": "Acerca",
+      "cargaMasiva": "Carga masiva",
+      "apiDocs": "API docs"
+    }
   }
 }

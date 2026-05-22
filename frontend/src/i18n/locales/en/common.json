@@ -32,5 +32,37 @@
     "submitting": "Signing in…",
     "submit": "Sign in",
     "toastSuccess": "Session started"
+  },
+  "nav": {
+    "groups": {
+      "principal": "Main",
+      "config": "Plant & data",
+      "packaging": "Packaging",
+      "operacion": "Operations",
+      "comercial": "Commercial & logistics",
+      "analisis": "Analytics",
+      "sistema": "Help",
+      "admin": "Administration"
+    },
+    "items": {
+      "inicio": "Home",
+      "planta": "Plant",
+      "mantenedores": "Masters",
+      "materiales": "Materials",
+      "kardex": "Kardex",
+      "recetas": "Recipes",
+      "consumos": "Consumptions",
+      "recepciones": "Receptions",
+      "procesos": "Processes",
+      "unidadPt": "PT Unit",
+      "existenciasPt": "PT Stock",
+      "pedidos": "Sales orders",
+      "despachos": "Dispatches",
+      "reportes": "Reports",
+      "guia": "System guide",
+      "acerca": "About",
+      "cargaMasiva": "Bulk import",
+      "apiDocs": "API docs"
+    }
   }
 }
