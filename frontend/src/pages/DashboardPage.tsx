@@ -986,7 +986,6 @@ export function DashboardPage() {
   const gaugeDisplayRows: Array<GaugePending | GaugeCompleted> =
     gaugeRowsRadar.length > 0 ? gaugeRowsRadar : gaugeRowsCompleted;
 
-  const gaugeGridCols = Math.max(1, Math.min(gaugeDisplayRows.length, 5));
 
   const riskOrdersCount = useMemo(
     () => gaugeRowsPending.filter((g) => g.urgent || g.pendingPallets >= 1.5).length,
@@ -1281,7 +1280,7 @@ export function DashboardPage() {
     clientsQ.isError;
 
   return (
-    <div className={pageStack}>
+    <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
@@ -1392,7 +1391,7 @@ export function DashboardPage() {
           </div>
         ) : dashboardLoading ? (
           <div className="w-full min-w-0 space-y-3">
-            <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-36 min-h-36 min-w-0 rounded-2xl" />
               ))}
@@ -1401,18 +1400,14 @@ export function DashboardPage() {
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
               <div className="h-px flex-1 bg-border" />
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              <div className="col-span-2 min-w-0">
-                <Skeleton className="h-36 min-h-36 w-full rounded-2xl" />
-              </div>
-              <div className="col-span-2 min-w-0">
-                <Skeleton className="h-36 min-h-36 w-full rounded-2xl" />
-              </div>
+            <div className="grid w-full min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+              <Skeleton className="h-36 min-h-36 w-full min-w-0 rounded-2xl" />
+              <Skeleton className="h-36 min-h-36 w-full min-w-0 rounded-2xl" />
             </div>
           </div>
         ) : (
           <div className="w-full min-w-0 space-y-3 pb-1">
-            <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="min-w-0 rounded-2xl border border-[#A6E6D3] bg-gradient-to-br from-[#E7F7F1] to-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <span className="shrink-0 text-xl leading-none sm:text-2xl">📥</span>
@@ -1491,10 +1486,10 @@ export function DashboardPage() {
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
               <div className="h-px flex-1 bg-border" />
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
               <div
                 className={cn(
-                  'col-span-2 min-w-0 rounded-2xl border p-3 shadow-sm sm:p-4',
+                  'min-w-0 rounded-2xl border p-3 shadow-sm sm:p-4',
                   riskOrdersCount > 0 ? 'border-amber-200 bg-amber-50/80' : 'border-slate-200 bg-white',
                 )}
               >
@@ -1519,7 +1514,7 @@ export function DashboardPage() {
                   {riskOrdersCount > 0 ? `⚠ ${riskOrdersCount} pedidos en riesgo` : 'Sin pedidos en riesgo'}
                 </p>
               </div>
-              <div className="col-span-2 min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 sm:h-6 sm:w-6" aria-hidden />
                   <div className="min-w-0">
@@ -1553,10 +1548,7 @@ export function DashboardPage() {
             </Link>
           </p>
         ) : ordersQ.isPending || (ordersForProgress.length > 0 && progressQueries.some((q) => q.isPending)) ? (
-          <div
-            className="grid w-full min-w-0 gap-3"
-            style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}
-          >
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-56 w-full min-w-0 rounded-2xl" />
             ))}
@@ -1564,10 +1556,7 @@ export function DashboardPage() {
         ) : gaugeDisplayRows.length === 0 ? (
           <p className={emptyStateBanner}>Sin datos de pedidos para mostrar.</p>
         ) : (
-          <div
-            className="grid w-full min-w-0 gap-3"
-            style={{ gridTemplateColumns: `repeat(${gaugeGridCols}, 1fr)` }}
-          >
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {gaugeDisplayRows.map((g) => {
                 if (g.mode === 'completed') {
                   const arcFull = arcPath(100, 100, 70, 180, 360);
@@ -1576,16 +1565,18 @@ export function DashboardPage() {
                       key={g.id}
                       className="w-full min-w-0 rounded-2xl border border-[#9FE1CB] bg-[#F3FBF8] p-4 shadow-sm"
                     >
-                      <header className="mb-2">
-                        <p className="truncate text-center text-2xl font-semibold text-slate-900">{g.client}</p>
-                        <p className="text-center font-mono text-base text-slate-600">#{g.orderNumber}</p>
+                      <header className="mb-2 min-w-0">
+                        <p className="text-center text-base font-semibold leading-snug text-slate-900 sm:text-xl lg:text-2xl">
+                          {g.client}
+                        </p>
+                        <p className="text-center font-mono text-sm text-slate-600 sm:text-base">#{g.orderNumber}</p>
                       </header>
                       <div className="flex w-full min-w-0 items-center justify-center">
                         <svg
                           viewBox="0 0 200 120"
                           width="100%"
                           preserveAspectRatio="xMidYMid meet"
-                          className="h-40 w-full"
+                          className="h-32 w-full max-w-[240px] sm:h-40"
                           role="img"
                           aria-label="Pedido completado"
                         >
@@ -1596,8 +1587,8 @@ export function DashboardPage() {
                           </text>
                         </svg>
                       </div>
-                      <footer className="space-y-1 text-center text-lg text-[#0F6E56]">
-                        <p className="font-medium">
+                      <footer className="space-y-1 text-center text-sm text-[#0F6E56] sm:text-base lg:text-lg">
+                        <p className="font-medium leading-snug">
                           ✅ Enviado{' '}
                           <span className="tabular-nums font-semibold">{Math.round(g.dispatchedBoxes).toLocaleString('es-AR')}</span> /{' '}
                           <span className="tabular-nums">{Math.round(g.requestedBoxes).toLocaleString('es-AR')}</span> cajas
@@ -1635,9 +1626,11 @@ export function DashboardPage() {
                     key={g.id}
                     className={cn('w-full min-w-0 rounded-2xl border p-4 shadow-sm', pendingTone.card)}
                   >
-                    <header className="mb-2">
-                      <p className="truncate text-center text-2xl font-semibold text-slate-900">{g.client}</p>
-                      <p className="text-center font-mono text-base text-slate-600">#{g.orderNumber}</p>
+                    <header className="mb-2 min-w-0">
+                      <p className="text-center text-base font-semibold leading-snug text-slate-900 sm:text-xl lg:text-2xl">
+                        {g.client}
+                      </p>
+                      <p className="text-center font-mono text-sm text-slate-600 sm:text-base">#{g.orderNumber}</p>
                     </header>
                     <div className="flex w-full min-w-0 flex-col items-center justify-center gap-2">
                       <div className="w-full shrink-0 px-0.5 text-center">
@@ -1690,11 +1683,11 @@ export function DashboardPage() {
                         <span className="ml-1.5">{g.salidaCompleta ? 'Sí' : 'No'}</span>
                       </div>
                     </div>
-                    <footer className={cn('space-y-1 text-center text-xl', pendingTone.text)}>
-                      <p className="font-medium">
+                    <footer className={cn('space-y-1 text-center text-sm sm:text-base lg:text-lg', pendingTone.text)}>
+                      <p className="font-medium leading-snug">
                         📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
                       </p>
-                      <p className="text-base tabular-nums">
+                      <p className="text-sm tabular-nums sm:text-base">
                         PL:{' '}
                         {g.pendingPallets > 0.02 ? `falt. ${formatPallets(g.pendingPallets)} pal` : 'sin faltantes'}
                       </p>
@@ -1729,16 +1722,13 @@ export function DashboardPage() {
           <p className={sectionHint}>Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets</p>
               </div>
         {matsQ.isPending ? (
-          <div className="w-full min-w-0 overflow-x-auto pb-1">
-            <div className="flex w-full min-w-[min(100%,1100px)] flex-nowrap gap-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 min-h-28 min-w-0 flex-1 basis-0 rounded-2xl" />
-              ))}
-            </div>
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 min-h-28 w-full min-w-0 rounded-2xl" />
+            ))}
           </div>
         ) : (
-          <div className="w-full min-w-0 overflow-x-auto pb-1">
-            <div className="flex w-full min-w-[min(100%,1100px)] flex-nowrap gap-3">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {tripajeCards.map((r) => {
                 const cont = r.containers;
                 const level = cont < 1 ? 'critical' : cont < 3 ? 'warn' : 'ok';
@@ -1746,7 +1736,7 @@ export function DashboardPage() {
                   <div
                     key={r.key}
                     className={cn(
-                      'min-w-0 flex-1 basis-0 rounded-2xl border p-3 sm:p-4',
+                      'min-w-0 w-full rounded-2xl border p-3 sm:p-4',
                       level === 'critical' && 'border-red-300 bg-red-50',
                       level === 'warn' && 'border-amber-300 bg-amber-50',
                       level === 'ok' && 'border-border bg-background',
@@ -1754,13 +1744,13 @@ export function DashboardPage() {
                   >
                     <p
                       className={cn(
-                        'flex min-w-0 flex-wrap items-center gap-1.5 truncate text-xs font-medium sm:text-sm',
+                        'flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-medium leading-snug sm:text-sm',
                         level === 'critical' && 'text-red-700',
                         level === 'warn' && 'text-amber-700',
                         level === 'ok' && 'font-semibold text-slate-900',
                       )}
                     >
-                      <span className="min-w-0 truncate">
+                      <span className="min-w-0 break-words">
                         {r.icon} {r.label}
                       </span>
                       {level === 'critical' ? (
@@ -1775,10 +1765,10 @@ export function DashboardPage() {
                     </p>
                     <p
                       className={cn(
-                        'mt-1.5 truncate text-2xl font-semibold tabular-nums',
+                        'mt-1.5 text-xl font-semibold tabular-nums sm:text-2xl',
                         level === 'critical' && 'text-red-700',
                         level === 'warn' && 'text-amber-700',
-                        level === 'ok' && 'text-lg font-bold sm:text-xl text-slate-900',
+                        level === 'ok' && 'text-slate-900',
                       )}
                     >
                       {r.qty.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
@@ -1796,7 +1786,6 @@ export function DashboardPage() {
                   </div>
                 );
               })}
-            </div>
           </div>
         )}
       </section>
