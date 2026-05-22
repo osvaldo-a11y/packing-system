@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, type EntityManager } from 'typeorm';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService } from '../final-pallet/final-pallet.service';
-import { CreatePtPackingListDto, UpdatePtPackingListBolDto } from './pt-packing-list.dto';
+import { Client } from '../traceability/operational.entities';
+import { CreatePtPackingListDto, UpdatePtPackingListBolDto, UpdatePtPackingListClientDto } from './pt-packing-list.dto';
 import {
   Dispatch,
   DispatchPtPackingList,
@@ -27,6 +28,7 @@ export class PtPackingListService {
     @InjectRepository(DispatchPtPackingList) private readonly dispatchPlRepo: Repository<DispatchPtPackingList>,
     @InjectRepository(Dispatch) private readonly dispatchRepo: Repository<Dispatch>,
     @InjectRepository(SalesOrder) private readonly salesOrderRepo: Repository<SalesOrder>,
+    @InjectRepository(Client) private readonly clientRepo: Repository<Client>,
     private readonly finalPalletService: FinalPalletService,
   ) {}
 
@@ -294,6 +296,67 @@ export class PtPackingListService {
     }
     pl.numero_bol = dto.numero_bol.trim() ? dto.numero_bol.trim() : null;
     await this.plRepo.save(pl);
+    return this.findOne(id);
+  }
+
+  /**
+   * Reasigna el cliente comercial del packing list y de todos sus pallets.
+   * Útil cuando la fruta se redestina a otro comprador tras un pedido nuevo.
+   */
+  async updateClient(id: number, dto: UpdatePtPackingListClientDto) {
+    const clientId = Number(dto.client_id);
+    if (!Number.isFinite(clientId) || clientId <= 0) {
+      throw new BadRequestException('client_id inválido.');
+    }
+    const client = await this.clientRepo.findOne({ where: { id: clientId } });
+    if (!client) throw new BadRequestException('Cliente no encontrado en maestros.');
+
+    const pl = await this.plRepo.findOne({ where: { id }, relations: { items: true } });
+    if (!pl) throw new NotFoundException('Packing list no encontrado');
+    if (pl.status === 'anulado') {
+      throw new BadRequestException('No se puede cambiar el cliente de un packing list anulado.');
+    }
+
+    const link = await this.dispatchPlRepo.findOne({ where: { pt_packing_list_id: id } });
+    if (link) {
+      const dispatch = await this.dispatchRepo.findOne({ where: { id: Number(link.dispatch_id) } });
+      if (!dispatch) throw new NotFoundException('Despacho vinculado no encontrado');
+      if (dispatch.status === 'despachado') {
+        throw new BadRequestException(
+          'El despacho vinculado ya está «despachado». Deshacé la salida en Despachos antes de cambiar el cliente del packing list.',
+        );
+      }
+    }
+
+    const palletIds = (pl.items ?? []).map((i) => Number(i.final_pallet_id)).filter((pid) => pid > 0);
+    if (palletIds.length === 0) {
+      pl.client_id = clientId;
+      await this.plRepo.save(pl);
+      return this.findOne(id);
+    }
+
+    await this.plRepo.manager.transaction(async (em) => {
+      const plRepo = em.getRepository(PtPackingList);
+      const palletRepo = em.getRepository(FinalPallet);
+      const dispatchRepo = em.getRepository(Dispatch);
+
+      await plRepo.update({ id }, { client_id: clientId });
+      await palletRepo
+        .createQueryBuilder()
+        .update(FinalPallet)
+        .set({ client_id: clientId })
+        .where('id IN (:...ids)', { ids: palletIds })
+        .execute();
+
+      if (link) {
+        await dispatchRepo.update({ id: Number(link.dispatch_id) }, { client_id: clientId });
+      }
+    });
+
+    for (const pid of palletIds) {
+      await this.finalPalletService.reconcileInventoryForPallet(pid);
+    }
+
     return this.findOne(id);
   }
 

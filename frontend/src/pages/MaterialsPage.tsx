@@ -334,6 +334,48 @@ function formatMoneySimple(v: string | number): string {
 
 const materialCardFieldLabelClass = 'text-[11px] uppercase tracking-wide text-muted-foreground';
 
+function MasterCostEditor({
+  row,
+  saving,
+  onSave,
+}: {
+  row: PackagingMaterialRow;
+  saving: boolean;
+  onSave: (cost: number) => void;
+}) {
+  const base = Number(row.costo_unitario);
+  const [text, setText] = useState(String(Number.isFinite(base) ? base : 0));
+  useEffect(() => {
+    setText(String(Number.isFinite(Number(row.costo_unitario)) ? Number(row.costo_unitario) : 0));
+  }, [row.id, row.costo_unitario]);
+  const parsed = Number(String(text).replace(',', '.'));
+  const valid = Number.isFinite(parsed) && parsed >= 0;
+  const changed = valid && Math.abs(parsed - base) > 1e-8;
+  return (
+    <div className="mt-1.5 space-y-1 rounded-md bg-slate-50 px-2 py-1.5">
+      <span className={materialCardFieldLabelClass}>Costo maestro ($/u.)</span>
+      <div className="flex gap-1.5">
+        <Input
+          className={cn(filterInputClass, 'h-8 min-w-0 flex-1 font-mono text-right text-sm')}
+          inputMode="decimal"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={saving}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 shrink-0 px-2.5 text-[11px]"
+          disabled={!changed || !valid || saving}
+          onClick={() => onSave(parsed)}
+        >
+          {saving ? '…' : 'OK'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function stockDisplayClass(stockNum: number): string {
   if (stockNum <= 0) return 'text-red-600';
   if (stockNum < 100) return 'text-amber-600';
@@ -567,7 +609,8 @@ export function MaterialsPage() {
           descripcion: body.descripcion,
           unidad_medida: body.unidad_medida,
           costo_unitario: body.costo_unitario,
-          cantidad_disponible: body.cantidad_disponible,
+          /** Inventario inicial y compras solo por «Ajuste de inventario» (movimientos), no en el alta. */
+          cantidad_disponible: 0,
           presentation_format_ids: body.presentation_format_ids,
           client_ids: body.client_ids,
           clamshell_units_per_box:
@@ -986,7 +1029,7 @@ export function MaterialsPage() {
               <DialogHeader className={operationalModalHeaderClass}>
                 <DialogTitle className={operationalModalTitleClass}>Nuevo material</DialogTitle>
                 <DialogDescription className={operationalModalDescriptionClass}>
-                  Alta en maestro con alcance, unidad y stock inicial. Queda listo para compras, recetas y Kardex.
+                  Alta en maestro con alcance y unidad. El stock inicia en 0: cargá inventario inicial o compras desde «Ajuste de inventario».
                 </DialogDescription>
                 <details className="group text-[13px] text-muted-foreground">
                   <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -1004,7 +1047,8 @@ export function MaterialsPage() {
                       Marcá formatos o clientes solo cuando el consumo sea distinto (etiquetas por cliente, clamshell por formato, etc.).
                     </li>
                     <li>
-                      El <strong className="font-medium text-foreground">stock inicial</strong> y el costo se pueden ajustar después; conviene
+                      El <strong className="font-medium text-foreground">stock</strong> queda en 0 hasta que registres movimientos; el costo
+                      maestro podés editarlo en la grilla; conviene
                       que la unidad (unidad, lb, ml, kg) coincida con cómo comprás y consumís en recetas.
                     </li>
                   </ul>
@@ -1133,7 +1177,7 @@ export function MaterialsPage() {
                       <section className={operationalModalSectionMuted}>
                         <div className={operationalModalSectionHeadingRow}>
                           <span className={operationalModalStepBadge}>4</span>
-                          <h3 className={operationalModalStepTitle}>Unidad, costos e inventario inicial</h3>
+                          <h3 className={operationalModalStepTitle}>Unidad y costo maestro</h3>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="grid gap-1.5 sm:col-span-2">
@@ -1148,9 +1192,9 @@ export function MaterialsPage() {
                               ))}
                             </select>
                           </div>
-                          <div className="grid gap-1.5">
+                          <div className="grid gap-1.5 sm:col-span-2">
                             <Label className="text-xs text-slate-600" htmlFor="costo_unitario">
-                              Costo unitario
+                              Costo unitario (referencia en alta; editable luego en cada material)
                             </Label>
                             <Input
                               id="costo_unitario"
@@ -1161,19 +1205,10 @@ export function MaterialsPage() {
                               {...form.register('costo_unitario')}
                             />
                           </div>
-                          <div className="grid gap-1.5">
-                            <Label className="text-xs text-slate-600" htmlFor="cantidad_disponible">
-                              Stock inicial
-                            </Label>
-                            <Input
-                              id="cantidad_disponible"
-                              type="number"
-                              step="0.001"
-                              min={0}
-                              className={filterInputClass}
-                              {...form.register('cantidad_disponible')}
-                            />
-                          </div>
+                          <p className="text-[11px] leading-snug text-muted-foreground sm:col-span-2">
+                            Inventario inicial y compras quedan en 0 al crear el material. Registrálos con el botón «Movimiento / kardex» o
+                            desde la pantalla Kardex.
+                          </p>
                           {selectedCatCodigo === 'clamshell' ? (
                             <div className="grid gap-1.5 sm:col-span-2">
                               <Label className="text-xs text-slate-600">Unidades clamshell por caja (opc.)</Label>
@@ -1393,49 +1428,6 @@ export function MaterialsPage() {
                             <span className={operationalModalStepBadge}>3</span>
                             <h3 className={operationalModalStepTitle}>Datos del movimiento</h3>
                           </div>
-                          {(() => {
-                            const sel = (data ?? []).find((m) => m.id === kardexMaterialId);
-                            const cur = sel ? Number(sel.cantidad_disponible) : NaN;
-                            const d = Number(moveDelta);
-                            const preview =
-                              Number.isFinite(cur) && Number.isFinite(d) && d !== 0 ? (cur + d).toFixed(3) : null;
-                            const uom = sel?.unidad_medida?.trim() || '';
-                            return sel ? (
-                              <div className="mb-5 flex flex-wrap gap-3">
-                                <div className="min-w-[8.5rem] flex-1 rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/90 to-white px-3.5 py-3 shadow-sm">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Saldo actual
-                                  </p>
-                                  <p className="mt-2 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
-                                    {formatQty(sel.cantidad_disponible)}
-                                    {uom ? <span className="ml-1 text-xs font-sans font-normal text-slate-500">{uom}</span> : null}
-                                  </p>
-                                </div>
-                                <div
-                                  className={cn(
-                                    'min-w-[8.5rem] flex-1 rounded-xl border px-3.5 py-3 shadow-sm',
-                                    preview != null
-                                      ? 'border-primary/25 bg-primary/5'
-                                      : 'border-dashed border-slate-200 bg-slate-50/40',
-                                  )}
-                                >
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Saldo después
-                                  </p>
-                                  <p className="mt-2 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
-                                    {preview != null ? (
-                                      <>
-                                        {preview}
-                                        {uom ? <span className="ml-1 text-xs font-sans font-normal text-slate-500">{uom}</span> : null}
-                                      </>
-                                    ) : (
-                                      <span className="text-sm font-normal text-slate-500">Indicá cantidad Δ</span>
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
                           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                             {moveRefType === 'compra' ? (
                               <>
@@ -1808,10 +1800,18 @@ export function MaterialsPage() {
                           <p className="text-[11px] text-slate-500">{row.unidad_medida}</p>
                         </div>
                       </div>
-                      <div className="mt-1.5 flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-[11px]">
-                        <span className={materialCardFieldLabelClass}>Costo maestro</span>
-                        <span className="font-semibold tabular-nums text-slate-900">${formatMoneySimple(row.costo_unitario)}</span>
-                      </div>
+                      <MasterCostEditor
+                        row={row}
+                        saving={savingId === row.id}
+                        onSave={(cost) =>
+                          updateMut.mutate(
+                            { id: row.id, body: { costo_unitario: cost } },
+                            {
+                              onSuccess: () => toast.success('Costo maestro actualizado'),
+                            },
+                          )
+                        }
+                      />
                       <div className="mt-2 grid grid-cols-3 gap-1.5">
                         <Button
                           type="button"

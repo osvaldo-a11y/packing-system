@@ -60,6 +60,11 @@ export class PackagingController {
     return this.service.listMaterialMovements(id);
   }
 
+  @Get('materials/:id/kardex-operational')
+  getKardexOperational(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getKardexOperational(id);
+  }
+
   @Post('recipes')
   createRecipe(@Body() dto: CreateRecipeDto) {
     return this.service.createRecipe(dto);

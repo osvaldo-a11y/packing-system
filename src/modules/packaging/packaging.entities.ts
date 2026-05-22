@@ -24,6 +24,10 @@ export class PackagingMaterialMovement {
   @Column({ type: 'text', nullable: true })
   nota?: string | null;
 
+  /** Fecha operativa (recepción, consumo); si es null se usa `created_at` en UI. */
+  @Column({ type: 'timestamptz', nullable: true })
+  occurred_at?: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

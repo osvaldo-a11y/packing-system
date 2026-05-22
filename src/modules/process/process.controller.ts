@@ -78,6 +78,24 @@ export class ProcessController {
     return this.service.listProducerIdsWithEligibleMp({ planningOnly, borradorOnly });
   }
 
+  /** Total MP sin procesar: Σ recepción neta − Σ volteado a proceso (por productor; sin filtrar estado documental). */
+  @Get('processes/mp-disponible-resumen')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  mpDisponibleResumen(
+    @Query('planning_only') planningOnlyRaw?: string,
+    @Query('borrador_only') borradorOnlyRaw?: string,
+  ) {
+    const planningOnly = planningOnlyRaw === '1' || String(planningOnlyRaw ?? '').toLowerCase() === 'true';
+    const borradorOnly = borradorOnlyRaw === '1' || String(borradorOnlyRaw ?? '').toLowerCase() === 'true';
+    return this.service.getMpDisponibleResumen({ planningOnly, borradorOnly });
+  }
+
+  @Get('processes/:id/editable-mp-lines')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  editableMpLines(@Param('id', ParseIntPipe) id: number) {
+    return this.service.listEditableMpLinesForProcess(id);
+  }
+
   @Patch('processes/:id/weights')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   updateWeights(

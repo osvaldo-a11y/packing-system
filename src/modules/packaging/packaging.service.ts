@@ -369,21 +369,38 @@ export class PackagingService {
     await this.assertClientIds(clientScopeIds);
     const client_id = clientScopeIds.length === 1 ? clientScopeIds[0] : null;
     const presentation_format_id = formatScopeIds.length === 1 ? formatScopeIds[0] : null;
-    return this.materialRepo.save(
-      this.materialRepo.create({
-        nombre_material: dto.nombre_material.trim(),
-        material_category_id: cat.id,
-        descripcion: dto.descripcion,
-        unidad_medida: dto.unidad_medida,
-        presentation_format_id,
-        presentation_format_scope_ids: formatScopeIds.length > 0 ? formatScopeIds : null,
-        client_id,
-        client_scope_ids: clientScopeIds.length > 0 ? clientScopeIds : null,
-        clamshell_units_per_box,
-        costo_unitario: dto.costo_unitario.toFixed(4),
-        cantidad_disponible: dto.cantidad_disponible.toFixed(3),
-      }),
-    );
+
+    return this.dataSource.transaction(async (em) => {
+      const saved = await em.save(
+        em.create(PackagingMaterial, {
+          nombre_material: dto.nombre_material.trim(),
+          material_category_id: cat.id,
+          descripcion: dto.descripcion,
+          unidad_medida: dto.unidad_medida,
+          presentation_format_id,
+          presentation_format_scope_ids: formatScopeIds.length > 0 ? formatScopeIds : null,
+          client_id,
+          client_scope_ids: clientScopeIds.length > 0 ? clientScopeIds : null,
+          clamshell_units_per_box,
+          costo_unitario: dto.costo_unitario.toFixed(4),
+          cantidad_disponible: dto.cantidad_disponible.toFixed(3),
+        }),
+      );
+      const inicial = Number(dto.cantidad_disponible);
+      if (Number.isFinite(inicial) && inicial > 0) {
+        await em.save(
+          em.create(PackagingMaterialMovement, {
+            material_id: Number(saved.id),
+            quantity_delta: inicial.toFixed(4),
+            ref_type: 'inventario_inicial',
+            ref_id: Number(saved.id),
+            nota: 'Alta de material con existencia inicial.',
+            occurred_at: new Date(),
+          }),
+        );
+      }
+      return saved;
+    });
   }
 
   async deleteMaterial(id: number) {
@@ -913,7 +930,7 @@ export class PackagingService {
     const rows = await this.movementRepo.find({
       where: { material_id: materialId },
       order: { id: 'DESC' },
-      take: 200,
+      take: 500,
     });
     return rows.map((r) => ({
       id: r.id,
@@ -923,7 +940,98 @@ export class PackagingService {
       ref_id: r.ref_id != null ? Number(r.ref_id) : null,
       nota: r.nota,
       created_at: r.created_at,
+      occurred_at: r.occurred_at != null ? r.occurred_at.toISOString() : null,
     }));
+  }
+
+  /** Resumen operativo de Kardex + consumo PT por formato (tabla breakdown). */
+  async getKardexOperational(materialId: number) {
+    const mat = await this.materialRepo.findOne({ where: { id: materialId } });
+    if (!mat) throw new NotFoundException('Material no encontrado');
+
+    const movements = await this.movementRepo.find({
+      where: { material_id: materialId },
+      order: { id: 'ASC' },
+    });
+
+    let inventario_inicial = 0;
+    let compras_total = 0;
+    let otros_movimientos_neto = 0;
+    let consumoNetDelta = 0;
+    let movimientos_sin_consumo_pt = 0;
+
+    for (const m of movements) {
+      const d = Number(m.quantity_delta) || 0;
+      const rt = (m.ref_type ?? '').trim().toLowerCase();
+      if (rt === 'consumption' || rt === 'consumption_revert') {
+        consumoNetDelta += d;
+        continue;
+      }
+      movimientos_sin_consumo_pt += 1;
+      if (rt === 'inventario_inicial') inventario_inicial += d;
+      else if (rt === 'compra' || rt === 'entrada') compras_total += d;
+      else otros_movimientos_neto += d;
+    }
+
+    const consumoPorMovimientos = Math.max(0, -consumoNetDelta);
+
+    const breakdownAgg = await this.breakdownRepo
+      .createQueryBuilder('b')
+      .select('COALESCE(SUM(b.qty_used), 0)', 'total')
+      .where('b.material_id = :id', { id: materialId })
+      .getRawOne<{ total: string }>();
+    const consumoFromBreakdown = Number(breakdownAgg?.total ?? 0) || 0;
+
+    const consumo_pt_total =
+      consumoFromBreakdown > 0 ? consumoFromBreakdown : consumoPorMovimientos;
+
+    const porFormatoRaw = await this.dataSource.query<
+      Array<{ formato: string; cajas_producidas: string; consumo_total: string }>
+    >(
+      `
+      SELECT t.format_code AS formato,
+             COALESCE(SUM(c.boxes_count), 0)::text AS cajas_producidas,
+             COALESCE(SUM(b.qty_used::numeric), 0)::text AS consumo_total
+      FROM packaging_cost_breakdowns b
+      INNER JOIN packaging_pallet_consumptions c ON c.id = b.consumption_id
+      INNER JOIN pt_tags t ON t.id = c.tarja_id
+      WHERE b.material_id = $1
+      GROUP BY t.format_code
+      ORDER BY t.format_code ASC
+      `,
+      [materialId],
+    );
+
+    const por_formato = porFormatoRaw.map((row) => {
+      const cajas = Number(row.cajas_producidas) || 0;
+      const total = Number(row.consumo_total) || 0;
+      return {
+        formato: row.formato,
+        cajas_producidas: cajas,
+        consumo_por_caja: cajas > 0 ? total / cajas : 0,
+        consumo_total: total,
+      };
+    });
+
+    const stock_final = Number(mat.cantidad_disponible) || 0;
+    const total_entradas = inventario_inicial + compras_total;
+    const stock_segun_inv_compras_y_pt =
+      inventario_inicial + compras_total + otros_movimientos_neto - consumo_pt_total;
+
+    return {
+      material_id: materialId,
+      nombre_material: mat.nombre_material,
+      unidad_medida: mat.unidad_medida,
+      inventario_inicial,
+      compras_total,
+      otros_movimientos_neto,
+      movimientos_sin_consumo_pt,
+      total_entradas,
+      consumo_pt_total,
+      stock_segun_inv_compras_y_pt,
+      stock_final,
+      por_formato,
+    };
   }
 
   async listConsumptions() {

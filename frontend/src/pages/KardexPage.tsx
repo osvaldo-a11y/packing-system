@@ -1,13 +1,5 @@
 ﻿import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowDownRight,
-  ArrowLeftRight,
-  ArrowUpRight,
-  Boxes,
-  Layers,
-  Package,
-  Warehouse,
-} from 'lucide-react';
+import { ArrowDownRight, ArrowLeftRight, Boxes, Layers, Package, Warehouse } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiJson } from '@/api';
@@ -20,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { describeAlcance, movementRefTypeLabel, stockSaldoClass, stockSaldoTone } from '@/lib/materials-inventory-ux';
 import {
   contentCard,
-  emptyStateInset,
   filterInputClass,
   filterPanel,
   filterSelectClass,
@@ -97,86 +88,6 @@ function matchesMoveTypeFilter(ref: string | null, moveType: string): boolean {
   return movementBucketForRow(ref) === moveType;
 }
 
-/** Bucket para tarjetas KPI: «Compra» agrupa movimientos `entrada` y `compra`. */
-function movementKpiBucketForRow(ref: string | null): string {
-  const b = movementBucketForRow(ref);
-  return b === 'entrada' ? 'compra' : b;
-}
-
-type MoveTypeKpiMetaItem = {
-  bucket: string;
-  label: string;
-  desc: string;
-  shell: string;
-  Icon: typeof Package;
-};
-
-/** Tarjetas KPI salvo consumo bruto/reverso (tarjeta neta + desglose en details). */
-const MOVE_TYPE_KPI_META_BEFORE_PT: MoveTypeKpiMetaItem[] = [
-  {
-    bucket: 'inventario_inicial',
-    label: 'Inv. inicial',
-    desc: 'Carga histórica',
-    shell: 'border-l-[3px] border-l-violet-400 bg-gradient-to-br from-violet-50/35 to-white',
-    Icon: Warehouse,
-  },
-  {
-    bucket: 'compra',
-    label: 'Compra',
-    desc: 'Entradas por compra',
-    shell: 'border-l-[3px] border-l-teal-400 bg-gradient-to-br from-teal-50/40 to-white',
-    Icon: Package,
-  },
-];
-
-const MOVE_TYPE_KPI_META_AFTER_PT: MoveTypeKpiMetaItem[] = [
-  {
-    bucket: 'salida',
-    label: 'Salida / Merma',
-    desc: 'Mermas manuales',
-    shell: 'border-l-[3px] border-l-orange-400 bg-gradient-to-br from-orange-50/35 to-white',
-    Icon: ArrowDownRight,
-  },
-  {
-    bucket: 'manual',
-    label: 'Ajuste manual',
-    desc: 'Correcciones manuales',
-    shell: 'border-l-[3px] border-l-slate-400 bg-gradient-to-br from-slate-50/50 to-white',
-    Icon: ArrowLeftRight,
-  },
-  {
-    bucket: 'final_inventario',
-    label: 'Cierre inv.',
-    desc: 'Cierre de temporada',
-    shell: 'border-l-[3px] border-l-amber-400 bg-gradient-to-br from-amber-50/40 to-white',
-    Icon: Layers,
-  },
-  {
-    bucket: 'other',
-    label: 'Otros',
-    desc: 'Tipos no clasificados',
-    shell: 'border-l-[3px] border-l-slate-300 bg-white',
-    Icon: Boxes,
-  },
-];
-
-const MOVE_TYPE_KPI_CONSUMPTION_DETAIL: MoveTypeKpiMetaItem[] = [
-  {
-    bucket: 'consumption',
-    label: 'Consumo PT',
-    desc: 'Salidas por empaque',
-    shell: 'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/40 to-white',
-    Icon: ArrowDownRight,
-  },
-  {
-    bucket: 'consumption_revert',
-    label: 'Reverso consumo',
-    desc: 'Corrección al recalcular consumos',
-    shell: 'border-l-[3px] border-l-emerald-400 bg-gradient-to-br from-emerald-50/35 to-white',
-    Icon: ArrowUpRight,
-  },
-];
-
 function fetchMaterials() {
   return apiJson<PackagingMaterialRow[]>('/api/packaging/materials');
 }
@@ -185,22 +96,6 @@ function movementDeltaTone(delta: number): string {
   if (delta > 0) return 'text-emerald-700 font-semibold tabular-nums';
   if (delta < 0) return 'text-rose-700 font-semibold tabular-nums';
   return 'text-slate-600 tabular-nums';
-}
-
-function movementKpiValueColorClass(bucket: string, count: number, netValue: number): string {
-  if (count === 0) return 'text-muted-foreground opacity-40';
-  if (bucket === 'consumption') return 'text-rose-600';
-  if (bucket === 'consumption_revert') return 'text-[#1D9E75]';
-  if (bucket === 'inventario_inicial' || bucket === 'compra' || bucket === 'entrada') {
-    return netValue > 0 ? 'text-[#1D9E75]' : 'text-muted-foreground';
-  }
-  if (bucket === 'salida') return 'text-amber-600';
-  if (bucket === 'manual') {
-    if (netValue > 0) return 'text-[#1D9E75]';
-    if (netValue < 0) return 'text-amber-600';
-    return 'text-muted-foreground';
-  }
-  return 'text-muted-foreground';
 }
 
 function refOriginLine(ref: string | null, refId: number | null): string {
@@ -312,8 +207,8 @@ export function KardexPage() {
     return { ordered: orderedAsc, balanceById: balMap };
   }, [movements, selectedMaterial]);
 
-  /** Rango de fechas solamente: base para KPI por tipo (independiente del filtro «Tipo de movimiento»). */
-  const rowsForMovementTypeKpis = useMemo(() => {
+  /** Rango Desde/Hasta solamente (el filtro «Tipo de movimiento» se aplica después, en la tabla). */
+  const rowsInDateRange = useMemo(() => {
     return ordered.filter((m) => {
       if (dateFrom) {
         const t = movementEffectiveMs(m);
@@ -328,13 +223,13 @@ export function KardexPage() {
   }, [ordered, dateFrom, dateTo]);
 
   const filteredRows = useMemo(() => {
-    return rowsForMovementTypeKpis.filter((m) => {
+    return rowsInDateRange.filter((m) => {
       if (moveType !== MOVE_FILTER_ALL && !matchesMoveTypeFilter(m.ref_type, moveType)) {
         return false;
       }
       return true;
     });
-  }, [rowsForMovementTypeKpis, moveType]);
+  }, [rowsInDateRange, moveType]);
 
   const displayRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -344,38 +239,6 @@ export function KardexPage() {
       return b.id - a.id;
     });
   }, [filteredRows]);
-
-  const movementTypeKpiTotals = useMemo(() => {
-    const next = (): { count: number; net: number } => ({ count: 0, net: 0 });
-    const map = new Map<string, { count: number; net: number }>();
-    for (const m of MOVE_TYPE_KPI_META_BEFORE_PT) map.set(m.bucket, next());
-    for (const m of MOVE_TYPE_KPI_META_AFTER_PT) map.set(m.bucket, next());
-    map.set('consumption', next());
-    map.set('consumption_revert', next());
-    for (const m of rowsForMovementTypeKpis) {
-      const b = movementKpiBucketForRow(m.ref_type);
-      const tgt = map.get(b) ?? map.get('other')!;
-      const d = Number(m.quantity_delta);
-      if (!Number.isFinite(d)) continue;
-      tgt.count += 1;
-      tgt.net += d;
-    }
-    return map;
-  }, [rowsForMovementTypeKpis]);
-
-  const netMovementTypeKpiQty = useMemo(
-    () =>
-      rowsForMovementTypeKpis.reduce(
-        (s, m) => s + (Number.isFinite(Number(m.quantity_delta)) ? Number(m.quantity_delta) : 0),
-        0,
-      ),
-    [rowsForMovementTypeKpis],
-  );
-
-  const netTableFilteredQty = useMemo(
-    () => filteredRows.reduce((s, m) => s + (Number.isFinite(Number(m.quantity_delta)) ? Number(m.quantity_delta) : 0), 0),
-    [filteredRows],
-  );
 
   const movementsTruncated = (movements?.length ?? 0) >= 5000;
   const moveFilterOptions: { value: string; label: string }[] = [
@@ -587,192 +450,6 @@ export function KardexPage() {
                 </div>
               </div>
             </>
-          ) : null}
-
-          {!movementsLoading && materialId > 0 ? (
-            <div className="space-y-3 pt-1">
-              <div className="space-y-1">
-                <h2 className={sectionHeadingLg}>Totales por tipo de movimiento</h2>
-                <p className="text-[12px] leading-snug text-slate-500">
-                  Tarjetas para cada tipo (consumo PT, compra, manual, etc.). Cuentan el período <strong className="font-medium text-slate-700">Desde / Hasta</strong> solamente; el filtro <strong className="font-medium text-slate-700">Tipo de movimiento</strong> no las altera (sí filtra la tabla de abajo).
-                </p>
-                <p className="text-[12px] text-slate-600">
-                  Período: Δ{' '}
-                  <span className={netMovementTypeKpiQty >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                    {formatInventoryQty(netMovementTypeKpiQty)}
-                  </span>{' '}
-                  {uom},{' '}
-                  <span className="tabular-nums">{formatCount(rowsForMovementTypeKpis.length)}</span> mov. · Tabla (fecha + tipo): Δ{' '}
-                  <span className={netTableFilteredQty >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                    {formatInventoryQty(netTableFilteredQty)}
-                  </span>{' '}
-                  {uom},{' '}
-                  <span className="tabular-nums">{formatCount(filteredRows.length)}</span> fila(s)
-                  {moveType !== MOVE_FILTER_ALL
-                    ? ` · «${moveFilterOptions.find((o) => o.value === moveType)?.label ?? moveType}»`
-                    : ''}
-                </p>
-              </div>
-              {rowsForMovementTypeKpis.length === 0 ? (
-                <div className={emptyStateInset}>
-                  {ordered.length === 0
-                    ? 'Este material no tiene movimientos en el historial cargado.'
-                    : 'Sin movimientos en el rango de fechas — ampliá el período o borrá las fechas para ver KPI por tipo.'}
-                </div>
-              ) : (
-                <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                  {MOVE_TYPE_KPI_META_BEFORE_PT.map(({ bucket, label, desc, shell, Icon }) => {
-                    const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
-                    const netValue = totals.net ?? 0;
-                    const count = totals.count ?? 0;
-                    const valueColor = movementKpiValueColorClass(bucket, count, netValue);
-                    return (
-                      <div
-                        key={bucket}
-                        className={cn(
-                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
-                          shell,
-                          count === 0 && 'opacity-50',
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-                            <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
-                          </div>
-                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
-                        </div>
-                        <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
-                          {formatInventoryQty(netValue)}{' '}
-                          <span className="text-xs font-normal text-slate-500">{uom}</span>
-                        </p>
-                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
-                      </div>
-                    );
-                  })}
-                  {(() => {
-                    const tCons = movementTypeKpiTotals.get('consumption') ?? { count: 0, net: 0 };
-                    const tRev = movementTypeKpiTotals.get('consumption_revert') ?? { count: 0, net: 0 };
-                    const netCons = tCons.net ?? 0;
-                    const netRev = tRev.net ?? 0;
-                    const consumoNeto = netCons + netRev;
-                    const countCons = tCons.count ?? 0;
-                    const countRev = tRev.count ?? 0;
-                    const countPt = countCons + countRev;
-                    const consumoBruto = formatInventoryQty(netCons);
-                    const reversos = formatInventoryQty(netRev);
-                    const netoColor =
-                      consumoNeto < 0 ? 'text-rose-600' : consumoNeto > 0 ? 'text-amber-600' : 'text-muted-foreground';
-                    return (
-                      <div key="consumo-pt-bloque" className="col-span-full flex min-w-0 flex-col gap-1">
-                        <div
-                          className={cn(
-                            'w-full max-w-sm rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
-                            'border-l-[3px] border-l-rose-400 bg-gradient-to-br from-rose-50/30 via-white to-emerald-50/20',
-                            countPt === 0 && 'opacity-50',
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Consumo neto PT
-                              </p>
-                              <p className="line-clamp-2 text-[10px] text-slate-400">
-                                Consumo por empaque menos reverso en el período
-                              </p>
-                            </div>
-                            <ArrowDownRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                          </div>
-                          <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', netoColor)}>
-                            {formatInventoryQty(consumoNeto)} <span className="text-xs font-normal text-slate-500">{uom}</span>
-                          </p>
-                          {countRev > 0 ? (
-                            <p className="mt-1 text-[10px] text-muted-foreground">
-                              Bruto: {consumoBruto} · Reversos: {reversos}
-                            </p>
-                          ) : null}
-                          <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(countPt)} mov.</p>
-                        </div>
-                        <details className="col-span-full mt-1 w-full">
-                          <summary className="cursor-pointer text-[11px] text-muted-foreground">
-                            Ver desglose bruto/reverso
-                          </summary>
-                          <div className="mt-2 grid gap-2.5 sm:grid-cols-2 xl:max-w-2xl">
-                            {MOVE_TYPE_KPI_CONSUMPTION_DETAIL.map(({ bucket, label, desc, shell, Icon }) => {
-                              const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
-                              const netValue = totals.net ?? 0;
-                              const count = totals.count ?? 0;
-                              const valueColor = movementKpiValueColorClass(bucket, count, netValue);
-                              return (
-                                <div
-                                  key={bucket}
-                                  className={cn(
-                                    'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
-                                    shell,
-                                    count === 0 && 'opacity-50',
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                        {label}
-                                      </p>
-                                      <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
-                                      {bucket === 'consumption_revert' ? (
-                                        <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                          Corrección al recalcular consumos de tarjas
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                    <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
-                                  </div>
-                                  <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
-                                    {formatInventoryQty(netValue)}{' '}
-                                    <span className="text-xs font-normal text-slate-500">{uom}</span>
-                                  </p>
-                                  <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </details>
-                      </div>
-                    );
-                  })()}
-                  {MOVE_TYPE_KPI_META_AFTER_PT.map(({ bucket, label, desc, shell, Icon }) => {
-                    const totals = movementTypeKpiTotals.get(bucket) ?? { count: 0, net: 0 };
-                    const netValue = totals.net ?? 0;
-                    const count = totals.count ?? 0;
-                    const valueColor = movementKpiValueColorClass(bucket, count, netValue);
-                    return (
-                      <div
-                        key={bucket}
-                        className={cn(
-                          'rounded-xl border border-slate-100/95 p-3.5 shadow-sm',
-                          shell,
-                          count === 0 && 'opacity-50',
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-                            <p className="line-clamp-2 text-[10px] text-slate-400">{desc}</p>
-                          </div>
-                          <Icon className={cn('h-4 w-4 shrink-0 text-slate-300', count > 0 && 'text-slate-400')} aria-hidden />
-                        </div>
-                        <p className={cn('mt-2.5 text-lg font-semibold leading-none tabular-nums', valueColor)}>
-                          {formatInventoryQty(netValue)}{' '}
-                          <span className="text-xs font-normal text-slate-500">{uom}</span>
-                        </p>
-                        <p className={cn(kpiFootnote, 'mt-2')}>{formatCount(count)} mov.</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : materialId > 0 && movementsLoading ? (
-            <Skeleton className="h-36 w-full rounded-2xl" />
           ) : null}
 
           <Card className={contentCard}>

@@ -130,6 +130,8 @@ export class ModifySalesOrderDto {
   @MaxLength(40)
   order_number?: string;
 
+  @IsOptional() @IsString() @MaxLength(24) estado_comercial?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

@@ -17,6 +17,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCount } from '@/lib/number-format';
 import {
+  ESTADO_COMERCIAL_PRESETS,
+  dispatchMatchLabel,
+  isOrderCanceled,
+  orderHasVolume,
+  salesOrderListSegment,
+  type SalesOrderListSegment,
+} from '@/lib/sales-order-status';
+import {
   btnToolbarOutline,
   btnToolbarPrimary,
   emptyStatePanel,
@@ -71,6 +79,13 @@ export type SalesOrderRow = {
   fecha_despacho_cliente?: string | null;
   /** Estado comercial libre (ej. «en proceso») — UI / dashboard. */
   estado_comercial?: string | null;
+  dispatched_boxes?: number;
+  pending_boxes?: number;
+  dispatch_by_orden?: boolean;
+  dispatch_by_bol?: boolean;
+  operatively_complete?: boolean;
+  fulfillment_operativo?: 'pendiente' | 'parcial' | 'completo' | 'sin_volumen';
+  dispatch_match?: 'orden' | 'bol' | 'ambos' | null;
   lines: SalesOrderLineApi[];
 };
 
@@ -103,6 +118,7 @@ const modifySchema = z.object({
     .trim()
     .min(1, 'Indicá un nombre o referencia para el pedido')
     .max(40, 'Máximo 40 caracteres'),
+  estado_comercial: z.string().max(24).optional(),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -147,23 +163,61 @@ function defaultLine(fmtId: number): z.infer<typeof lineSchema> {
   };
 }
 
-function orderHasVolume(r: SalesOrderRow): boolean {
-  return (Number(r.requested_boxes) || 0) > 0;
-}
-
-function VolumeBadge({ r }: { r: SalesOrderRow }) {
-  const ok = orderHasVolume(r);
+function CommercialStatusBadge({ r }: { r: SalesOrderRow }) {
+  const segment = salesOrderListSegment(r);
+  const estado = (r.estado_comercial ?? '').trim();
+  const matchHint = dispatchMatchLabel(r.dispatch_match);
+  if (segment === 'cancelado') {
+    return (
+      <span
+        className="inline-flex max-w-[180px] flex-col gap-0.5 rounded-full border border-slate-300/90 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold leading-tight text-slate-700"
+        title="Pedido cancelado o anulado (registro conservado, cajas en 0)"
+      >
+        <span>Cancelado</span>
+        {estado && !/cancelad|anulad|\bcancel\b/i.test(estado) ? (
+          <span className="truncate text-[10px] font-normal text-slate-500">{estado}</span>
+        ) : null}
+      </span>
+    );
+  }
+  if (segment === 'completado') {
+    return (
+      <span
+        className="inline-flex max-w-[200px] flex-col gap-0.5 rounded-full border border-emerald-200/90 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-tight text-emerald-950"
+        title={matchHint ?? 'Pedido despachado o sin saldo pendiente'}
+      >
+        <span>Completado</span>
+        {matchHint ? <span className="truncate text-[10px] font-normal text-emerald-800/90">{matchHint}</span> : null}
+        {Number.isFinite(Number(r.dispatched_boxes)) ? (
+          <span className="text-[10px] font-normal tabular-nums text-emerald-800/80">
+            Desp: {formatCount(Number(r.dispatched_boxes))} cajas
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+  if (segment === 'pendiente') {
+    return (
+      <span
+        className="inline-flex max-w-[200px] flex-col gap-0.5 rounded-full border border-sky-200/90 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold leading-tight text-sky-950"
+        title={matchHint ? `${matchHint} — aún hay saldo por despachar` : 'Pedido activo con cajas pedidas'}
+      >
+        <span>Pendiente</span>
+        {estado ? <span className="truncate text-[10px] font-normal text-sky-800/80">{estado}</span> : null}
+        {Number.isFinite(Number(r.pending_boxes)) && Number(r.pending_boxes) > 0 ? (
+          <span className="text-[10px] font-normal tabular-nums text-sky-800/80">
+            Faltan ~{formatCount(Number(r.pending_boxes))} cajas
+          </span>
+        ) : null}
+      </span>
+    );
+  }
   return (
     <span
-      className={cn(
-        'inline-flex max-w-[160px] truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none',
-        ok
-          ? 'border-emerald-200/80 bg-emerald-50 text-emerald-900'
-          : 'border-amber-200/90 bg-amber-50 text-amber-950',
-      )}
-      title={ok ? 'Pedido con cajas pedidas' : 'Pedido sin cajas en líneas'}
+      className="inline-flex max-w-[160px] truncate rounded-full border border-amber-200/90 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-amber-950"
+      title="Sin cajas pedidas (no marcado como cancelado)"
     >
-      {ok ? 'Con volumen' : 'Sin cajas'}
+      Sin cajas
     </span>
   );
 }
@@ -190,6 +244,7 @@ export function SalesOrdersPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editRow, setEditRow] = useState<SalesOrderRow | null>(null);
+  const [filterSegment, setFilterSegment] = useState<SalesOrderListSegment | 'todos'>('pendiente');
   const [filterVolume, setFilterVolume] = useState<string>('');
   const [filterClientId, setFilterClientId] = useState(0);
   const [search, setSearch] = useState('');
@@ -329,6 +384,7 @@ export function SalesOrdersPage() {
           : [defaultLine(firstFmtId || 1)];
       editForm.reset({
         order_number: editRow.order_number.trim(),
+        estado_comercial: editRow.estado_comercial?.trim() ?? '',
         lines,
       });
     }
@@ -352,6 +408,7 @@ export function SalesOrdersPage() {
         method: 'PUT',
         body: JSON.stringify({
           order_number: body.order_number.trim(),
+          estado_comercial: body.estado_comercial?.trim() ? body.estado_comercial.trim() : null,
           lines: toApiLines(body.lines),
         }),
       }),
@@ -375,9 +432,21 @@ export function SalesOrdersPage() {
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
   }, [data]);
 
+  const segmentCounts = useMemo(() => {
+    const counts = { pendiente: 0, completado: 0, cancelado: 0, sin_cajas: 0, todos: 0 };
+    for (const r of data ?? []) {
+      counts.todos += 1;
+      counts[salesOrderListSegment(r)] += 1;
+    }
+    return counts;
+  }, [data]);
+
   const filtered = useMemo(() => {
     if (!data?.length) return [];
     let list = data;
+    if (filterSegment !== 'todos') {
+      list = list.filter((r) => salesOrderListSegment(r) === filterSegment);
+    }
     if (filterVolume === 'con') {
       list = list.filter((r) => orderHasVolume(r));
     } else if (filterVolume === 'sin') {
@@ -399,11 +468,12 @@ export function SalesOrdersPage() {
       });
     }
     return list;
-  }, [data, filterVolume, filterClientId, search]);
+  }, [data, filterSegment, filterVolume, filterClientId, search]);
 
   const kpis = useMemo(() => {
     const list = filtered;
     let vacios = 0;
+    let cancelados = 0;
     let conVolumen = 0;
     let sinNombreCliente = 0;
     let multiformato = 0;
@@ -413,8 +483,9 @@ export function SalesOrdersPage() {
     let sumLineas = 0;
     const clientes = new Set<number>();
     for (const r of list) {
+      if (isOrderCanceled(r)) cancelados++;
       if (orderHasVolume(r)) conVolumen++;
-      else vacios++;
+      else if (!isOrderCanceled(r)) vacios++;
       if (!r.cliente_nombre?.trim()) sinNombreCliente++;
       if (!r.lines?.length) sinLineas++;
       const fmtIds = new Set(r.lines.map((l) => l.presentation_format_id));
@@ -427,6 +498,7 @@ export function SalesOrdersPage() {
     return {
       total: list.length,
       vacios,
+      cancelados,
       conVolumen,
       sinNombreCliente,
       multiformato,
@@ -455,7 +527,14 @@ export function SalesOrdersPage() {
       lines.push({
         key: 'vacios',
         tone: 'warn',
-        text: `${formatCount(kpis.vacios)} pedido(s) sin cajas pedidas en la vista — revisá líneas o cerrá comercialmente.`,
+        text: `${formatCount(kpis.vacios)} pedido(s) sin cajas y sin estado cancelado — revisá líneas o marcá «Cancelado» en estado comercial.`,
+      });
+    }
+    if (kpis.cancelados > 0 && filterSegment === 'todos') {
+      lines.push({
+        key: 'cancelados',
+        tone: 'info',
+        text: `${formatCount(kpis.cancelados)} pedido(s) cancelados en la vista (cajas en 0, registro conservado).`,
       });
     }
     if (kpis.sinNombreCliente > 0) {
@@ -480,7 +559,7 @@ export function SalesOrdersPage() {
       });
     }
     return lines;
-  }, [kpis.vacios, kpis.sinNombreCliente, kpis.sinLineas, kpis.multiformato]);
+  }, [kpis.vacios, kpis.cancelados, kpis.sinNombreCliente, kpis.sinLineas, kpis.multiformato, filterSegment]);
 
   const helpTitle =
     'Líneas por formato de presentación (cajas pedidas; precio/caja y marca/variedad opcionales). Los totales se calculan desde las líneas; los pallets estimados usan max_boxes_per_pallet del formato cuando existe en el maestro. Crear y modificar: supervisor o admin. La relación con packing list y despacho se consolida en la pantalla Avance del pedido.';
@@ -783,6 +862,48 @@ export function SalesOrdersPage() {
       ) : null}
 
       <div className={filterPanel}>
+        <div className="mb-4 space-y-2">
+          <span className={signalsTitle}>Vista</span>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Segmento de pedidos">
+            {(
+              [
+                { id: 'pendiente' as const, label: 'Pendientes', count: segmentCounts.pendiente },
+                { id: 'completado' as const, label: 'Completados', count: segmentCounts.completado },
+                { id: 'cancelado' as const, label: 'Cancelados', count: segmentCounts.cancelado },
+                { id: 'sin_cajas' as const, label: 'Sin cajas', count: segmentCounts.sin_cajas },
+                { id: 'todos' as const, label: 'Todos', count: segmentCounts.todos },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={filterSegment === tab.id}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                  filterSegment === tab.id
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                )}
+                onClick={() => setFilterSegment(tab.id)}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    'ml-1.5 tabular-nums',
+                    filterSegment === tab.id ? 'text-primary-foreground/90' : 'text-slate-500',
+                  )}
+                >
+                  ({formatCount(tab.count)})
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[12px] leading-snug text-slate-500">
+            Pendientes: con cajas y saldo por despachar. Completados: despacho cruzado por pedido o BOL (= nº pedido) o sin
+            faltante. Cancelados: estado cancelado/anulado. Sin cajas: volumen 0 sin cancelar.
+          </p>
+        </div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>Filtros</span>
           <button
@@ -836,8 +957,17 @@ export function SalesOrdersPage() {
             Listado comercial
           </h2>
           <p className={sectionHint}>
-            {filtered.length} pedido(s) · el listado API no incluye fecha ni vínculos PL/despacho — consolidado en{' '}
-            <span className="font-medium text-slate-600">Avance</span>
+            {filtered.length} pedido(s) en vista «
+            {filterSegment === 'todos'
+              ? 'Todos'
+              : filterSegment === 'pendiente'
+                ? 'Pendientes'
+                : filterSegment === 'completado'
+                  ? 'Completados'
+                  : filterSegment === 'cancelado'
+                    ? 'Cancelados'
+                    : 'Sin cajas'}
+            » · detalle PL/despacho en <span className="font-medium text-slate-600">Avance</span>
           </p>
         </div>
 
@@ -850,7 +980,7 @@ export function SalesOrdersPage() {
             <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[130px]">Estado volumen</TableHead>
+                  <TableHead className="min-w-[130px]">Estado</TableHead>
                   <TableHead className="whitespace-nowrap text-slate-500">Fecha</TableHead>
                   <TableHead className="min-w-[160px]">Cliente</TableHead>
                   <TableHead className="min-w-[120px]">Pedido</TableHead>
@@ -865,7 +995,7 @@ export function SalesOrdersPage() {
                 {filtered.map((r) => (
                   <TableRow key={r.id} className={tableBodyRow}>
                     <TableCell className="max-w-[200px] py-3.5 align-top">
-                      <VolumeBadge r={r} />
+                      <CommercialStatusBadge r={r} />
                     </TableCell>
                     <TableCell className="align-top text-xs">
                       {firstDispatchDateByOrder.get(r.id) ? (
@@ -1009,6 +1139,40 @@ export function SalesOrdersPage() {
                 </p>
                 {editForm.formState.errors.order_number ? (
                   <p className="text-sm text-destructive">{editForm.formState.errors.order_number.message}</p>
+                ) : null}
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="edit-estado-comercial">Estado comercial</Label>
+                  <select
+                    id="edit-estado-comercial"
+                    className={filterSelectClass}
+                    {...editForm.register('estado_comercial')}
+                  >
+                    {ESTADO_COMERCIAL_PRESETS.map((e) => (
+                      <option key={e || 'none'} value={e}>
+                        {e === '' ? '— Sin etiqueta —' : e}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {canManage ? (
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full rounded-xl border-slate-300 text-slate-700"
+                      onClick={() => {
+                        editForm.setValue('estado_comercial', 'Cancelado');
+                        const n = editForm.getValues('lines').length;
+                        for (let i = 0; i < n; i++) {
+                          editForm.setValue(`lines.${i}.requested_boxes`, 0);
+                        }
+                      }}
+                    >
+                      Marcar cancelado (0 cajas)
+                    </Button>
+                  </div>
                 ) : null}
               </div>
               <div className="flex items-center justify-between gap-2">

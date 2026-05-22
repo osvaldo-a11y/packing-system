@@ -17,13 +17,16 @@ import { ImportModule } from './modules/import/import.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { FinalPalletModule } from './modules/final-pallet/final-pallet.module';
 import { PtPackingListModule } from './modules/pt-packing-list/pt-packing-list.module';
+import { LabelsModule } from './modules/labels/labels.module';
 
 const webIndex = join(process.cwd(), 'frontend', 'dist', 'index.html');
 const webImports = existsSync(webIndex)
   ? [
       ServeStaticModule.forRoot({
         rootPath: join(process.cwd(), 'frontend', 'dist'),
-        exclude: ['/api*'],
+        serveRoot: '/',
+        exclude: ['/api', '/api/*'],
+        renderPath: '/',
       }),
     ]
   : [];
@@ -40,6 +43,7 @@ const webImports = existsSync(webIndex)
     DispatchBillingModule,
     FinalPalletModule,
     PtPackingListModule,
+    LabelsModule,
     PackagingModule,
     PlantModule,
     ReportingModule,

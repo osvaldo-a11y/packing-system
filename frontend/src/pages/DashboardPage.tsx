@@ -37,6 +37,7 @@ import type { PackagingMaterialRow } from './MaterialsPage';
 import type { FruitProcessRow } from './ProcessesPage';
 import type { ReceptionRow } from './ReceptionPage';
 import type { RecipeApi } from './RecipesPage';
+import { isOrderCanceled } from '@/lib/sales-order-status';
 import type { SalesOrderRow } from './SalesOrdersPage';
 
 type DashboardMaterial = PackagingMaterialRow & {
@@ -98,6 +99,16 @@ function clampPct(v: number): number {
 
 function format2(v: number): string {
   return v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Pallets: entero si aplica; si no, un solo decimal (es-AR). */
+function formatPallets(v: number): string {
+  const n = Number.isFinite(v) ? v : 0;
+  const r = Math.round(n * 10) / 10;
+  if (Math.abs(r - Math.round(r)) < 0.001) {
+    return Math.round(r).toLocaleString('es-AR');
+  }
+  return r.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 function isoFromUnknown(raw: unknown): string | null {
@@ -755,7 +766,7 @@ export function DashboardPage() {
   const dispatchesFiltered = useMemo(() => {
     const rows = dispQ.data ?? [];
     return rows.filter((d) => {
-      const ts = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
+      const ts = d.fecha_despacho ?? d.despachado_at ?? d.confirmed_at;
       if (!inDateRange(ts, range.from, range.to)) return false;
       if (!dispatchSpeciesMatch(d, speciesId)) return false;
       return true;
@@ -839,7 +850,7 @@ export function DashboardPage() {
   const ordersForProgress = useMemo(() => {
     const rows = ordersQ.data ?? [];
     return rows
-      .filter((o) => parseNum(o.requested_boxes) > 0)
+      .filter((o) => parseNum(o.requested_boxes) > 0 && !isOrderCanceled(o))
       .slice()
       .sort((a, b) => b.id - a.id)
       .slice(0, 150);
@@ -860,19 +871,22 @@ export function DashboardPage() {
     id: number;
     client: string;
     orderNumber: string;
-    pct: number;
+    /** % cajas pedidas cubiertas en cámara: reserva en cooler, BOL en existencias o cajas ya en PL del pedido. */
+    pctCooler: number;
+    /** True si el pedido quedó despachado en cajas (salida física completa). */
+    salidaCompleta: boolean;
     dueLabel: string;
     urgent: boolean;
     pendingPallets: number;
+    /** Equivalente en pallets de lo que falta despachar vs pedido (salida física). */
+    pendingSalidaPallets: number;
     noProgress: boolean;
     assignedBoxes: number;
     dispatchedBoxes: number;
-    /** Cajas en cámara con `planned_sales_order_id` = este pedido (Existencias PT). */
+    /** Cajas en cámara vinculadas al pedido (planned o BOL = nº pedido). */
     depotReservedBoxes: number;
-    /** Cajas en cámara que matchean formato/marca/variedad del pedido (puede incluir stock sin reservar). */
-    depotProducedBoxes: number;
     estadoComercial: string | null;
-    /** Hay fruta reservada al pedido pero el % del arco sigue en 0 (aún no hay PL confirmado). */
+    /** Cámara cubre el pedido (arco alto) pero aún falta packing list operativo. */
     waitingPackingFromDepot: boolean;
   };
   type GaugeCompleted = {
@@ -893,34 +907,40 @@ export function DashboardPage() {
         if (reqBoxes <= 0) return null;
         const pendingBoxes = parseNum(p.totals.pending_boxes);
         if (pendingBoxes <= 0) return null;
-        const producedBoxes = parseNum(p.totals.assigned_pl_boxes);
+        const assignedPlBoxes = parseNum(p.totals.assigned_pl_boxes);
         const dispatchedBoxes = parseNum(p.totals.dispatched_boxes);
         const depotReservedBoxes = parseNum(p.totals.reserved_depot_boxes);
-        const depotProducedBoxes = parseNum(p.totals.produced_depot_boxes);
         const reqPallets = parseNum(o.requested_pallets) > 0 ? parseNum(o.requested_pallets) : reqBoxes / 24;
-        const producedPallets = producedBoxes / 24;
-        const pendingPallets = Math.max(0, reqPallets - producedPallets);
-        const pct = clampPct((producedPallets / Math.max(1e-9, reqPallets)) * 100);
+        const plPalletsDone = assignedPlBoxes / 24;
+        const dispPalletsDone = dispatchedBoxes / 24;
+        /** Cámara: existencias reservadas (planned/BOL) + cajas ya en PL vinculado al pedido (mismo criterio BOL/PL). */
+        const chamberLinkedBoxes = Math.min(reqBoxes, depotReservedBoxes + assignedPlBoxes);
+        const pctCooler = reqBoxes > 0 ? clampPct(100 * (chamberLinkedBoxes / reqBoxes)) : 0;
+        const salidaCompleta = reqBoxes > 0 && dispatchedBoxes >= reqBoxes - 0.5;
+        const pendingPlPallets = Math.max(0, reqPallets - plPalletsDone);
+        const pendingSalidaPallets = Math.max(0, reqPallets - dispPalletsDone);
         const dueIso = orderLoadDateIso(o);
         const dueLabel = dueIso ? new Date(dueIso).toLocaleDateString('es-AR') : 'Sin fecha';
         const urgent = dueIso ? new Date(dueIso).getTime() <= new Date(Date.now() + 86_400_000).getTime() : false;
-        const hasNoProgress = pct <= 0.001;
+        const hasNoProgress = pctCooler <= 1;
         const estadoComercial = (o.estado_comercial ?? '').trim() || null;
-        const waitingPackingFromDepot = hasNoProgress && depotReservedBoxes > 0;
+        const waitingPackingFromDepot =
+          pctCooler >= 98 && pendingPlPallets > 0.02 && depotReservedBoxes >= 1;
         return {
           mode: 'pending' as const,
           id: o.id,
           client: p.order.cliente_nombre?.trim() || o.cliente_nombre?.trim() || `Cliente #${o.cliente_id}`,
           orderNumber: o.order_number,
-          pct,
+          pctCooler,
+          salidaCompleta,
           dueLabel,
           urgent,
-          pendingPallets,
+          pendingPallets: pendingPlPallets,
+          pendingSalidaPallets,
           noProgress: hasNoProgress,
-          assignedBoxes: producedBoxes,
+          assignedBoxes: assignedPlBoxes,
           dispatchedBoxes,
           depotReservedBoxes,
-          depotProducedBoxes,
           estadoComercial,
           waitingPackingFromDepot,
         };
@@ -928,7 +948,8 @@ export function DashboardPage() {
       .filter((x): x is GaugePending => x != null)
       .sort((a, b) => {
         if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
-        if (a.pct !== b.pct) return a.pct - b.pct;
+        if (a.pctCooler !== b.pctCooler) return a.pctCooler - b.pctCooler;
+        if (a.salidaCompleta !== b.salidaCompleta) return Number(a.salidaCompleta) - Number(b.salidaCompleta);
         return b.pendingPallets - a.pendingPallets;
       });
   }, [ordersForProgress, progressQueries]);
@@ -1183,7 +1204,7 @@ export function DashboardPage() {
       });
     }
     for (const d of dispatchesFiltered.slice(0, 8)) {
-      const iso = d.despachado_at ?? d.confirmed_at ?? d.fecha_despacho;
+      const iso = d.fecha_despacho ?? d.despachado_at ?? d.confirmed_at;
       rows.push({
         id: `d-${d.id}`,
         ts: new Date(iso).getTime(),
@@ -1520,7 +1541,7 @@ export function DashboardPage() {
           <h2 className={sectionTitle}>Avance de pedidos pendientes</h2>
           <p className={sectionHint}>
             {gaugeRowsRadar.length > 0
-              ? 'Hasta 5 pedidos con saldo. El arco refleja cajas en packing list confirmado; la cámara reservada al pedido se muestra abajo cuando aplica.'
+              ? 'Hasta 5 pedidos con saldo. Cámara: reserva en cooler, BOL en existencias o cajas en packing list del pedido. Salida física: Sí/No según despacho completo.'
               : 'Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.'}
           </p>
         </div>
@@ -1585,31 +1606,30 @@ export function DashboardPage() {
                     </article>
                   );
                 }
-                const arc = arcPath(100, 100, 70, 180, 180 + (180 * clampPct(g.pct)) / 100);
                 const pendingTone =
                   g.waitingPackingFromDepot
                     ? {
                         card: 'border-amber-200 bg-amber-50/90',
-                        arc: '#D97706',
+                        arcCooler: '#D97706',
                         text: 'text-amber-950',
                       }
-                    : g.pct <= 1
-                    ? {
-                        card: 'border-[#F5B3B3] bg-[#FDF2F2]',
-                        arc: '#E24B4A',
-                        text: 'text-[#B32F2F]',
-                      }
-                    : g.pct < 70
+                    : g.pctCooler <= 1
                       ? {
-                          card: 'border-[#F2C27C] bg-[#FFF8ED]',
-                          arc: '#E5931A',
-                          text: 'text-[#8A560A]',
+                          card: 'border-[#F5B3B3] bg-[#FDF2F2]',
+                          arcCooler: '#E24B4A',
+                          text: 'text-[#B32F2F]',
                         }
-                      : {
-                          card: 'border-[#A6E6D3] bg-[#F3FBF8]',
-                          arc: '#1D9E75',
-                          text: 'text-[#0F6E56]',
-                        };
+                      : g.pctCooler < 70
+                        ? {
+                            card: 'border-[#F2C27C] bg-[#FFF8ED]',
+                            arcCooler: '#E5931A',
+                            text: 'text-[#8A560A]',
+                          }
+                        : {
+                            card: 'border-[#A6E6D3] bg-[#F3FBF8]',
+                            arcCooler: '#1D9E75',
+                            text: 'text-[#0F6E56]',
+                          };
                 return (
                   <article
                     key={g.id}
@@ -1619,50 +1639,81 @@ export function DashboardPage() {
                       <p className="truncate text-center text-2xl font-semibold text-slate-900">{g.client}</p>
                       <p className="text-center font-mono text-base text-slate-600">#{g.orderNumber}</p>
                     </header>
-                    <div className="flex w-full min-w-0 items-center justify-center">
+                    <div className="flex w-full min-w-0 flex-col items-center justify-center gap-2">
+                      <div className="w-full shrink-0 px-0.5 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Cámara</p>
+                        <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                          Cooler, existencias (BOL) o packing list del pedido
+                        </p>
+                      </div>
                       <svg
-                        viewBox="0 0 200 120"
+                        viewBox="0 0 200 110"
                         width="100%"
                         preserveAspectRatio="xMidYMid meet"
-                        className="h-40 w-full"
+                        className="h-28 w-full max-w-[220px] sm:h-32"
                         role="img"
-                        aria-label={`Avance ${g.pct}%`}
+                        aria-label={`Cámara ${g.pctCooler}%, salida física ${g.salidaCompleta ? 'sí' : 'no'}`}
                       >
-                        <path d={arcPath(100, 100, 70, 180, 360)} fill="none" stroke="#E5E7EB" strokeWidth={14} strokeLinecap="round" />
-                        <path d={arc} fill="none" stroke={pendingTone.arc} strokeWidth={14} strokeLinecap="round" />
-                        <text x="100" y="90" textAnchor="middle" className="fill-slate-900 text-[24px] font-bold" style={{ fontFamily: 'inherit' }}>
-                          {g.pct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}%
+                        <path
+                          d={arcPath(100, 54, 46, 180, 360)}
+                          fill="none"
+                          stroke="#E5E7EB"
+                          strokeWidth={13}
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d={arcPath(100, 54, 46, 180, 180 + (180 * clampPct(g.pctCooler)) / 100)}
+                          fill="none"
+                          stroke={pendingTone.arcCooler}
+                          strokeWidth={13}
+                          strokeLinecap="round"
+                        />
+                        <text
+                          x="100"
+                          y="48"
+                          textAnchor="middle"
+                          className="fill-slate-900 text-[22px] font-bold"
+                          style={{ fontFamily: 'inherit' }}
+                        >
+                          {g.pctCooler.toLocaleString('es-AR', { maximumFractionDigits: 0 })}%
                         </text>
                       </svg>
-                </div>
+                      <div
+                        className={cn(
+                          'inline-flex items-center justify-center rounded-full border px-3 py-1 text-sm font-semibold tabular-nums',
+                          g.salidaCompleta
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                            : 'border-slate-300 bg-slate-50 text-slate-700',
+                        )}
+                      >
+                        Salida física:{' '}
+                        <span className="ml-1.5">{g.salidaCompleta ? 'Sí' : 'No'}</span>
+                      </div>
+                    </div>
                     <footer className={cn('space-y-1 text-center text-xl', pendingTone.text)}>
                       <p className="font-medium">
                         📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
                       </p>
-                      <p>Falt. {format2(g.pendingPallets)} pal</p>
+                      <p className="text-base tabular-nums">
+                        PL:{' '}
+                        {g.pendingPallets > 0.02 ? `falt. ${formatPallets(g.pendingPallets)} pal` : 'sin faltantes'}
+                      </p>
                       {g.waitingPackingFromDepot ? (
-                        <p className="text-base font-semibold leading-snug">
-                          Cámara p/ este pedido:{' '}
-                          <span className="tabular-nums">{Math.round(g.depotReservedBoxes).toLocaleString('es-AR')}</span> cajas — a la
-                          espera de packing list (pallets listos → PL → confirmar).
+                        <p className="text-sm font-medium leading-snug text-amber-950">
+                          Reservado en cámara: {Math.round(g.depotReservedBoxes).toLocaleString('es-AR')} cajas — falta PL.
+                        </p>
+                      ) : g.pctCooler >= 99 && (g.pendingPallets > 0.02 || g.pendingSalidaPallets > 0.02) ? (
+                        <p className="text-sm font-medium leading-snug text-slate-700">
+                          {g.pendingPallets > 0.02
+                            ? 'Cámara lista para el pedido: seguí con PL y despacho.'
+                            : 'Listo en PL: pendiente salida / despacho.'}
                         </p>
                       ) : null}
                       {g.waitingPackingFromDepot && g.estadoComercial ? (
-                        <p className="text-sm text-slate-600">Estado comercial: {g.estadoComercial}</p>
+                        <p className="text-xs text-slate-600">{g.estadoComercial}</p>
                       ) : null}
-                      {!g.waitingPackingFromDepot && g.noProgress && g.depotProducedBoxes >= 1 ? (
-                        <p className="text-base leading-snug text-slate-600">
-                          En cámara hay{' '}
-                          <span className="tabular-nums font-medium">
-                            {Math.round(g.depotProducedBoxes).toLocaleString('es-AR')}
-                          </span>{' '}
-                          cajas de este formato sin reserva a este pedido: en Existencias PT asigná «pedido previsto» para que figure acá.
-                        </p>
-                      ) : null}
-                      {g.noProgress && !g.waitingPackingFromDepot ? (
-                        <p className="text-base text-slate-600">
-                          {g.estadoComercial ? `Estado comercial: ${g.estadoComercial}` : 'Pedido con saldo — sin cajas en PL confirmado aún'}
-                        </p>
+                      {g.noProgress && !g.waitingPackingFromDepot && g.estadoComercial ? (
+                        <p className="text-xs text-slate-600">{g.estadoComercial}</p>
                       ) : null}
                     </footer>
                   </article>

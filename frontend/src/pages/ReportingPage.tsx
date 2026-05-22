@@ -134,22 +134,14 @@ async function fetchMpDisponibleProcesoResumenForReports(): Promise<{
   lineCount: number;
   producerCount: number;
 }> {
-    const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp?planning_only=1');
-    let totalLb = 0;
-    let lineCount = 0;
-    for (const pid of ids) {
-      const lines = await apiJson<Array<{ available_lb: number }>>(
-        `/api/processes/eligible-lines?producer_id=${pid}&planning_only=1`,
-      );
-    for (const ln of lines) {
-      const a = Number(ln.available_lb);
-      if (Number.isFinite(a) && a > 0) {
-        totalLb += a;
-        lineCount++;
-      }
-    }
-  }
-  return { totalLb, lineCount, producerCount: ids.length };
+  const r = await apiJson<{ total_lb: number; line_count: number; producer_count: number }>(
+    '/api/processes/mp-disponible-resumen',
+  );
+  return {
+    totalLb: Number(r.total_lb) || 0,
+    lineCount: Number(r.line_count) || 0,
+    producerCount: Number(r.producer_count) || 0,
+  };
 }
 
 type PaginatedSection = { rows: Record<string, unknown>[]; total: number; page: number; limit: number };

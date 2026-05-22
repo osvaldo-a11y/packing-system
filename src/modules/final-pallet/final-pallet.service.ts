@@ -14,7 +14,7 @@ import {
   PtTagMergeSource,
 } from '../process/process.entities';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
-import { PresentationFormat, QualityGrade, Species, Variety } from '../traceability/traceability.entities';
+import { PresentationFormat, Producer, QualityGrade, Species, Variety } from '../traceability/traceability.entities';
 import {
   BulkAssignBolDto,
   CreateFinalPalletDto,
@@ -67,8 +67,29 @@ export class FinalPalletService {
     @InjectRepository(RepalletLineProvenance)
     private readonly repalletLineProvRepo: Repository<RepalletLineProvenance>,
     @InjectRepository(RepalletReversal) private readonly repalletReversalRepo: Repository<RepalletReversal>,
+    @InjectRepository(Producer) private readonly producerRepo: Repository<Producer>,
     private readonly ds: DataSource,
   ) {}
+
+  /** Nombres de productor desde líneas del pallet (proceso → recepción o productor_id del proceso). */
+  private producerLabelFromPalletLines(
+    plines: FinalPalletLine[],
+    producerById: Map<number, Producer>,
+  ): string | null {
+    const names = new Set<string>();
+    for (const ln of plines) {
+      const proc = ln.fruit_process;
+      if (!proc) continue;
+      const fromRec = proc.reception?.producer?.nombre?.trim();
+      if (fromRec) {
+        names.add(fromRec);
+        continue;
+      }
+      const fromProc = producerById.get(Number(proc.productor_id))?.nombre?.trim();
+      if (fromProc) names.add(fromProc);
+    }
+    return names.size > 0 ? [...names].join(' · ') : null;
+  }
 
   /** Repositorios unificados para sync en transacción externa (`em`) o modo normal. */
   private txRepos(em?: EntityManager) {
@@ -1040,6 +1061,20 @@ export class FinalPalletService {
       { id: number; ref_display: string; document_number: string | null; received_at: string | null }
     >();
 
+    const fallbackProducerIds = new Set<number>();
+    for (const l of lines) {
+      const proc = l.fruit_process;
+      if (proc && !proc.reception?.producer) {
+        const prid = Number(proc.productor_id);
+        if (prid > 0) fallbackProducerIds.add(prid);
+      }
+    }
+    const fallbackProducers =
+      fallbackProducerIds.size > 0
+        ? await this.producerRepo.findBy({ id: In([...fallbackProducerIds]) })
+        : [];
+    const producerById = new Map(fallbackProducers.map((pr) => [Number(pr.id), pr]));
+
     const traceLines = lines.map((l) => {
       const proc = l.fruit_process;
       const rec = proc?.reception;
@@ -1059,6 +1094,15 @@ export class FinalPalletService {
           productorNombre = rec.producer.nombre?.trim() || null;
           productorCodigo = rec.producer.codigo?.trim() || null;
         }
+      }
+      if (!productorNombre && !productorCodigo && proc) {
+        const pr = producerById.get(Number(proc.productor_id));
+        if (pr) {
+          productorNombre = pr.nombre?.trim() || null;
+          productorCodigo = pr.codigo?.trim() || null;
+        }
+      }
+      if (rec) {
         if (recepcionId > 0 && refDisplay) {
           recepcionesUnique.set(recepcionId, {
             id: recepcionId,
@@ -2497,17 +2541,28 @@ export class FinalPalletService {
       palletIds.length > 0
         ? await this.lineRepo.find({
             where: { final_pallet_id: In(palletIds) },
-            relations: { variety: true },
+            relations: { variety: true, fruit_process: { reception: { producer: true } } },
             order: { line_order: 'ASC', id: 'ASC' },
           })
         : [];
     const linesByPallet = new Map<number, FinalPalletLine[]>();
+    const producerIdsNeeded = new Set<number>();
     for (const ln of lineRows) {
       const pid = Number(ln.final_pallet_id);
       const arr = linesByPallet.get(pid) ?? [];
       arr.push(ln);
       linesByPallet.set(pid, arr);
+      const proc = ln.fruit_process;
+      if (proc && !proc.reception?.producer) {
+        const prid = Number(proc.productor_id);
+        if (prid > 0) producerIdsNeeded.add(prid);
+      }
     }
+    const producerRows =
+      producerIdsNeeded.size > 0
+        ? await this.producerRepo.findBy({ id: In([...producerIdsNeeded]) })
+        : [];
+    const producerById = new Map(producerRows.map((pr) => [Number(pr.id), pr]));
 
     const dispatchIds = [
       ...new Set(
@@ -2574,6 +2629,7 @@ export class FinalPalletService {
       const trace = traceByPalletId.get(Number(p.id)) ?? null;
       const mensajeTraz =
         trace != null ? this.buildMensajeTrazabilidad(trace, { repalletizaje: repalletRol }) : null;
+      const productorLabel = this.producerLabelFromPalletLines(plines, producerById);
 
       return {
         id: p.id,
@@ -2603,6 +2659,7 @@ export class FinalPalletService {
         format_code: p.presentation_format?.format_code ?? null,
         client_id: p.client_id != null ? Number(p.client_id) : null,
         client_nombre: p.client?.nombre ?? null,
+        productor_label: productorLabel,
         brand_nombre: p.brand_id != null && p.brand != null ? p.brand.nombre ?? null : null,
         boxes,
         pounds,

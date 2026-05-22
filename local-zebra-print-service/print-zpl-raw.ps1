@@ -51,6 +51,29 @@ try {
   $targetPrinter = Resolve-TargetPrinter -RequestedPrinter $PrinterName
   $bytes = [System.IO.File]::ReadAllBytes($FilePath)
 
+  # Quitar BOM UTF-8 si el archivo se escribió con él (la Zebra no debe recibir esos 3 bytes antes de ^XA).
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    $newLen = $bytes.Length - 3
+    $nb = New-Object byte[] $newLen
+    [Array]::Copy($bytes, 3, $nb, 0, $newLen)
+    $bytes = $nb
+  }
+
+  $peekLen = [Math]::Min($bytes.Length, 600)
+  if ($peekLen -lt 3) {
+    throw "Archivo ZPL demasiado corto ($peekLen bytes)."
+  }
+  $peekText = [System.Text.Encoding]::UTF8.GetString($bytes, 0, $peekLen)
+  if ($peekText -match '(?i)<!DOCTYPE\s*html|<\s*html[\s>/]') {
+    throw "El archivo parece HTML, no ZPL RAW. No se enviará a la impresora."
+  }
+  $trimStart = $peekText.TrimStart()
+  $trimUp = $trimStart.ToUpperInvariant()
+  if (-not $trimUp.StartsWith('^XA')) {
+    $prev = ($peekText.Substring(0, [Math]::Min(120, $peekText.Length))) -replace "`r`n", ' '
+    throw "ZPL inválido: debe empezar con ^XA. Inicio: $prev"
+  }
+
   Add-Type -TypeDefinition @"
 using System;
 using System.ComponentModel;

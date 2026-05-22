@@ -1,16 +1,11 @@
 /**
  * Servicio local de impresión Zebra (Express, Windows PowerShell RAW).
  *
- * Flujo FIFO (robustez operativa):
- * 1) POST /print solo VALIDA el cuerpo, crea el job (`pending`) y lo agrega al final de la cola.
- *    Responde 202 de inmediato con `jobId` — no espera al driver/spool.
- * 2) `drainQueue()` procesa de a un job: estado `printing` → PowerShell RAW → `done` o `error`.
- * 3) Si un job falla, se marca `error`, se loguea en consola y se continúa con el siguiente
- *    (la cola nunca queda bloqueada por un error).
+ * Impresora: autodetectada al arrancar (wmic) o override con ZEBRA_PRINTER_NAME.
+ * Sin nombres de impresora hardcodeados en código.
  *
- * Estado de jobs:
- * GET /jobs        → últimos 20 snapshots (orden reciente primero)
- * GET /jobs/:jobId → un job por id (polling desde el navegador)
+ * Flujo FIFO:
+ * POST /print → cola → drainQueue → PowerShell RAW
  */
 
 const cors = require('cors');
@@ -19,7 +14,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { execSync, spawn } = require('child_process');
 
 const app = express();
 const PORT = Number(process.env.PRINT_SERVICE_PORT || 3001);
@@ -29,13 +24,17 @@ const LIST_PRINTERS_SCRIPT = path.join(__dirname, 'list-printers.ps1');
 const MAX_JOB_HISTORY = 200;
 const JOB_LIST_LIMIT = 20;
 
-/** Historial vivo (orden: más nuevo al inicio de `jobs`); cada ítem coincide con uno encolado. */
+/** Palabras clave en el nombre de cola Windows (case-insensitive). */
+const ZEBRA_NAME_HINTS = ['zebra', 'zt', 'zd', 'gk', 'zpl'];
+
 const jobs = [];
-
-/** FIFO: solo refs a jobs en espera (`pending`). `drainQueue` hace shift. */
 const pendingQueue = [];
-
 let processing = false;
+
+/** Impresora resuelta al arrancar (env ZEBRA_PRINTER_NAME o primera Zebra vía wmic). */
+let detectedPrinterName = null;
+let detectedPrinterSource = null;
+let cachedWmicPrinterNames = [];
 
 function tsIso(ms) {
   try {
@@ -45,7 +44,83 @@ function tsIso(ms) {
   }
 }
 
-/** Sin ZPL gigante ni buffers internos; solo metadatos operativos. */
+/** Lista nombres de impresoras con WMIC (Windows). */
+function listWindowsPrintersWmic() {
+  try {
+    const output = execSync('wmic printer get name', {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15_000,
+    }).toString();
+    const lines = output
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !/^name$/i.test(l));
+    return lines;
+  } catch (err) {
+    console.warn('[zebra-print-service] wmic printer get name falló:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+function isZebraCandidateName(name) {
+  const lower = String(name).toLowerCase();
+  return ZEBRA_NAME_HINTS.some((hint) => lower.includes(hint));
+}
+
+function pickFirstZebraPrinter(allNames) {
+  return allNames.find(isZebraCandidateName) ?? null;
+}
+
+/**
+ * Resuelve impresora al arrancar.
+ * 1) ZEBRA_PRINTER_NAME (override manual)
+ * 2) Primera cola cuyo nombre coincida con ZEBRA_NAME_HINTS
+ */
+function resolvePrinterAtStartup() {
+  cachedWmicPrinterNames = listWindowsPrintersWmic();
+  const envOverride = process.env.ZEBRA_PRINTER_NAME?.trim();
+  if (envOverride) {
+    detectedPrinterName = envOverride;
+    detectedPrinterSource = 'env';
+    console.log(`[zebra-print-service] Impresora (ZEBRA_PRINTER_NAME): ${detectedPrinterName}`);
+    return;
+  }
+  const auto = pickFirstZebraPrinter(cachedWmicPrinterNames);
+  if (auto) {
+    detectedPrinterName = auto;
+    detectedPrinterSource = 'auto';
+    console.log(`[zebra-print-service] Impresora autodetectada: ${detectedPrinterName}`);
+    return;
+  }
+  detectedPrinterName = null;
+  detectedPrinterSource = null;
+  console.warn(
+    '[zebra-print-service] No se detectó impresora Zebra. Instaladas:',
+    cachedWmicPrinterNames.length ? cachedWmicPrinterNames.join(' | ') : '(ninguna vía wmic)',
+  );
+}
+
+function serviceStatus() {
+  return detectedPrinterName ? 'ready' : 'no_printer';
+}
+
+function noPrinterErrorPayload() {
+  const available = listWindowsPrintersWmic();
+  cachedWmicPrinterNames = available;
+  return {
+    error: 'No Zebra printer found',
+    available_printers: available,
+  };
+}
+
+/** Impresora efectiva para un job: selección del cliente o autodetectada. */
+function effectivePrinterForJob(jobPrinterName) {
+  const fromJob = typeof jobPrinterName === 'string' ? jobPrinterName.trim() : '';
+  if (fromJob) return fromJob;
+  return detectedPrinterName;
+}
+
 function summarizeJob(job) {
   return {
     id: job.id,
@@ -67,10 +142,25 @@ function summarizeJob(job) {
 app.use(cors());
 app.use(express.json({ limit: '512kb' }));
 
+app.get('/status', (_req, res) => {
+  const st = serviceStatus();
+  const body = {
+    printer: detectedPrinterName,
+    status: st,
+    source: detectedPrinterSource,
+  };
+  if (st === 'no_printer') {
+    body.available_printers = listWindowsPrintersWmic();
+  }
+  res.json(body);
+});
+
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'local-zebra-print-service',
+    printer: detectedPrinterName,
+    status: serviceStatus(),
     queuePending: pendingQueue.length,
     processing,
   });
@@ -89,7 +179,6 @@ app.get('/printers', async (_req, res) => {
   return res.json(result);
 });
 
-/** Últimos N jobs sin cuerpo ZPL (solo peso por `zplBytes`). */
 app.get('/jobs', (_req, res) => {
   const list = jobs.slice(0, JOB_LIST_LIMIT).map(summarizeJob);
   res.json({
@@ -100,7 +189,6 @@ app.get('/jobs', (_req, res) => {
   });
 });
 
-/** Un job puntual por id — sin incluir el ZPL crudo en la respuesta. */
 app.get('/jobs/:jobId', (req, res) => {
   const id = String(req.params.jobId || '').trim();
   if (!id) {
@@ -116,8 +204,32 @@ app.get('/jobs/:jobId', (req, res) => {
   });
 });
 
+function normalizeAndAssertZplOrThrow(raw) {
+  const zpl = String(raw ?? '')
+    .replace(/^\uFEFF/, '')
+    .trim();
+  if (!zpl) {
+    throw new Error('Body inválido: `zpl` es obligatorio.');
+  }
+  const head = zpl.slice(0, 800);
+  if (/<!DOCTYPE\s+html/i.test(head) || /<\s*html[\s>/]/i.test(head)) {
+    throw new Error(
+      'El cuerpo parece HTML (p. ej. página del sistema o login), no ZPL. Revisá sesión/API o que el GET /api/labels/tarja/… devuelva texto ^XA…^XZ.',
+    );
+  }
+  if (/^\s*\{/.test(zpl) && /"message"\s*:/.test(head)) {
+    throw new Error('El cuerpo parece JSON de error, no ZPL. Revisá autenticación y el endpoint del backend.');
+  }
+  const start = zpl.replace(/^\s+/, '').slice(0, 4);
+  if (!start.toUpperCase().startsWith('^XA')) {
+    const prev = zpl.slice(0, 160).replace(/\r?\n/g, ' ');
+    throw new Error(`ZPL inválido: debe empezar con ^XA. Inicio recibido: ${prev}`);
+  }
+  return zpl;
+}
+
 function enqueuePrintJob(req, res) {
-  const zpl = typeof req.body?.zpl === 'string' ? req.body.zpl : '';
+  const zplRaw = typeof req.body?.zpl === 'string' ? req.body.zpl : '';
   const requestedFilename = typeof req.body?.filename === 'string' ? req.body.filename : '';
   const printerName = typeof req.body?.printerName === 'string' ? req.body.printerName.trim() : '';
   const jobName = typeof req.body?.jobName === 'string' ? req.body.jobName.trim() : '';
@@ -125,8 +237,17 @@ function enqueuePrintJob(req, res) {
   const copiesParsed = Number.parseInt(String(copiesRaw ?? '1'), 10);
   const copies = Number.isFinite(copiesParsed) ? Math.min(Math.max(copiesParsed, 1), 99) : 1;
 
-  if (!zpl.trim()) {
-    return res.status(400).json({ ok: false, message: 'Body inválido: `zpl` es obligatorio.' });
+  const targetPrinter = effectivePrinterForJob(printerName);
+  if (!targetPrinter) {
+    return res.status(503).json(noPrinterErrorPayload());
+  }
+
+  let zpl;
+  try {
+    zpl = normalizeAndAssertZplOrThrow(zplRaw);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return res.status(400).json({ ok: false, message });
   }
 
   const baseFilename = sanitizeFilename(requestedFilename || `tarja-${Date.now()}.zpl`);
@@ -134,8 +255,8 @@ function enqueuePrintJob(req, res) {
   const createdAt = Date.now();
   const job = {
     id,
-    zpl: zpl.trim(),
-    printerName,
+    zpl,
+    printerName: targetPrinter,
     copies,
     filename: baseFilename,
     jobName: jobName || baseFilename,
@@ -157,7 +278,7 @@ function enqueuePrintJob(req, res) {
   const queuePositionAfterEnqueue = pendingQueue.length;
 
   console.log(
-    `[queue] enqueue job=${id} file=${baseFilename} copies=${copies} pending=${queuePositionAfterEnqueue} processing=${processing}`,
+    `[queue] enqueue job=${id} file=${baseFilename} printer=${targetPrinter} copies=${copies} pending=${queuePositionAfterEnqueue}`,
   );
 
   void drainQueue();
@@ -169,17 +290,11 @@ function enqueuePrintJob(req, res) {
     status: 'pending',
     pendingInQueue: queuePositionAfterEnqueue,
     timestamp: tsIso(createdAt),
+    printer: targetPrinter,
   });
 }
 
 app.post('/print', enqueuePrintJob);
-
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`[zebra-print-service] http://127.0.0.1:${PORT}`);
-  console.log(
-    '[zebra-print-service] POST /print · GET /jobs · GET /jobs/:id · GET /printers · GET /health',
-  );
-});
 
 async function drainQueue() {
   if (processing) return;
@@ -187,10 +302,19 @@ async function drainQueue() {
   try {
     while (pendingQueue.length > 0) {
       const job = pendingQueue.shift();
+      const printerForJob = effectivePrinterForJob(job.printerName);
+      if (!printerForJob) {
+        job.status = 'error';
+        job.errorMessage = 'No Zebra printer found';
+        job.finishedAt = Date.now();
+        console.error(`[queue] print-skip job=${job.id} sin impresora`);
+        continue;
+      }
+
       job.status = 'printing';
       job.startedAt = Date.now();
       console.log(
-        `[queue] print-start job=${job.id} pendingLeft=${pendingQueue.length} copies=${job.copies} file=${job.filename}`,
+        `[queue] print-start job=${job.id} printer=${printerForJob} pendingLeft=${pendingQueue.length}`,
       );
 
       try {
@@ -200,7 +324,7 @@ async function drainQueue() {
         await fs.writeFile(tempPath, zplToPrint, 'utf8');
         const result = await runPrintScript({
           filePath: tempPath,
-          printerName: job.printerName || undefined,
+          printerName: printerForJob,
           jobName: job.jobName,
         });
 
@@ -215,11 +339,11 @@ async function drainQueue() {
         }
 
         job.status = 'done';
-        job.printer = result.printer || null;
+        job.printer = result.printer || printerForJob;
         job.printed_bytes = result.printed_bytes ?? null;
         job.finishedAt = Date.now();
         console.log(
-          `[queue] print-done job=${job.id} printer=${job.printer || '(default)'} ms=${job.finishedAt - job.startedAt}`,
+          `[queue] print-done job=${job.id} printer=${job.printer} ms=${job.finishedAt - job.startedAt}`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -227,7 +351,6 @@ async function drainQueue() {
         job.errorMessage = msg;
         job.finishedAt = Date.now();
         console.error(`[queue] print-error job=${job.id}`, msg);
-        /* siguiente job en FIFO — no re-lanzamos */
       }
     }
   } finally {
@@ -244,7 +367,6 @@ function sanitizeFilename(name) {
   return name.replace(/[<>:"/\\|?*\u0000-\u001F]+/g, '_').slice(0, 120);
 }
 
-/** Ajusta ^PQ para N copias (1..99). */
 function applyZplCopies(zpl, copies) {
   const n = Math.min(Math.max(Number(copies) || 1, 1), 99);
   if (n === 1) return zpl;
@@ -266,10 +388,9 @@ function runPrintScript({ filePath, printerName, jobName }) {
       filePath,
       '-JobName',
       jobName,
+      '-PrinterName',
+      printerName,
     ];
-    if (printerName) {
-      args.push('-PrinterName', printerName);
-    }
 
     const proc = spawn('powershell.exe', args, { windowsHide: true });
     let stdout = '';
@@ -292,6 +413,7 @@ function runPrintScript({ filePath, printerName, jobName }) {
         resolve({
           ok: true,
           message: 'Impresión enviada.',
+          printer: printerName,
         });
         return;
       }
@@ -350,3 +472,16 @@ function safeParseJson(input) {
     return null;
   }
 }
+
+function startServer() {
+  resolvePrinterAtStartup();
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`[zebra-print-service] http://127.0.0.1:${PORT}`);
+    console.log(
+      '[zebra-print-service] GET /status · POST /print · GET /jobs · GET /printers · GET /health',
+    );
+    console.log(`[zebra-print-service] Estado: ${serviceStatus()} · impresora: ${detectedPrinterName ?? '—'}`);
+  });
+}
+
+startServer();

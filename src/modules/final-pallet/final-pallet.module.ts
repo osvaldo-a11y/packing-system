@@ -11,7 +11,7 @@ import {
   PtTagMergeSource,
 } from '../process/process.entities';
 import { Brand, Client } from '../traceability/operational.entities';
-import { PresentationFormat, QualityGrade, Species, Variety } from '../traceability/traceability.entities';
+import { PresentationFormat, Producer, QualityGrade, Species, Variety } from '../traceability/traceability.entities';
 import { FinishedPtStock } from '../traceability/operational.entities';
 import { FinalPalletController } from './final-pallet.controller';
 import { FinalPallet, FinalPalletLine } from './final-pallet.entities';
@@ -40,6 +40,7 @@ import { FinalPalletService } from './final-pallet.service';
       Brand,
       PackagingMaterial,
       PresentationFormat,
+      Producer,
       Variety,
       Species,
       QualityGrade,

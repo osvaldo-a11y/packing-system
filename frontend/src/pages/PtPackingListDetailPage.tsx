@@ -67,6 +67,7 @@ export function PtPackingListDetailPage() {
   /** Precio por caja por presentation_format_id (string en estado para inputs). */
   const [unitPriceByFormatId, setUnitPriceByFormatId] = useState<Record<string, string>>({});
   const [bolDraft, setBolDraft] = useState('');
+  const [clientDraft, setClientDraft] = useState(0);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['pt-packing-list', id],
@@ -82,6 +83,32 @@ export function PtPackingListDetailPage() {
   useEffect(() => {
     if (data) setBolDraft(data.numero_bol ?? '');
   }, [data?.id, data?.numero_bol]);
+
+  useEffect(() => {
+    if (data?.client_id != null && data.client_id > 0) setClientDraft(data.client_id);
+  }, [data?.id, data?.client_id]);
+
+  const { data: clients } = useQuery({
+    queryKey: ['masters', 'clients'],
+    queryFn: () => apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>('/api/masters/clients'),
+  });
+
+  const saveClientMut = useMutation({
+    mutationFn: () =>
+      apiJson<PtPlDetail>(`/api/pt-packing-lists/${id}/client`, {
+        method: 'PATCH',
+        body: JSON.stringify({ client_id: clientDraft }),
+      }),
+    onSuccess: () => {
+      toast.success('Cliente actualizado en el packing list y sus pallets.');
+      qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
+      qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
+      qc.invalidateQueries({ queryKey: ['existencias-pt'] });
+      qc.invalidateQueries({ queryKey: ['dispatches'] });
+      qc.invalidateQueries({ queryKey: ['dispatches', 'linkable-pt-packing-lists'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const saveBolMut = useMutation({
     mutationFn: () =>
@@ -476,6 +503,67 @@ export function PtPackingListDetailPage() {
               ) : null}
             </Card>
           ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Cliente comercial</CardTitle>
+              <CardDescription>
+                {data.status === 'anulado'
+                  ? 'Packing list anulado; no se edita el cliente.'
+                  : data.linked_dispatch_id != null
+                    ? 'Al guardar se actualiza el PL, todos los pallets del listado y el cliente del despacho vinculado (si no está despachado).'
+                    : 'Reasigná el comprador cuando la fruta se redestina (p. ej. rechazo por calidad y venta a otro cliente).'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {data.status !== 'anulado' ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="grid min-w-[220px] flex-1 gap-1">
+                    <Label htmlFor="pl-client">Cliente</Label>
+                    <select
+                      id="pl-client"
+                      className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      value={clientDraft > 0 ? String(clientDraft) : ''}
+                      onChange={(e) => setClientDraft(Number(e.target.value) || 0)}
+                    >
+                      <option value="">— Elegir —</option>
+                      {(clients ?? [])
+                        .filter((c) => c.activo)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                            {c.codigo ? ` (${c.codigo})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={
+                      saveClientMut.isPending ||
+                      clientDraft <= 0 ||
+                      clientDraft === (data.client_id ?? 0)
+                    }
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          '¿Cambiar el cliente de este packing list y de todos sus pallets? El stock PT se recalcula por cliente.',
+                        )
+                      ) {
+                        return;
+                      }
+                      saveClientMut.mutate();
+                    }}
+                  >
+                    {saveClientMut.isPending ? '…' : 'Guardar cliente'}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{data.client_nombre ?? '—'}</p>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

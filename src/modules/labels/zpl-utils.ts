@@ -67,7 +67,7 @@ export function buildTarjaLabelData(
     tipo: escapeZplFd(labelResultado(tag.resultado), 32),
     barcodeData,
     clamshellLabel: options?.clamshellLabel ? escapeZplFd(options.clamshellLabel, 48) : undefined,
-    qrPayload: options?.qrPayload ? escapeZplFd(options.qrPayload, 120) : undefined,
+    qrPayload: options?.qrPayload ? escapeZplFd(options.qrPayload, 220) : undefined,
     bol: bol || undefined,
   };
 }

@@ -60,6 +60,11 @@ export class UpdateProcessWeightsDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) merma_lb?: number;
   /** Solo si no hay reparto MP por líneas (Σ allocations ≈ 0); si hay reparto, el servidor fija entrada desde allocations. */
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) lb_entrada?: number;
+  /**
+   * Reasignar lb por línea de recepción (corrige entrada). Tope por línea = saldo MP + lo ya asignado a este proceso.
+   */
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ProcessLineAllocationDto)
+  allocations?: ProcessLineAllocationDto[];
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => UpdateProcessWeightComponentDto)
   components?: UpdateProcessWeightComponentDto[];
   @IsOptional() @IsString() @MaxLength(2000) nota?: string;
@@ -85,6 +90,9 @@ export class CreatePtTagDto {
   @IsOptional() @Type(() => Number) @IsInt() client_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() brand_id?: number;
   @IsOptional() @IsString() @MaxLength(80) bol?: string;
+  /** Alta en un paso: vincula el proceso y las cajas (evita POST /items y doble refresco de stock). */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) process_id?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) cajas_generadas?: number;
 }
 
 export class AddPtTagItemDto {

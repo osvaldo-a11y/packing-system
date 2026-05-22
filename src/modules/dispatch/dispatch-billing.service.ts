@@ -326,7 +326,28 @@ export class DispatchBillingService {
       relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
     });
     const clienteNombreById = await this.clientNombresByIds(rows.map((r) => Number(r.cliente_id)));
-    return rows.map((o) => this.mapSalesOrderToRow(o, clienteNombreById));
+    const mapped = rows.map((o) => this.mapSalesOrderToRow(o, clienteNombreById));
+    const summaries = await this.salesOrderProgress.getOperationalSummaries(
+      rows.map((o) => ({
+        id: Number(o.id),
+        order_number: o.order_number,
+        requested_boxes: Number(o.requested_boxes) || 0,
+      })),
+    );
+    return mapped.map((row) => {
+      const s = summaries.get(row.id);
+      if (!s) return row;
+      return {
+        ...row,
+        dispatched_boxes: s.dispatched_boxes,
+        pending_boxes: s.pending_boxes,
+        dispatch_by_orden: s.dispatch_by_orden,
+        dispatch_by_bol: s.dispatch_by_bol,
+        operatively_complete: s.operatively_complete,
+        fulfillment_operativo: s.fulfillment,
+        dispatch_match: s.dispatch_match,
+      };
+    });
   }
 
   /**
@@ -639,6 +660,13 @@ export class DispatchBillingService {
       }
       if (order.order_number !== next) {
         order.order_number = next;
+        await this.soRepo.save(order);
+      }
+    }
+    if (dto.estado_comercial !== undefined) {
+      const nextEstado = dto.estado_comercial.trim() ? dto.estado_comercial.trim().slice(0, 24) : null;
+      if ((order.estado_comercial ?? null) !== nextEstado) {
+        order.estado_comercial = nextEstado;
         await this.soRepo.save(order);
       }
     }

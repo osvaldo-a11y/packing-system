@@ -1507,14 +1507,17 @@ export class ReportingService {
 
     const salesSql = `
       SELECT d.id AS dispatch_id,
+             TRIM(d.numero_bol) AS numero_bol,
+             d.fecha_despacho::text AS fecha_despacho,
+             COALESCE(MAX(i.invoice_number), '') AS invoice_number,
              COALESCE(SUM(ii.line_subtotal),0) AS total_ventas,
              COALESCE(SUM(ii.pallet_cost_total),0) AS total_costos
       FROM dispatches d
       LEFT JOIN invoices i ON i.dispatch_id = d.id
       LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
       WHERE 1=1 ${this.withDate('d.fecha_despacho', filter)}
-      GROUP BY d.id
-      ORDER BY d.id
+      GROUP BY d.id, d.numero_bol, d.fecha_despacho
+      ORDER BY d.fecha_despacho, d.id
     `;
     const salesCountSql = `
       SELECT COUNT(*) AS c FROM (

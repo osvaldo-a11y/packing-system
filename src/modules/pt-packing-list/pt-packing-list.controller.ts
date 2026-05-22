@@ -5,7 +5,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CreatePtPackingListDto, ReversePtPackingListDto, UpdatePtPackingListBolDto } from './pt-packing-list.dto';
+import {
+  CreatePtPackingListDto,
+  ReversePtPackingListDto,
+  UpdatePtPackingListBolDto,
+  UpdatePtPackingListClientDto,
+} from './pt-packing-list.dto';
 import { PtPackingListService } from './pt-packing-list.service';
 
 @ApiTags('packing list PT (logístico)')
@@ -31,6 +36,12 @@ export class PtPackingListController {
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   patchNumeroBol(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtPackingListBolDto) {
     return this.service.updateNumeroBol(id, dto);
+  }
+
+  @Patch(':id/client')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  patchClient(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtPackingListClientDto) {
+    return this.service.updateClient(id, dto);
   }
 
   @Get(':id')

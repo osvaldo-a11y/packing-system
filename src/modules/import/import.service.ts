@@ -1496,6 +1496,16 @@ export class ImportService {
             lb_allocated: perLine.toFixed(3),
           }),
         );
+        await em.save(
+          em.create(RawMaterialMovement, {
+            reception_line_id: ln.id,
+            fruit_process_id: saved.id,
+            quantity_delta_lb: (-perLine).toFixed(3),
+            movement_kind: 'process_out',
+            ref_type: 'fruit_process',
+            ref_id: saved.id,
+          }),
+        );
       }
       return saved;
     });

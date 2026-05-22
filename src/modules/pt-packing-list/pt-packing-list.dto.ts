@@ -30,3 +30,11 @@ export class UpdatePtPackingListBolDto {
   @MaxLength(50)
   numero_bol: string;
 }
+
+/** Reasignar cliente comercial del PL y de sus pallets (p. ej. fruta redestinada a otro comprador). */
+export class UpdatePtPackingListClientDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  client_id: number;
+}

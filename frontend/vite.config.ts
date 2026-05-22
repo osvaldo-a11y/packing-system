@@ -3,14 +3,33 @@ import type { ServerResponse } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '..');
 const pkg = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf-8')) as { version: string };
 
-export default defineConfig({
+/** Misma variable que el servicio local (`ZEBRA_PRINTER_NAME`); en Vite también `VITE_ZEBRA_PRINTER_NAME`. */
+function resolveZebraPrinterEnv(mode: string): string {
+  const fromFront = loadEnv(mode, __dirname, '');
+  const fromRoot = loadEnv(mode, repoRoot, '');
+  return (
+    fromFront.VITE_ZEBRA_PRINTER_NAME?.trim() ||
+    fromFront.ZEBRA_PRINTER_NAME?.trim() ||
+    fromRoot.VITE_ZEBRA_PRINTER_NAME?.trim() ||
+    fromRoot.ZEBRA_PRINTER_NAME?.trim() ||
+    ''
+  );
+}
+
+export default defineConfig(({ mode }) => {
+  const zebraPrinterName = resolveZebraPrinterEnv(mode);
+  return {
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    ...(zebraPrinterName
+      ? { 'import.meta.env.VITE_ZEBRA_PRINTER_NAME': JSON.stringify(zebraPrinterName) }
+      : {}),
   },
   plugins: [react()],
   resolve: {
@@ -56,4 +75,5 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
+};
 });

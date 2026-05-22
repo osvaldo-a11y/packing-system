@@ -1,17 +1,20 @@
-import { zodResolver } from '@hookform/resolvers/zod';
+﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FileDown,
   Info,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Printer,
+  CircleCheck,
+  RefreshCw,
   Trash2,
   Waypoints,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -39,6 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { dispatchCountsAsShippedOnDay, toLocalDayKey } from '@/lib/dispatch-shipped-day';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   downloadZplFile,
@@ -47,6 +51,9 @@ import {
   getConfiguredZebraPrinterName,
   getLastPrintServiceProbeSummary,
   getLocalPrinters,
+  printServiceSourceLabel,
+  type LocalPrintersProbeResult,
+  type LocalPrintServiceStatusPayload,
   loadLastPrintPayload,
   printTarjaZplOrDownload,
   resolvePrinterForLocalJob,
@@ -110,17 +117,28 @@ function labelProcesoEstadoParaSelector(p: FruitProcessRow) {
 const FORMAT_CODE_RE = /^(\d+)x(\d+(?:\.\d+)?)oz$/i;
 const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
 
+function normalizeFormatKeyPt(formatCode: string): string {
+  return formatCode.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+/** Cajas por pallet físico (maestro o reglas 12x18oz / 12x6oz / resto). */
+function boxesPerPalletForFormatCodePt(
+  formatCode: string,
+  presFormats: { format_code: string; max_boxes_per_pallet?: number | null }[] | undefined,
+): number {
+  const fc = normalizeFormatKeyPt(formatCode);
+  const fmt = (presFormats ?? []).find((f) => normalizeFormatKeyPt(f.format_code) === fc);
+  const fromMaster = fmt?.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : NaN;
+  if (Number.isFinite(fromMaster) && fromMaster >= 1) return fromMaster;
+  if (fc === '12x18oz') return 100;
+  if (fc === '12x6oz') return 240;
+  return 144;
+}
+
 function toDatetimeLocalValue(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toLocalDayKey(isoOrDate: string | Date): string {
-  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 const createTagSchema = z.object({
@@ -196,7 +214,7 @@ export type PtTagApi = {
   items: PtTagItemApi[];
 };
 
-/** Misma regla que Σ packout en proceso: no duplicar cajas de la tarja solo-etiqueta de repallet. */
+/** Misma regla que Î£ packout en proceso: no duplicar cajas de la tarja solo-etiqueta de repallet. */
 export function countsTowardPtProductionTotals(t: PtTagApi): boolean {
   return !t.excluida_suma_packout;
 }
@@ -492,14 +510,18 @@ export function PtTagsPage() {
   const [printCopies, setPrintCopies] = useState(1);
   const [printPrinterName, setPrintPrinterName] = useState('');
   const [localPrinters, setLocalPrinters] = useState<LocalPrinterInfo[]>([]);
-  const [localServiceState, setLocalServiceState] = useState<'idle' | 'ok' | 'unavailable' | 'error'>('idle');
+  const [localServiceState, setLocalServiceState] = useState<
+    'idle' | 'ok' | 'no_printer' | 'unavailable' | 'error'
+  >('idle');
   const [localServiceMessage, setLocalServiceMessage] = useState('');
+  const [localPrintService, setLocalPrintService] = useState<LocalPrintServiceStatusPayload | null>(null);
   const [printingTag, setPrintingTag] = useState(false);
   const [printRememberPrinter, setPrintRememberPrinter] = useState(true);
   const [printRememberTemplate, setPrintRememberTemplate] = useState(true);
   /** Por defecto el combo solo lista Zebras; al activar muestra Fax/PDF/etc. */
   const [showAllPrinters, setShowAllPrinters] = useState(false);
   const [localDefaultPrinter, setLocalDefaultPrinter] = useState<string | undefined>(undefined);
+  const [probingPrintService, setProbingPrintService] = useState(false);
   const [detailTag, setDetailTag] = useState<PtTagApi | null>(null);
   const [deleteConfirmTag, setDeleteConfirmTag] = useState<PtTagApi | null>(null);
   const prevTagOpenRef = useRef(false);
@@ -527,6 +549,7 @@ export function PtTagsPage() {
   const { data: processes } = useQuery({
     queryKey: ['processes'],
     queryFn: fetchProcesses,
+    staleTime: 45_000,
   });
 
   const { data: dispatchesList } = useQuery({
@@ -814,9 +837,7 @@ export function PtTagsPage() {
     }
     let shippedToday = 0;
     for (const d of dispatchesList ?? []) {
-      const ts = d.despachado_at || d.fecha_despacho;
-      if (toLocalDayKey(ts) !== opsDayKey) continue;
-      if (d.status && d.status !== 'despachado') continue;
+      if (!dispatchCountsAsShippedOnDay(d, opsDayKey)) continue;
       shippedToday += totalCajasFromFormatMap(shippedCajasByFormat(d, formatByTarjaId));
     }
     const coolerBoxes = Math.max(0, packedToday - shippedToday);
@@ -873,9 +894,7 @@ export function PtTagsPage() {
     }
 
     for (const d of dispatchesList ?? []) {
-      const ts = d.despachado_at || d.fecha_despacho;
-      if (toLocalDayKey(ts) !== opsDayKey) continue;
-      if (d.status && d.status !== 'despachado') continue;
+      if (!dispatchCountsAsShippedOnDay(d, opsDayKey)) continue;
       const nombre = (d.client_nombre ?? d.cliente_nombre ?? '').trim();
       const cid = d.client_id != null ? Number(d.client_id) : 0;
       const key = keyForClient(cid > 0 ? cid : null, nombre || null);
@@ -1058,7 +1077,7 @@ export function PtTagsPage() {
     if (Number.isFinite(nw) && nw > 0) return nw;
     return null;
   }, [presFormats, watchedTagFormatCode]);
-  /** Tope de cajas para esta unidad: usa lb restante para PT (entrada − ya cargado en otras tarjas), no la entrada bruta. */
+  /** Tope de cajas para esta unidad: usa lb restante para PT (entrada âˆ’ ya cargado en otras tarjas), no la entrada bruta. */
   const maxCajasDesdeProcesoCreate = useMemo(() => {
     if (!selectedProcForCreate || netLbPerBoxCreate == null || netLbPerBoxCreate <= 0) return null;
     const entrada = Number(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb);
@@ -1082,6 +1101,17 @@ export function PtTagsPage() {
 
     return Math.max(0, Math.floor(lbRest / netLbPerBoxCreate + 1e-9));
   }, [selectedProcForCreate, netLbPerBoxCreate, editTag, presFormats]);
+
+  const cajasPorPalletFormato = useMemo(
+    () => boxesPerPalletForFormatCodePt(watchedTagFormatCode ?? '', presFormats),
+    [watchedTagFormatCode, presFormats],
+  );
+
+  /** Valor inicial del campo: 1 pallet del formato; si queda menos lb, el remanente. */
+  const cajasInicialesSugeridas = useMemo(() => {
+    if (maxCajasDesdeProcesoCreate == null || maxCajasDesdeProcesoCreate < 1) return 1;
+    return Math.min(maxCajasDesdeProcesoCreate, Math.max(1, cajasPorPalletFormato));
+  }, [maxCajasDesdeProcesoCreate, cajasPorPalletFormato]);
 
   const watchedCajasGeneradas = tagForm.watch('cajas_generadas');
   /** Feedback visual: cajas indicadas vs tope sugerido (solo lectura). */
@@ -1155,18 +1185,14 @@ export function PtTagsPage() {
     const key = `${createProcessId}|${fc}`;
     if (cajasSeedKeyRef.current === key) return;
     cajasSeedKeyRef.current = key;
-    tagForm.setValue('cajas_generadas', maxCajasDesdeProcesoCreate, { shouldValidate: true });
-  }, [tagOpen, editTag, createProcessId, watchedTagFormatCode, maxCajasDesdeProcesoCreate, tagForm]);
+    tagForm.setValue('cajas_generadas', cajasInicialesSugeridas, { shouldValidate: true });
+  }, [tagOpen, editTag, createProcessId, watchedTagFormatCode, cajasInicialesSugeridas, tagForm]);
 
-  /** Cajas por pallet físico: solo desde mantenedor (formato); el POST/PUT sigue enviando el valor numérico. */
+  /** Cajas por pallet físico: maestro o reglas por código de formato. */
   useEffect(() => {
     if (!tagOpen) return;
-    const fc = watchedTagFormatCode?.trim().toLowerCase() ?? '';
-    const fmt = (presFormats ?? []).find((f) => f.format_code.trim().toLowerCase() === fc);
-    const max = fmt?.max_boxes_per_pallet != null ? Number(fmt.max_boxes_per_pallet) : NaN;
-    const v = Number.isFinite(max) && max >= 1 ? max : 1;
-    tagForm.setValue('cajas_por_pallet', v, { shouldValidate: true });
-  }, [tagOpen, watchedTagFormatCode, presFormats, tagForm]);
+    tagForm.setValue('cajas_por_pallet', cajasPorPalletFormato, { shouldValidate: true });
+  }, [tagOpen, watchedTagFormatCode, cajasPorPalletFormato, tagForm]);
 
   const createTagMut = useMutation({
     mutationFn: async (body: CreateTagForm) => {
@@ -1180,12 +1206,13 @@ export function PtTagsPage() {
         resultado: body.resultado,
         format_code: body.format_code,
         cajas_por_pallet: body.cajas_por_pallet,
+        process_id: body.process_id,
+        cajas_generadas: cajas,
         ...(body.client_id != null && body.client_id > 0 ? { client_id: body.client_id } : {}),
         ...(body.brand_id != null && body.brand_id > 0 ? { brand_id: body.brand_id } : {}),
         ...(body.bol?.trim() ? { bol: body.bol.trim() } : {}),
       };
-      const itemPayload = { process_id: body.process_id, cajas_generadas: cajas };
-      let created = 0;
+      const createdTags: PtTagApi[] = [];
       try {
         for (let i = 0; i < bulk; i++) {
           setBulkCreateProgress({ cur: i + 1, total: bulk });
@@ -1194,16 +1221,12 @@ export function PtTagsPage() {
               method: 'POST',
               body: JSON.stringify(basePayload),
             });
-            await apiJson(`/api/pt-tags/${tag.id}/items`, {
-              method: 'POST',
-              body: JSON.stringify(itemPayload),
-            });
-            created += 1;
+            createdTags.push(tag);
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Error desconocido';
             throw new Error(
-              created > 0
-                ? `Se crearon ${created} de ${bulk} unidades. Falló la ${created + 1}.ª: ${msg}`
+              createdTags.length > 0
+                ? `Se crearon ${createdTags.length} de ${bulk} unidades. Falló la ${createdTags.length + 1}.ª: ${msg}`
                 : msg,
             );
           }
@@ -1211,17 +1234,29 @@ export function PtTagsPage() {
       } finally {
         setBulkCreateProgress(null);
       }
-      return { bulk, created };
+      return { bulk, created: createdTags.length, createdTags };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
-      queryClient.invalidateQueries({ queryKey: ['processes'] });
+      setTagOpen(false);
       if (data.created > 1) {
         toast.success(`${data.created} unidades PT creadas y vinculadas al proceso`);
       } else {
         toast.success('Unidad PT creada y vinculada al proceso');
       }
-      setTagOpen(false);
+      if (data.createdTags.length > 0) {
+        startTransition(() => {
+          queryClient.setQueryData<PtTagApi[]>(['pt-tags'], (old) => {
+            const prev = old ?? [];
+            const seen = new Set(prev.map((t) => t.id));
+            const prepend = data.createdTags.filter((t) => !seen.has(t.id));
+            return prepend.length > 0 ? [...prepend, ...prev] : prev;
+          });
+        });
+      }
+      void queryClient.invalidateQueries({ queryKey: ['processes'] });
+      if (data.createdTags.length === 0) {
+        void queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
+      }
     },
     onError: (e: Error) => {
       toast.error(e.message);
@@ -1364,6 +1399,61 @@ export function PtTagsPage() {
     }
   }
 
+  function applyLocalPrintersProbe(resp: LocalPrintersProbeResult, persistedPrinter?: string) {
+    if (resp.status === 'ok' || resp.status === 'no_printer') {
+      setLocalPrintService(resp.printService);
+      setLocalPrinters(resp.printers);
+      setLocalDefaultPrinter(resp.defaultPrinter);
+      if (resp.status === 'no_printer') {
+        setLocalServiceState('no_printer');
+        setLocalServiceMessage(resp.message);
+        setPrintPrinterName('');
+        return;
+      }
+      setLocalServiceState('ok');
+      setLocalServiceMessage('');
+      const autoName = resp.printService.printer?.trim() ?? '';
+      const zebras = resp.printers.filter((p) => p.isZebra);
+      const pool = zebras.length > 0 ? zebras : resp.printers;
+      const pPersist = persistedPrinter?.trim();
+      const validPersisted =
+        pPersist && pool.some((p) => p.name === pPersist) ? pPersist : undefined;
+      if (autoName && (!validPersisted || validPersisted === autoName)) {
+        setPrintPrinterName(autoName);
+      } else {
+        setPrintPrinterName(
+          suggestPrinterNameForTarjaPrint({
+            printers: pool,
+            defaultPrinter: resp.defaultPrinter,
+            persistedPrinterName: validPersisted,
+            envPreferredPrinter: getConfiguredZebraPrinterName(),
+          }) || autoName,
+        );
+      }
+      return;
+    }
+    setLocalServiceState(resp.status);
+    setLocalPrintService(null);
+    setLocalServiceMessage(
+      resp.status === 'unavailable' || resp.status === 'error'
+        ? resp.message?.trim() || getLastPrintServiceProbeSummary()
+        : '',
+    );
+    setLocalPrinters([]);
+  }
+
+  async function refreshPrintServiceStatus() {
+    setProbingPrintService(true);
+    try {
+      const persisted =
+        printRememberPrinter && printPrinterName.trim() ? printPrinterName.trim() : undefined;
+      const resp = await getLocalPrinters();
+      applyLocalPrintersProbe(resp, persisted);
+    } finally {
+      setProbingPrintService(false);
+    }
+  }
+
   function openPrintDialog(tag: PtTagApi) {
     const last = loadLastPrintPayload();
     const rememberP = last?.rememberPrinter !== false;
@@ -1379,36 +1469,16 @@ export function PtTagsPage() {
     setPrintPrinterName(persistedPrinter?.trim() ? persistedPrinter.trim() : '');
     setLocalServiceState('idle');
     setLocalServiceMessage('');
+    setLocalPrintService(null);
     setLocalPrinters([]);
     void (async () => {
-      const resp = await getLocalPrinters();
-      if (resp.status === 'ok') {
-        setLocalServiceState('ok');
-        setLocalServiceMessage('');
-        setLocalPrinters(resp.printers);
-        setLocalDefaultPrinter(resp.defaultPrinter);
-        const zebras = resp.printers.filter((p) => p.isZebra);
-        const pool = zebras.length > 0 ? zebras : resp.printers;
-        const pPersist = persistedPrinter?.trim();
-        const validPersisted =
-          pPersist && pool.some((p) => p.name === pPersist) ? pPersist : undefined;
-        setPrintPrinterName(
-          suggestPrinterNameForTarjaPrint({
-            printers: pool,
-            defaultPrinter: resp.defaultPrinter,
-            persistedPrinterName: validPersisted,
-            envPreferredPrinter: getConfiguredZebraPrinterName(),
-          }),
-        );
-        return;
+      setProbingPrintService(true);
+      try {
+        const resp = await getLocalPrinters();
+        applyLocalPrintersProbe(resp, persistedPrinter?.trim() ? persistedPrinter.trim() : undefined);
+      } finally {
+        setProbingPrintService(false);
       }
-      setLocalServiceState(resp.status);
-      setLocalServiceMessage(
-        resp.status === 'unavailable' || resp.status === 'error'
-          ? resp.message?.trim() || getLastPrintServiceProbeSummary()
-          : '',
-      );
-      setLocalPrinters([]);
     })();
   }
 
@@ -1444,8 +1514,11 @@ export function PtTagsPage() {
     if (printTag == null) {
       setShowAllPrinters(false);
       setLocalDefaultPrinter(undefined);
+      setLocalPrintService(null);
     }
   }, [printTag]);
+
+  const canPrintToLocalService = localServiceState === 'ok';
 
   if (isPending) {
     return (
@@ -1775,6 +1848,13 @@ export function PtTagsPage() {
                           <p className="text-[11px] leading-tight text-muted-foreground">
                             Máx. sugerido:{' '}
                             <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span> cajas
+                            {!editTag && maxCajasDesdeProcesoCreate > cajasPorPalletFormato ? (
+                              <>
+                                {' '}
+                                · valor inicial:{' '}
+                                <span className="font-semibold text-foreground">{cajasPorPalletFormato}</span> (1 pallet)
+                              </>
+                            ) : null}
                           </p>
                         ) : null}
                         {editTag && editTag.items.length > 1 ? (
@@ -2615,7 +2695,9 @@ export function PtTagsPage() {
           <DialogHeader>
             <DialogTitle>Impresión de etiqueta PT</DialogTitle>
             <DialogDescription>
-              {printTag ? `${printTag.tag_code} · ${printTag.format_code}` : 'Seleccioná plantilla y destino de impresión.'}
+              {printTag
+                ? `${printTag.tag_code} — ${printTag.format_code}`
+                : 'Elegí plantilla e impresora.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
@@ -2646,17 +2728,101 @@ export function PtTagsPage() {
               </label>
             </div>
             <div className="grid gap-1.5">
-              <Label>Impresora</Label>
-              {localServiceState === 'ok' && zebraPrinterList.length === 1 ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-800">
-                  <span className="text-slate-600">Única Zebra detectada:</span>{' '}
-                  <strong className="font-medium">{zebraPrinterList[0].name}</strong>
-                  {zebraPrinterList[0].isDefault ? <span className="text-slate-500"> · predeterminada</span> : null}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label className="mb-0">Impresora</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 px-2 text-xs text-slate-600"
+                  disabled={probingPrintService}
+                  onClick={() => void refreshPrintServiceStatus()}
+                >
+                  {probingPrintService ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  )}
+                  Actualizar
+                </Button>
+              </div>
+              {localServiceState === 'idle' && probingPrintService ? (
+                <p className="text-xs text-slate-500">Buscando impresora…</p>
+              ) : null}
+              {localServiceState === 'ok' &&
+              zebraPrinterList.length > 1 &&
+              !showAllPrinters ? (
+                <div className="grid gap-2">
+                  <div className="flex gap-2.5 rounded-lg border border-emerald-200/90 bg-emerald-50 px-3 py-2.5">
+                    <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-emerald-950">Lista para imprimir</p>
+                      <p className="text-xs text-emerald-700">
+                        {zebraPrinterList.length} impresoras Zebra en este equipo
+                      </p>
+                    </div>
+                  </div>
+                  <select
+                    className={filterSelectClass}
+                    value={printPrinterName}
+                    onChange={(e) => setPrintPrinterName(e.target.value)}
+                  >
+                    {zebraPrinterList.map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.name}
+                        {p.isDefault ? ' (predeterminada)' : ''}
+                        {localPrintService?.printer === p.name ? ' — sugerida' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="w-fit text-left text-xs font-medium text-sky-700 underline decoration-sky-700/40 underline-offset-2 hover:text-sky-900"
+                    onClick={() => setShowAllPrinters(true)}
+                  >
+                    Mostrar todas las impresoras del equipo
+                  </button>
                 </div>
               ) : null}
-              {localServiceState === 'ok' && zebraPrinterList.length === 0 && !showAllPrinters ? (
+              {localServiceState === 'ok' &&
+              zebraPrinterList.length === 1 &&
+              !showAllPrinters ? (
+                <div className="flex gap-2.5 rounded-lg border border-emerald-200/90 bg-emerald-50 px-3 py-2.5">
+                  <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-emerald-950">Lista para imprimir</p>
+                    <p className="truncate text-sm text-emerald-900" title={zebraPrinterList[0].name}>
+                      {zebraPrinterList[0].name}
+                    </p>
+                    {printServiceSourceLabel(localPrintService?.source) ? (
+                      <p className="mt-0.5 text-xs text-emerald-700">
+                        {printServiceSourceLabel(localPrintService?.source)}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {localServiceState === 'no_printer' ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm leading-snug text-rose-950">
+                  <p className="font-medium">Sin impresora Zebra</p>
+                  <p className="mt-1 text-xs text-rose-800">{localServiceMessage}</p>
+                  {localPrintService?.available_printers && localPrintService.available_printers.length > 0 ? (
+                    <ul className="mt-2 max-h-28 list-inside list-disc overflow-y-auto space-y-0.5 text-xs text-rose-900/90">
+                      {localPrintService.available_printers.map((name) => (
+                        <li key={name} className="truncate" title={name}>
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+              {localServiceState === 'ok' &&
+              zebraPrinterList.length === 0 &&
+              !localPrintService?.printer &&
+              !showAllPrinters ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-800">
-                  No se detectó ninguna impresora Zebra en este equipo.{' '}
+                  No hay impresora Zebra en este equipo.{' '}
                   <button
                     type="button"
                     className="font-medium text-sky-700 underline decoration-sky-700/50 underline-offset-2 hover:text-sky-800"
@@ -2666,9 +2832,7 @@ export function PtTagsPage() {
                   </button>
                 </div>
               ) : null}
-              {localServiceState === 'ok' &&
-              zebraPrinterList.length !== 1 &&
-              (zebraPrinterList.length >= 2 || showAllPrinters) ? (
+              {localServiceState === 'ok' && showAllPrinters ? (
                 <>
                   <select
                     className={filterSelectClass}
@@ -2679,12 +2843,12 @@ export function PtTagsPage() {
                     <option value="">
                       {showAllPrinters
                         ? 'Predeterminada del equipo'
-                        : 'Elegida automáticamente (recomendada)'}
+                        : 'Selección automática'}
                     </option>
                     {(showAllPrinters ? localPrinters : zebraPrinterList).map((p) => (
                       <option key={p.name} value={p.name}>
                         {p.name}
-                        {p.isDefault ? ' · predeterminada' : ''}
+                        {p.isDefault ? ' (predeterminada)' : ''}
                       </option>
                     ))}
                   </select>
@@ -2711,25 +2875,22 @@ export function PtTagsPage() {
                   </button>
                 </>
               ) : null}
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={printRememberPrinter}
-                  onChange={(e) => setPrintRememberPrinter(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Recordar esta impresora en este equipo
-              </label>
-              {localServiceState !== 'ok' ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  <p>
-                    No se detectó el servicio local en este equipo. Podés usar «Descargar ZPL» o iniciar el servicio en el PC
-                    de planta y volver a abrir este diálogo.
-                  </p>
-                  <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">
-                    No usamos Zebra Browser Print (no hace falta descargarlo). «Imprimir» usa el servicio Node del repo:
-                    carpeta <span className="font-mono">local-zebra-print-service</span>, archivo{' '}
-                    <span className="font-mono">run-print-service.bat</span> en el mismo PC donde abrís el sistema.
+              {localServiceState === 'ok' ? (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={printRememberPrinter}
+                    onChange={(e) => setPrintRememberPrinter(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Recordar esta impresora en este equipo
+                </label>
+              ) : null}
+              {localServiceState === 'unavailable' || localServiceState === 'error' ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+                  <p className="font-medium">Servicio de impresión no disponible</p>
+                  <p className="mt-1 text-xs leading-snug text-amber-900">
+                    Iniciá el servicio de impresión en este PC o usá «Descargar ZPL» para imprimir manualmente.
                   </p>
                   {localServiceMessage ? (
                     <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">
@@ -2768,18 +2929,22 @@ export function PtTagsPage() {
             </Button>
             <Button
               type="button"
-              disabled={!printTag || printingTag}
+              disabled={!printTag || printingTag || !canPrintToLocalService}
+              title={!canPrintToLocalService ? 'Sin impresora Zebra detectada en el servicio local' : undefined}
               onClick={() => {
-                if (!printTag) return;
+                if (!printTag || !canPrintToLocalService) return;
                 setPrintingTag(true);
                 const zebraOnlyMode = !showAllPrinters && zebraPrinterList.length > 0;
-                const resolvedPrinter = resolvePrinterForLocalJob({
-                  selectedName: printPrinterName,
-                  allPrinters: localPrinters,
-                  zebraOnlyMode,
-                  defaultPrinter: localDefaultPrinter,
-                  envPreferredPrinter: getConfiguredZebraPrinterName(),
-                });
+                const resolvedPrinter =
+                  resolvePrinterForLocalJob({
+                    selectedName: printPrinterName,
+                    allPrinters: localPrinters,
+                    zebraOnlyMode,
+                    defaultPrinter: localDefaultPrinter,
+                    envPreferredPrinter: getConfiguredZebraPrinterName(),
+                  }) ||
+                  localPrintService?.printer?.trim() ||
+                  '';
                 saveLastPrintPayload({
                   tarjaId: printTag.id,
                   template: printTemplate,

@@ -84,6 +84,8 @@ export type ExistenciaPtRow = {
   format_code: string | null;
   client_id: number | null;
   client_nombre: string | null;
+  /** Productor(es) desde líneas → proceso (viene en listado; no depende del prefetch de trazabilidad). */
+  productor_label?: string | null;
   /** Marca / submarca (cabecera pallet), si existe. */
   brand_nombre?: string | null;
   boxes: number;
@@ -110,11 +112,36 @@ function fmtLb(v: number) {
   return formatLb(v, 2);
 }
 
+/** Normaliza código de formato para reglas de cajas/pallet (sin espacios, minúsculas). */
+function normalizeFormatKey(formatCode: string): string {
+  return formatCode.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+/** Cajas por pallet según formato (resumen de selección en existencias). */
+function boxesPerPalletForFormatCode(formatCode: string): number {
+  const fc = normalizeFormatKey(formatCode);
+  if (fc === '12x18oz') return 100;
+  if (fc === '12x6oz') return 240;
+  return 144;
+}
+
+/** Pallets equivalentes del total de cajas seleccionadas en ese formato. */
+function equivalentPalletsForFormatTotal(formatCode: string, totalBoxes: number): number {
+  const cap = boxesPerPalletForFormatCode(formatCode);
+  if (!Number.isFinite(totalBoxes) || totalBoxes <= 0 || cap <= 0) return 0;
+  return Math.ceil(totalBoxes / cap);
+}
+
 function BoxesHighlightCell({ r }: { r: ExistenciaPtRow }) {
-  const max = r.max_boxes_per_pallet != null ? Number(r.max_boxes_per_pallet) : null;
-  const hasCap = max != null && Number.isFinite(max) && max > 0;
-  const full = hasCap && r.boxes >= max!;
-  const partial = hasCap && r.boxes > 0 && r.boxes < max!;
+  const fromMaster =
+    r.max_boxes_per_pallet != null ? Number(r.max_boxes_per_pallet) : null;
+  const max =
+    fromMaster != null && Number.isFinite(fromMaster) && fromMaster > 0
+      ? fromMaster
+      : boxesPerPalletForFormatCode(r.format_code ?? '');
+  const hasCap = max > 0;
+  const full = hasCap && r.boxes >= max;
+  const partial = hasCap && r.boxes > 0 && r.boxes < max;
   return (
     <div className="flex flex-col items-end gap-0.5">
       <span
@@ -497,8 +524,10 @@ export function ExistenciasPtPage() {
     })),
   });
 
-  function producerLabelForPallet(palletId: number): string {
-    const idx = prefetchTraceIds.indexOf(palletId);
+  function producerLabelForPallet(row: ExistenciaPtRow): string {
+    const fromList = row.productor_label?.trim();
+    if (fromList) return fromList;
+    const idx = prefetchTraceIds.indexOf(row.id);
     if (idx < 0) return '—';
     const q = tracePrefetchQueries[idx];
     if (q.isPending) return '…';
@@ -652,16 +681,16 @@ export function ExistenciasPtPage() {
   const totalEnListado = filteredRows.length;
 
   const selectionByFormat = useMemo(() => {
-    const m = new Map<string, { boxes: number; pallets: number }>();
+    const m = new Map<string, number>();
     for (const r of filteredRows) {
       if (!selectedIds.has(r.id)) continue;
       const fmt = (r.format_code ?? '—').trim() || '—';
-      const cur = m.get(fmt) ?? { boxes: 0, pallets: 0 };
-      cur.boxes += Number.isFinite(r.boxes) ? r.boxes : 0;
-      cur.pallets += 1;
-      m.set(fmt, cur);
+      const rowBoxes = Number.isFinite(r.boxes) ? r.boxes : 0;
+      m.set(fmt, (m.get(fmt) ?? 0) + rowBoxes);
     }
-    return [...m.entries()].sort((a, b) => b[1].boxes - a[1].boxes);
+    return [...m.entries()]
+      .map(([fmt, boxes]) => [fmt, { boxes, pallets: equivalentPalletsForFormatTotal(fmt, boxes) }] as const)
+      .sort((a, b) => b[1].boxes - a[1].boxes);
   }, [filteredRows, selectedIds]);
 
   const groupedByFormat = useMemo(() => {
@@ -697,7 +726,6 @@ export function ExistenciasPtPage() {
       g.rows.push(r);
       g.totalBoxes += Number.isFinite(r.boxes) ? r.boxes : 0;
       g.totalLb += Number.isFinite(r.pounds) ? r.pounds : 0;
-      g.pallets += 1;
       if (String(r.status || '').toLowerCase() === 'definitivo') g.definitive += 1;
       else g.pending += 1;
       if (r.status === 'asignado_pl' || r.planned_sales_order_id != null || r.sales_order_number?.trim()) g.hasCommitted = true;
@@ -716,7 +744,12 @@ export function ExistenciasPtPage() {
         const sortedRows = g.rows
           .slice()
           .sort((a, b) => (a.client_nombre ?? '').localeCompare(b.client_nombre ?? '') || b.id - a.id);
-        return { ...g, rows: sortedRows, principalClient };
+        return {
+          ...g,
+          rows: sortedRows,
+          principalClient,
+          pallets: equivalentPalletsForFormatTotal(g.format, g.totalBoxes),
+        };
       })
       .sort((a, b) => b.totalBoxes - a.totalBoxes);
   }, [filteredRows]);
@@ -1010,7 +1043,7 @@ export function ExistenciasPtPage() {
             <button
               type="button"
               className={pageInfoButton}
-              title={`Primeras ${TRACE_PREFETCH} filas con prefetch de trazabilidad para la columna productor.`}
+              title="Pallets = total de cajas del formato ÷ tope (12x18oz 100, 12x6oz 240, resto 144). Unidades seleccionadas = filas marcadas."
               aria-label="Ayuda productor en tabla"
             >
               <Info className="h-3.5 w-3.5" />
@@ -1138,7 +1171,7 @@ export function ExistenciasPtPage() {
                     <TableBody>
                       {group.rows.map((r) => {
                         const tone = compactStateTone(r);
-                        const producerCell = producerLabelForPallet(r.id);
+                        const producerCell = producerLabelForPallet(r);
                         const vu = verUnidadesVisibility(r);
                         const codeDisplay =
                           r.codigo_unidad_pt_display?.trim() ||
@@ -1267,7 +1300,7 @@ export function ExistenciasPtPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredRows.map((r) => {
-                    const producerCell = producerLabelForPallet(r.id);
+                    const producerCell = producerLabelForPallet(r);
                     const vu = verUnidadesVisibility(r);
                     const codeDisplay =
                       r.codigo_unidad_pt_display?.trim() ||

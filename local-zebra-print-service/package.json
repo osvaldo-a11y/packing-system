@@ -6,10 +6,13 @@
   "main": "print-server.js",
   "scripts": {
     "start": "node print-server.js",
-    "dev": "node print-server.js"
+    "dev": "node print-server.js",
+    "install-service": "node install-service.js install",
+    "uninstall-service": "node install-service.js uninstall"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "node-windows": "^1.0.0-beta.8"
   }
 }

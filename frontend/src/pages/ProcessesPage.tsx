@@ -78,6 +78,10 @@ export type EligibleMpLine = {
   variety_nombre: string | null;
 };
 
+type EditableMpLine = EligibleMpLine & {
+  lb_allocated_current?: number;
+};
+
 type SpeciesProcessComponentRow = {
   id: number;
   codigo: string;
@@ -204,19 +208,6 @@ function processRowMatchesGlobalSearch(r: FruitProcessRow, s: string): boolean {
   return false;
 }
 
-function matchesProcessIdFilter(r: FruitProcessRow, raw: string): boolean {
-  const trimmed = raw.trim();
-  if (!trimmed) return true;
-  if (/^\d+$/.test(trimmed)) {
-    const n = Number(trimmed);
-    if (!Number.isFinite(n)) return false;
-    if (r.id === n || (r.csv_process_ref != null && r.csv_process_ref === n)) return true;
-    return String(r.id).includes(trimmed) || (r.csv_process_ref != null && String(r.csv_process_ref).includes(trimmed));
-  }
-  const t = trimmed.toLowerCase();
-  return String(r.id).toLowerCase().includes(t) || (r.csv_process_ref != null && String(r.csv_process_ref).toLowerCase().includes(t));
-}
-
 function palletDisponibleDeposito(r: ExistenciaSnapRow): boolean {
   return r.status === 'definitivo' && (r.dispatch_id == null || Number(r.dispatch_id) <= 0);
 }
@@ -249,6 +240,32 @@ function fmtLb2(v: string | number | null | undefined) {
   const n = typeof v === 'number' ? v : Number(v);
   if (!Number.isFinite(n)) return String(v);
   return formatLb(n, 2);
+}
+
+/** Valor para input de reparto MP (punto decimal, sin separador de miles). */
+function allocLbToDraftInput(lb: number): string {
+  if (!Number.isFinite(lb) || lb <= 0) return '';
+  const s = lb.toFixed(3);
+  return s.replace(/\.?0+$/, '') || '0';
+}
+
+function parseAllocDraftLb(raw: string): number | null {
+  const t = String(raw ?? '').trim().replace(/\s/g, '');
+  if (!t) return 0;
+  let x = t;
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) {
+    x = t.replace(/\./g, '');
+  } else if (t.includes(',')) {
+    const lastComma = t.lastIndexOf(',');
+    const lastDot = t.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      x = t.replace(/\./g, '').replace(',', '.');
+    } else {
+      x = t.replace(/,/g, '');
+    }
+  }
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
 }
 
 function formatProcessDateShort(iso: string) {
@@ -399,6 +416,8 @@ export function ProcessesPage() {
   const [createComponentsDraft, setCreateComponentsDraft] = useState<Record<number, number>>({});
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [weightsRow, setWeightsRow] = useState<FruitProcessRow | null>(null);
+  const [allocEditDrafts, setAllocEditDrafts] = useState<Record<number, string>>({});
+  const [entradaMpEditOpen, setEntradaMpEditOpen] = useState(false);
   const [weightComponentsDraft, setWeightComponentsDraft] = useState<Record<number, number>>({});
   const [adminStatusDraft, setAdminStatusDraft] = useState<ProcessStatusUi>('borrador');
 
@@ -432,6 +451,19 @@ export function ProcessesPage() {
     staleTime: 45_000,
   });
 
+  const { data: editableMpLines, isFetching: editableMpLoading } = useQuery({
+    queryKey: ['processes', weightsRow?.id, 'editable-mp-lines'],
+    queryFn: () => apiJson<EditableMpLine[]>(`/api/processes/${weightsRow!.id}/editable-mp-lines`),
+    enabled: weightsOpen && weightsRow != null && (weightsRow.allocations?.length ?? 0) > 0,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (entradaMpEditOpen && weightsRow?.id) {
+      void queryClient.invalidateQueries({ queryKey: ['processes', weightsRow.id, 'editable-mp-lines'] });
+    }
+  }, [entradaMpEditOpen, weightsRow?.id, queryClient]);
+
   const { data: commercialClients } = useQuery({
     queryKey: ['masters', 'clients'],
     queryFn: () => apiJson<{ id: number; codigo: string; nombre: string }[]>('/api/masters/clients'),
@@ -447,7 +479,6 @@ export function ProcessesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterProcessClient, setFilterProcessClient] = useState(0);
   const [filterProcessFormat, setFilterProcessFormat] = useState('');
-  const [filterProcessId, setFilterProcessId] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const producersForCreate = useMemo(() => {
@@ -607,10 +638,19 @@ export function ProcessesPage() {
   const mermaLbWatched = useWatch({ control: weightsForm.control, name: 'merma_lb' });
 
   const weightsMpAllocSumLb = useMemo(() => {
+    const draftKeys = Object.keys(allocEditDrafts);
+    if (draftKeys.length > 0) {
+      let s = 0;
+      for (const k of draftKeys) {
+        const n = parseAllocDraftLb(allocEditDrafts[Number(k)] ?? '');
+        if (n != null && n > 0) s += n;
+      }
+      return s;
+    }
     if (!weightsRow?.allocations?.length) return 0;
     return weightsRow.allocations.reduce((s, a) => s + Number(a.lb_allocated ?? 0), 0);
-  }, [weightsRow?.allocations]);
-  const entradaLockedByMp = weightsMpAllocSumLb > ALLOC_EPS;
+  }, [weightsRow?.allocations, allocEditDrafts]);
+  const entradaLockedByMp = (weightsRow?.allocations?.length ?? 0) > 0 || weightsMpAllocSumLb > ALLOC_EPS;
 
   const weightsModalCanEditMermaLb = useMemo(
     () => !!weightsRow && sumMermaComponentDraft(weightsRow, weightComponentsDraft) <= ALLOC_EPS,
@@ -726,12 +766,17 @@ export function ProcessesPage() {
         nota?: string;
         lb_entrada?: number;
         merma_lb?: number;
+        allocations?: Array<{ reception_line_id: number; lb_allocated: number }>;
         components: Array<{ component_id: number; lb_value: number }>;
       };
     }) => apiJson(`/api/processes/${id}/weights`, { method: 'PATCH', body: JSON.stringify(body) }),
     onSuccess: async (_data, variables) => {
       toast.success('Pesos actualizados');
-      await queryClient.invalidateQueries({ queryKey: ['processes'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['processes'] }),
+        queryClient.invalidateQueries({ queryKey: ['receptions'] }),
+        queryClient.invalidateQueries({ queryKey: ['processes', variables.id, 'editable-mp-lines'] }),
+      ]);
       const list = await queryClient.fetchQuery({
         queryKey: ['processes'],
         queryFn: fetchProcesses,
@@ -749,6 +794,12 @@ export function ProcessesPage() {
           lb_entrada: Number(row.lb_entrada ?? row.peso_procesado_lb) || 0,
           merma_lb: initialMermaLbFormValue(row),
         });
+        const nextAlloc: Record<number, string> = {};
+        for (const a of row.allocations ?? []) {
+          const lid = Number(a.reception_line_id);
+          if (lid > 0) nextAlloc[lid] = allocLbToDraftInput(Number(a.lb_allocated ?? 0));
+        }
+        setAllocEditDrafts(nextAlloc);
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -861,6 +912,13 @@ export function ProcessesPage() {
   const openWeights = useCallback(
     (row: FruitProcessRow) => {
       setWeightsRow(row);
+      const allocDraft: Record<number, string> = {};
+      for (const a of row.allocations ?? []) {
+        const lid = Number(a.reception_line_id);
+        if (lid > 0) allocDraft[lid] = allocLbToDraftInput(Number(a.lb_allocated ?? 0));
+      }
+      setAllocEditDrafts(allocDraft);
+      setEntradaMpEditOpen(false);
       weightsForm.reset({
         nota: row.nota ?? '',
         lb_entrada: Number(row.lb_entrada ?? row.peso_procesado_lb) || 0,
@@ -931,9 +989,6 @@ export function ProcessesPage() {
         return Number(tag?.client_id ?? 0) === filterProcessClient;
       });
     }
-    if (filterProcessId.trim()) {
-      rows = rows.filter((r) => matchesProcessIdFilter(r, filterProcessId));
-    }
     return rows;
   }, [
     data,
@@ -942,7 +997,6 @@ export function ProcessesPage() {
     filterStatus,
     filterProcessFormat,
     filterProcessClient,
-    filterProcessId,
     tagById,
   ]);
 
@@ -1704,6 +1758,8 @@ export function ProcessesPage() {
           if (!o) {
             setWeightsRow(null);
             setWeightComponentsDraft({});
+            setAllocEditDrafts({});
+            setEntradaMpEditOpen(false);
           }
         }}
       >
@@ -1755,10 +1811,30 @@ export function ProcessesPage() {
               <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
                 <div className="shrink-0 space-y-4 pb-4">
                   <div className="flex min-w-0 flex-wrap gap-2">
-                    <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
-                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                        Entrada
-                      </p>
+                    <div
+                      className={cn(
+                        'min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm',
+                        entradaMpEditOpen && entradaLockedByMp && 'ring-1 ring-primary/40',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                          Entrada
+                        </p>
+                        {entradaLockedByMp && weightsModalCanEditWeights ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Corregir lb de entrada (reparto MP)"
+                            aria-expanded={entradaMpEditOpen}
+                            onClick={() => setEntradaMpEditOpen((o) => !o)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                      </div>
                       <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
                         {fmtLb2(processEditModalSnapshot.entrada)}
                       </p>
@@ -1810,6 +1886,72 @@ export function ProcessesPage() {
                         <ProcessStatusBadge status={weightsRow.process_status} />
                       </div>
                     </div>
+                    {entradaMpEditOpen && entradaLockedByMp && weightsModalCanEditWeights ? (
+                      <div className="w-full basis-full rounded-lg border border-primary/25 bg-muted/20 px-3 py-2.5 shadow-sm">
+                        <p className="text-[11px] font-medium text-foreground">Corregir entrada (MP)</p>
+                        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                          Usá punto decimal (ej. 5.868). El tope incluye lo ya asignado a este proceso.
+                        </p>
+                        {editableMpLoading ? (
+                          <p className="mt-2 text-xs text-muted-foreground">Cargando saldo disponible…</p>
+                        ) : null}
+                        {(editableMpLines ?? []).length > 0 ? (
+                          <ul className="mt-2 space-y-2">
+                            {editableMpLines!.map((ln) => (
+                              <li
+                                key={ln.reception_line_id}
+                                className="flex flex-col gap-2 rounded-md border border-border/60 bg-card px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="min-w-0 text-[11px] leading-snug text-muted-foreground">
+                                  <span className="text-foreground">R{ln.reception_id}</span> · L{ln.line_order + 1} ·{' '}
+                                  <span className="font-mono text-foreground">{ln.lot_code}</span>{' '}
+                                  {ln.species_nombre}/{ln.variety_nombre}
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    Neto recepción: {fmtLb2(ln.net_lb_line)} lb
+                                  </span>
+                                  <span className="mt-0.5 block text-xs font-medium text-emerald-800 dark:text-emerald-400">
+                                    Máx. editable: {fmtLb2(ln.available_lb)} lb
+                                  </span>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Label htmlFor={`entrada-mp-${ln.reception_line_id}`} className="sr-only">
+                                    Lb asignadas
+                                  </Label>
+                                  <Input
+                                    id={`entrada-mp-${ln.reception_line_id}`}
+                                    className={cn(filterInputClass, 'h-9 w-[7.5rem] sm:w-28')}
+                                    placeholder="lb"
+                                    inputMode="decimal"
+                                    disabled={!weightsModalCanEditWeights}
+                                    value={allocEditDrafts[ln.reception_line_id] ?? ''}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const n = parseAllocDraftLb(raw);
+                                      let v = raw;
+                                      if (raw !== '' && n != null && n > ln.available_lb + ALLOC_EPS) {
+                                        v = allocLbToDraftInput(ln.available_lb);
+                                      }
+                                      setAllocEditDrafts((prev) => ({
+                                        ...prev,
+                                        [ln.reception_line_id]: v,
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : !editableMpLoading ? (
+                          <p className="mt-2 text-xs text-amber-700 dark:text-amber-500">
+                            No hay líneas con saldo para ajustar la entrada.
+                          </p>
+                        ) : null}
+                        <p className="mt-2 text-[10px] text-muted-foreground">
+                          Suma reparto: <span className="font-semibold tabular-nums text-foreground">{fmtLb2(weightsMpAllocSumLb)}</span> lb ·
+                          guardá con «Guardar cambios».
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -2008,6 +2150,7 @@ export function ProcessesPage() {
                         nota?: string;
                         lb_entrada?: number;
                         merma_lb?: number;
+                        allocations?: Array<{ reception_line_id: number; lb_allocated: number }>;
                         components: Array<{ component_id: number; lb_value: number }>;
                       } = {
                         nota: vals.nota,
@@ -2016,7 +2159,29 @@ export function ProcessesPage() {
                           lb_value: Number(lb_value || 0),
                         })),
                       };
-                      if (!entradaLockedByMp) {
+                      if (entradaLockedByMp) {
+                        const lineById = new Map((editableMpLines ?? []).map((ln) => [ln.reception_line_id, ln]));
+                        const allocations: Array<{ reception_line_id: number; lb_allocated: number }> = [];
+                        for (const [lineId, raw] of Object.entries(allocEditDrafts)) {
+                          const n = parseAllocDraftLb(raw);
+                          if (n == null) {
+                            toast.error('Revisá las libras del reparto (use punto decimal, ej. 5.868).');
+                            return;
+                          }
+                          if (n <= ALLOC_EPS) continue;
+                          const ln = lineById.get(Number(lineId));
+                          if (ln && n > ln.available_lb + ALLOC_EPS) {
+                            toast.error(`R${ln.reception_id}: máximo ${fmtLb2(ln.available_lb)} lb disponibles.`);
+                            return;
+                          }
+                          allocations.push({ reception_line_id: Number(lineId), lb_allocated: n });
+                        }
+                        if (allocations.length === 0) {
+                          toast.error('Indicá al menos una línea de recepción con libras en el reparto MP.');
+                          return;
+                        }
+                        body.allocations = allocations;
+                      } else {
                         body.lb_entrada = Number(vals.lb_entrada);
                       }
                       if (weightsModalCanEditMermaLb) {
@@ -2089,8 +2254,7 @@ export function ProcessesPage() {
                     </div>
                     {!processEditModalSnapshot.ok ? (
                       <p className="text-xs text-destructive">
-                        Pendiente distinto de 0: ajustá componentes, lb de merma o entrada (si el formulario lo permite), o PT/pallets hasta
-                        cuadrar.
+                        Pendiente distinto de 0: ajustá componentes, merma, entrada (lápiz en la tarjeta Entrada) o PT/pallets hasta cuadrar.
                       </p>
                     ) : null}
                     <details className="rounded-md border border-border/60 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
@@ -2103,8 +2267,8 @@ export function ProcessesPage() {
                           {fmtLb2(processEditModalSnapshot.packPallets)}. El cuadre usa el máximo de ambos como &quot;ya en producto&quot;.
                         </p>
                         <p>
-                          Podés editar componentes, nota, la tarjeta MERMA (registro) cuando aplica, y la entrada sin reparto MP; luego
-                          confirmá o cerrá el proceso desde la barra inferior.
+                          Podés editar componentes, nota, la tarjeta MERMA (registro) cuando aplica, y la entrada (lápiz en la tarjeta Entrada o
+                          campo manual si no hay MP); luego confirmá o cerrá el proceso desde la barra inferior.
                         </p>
                       </div>
                     </details>
@@ -2135,26 +2299,21 @@ export function ProcessesPage() {
                               />
                             </div>
                           ))}
-                          <div className="grid max-w-md gap-1.5">
-                            <Label className="text-xs">Lb entrada (cuadre)</Label>
-                            <Input
-                              type="number"
-                              step="0.001"
-                              className="h-9"
-                              disabled={!weightsModalCanEditWeights || entradaLockedByMp}
-                              {...weightsForm.register('lb_entrada')}
-                            />
-                            {entradaLockedByMp ? (
+                          {!entradaLockedByMp ? (
+                            <div className="grid max-w-md gap-1.5">
+                              <Label className="text-xs">Lb entrada (cuadre)</Label>
+                              <Input
+                                type="number"
+                                step="0.001"
+                                className="h-9"
+                                disabled={!weightsModalCanEditWeights}
+                                {...weightsForm.register('lb_entrada')}
+                              />
                               <p className="text-[10px] leading-snug text-muted-foreground">
-                                La entrada la fija el reparto por líneas de recepción ({fmtLb2(weightsMpAllocSumLb)} lb en total). Para corregir
-                                la MP, ajustá el reparto en recepciones o import.
+                                Sin líneas de recepción vinculadas; editá la entrada manualmente si aplica.
                               </p>
-                            ) : (
-                              <p className="text-[10px] leading-snug text-muted-foreground">
-                                Solo cuando no hay lb asignadas desde recepción al proceso; coincide con el cuadre del servidor.
-                              </p>
-                            )}
-                          </div>
+                            </div>
+                          ) : null}
                           <div className="grid max-w-md gap-1.5">
                             <Label className="text-xs">Nota</Label>
                             <Input className="h-9" disabled={!weightsModalCanEditWeights} {...weightsForm.register('nota')} />
@@ -2286,17 +2445,6 @@ export function ProcessesPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="min-w-0 flex-[1_1_9rem]">
-            <Label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">ID proceso</Label>
-            <Input
-              className={cn(filterInputClass, 'h-9')}
-              inputMode="numeric"
-              placeholder="p. ej. 748"
-              value={filterProcessId}
-              onChange={(e) => setFilterProcessId(e.target.value)}
-              title="Filtra por id de base (#) o por nº de hoja CSV (csv_process_ref)"
-            />
           </div>
         </div>
       </div>

@@ -393,13 +393,85 @@ export class ProcessService {
     return this.boxWeightFromCode(formatCode);
   }
 
-  private async balanceAvailableOnLine(receptionLineId: number): Promise<number> {
-    const raw = await this.rawMovementRepo
-      .createQueryBuilder('m')
-      .select('COALESCE(SUM(m.quantity_delta_lb),0)', 's')
-      .where('m.reception_line_id = :id', { id: receptionLineId })
+  private async sumAllocationsLbOnLine(receptionLineId: number): Promise<number> {
+    const raw = await this.allocRepo
+      .createQueryBuilder('a')
+      .select('COALESCE(SUM(CAST(a.lb_allocated AS DECIMAL)), 0)', 's')
+      .where('a.reception_line_id = :id', { id: receptionLineId })
       .getRawOne<{ s: string }>();
     return Number(raw?.s ?? 0);
+  }
+
+  /**
+   * Procesos legacy: `reception_line_id` en cabecera sin filas en `fruit_process_line_allocations`.
+   */
+  private async sumLegacyProcessLbOnLine(receptionLineId: number): Promise<number> {
+    const rows = (await this.ds.query(
+      `
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN COALESCE(fp.lb_entrada::numeric, 0) > $2::numeric THEN fp.lb_entrada::numeric
+          ELSE fp.peso_procesado_lb::numeric
+        END
+      ), 0)::text AS s
+      FROM fruit_processes fp
+      WHERE fp.deleted_at IS NULL
+        AND fp.reception_line_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM fruit_process_line_allocations a WHERE a.process_id = fp.id
+        )
+      `,
+      [receptionLineId, BALANCE_EPS],
+    )) as Array<{ s: string }>;
+    return Number(rows[0]?.s ?? 0);
+  }
+
+  /** Lb ya vaciadas de esta línea a proceso (asignaciones + procesos legacy en la línea). */
+  private async sumConsumedLbOnLine(receptionLineId: number): Promise<number> {
+    const [allocated, legacy] = await Promise.all([
+      this.sumAllocationsLbOnLine(receptionLineId),
+      this.sumLegacyProcessLbOnLine(receptionLineId),
+    ]);
+    return allocated + legacy;
+  }
+
+  /**
+   * Saldo por línea = neto recepción − lb ya repartidas/vaciadas a proceso en esa línea.
+   * No usa estado documental ni kardex MP (solo cruce recepción ↔ proceso).
+   */
+  private computeLineAvailableLb(netLb: number, consumedLb: number): number {
+    const net = Number(netLb) || 0;
+    if (net <= BALANCE_EPS) return 0;
+    return Math.max(0, net - Math.max(0, Number(consumedLb) || 0));
+  }
+
+  private async balanceAvailableOnLine(receptionLineId: number): Promise<number> {
+    const line = await this.receptionLineRepo.findOne({
+      where: { id: receptionLineId },
+      select: ['id', 'net_lb'],
+    });
+    if (!line) return 0;
+    const consumed = await this.sumConsumedLbOnLine(receptionLineId);
+    return this.computeLineAvailableLb(Number(line.net_lb) || 0, consumed);
+  }
+
+  /**
+   * Tope editable para un proceso en una línea: neto recepción − lb ya repartidas en la línea
+   * + lo que este proceso ya tiene (permite bajar tras corregir el neto de la recepción).
+   */
+  private async maxEditableLbOnLineForProcess(
+    receptionLineId: number,
+    currentLbOnThisProcess: number,
+  ): Promise<number> {
+    const line = await this.receptionLineRepo.findOne({
+      where: { id: receptionLineId },
+      select: ['id', 'net_lb'],
+    });
+    if (!line) return 0;
+    const net = Number(line.net_lb) || 0;
+    const consumed = await this.sumConsumedLbOnLine(receptionLineId);
+    const current = Math.max(0, Number(currentLbOnThisProcess) || 0);
+    return Math.max(0, net - consumed + current);
   }
 
   /**
@@ -820,9 +892,64 @@ export class ProcessService {
     return row;
   }
 
+  /** Fila de listado para una unidad PT (misma forma que `listPtTagsWithItems`). */
+  private async buildPtTagListRow(tagId: number) {
+    const t = await this.tagRepo.findOne({ where: { id: tagId }, relations: ['client', 'brand'] });
+    if (!t) throw new NotFoundException('Unidad PT no encontrada');
+    const mergeHit = await this.tagMergeRepo.findOne({
+      where: { result_tarja_id: tagId },
+      select: ['result_tarja_id'],
+    });
+    const excluidaSumaPackout = await this.repalletUnifiedTarjaIds([tagId]);
+    const items = await this.tagItemRepo.find({ where: { tarja_id: tagId }, order: { id: 'ASC' } });
+    const processIds = [...new Set(items.map((i) => Number(i.process_id)))];
+    const processes =
+      processIds.length > 0
+        ? await this.processRepo.find({ where: { id: In(processIds) } })
+        : [];
+    const procById = new Map(processes.map((p) => [p.id, p]));
+    return {
+      id: t.id,
+      tag_code: t.tag_code,
+      es_union_tarjas: mergeHit != null,
+      excluida_suma_packout: excluidaSumaPackout.has(Number(t.id)),
+      fecha: t.fecha,
+      resultado: t.resultado,
+      format_code: t.format_code,
+      cajas_por_pallet: t.cajas_por_pallet,
+      total_cajas: t.total_cajas,
+      total_pallets: t.total_pallets,
+      client_id: t.client_id ?? null,
+      brand_id: t.brand_id ?? null,
+      bol: t.bol ?? null,
+      net_weight_lb: t.net_weight_lb ?? null,
+      items: items.map((i) => {
+        const proc = procById.get(Number(i.process_id));
+        return {
+          id: i.id,
+          tarja_id: Number(i.tarja_id),
+          process_id: Number(i.process_id),
+          productor_id: Number(i.productor_id),
+          cajas_generadas: i.cajas_generadas,
+          pallets_generados: i.pallets_generados,
+          process: proc
+            ? {
+                id: proc.id,
+                peso_procesado_lb: proc.peso_procesado_lb,
+                merma_lb: proc.merma_lb,
+                resultado: proc.resultado,
+                fecha_proceso: proc.fecha_proceso,
+              }
+            : null,
+        };
+      }),
+    };
+  }
+
   async listPtTagsWithItems() {
     const tags = await this.tagRepo.find({
       order: { id: 'DESC' },
+      take: 3000,
       relations: ['client', 'brand'],
     });
     const mergeRows = await this.tagMergeRepo.find({ select: ['result_tarja_id'] });
@@ -906,6 +1033,115 @@ export class ProcessService {
     }));
   }
 
+  /**
+   * Resumen MP disponible (fin del día): Σ recepción neta − Σ volteado/vaciado a proceso, por productor.
+   * Cruza todo lo recibido (no anulado) con asignaciones reales a `fruit_processes`, sin filtrar por estado
+   * documental (cerrado/confirmado/borrador).
+   */
+  async getMpDisponibleResumen(opts?: { planningOnly?: boolean; borradorOnly?: boolean }): Promise<{
+    total_lb: number;
+    line_count: number;
+    producer_count: number;
+  }> {
+    let stateFilter = "ds.codigo <> 'anulado'";
+    if (opts?.borradorOnly) {
+      stateFilter = "ds.codigo = 'borrador'";
+    } else if (opts?.planningOnly) {
+      /** @deprecated Preferir resumen sin filtro de estado; se mantiene por compatibilidad de query string. */
+      stateFilter = "ds.codigo <> 'anulado'";
+    }
+
+    const rows = (await this.ds.query(
+      `
+      WITH recv AS (
+        SELECT r.producer_id, COALESCE(SUM(rl.net_lb::numeric), 0) AS net_lb
+        FROM reception_lines rl
+        INNER JOIN receptions r ON r.id = rl.reception_id
+        INNER JOIN document_states ds ON ds.id = r.document_state_id
+        WHERE ${stateFilter}
+        GROUP BY r.producer_id
+      ),
+      consumed_alloc AS (
+        SELECT fp.productor_id AS producer_id, COALESCE(SUM(a.lb_allocated::numeric), 0) AS consumed_lb
+        FROM fruit_processes fp
+        INNER JOIN fruit_process_line_allocations a ON a.process_id = fp.id
+        WHERE fp.deleted_at IS NULL
+        GROUP BY fp.productor_id
+      ),
+      consumed_legacy AS (
+        SELECT fp.productor_id AS producer_id,
+          COALESCE(SUM(
+            CASE
+              WHEN COALESCE(fp.lb_entrada::numeric, 0) > $1::numeric THEN fp.lb_entrada::numeric
+              ELSE fp.peso_procesado_lb::numeric
+            END
+          ), 0) AS consumed_lb
+        FROM fruit_processes fp
+        WHERE fp.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM fruit_process_line_allocations a WHERE a.process_id = fp.id)
+        GROUP BY fp.productor_id
+      ),
+      producer_avail AS (
+        SELECT
+          recv.producer_id,
+          GREATEST(
+            0,
+            recv.net_lb
+              - COALESCE(consumed_alloc.consumed_lb, 0)
+              - COALESCE(consumed_legacy.consumed_lb, 0)
+          ) AS available_lb
+        FROM recv
+        LEFT JOIN consumed_alloc ON consumed_alloc.producer_id = recv.producer_id
+        LEFT JOIN consumed_legacy ON consumed_legacy.producer_id = recv.producer_id
+      ),
+      line_alloc AS (
+        SELECT reception_line_id, COALESCE(SUM(lb_allocated::numeric), 0) AS s
+        FROM fruit_process_line_allocations
+        GROUP BY reception_line_id
+      ),
+      line_legacy AS (
+        SELECT fp.reception_line_id,
+          COALESCE(SUM(
+            CASE
+              WHEN COALESCE(fp.lb_entrada::numeric, 0) > $1::numeric THEN fp.lb_entrada::numeric
+              ELSE fp.peso_procesado_lb::numeric
+            END
+          ), 0) AS s
+        FROM fruit_processes fp
+        WHERE fp.deleted_at IS NULL
+          AND fp.reception_line_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM fruit_process_line_allocations a WHERE a.process_id = fp.id)
+        GROUP BY fp.reception_line_id
+      ),
+      line_avail AS (
+        SELECT rl.id
+        FROM reception_lines rl
+        INNER JOIN receptions r ON r.id = rl.reception_id
+        INNER JOIN document_states ds ON ds.id = r.document_state_id
+        LEFT JOIN line_alloc la ON la.reception_line_id = rl.id
+        LEFT JOIN line_legacy ll ON ll.reception_line_id = rl.id
+        WHERE ${stateFilter}
+          AND GREATEST(
+            0,
+            rl.net_lb::numeric - COALESCE(la.s, 0) - COALESCE(ll.s, 0)
+          ) > $1::numeric
+      )
+      SELECT
+        COALESCE((SELECT SUM(available_lb) FROM producer_avail), 0)::text AS total_lb,
+        (SELECT COUNT(*)::int FROM line_avail) AS line_count,
+        (SELECT COUNT(*)::int FROM producer_avail WHERE available_lb > $1::numeric) AS producer_count
+      `,
+      [BALANCE_EPS],
+    )) as Array<{ total_lb: string; line_count: number; producer_count: number }>;
+
+    const row = rows[0];
+    return {
+      total_lb: Number(row?.total_lb ?? 0) || 0,
+      line_count: Number(row?.line_count ?? 0) || 0,
+      producer_count: Number(row?.producer_count ?? 0) || 0,
+    };
+  }
+
   /** Productores que tienen al menos una línea de recepción con saldo disponible para procesar. */
   async listProducerIdsWithEligibleMp(opts?: { planningOnly?: boolean; borradorOnly?: boolean }): Promise<number[]> {
     const qb = this.receptionLineRepo
@@ -914,7 +1150,7 @@ export class ProcessService {
       .innerJoin('r.document_state', 'rds')
       .select('DISTINCT r.producer_id', 'pid');
     if (opts?.planningOnly) {
-      qb.where("rds.codigo IN ('confirmado', 'cerrado')");
+      qb.where("rds.codigo <> 'anulado'");
     } else if (opts?.borradorOnly) {
       qb.where("rds.codigo = 'borrador'");
     } else {
@@ -941,11 +1177,8 @@ export class ProcessService {
       .leftJoinAndSelect('rl.variety', 'v')
       .where('r.producer_id = :pid', { pid: producerId });
     if (opts?.planningOnly) {
-      /**
-       * Planificación / KPI: solo recepción confirmada o cerrada (no borrador).
-       * En anulado no listamos líneas aunque queden movimientos viejos en BD.
-       */
-      qb.andWhere("rds.codigo IN ('confirmado', 'cerrado')");
+      /** Planificación: mismo criterio que alta de proceso — todo salvo anulado (no filtrar por cerrado). */
+      qb.andWhere("rds.codigo <> 'anulado'");
     } else if (opts?.borradorOnly) {
       qb.andWhere("rds.codigo = 'borrador'");
     } else {
@@ -988,6 +1221,192 @@ export class ProcessService {
       });
     }
     return out;
+  }
+
+  /**
+   * Líneas editables al corregir reparto MP de un proceso existente.
+   * `available_lb` = máximo editable para este proceso (neto recepción − reparto en línea + asignación actual).
+   */
+  async listEditableMpLinesForProcess(processId: number) {
+    const proc = await this.processRepo.findOne({ where: { id: processId } });
+    if (!proc) throw new NotFoundException('Proceso no encontrado');
+    const producerId = Number(proc.productor_id);
+    if (!Number.isFinite(producerId) || producerId <= 0) {
+      throw new BadRequestException('Proceso sin productor válido');
+    }
+
+    const currentAllocs = await this.allocRepo.find({ where: { process_id: processId } });
+    const allocLbByLine = new Map<number, number>();
+    for (const a of currentAllocs) {
+      allocLbByLine.set(Number(a.reception_line_id), Number(a.lb_allocated) || 0);
+    }
+
+    const lineIdsOnProcess = [...allocLbByLine.keys()];
+
+    const linesByProducer = await this.receptionLineRepo
+      .createQueryBuilder('rl')
+      .innerJoinAndSelect('rl.reception', 'r')
+      .innerJoinAndSelect('r.document_state', 'rds')
+      .leftJoinAndSelect('rl.species', 'sp')
+      .leftJoinAndSelect('rl.variety', 'v')
+      .where('r.producer_id = :pid', { pid: producerId })
+      .andWhere("rds.codigo <> 'anulado'")
+      .orderBy('r.received_at', 'ASC')
+      .addOrderBy('rl.line_order', 'ASC')
+      .getMany();
+
+    const extraLines =
+      lineIdsOnProcess.length > 0
+        ? await this.receptionLineRepo.find({
+            where: { id: In(lineIdsOnProcess) },
+            relations: ['reception', 'reception.document_state', 'species', 'variety'],
+          })
+        : [];
+
+    const seen = new Set<number>();
+    const out: Array<{
+      reception_line_id: number;
+      reception_id: number;
+      received_at: Date;
+      line_order: number;
+      available_lb: number;
+      lb_allocated_current: number;
+      net_lb_line: string;
+      lot_code: string;
+      species_id: number | null;
+      species_nombre: string | null;
+      variety_nombre: string | null;
+    }> = [];
+
+    for (const rl of [...linesByProducer, ...extraLines]) {
+      if (seen.has(rl.id)) continue;
+      seen.add(rl.id);
+      const st = rl.reception?.document_state?.codigo ?? '';
+      if (st === 'anulado') continue;
+
+      const current = allocLbByLine.get(rl.id) ?? 0;
+      const maxLb = await this.maxEditableLbOnLineForProcess(rl.id, current);
+      if (maxLb <= BALANCE_EPS && current <= BALANCE_EPS) continue;
+
+      out.push({
+        reception_line_id: rl.id,
+        reception_id: Number(rl.reception_id),
+        received_at: rl.reception.received_at,
+        line_order: rl.line_order,
+        available_lb: maxLb,
+        lb_allocated_current: current,
+        net_lb_line: rl.net_lb,
+        lot_code: this.lotCodeFromLine(rl),
+        species_id: rl.species_id != null ? Number(rl.species_id) : null,
+        species_nombre: rl.species?.nombre ?? null,
+        variety_nombre: rl.variety?.nombre ?? null,
+      });
+    }
+
+    out.sort(
+      (a, b) =>
+        a.received_at.getTime() - b.received_at.getTime() ||
+        a.line_order - b.line_order ||
+        a.reception_line_id - b.reception_line_id,
+    );
+    return out;
+  }
+
+  private async replaceProcessLineAllocations(
+    proc: FruitProcess,
+    allocations: Array<{ reception_line_id: number; lb_allocated: number }>,
+  ): Promise<void> {
+    const filtered = allocations.filter((a) => Number(a.lb_allocated) > BALANCE_EPS);
+    if (!filtered.length) {
+      throw new BadRequestException('Indicá al menos una línea de recepción con libras mayores que 0');
+    }
+
+    const lineIds = filtered.map((a) => a.reception_line_id);
+    if (new Set(lineIds).size !== lineIds.length) {
+      throw new BadRequestException('No repetir la misma reception_line_id en allocations');
+    }
+
+    const lines = await this.receptionLineRepo.find({
+      where: { id: In(lineIds) },
+      relations: ['reception', 'reception.document_state'],
+    });
+    const lineById = new Map(lines.map((l) => [l.id, l]));
+    const producerId = Number(proc.productor_id);
+
+    let sumAlloc = 0;
+    for (const a of filtered) {
+      const lb = Number(a.lb_allocated);
+      if (!Number.isFinite(lb) || lb <= BALANCE_EPS) {
+        throw new BadRequestException(`lb_allocated inválido en línea ${a.reception_line_id}`);
+      }
+      const ln = lineById.get(a.reception_line_id);
+      if (!ln) throw new BadRequestException(`reception_line_id ${a.reception_line_id} no encontrada`);
+      if (Number(ln.reception.producer_id) !== producerId) {
+        throw new BadRequestException(`La línea ${a.reception_line_id} no pertenece al productor del proceso`);
+      }
+      const st = (ln.reception.document_state as { codigo?: string })?.codigo ?? '';
+      if (st === 'anulado') {
+        throw new BadRequestException(`Recepción de línea ${a.reception_line_id} está anulada`);
+      }
+
+      const currentRow = await this.allocRepo.findOne({
+        where: { process_id: proc.id, reception_line_id: a.reception_line_id },
+      });
+      const currentLb = currentRow ? Number(currentRow.lb_allocated) : 0;
+      const maxLb = await this.maxEditableLbOnLineForProcess(a.reception_line_id, currentLb);
+      if (lb > maxLb + BALANCE_EPS) {
+        const netLine = Number(ln.net_lb) || 0;
+        throw new BadRequestException(
+          `LB insuficientes en línea ${a.reception_line_id}: máximo ${maxLb.toFixed(3)} (neto recepción ${netLine.toFixed(3)}), solicitado ${lb.toFixed(3)}`,
+        );
+      }
+      sumAlloc += lb;
+    }
+
+    const receptionIds = [...new Set(filtered.map((a) => Number(lineById.get(a.reception_line_id)!.reception_id)))];
+    const recepcionId = Math.min(...receptionIds);
+    const firstLine = lineById.get(filtered[0].reception_line_id)!;
+
+    await this.processRepo.manager.transaction(async (em) => {
+      await em.delete(RawMaterialMovement, { fruit_process_id: proc.id, movement_kind: 'process_out' });
+      await em.delete(FruitProcessLineAllocation, { process_id: proc.id });
+
+      for (const a of filtered) {
+        const ln = lineById.get(a.reception_line_id)!;
+        await em.save(
+          em.create(FruitProcessLineAllocation, {
+            process_id: proc.id,
+            reception_line_id: a.reception_line_id,
+            lot_code: this.lotCodeFromLine(ln),
+            lb_allocated: a.lb_allocated.toFixed(3),
+          }),
+        );
+        await em.save(
+          em.create(RawMaterialMovement, {
+            reception_line_id: a.reception_line_id,
+            fruit_process_id: proc.id,
+            quantity_delta_lb: (-a.lb_allocated).toFixed(3),
+            movement_kind: 'process_out',
+            ref_type: 'fruit_process',
+            ref_id: proc.id,
+          }),
+        );
+      }
+
+      await em.update(FruitProcess, { id: proc.id }, {
+        recepcion_id: recepcionId,
+        reception_line_id: firstLine.id,
+        variedad_id: firstLine.variety_id,
+        peso_procesado_lb: sumAlloc.toFixed(2),
+        lb_entrada: sumAlloc.toFixed(3),
+      });
+    });
+
+    proc.recepcion_id = recepcionId;
+    proc.reception_line_id = firstLine.id;
+    proc.variedad_id = firstLine.variety_id;
+    proc.peso_procesado_lb = sumAlloc.toFixed(2);
+    proc.lb_entrada = sumAlloc.toFixed(3);
   }
 
   async updateProcessWeights(
@@ -1035,11 +1454,17 @@ export class ProcessService {
       }
     }
 
+    if (dto.allocations != null) {
+      await this.replaceProcessLineAllocations(proc, dto.allocations);
+    }
+
     const allocSum = await this.sumAllocationsLb(proc.id);
     if (allocSum > BALANCE_EPS) {
       proc.lb_entrada = allocSum.toFixed(3);
+      proc.peso_procesado_lb = allocSum.toFixed(2);
     } else if (dto.lb_entrada !== undefined) {
       proc.lb_entrada = dto.lb_entrada.toFixed(3);
+      proc.peso_procesado_lb = dto.lb_entrada.toFixed(2);
     }
 
     if (dto.lb_iqf !== undefined) proc.lb_iqf = dto.lb_iqf.toFixed(3);
@@ -1096,7 +1521,8 @@ export class ProcessService {
       dto.lb_iqf !== undefined ||
       dto.lb_sobrante !== undefined ||
       dto.merma_lb !== undefined ||
-      dto.lb_entrada !== undefined
+      dto.lb_entrada !== undefined ||
+      dto.allocations != null
     ) {
       const entrada = this.computeEntradaLb(proc, await this.sumAllocationsLb(proc.id));
       if (Math.abs(entrada - destinos) > BALANCE_EPS) {
@@ -1241,6 +1667,10 @@ export class ProcessService {
 
   async createTag(dto: CreatePtTagDto) {
     await this.assertCajasPorPalletVsFormat(dto.format_code, dto.cajas_por_pallet);
+    const processId = dto.process_id != null && Number(dto.process_id) > 0 ? Number(dto.process_id) : null;
+    if (processId != null) {
+      return this.createTagWithProcessLink(dto, processId);
+    }
     const tmp = `TMP${Date.now()}${Math.random().toString(36).slice(2, 9)}`.slice(0, 64);
     let tag = await this.tagRepo.save(
       this.tagRepo.create({
@@ -1257,8 +1687,64 @@ export class ProcessService {
       }),
     );
     tag = await this.assignTagCodeFromId(tag);
-    await this.refreshFinishedPtStockForTag(tag);
-    return this.tagRepo.findOne({ where: { id: tag.id }, relations: ['client', 'brand'] });
+    return this.buildPtTagListRow(tag.id);
+  }
+
+  /** Alta + vínculo proceso en una transacción (un round-trip HTTP). */
+  private async createTagWithProcessLink(dto: CreatePtTagDto, processId: number) {
+    const tmp = `TMP${Date.now()}${Math.random().toString(36).slice(2, 9)}`.slice(0, 64);
+    const tagId = await this.ds.transaction(async (em) => {
+      let tag = await em.save(
+        em.create(PtTag, {
+          fecha: new Date(dto.fecha),
+          resultado: dto.resultado,
+          format_code: dto.format_code.trim().toLowerCase(),
+          cajas_por_pallet: dto.cajas_por_pallet,
+          tag_code: tmp,
+          client_id: dto.client_id ?? null,
+          brand_id: dto.brand_id ?? null,
+          bol: dto.bol?.trim() || null,
+          total_cajas: 0,
+          total_pallets: 0,
+        }),
+      );
+      tag.tag_code = this.tagCodeFromId(tag.id);
+      await em.save(PtTag, tag);
+
+      const proc = await em.findOne(FruitProcess, { where: { id: processId } });
+      if (!proc) throw new NotFoundException(`Proceso id=${processId} no encontrado`);
+
+      const maxCajas = await this.getMaxCajasForProcessOnTag(tag, processId);
+      const cajas =
+        dto.cajas_generadas != null
+          ? this.assertRequestedCajasWithinMax(dto.cajas_generadas, maxCajas)
+          : maxCajas;
+      const pallets = Math.max(1, Math.ceil(cajas / tag.cajas_por_pallet));
+
+      await em.save(
+        em.create(PtTagItem, {
+          tarja_id: tag.id,
+          process_id: proc.id,
+          productor_id: proc.productor_id,
+          cajas_generadas: cajas,
+          pallets_generados: pallets,
+        }),
+      );
+
+      const items = await em.find(PtTagItem, { where: { tarja_id: tag.id } });
+      tag.total_cajas = items.reduce((a, i) => a + i.cajas_generadas, 0);
+      tag.total_pallets = items.reduce((a, i) => a + i.pallets_generados, 0);
+      await em.save(PtTag, tag);
+
+      await this.finalPalletService.syncTechnicalFinalPalletFromPtTag(tag.id, em);
+      return tag.id;
+    });
+
+    const fresh = await this.tagRepo.findOne({ where: { id: tagId } });
+    if (fresh) await this.refreshFinishedPtStockForTag(fresh);
+    await this.refreshLbPackoutForProcessIds([processId]);
+    await this.syncFruitProcessTarjaIdFromItems(processId);
+    return this.buildPtTagListRow(tagId);
   }
 
   async addProcessToTag(tagId: number, dto: AddPtTagItemDto) {
@@ -1283,7 +1769,7 @@ export class ProcessService {
 
     const pallets = Math.max(1, Math.ceil(cajas / tag.cajas_por_pallet));
 
-    const out = await this.ds.transaction(async (em) => {
+    await this.ds.transaction(async (em) => {
       const tagEnt = await em.findOne(PtTag, { where: { id: tagId } });
       const procEnt = await em.findOne(FruitProcess, { where: { id: dto.process_id } });
       if (!tagEnt) throw new NotFoundException(`Unidad PT id=${tagId} no encontrada`);
@@ -1308,8 +1794,6 @@ export class ProcessService {
       await em.save(PtTag, tagEnt);
 
       await this.finalPalletService.syncTechnicalFinalPalletFromPtTag(tagId, em);
-
-      return em.findOne(PtTag, { where: { id: tagId }, relations: ['client', 'brand'] });
     });
 
     const fresh = await this.tagRepo.findOne({ where: { id: tagId } });
@@ -1317,7 +1801,7 @@ export class ProcessService {
     await this.refreshLbPackoutForProcessIds([dto.process_id]);
     await this.syncFruitProcessTarjaIdFromItems(dto.process_id);
 
-    return out;
+    return this.buildPtTagListRow(tagId);
   }
 
   async updateTag(tagId: number, dto: UpdatePtTagDto) {

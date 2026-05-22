@@ -75,6 +75,22 @@ npm start
 Por defecto escucha en `http://127.0.0.1:3001`.
 Podés cambiar puerto con `PRINT_SERVICE_PORT`.
 
+### Desde la raíz del repo `packing-system` (sin `cd` manual)
+
+En la carpeta del proyecto (un nivel **arriba** de `local-zebra-print-service`):
+
+```bash
+npm run print-service
+```
+
+Equivale a `node ./local-zebra-print-service/print-server.js`. Así no hace falta abrir PowerShell dentro de `local-zebra-print-service` cada vez.
+
+Para **API + Vite + impresora** en una sola consola (Windows / Ctrl+C corta los tres):
+
+```bash
+npm run dev:full:print
+```
+
 ### Frontend (Vite)
 
 En el PC de planta, opcional: `frontend/.env.local`
@@ -92,3 +108,12 @@ En el PC de planta podés usar:
 Ese script:
 - instala dependencias si faltan
 - inicia el servicio local de impresion
+
+## Si la etiqueta sale con texto HTML en el papel
+
+Eso significa que **a la impresora le llegó HTML** (página del sistema, login o `index.html`), no comandos ZPL que empiecen con `^XA`.
+
+1. **No uses “Imprimir” del navegador (Ctrl+P)** sobre la pantalla del sistema: eso manda HTML/PDF del layout, no ZPL RAW. Usá el botón **Imprimir etiqueta PT** del modal (llama al API y luego a este servicio).
+2. **Driver Zebra**: en Windows la cola debe ser un driver tipo **ZDesigner … ZPL** (o Zebra ZPL), no una impresora “genérica” que reinterpreta el job.
+3. El servicio valida el cuerpo: si `POST /print` recibe HTML o texto que no empiece con `^XA`, responde **400** con mensaje claro y **no** manda nada a la Zebra.
+4. Si guardaste un `.zpl` manualmente, abrilo con el bloc de notas: la primera línea útil debe ser `^XA`. Si ves `<!DOCTYPE html>`, el archivo no sirve para RAW.

@@ -10,6 +10,7 @@ import {
   SalesOrder,
 } from '../dispatch/dispatch.entities';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
+import { Client } from '../traceability/operational.entities';
 import { FinalPalletModule } from '../final-pallet/final-pallet.module';
 import { PtPackingListController } from './pt-packing-list.controller';
 import { PtPackingList, PtPackingListItem, PtPackingListReversalEvent } from './pt-packing-list.entities';
@@ -30,6 +31,7 @@ import { PtPackingListService } from './pt-packing-list.service';
       SalesOrder,
       FinalPallet,
       FinalPalletLine,
+      Client,
     ]),
     FinalPalletModule,
   ],

@@ -46,7 +46,7 @@ export class LabelsService {
       throw new NotFoundException(`Tarja ${id} no encontrada`);
     }
     const clamshellLabel = await this.resolveClamshellLabel(tag.format_code, tag.brand?.nombre ?? null);
-    const qrPayload = await this.resolveStandardQrPayload(id, tag.tag_code);
+    const qrPayload = await this.resolveStandardQrPayload(id, tag.tag_code, tag.bol);
     const template: TarjaLabelTemplate = resolveTarjaTemplate(templateRaw);
     if (template !== 'detailed') {
       return buildTarjaZpl(tag, template, { clamshellLabel, qrPayload });
@@ -119,7 +119,11 @@ export class LabelsService {
     return undefined;
   }
 
-  private async resolveStandardQrPayload(tarjaId: number, tagCode: string): Promise<string> {
+  private async resolveStandardQrPayload(
+    tarjaId: number,
+    tagCode: string,
+    bol?: string | null,
+  ): Promise<string> {
     const fp = await this.finalPallets.findOne({
       where: { tarja_id: tarjaId },
       order: { id: 'DESC' },
@@ -144,6 +148,8 @@ export class LabelsService {
 
     const clean = (s: string) => s.replace(/[,\^\~\r\n|]/g, ' ').trim();
     const parts = [`TAR:${clean(tagCode)}`];
+    const bolTrim = bol?.trim();
+    if (bolTrim) parts.push(`BOL:${clean(bolTrim)}`);
     if (plCode) parts.push(`PL:${clean(plCode)}`);
     if (orderNumber) parts.push(`ORD:${clean(orderNumber)}`);
     return parts.join('|');

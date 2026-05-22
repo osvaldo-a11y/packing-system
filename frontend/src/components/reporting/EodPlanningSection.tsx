@@ -13,6 +13,7 @@ import {
   wrapHtmlFragmentForClipboard,
   type EodReportClientBlock,
 } from '@/lib/eod-report-clipboard';
+import { dispatchCountsAsShippedOnDay, toLocalDayKey } from '@/lib/dispatch-shipped-day';
 import { formatCount, formatLb } from '@/lib/number-format';
 import { contentCard, kpiFootnote, kpiLabel, kpiValueMd, sectionHint } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,7 @@ type DispatchDayRow = {
   id: number;
   fecha_despacho: string;
   status?: string;
+  despachado_at?: string | null;
   cliente_nombre?: string | null;
   client_nombre?: string | null;
   client_id?: number | null;
@@ -73,10 +75,7 @@ function escDay(isoOrDate: string | Date): string {
     const s = isoOrDate.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   }
-  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return toLocalDayKey(isoOrDate);
 }
 
 function normFormatKey(raw: string): string {
@@ -127,14 +126,6 @@ function breakdownRowsToNormQty(rows: FormatBreakdownRow[]): Map<string, number>
     m.set(nk, (m.get(nk) ?? 0) + r.cajas);
   }
   return m;
-}
-
-function dispatchShippedDayKey(d: DispatchDayRow): string | null {
-  const st = String(d.status ?? '').toLowerCase();
-  if (st !== 'despachado') return null;
-  const raw = typeof d.fecha_despacho === 'string' ? d.fecha_despacho.trim() : String(d.fecha_despacho ?? '');
-  if (!raw) return null;
-  return escDay(raw);
 }
 
 function shippedCajasByFormat(d: DispatchDayRow, formatByTarjaId: Map<number, string>): Map<string, number> {
@@ -190,22 +181,14 @@ async function fetchMpDisponibleProcesoResumen(): Promise<{
   lineCount: number;
   producerCount: number;
 }> {
-  const ids = await apiJson<number[]>('/api/processes/producers-with-eligible-mp?planning_only=1');
-  let totalLb = 0;
-  let lineCount = 0;
-  for (const pid of ids) {
-    const lines = await apiJson<Array<{ available_lb: number }>>(
-      `/api/processes/eligible-lines?producer_id=${pid}&planning_only=1`,
-    );
-    for (const ln of lines) {
-      const a = Number(ln.available_lb);
-      if (Number.isFinite(a) && a > 0) {
-        totalLb += a;
-        lineCount++;
-      }
-    }
-  }
-  return { totalLb, lineCount, producerCount: ids.length };
+  const r = await apiJson<{ total_lb: number; line_count: number; producer_count: number }>(
+    '/api/processes/mp-disponible-resumen',
+  );
+  return {
+    totalLb: Number(r.total_lb) || 0,
+    lineCount: Number(r.line_count) || 0,
+    producerCount: Number(r.producer_count) || 0,
+  };
 }
 
 type EodPlanningSectionProps = {
@@ -291,8 +274,7 @@ export function EodPlanningSection({
     let shippedToday = 0;
     const shippedByClientNorm = new Map<string, Map<string, number>>();
     for (const d of dispatchesList ?? []) {
-      const dk = dispatchShippedDayKey(d);
-      if (dk == null || dk !== opsDayKey) continue;
+      if (!dispatchCountsAsShippedOnDay(d, opsDayKey)) continue;
       const byF = shippedCajasByFormat(d, formatByTarjaId);
       const nombre = (d.client_nombre ?? d.cliente_nombre ?? '').trim();
       const cid = d.client_id != null ? Number(d.client_id) : 0;
@@ -512,7 +494,11 @@ export function EodPlanningSection({
           <p className={cn(kpiValueMd, 'text-xl')}>
             {operationalDaily.shippedToday > 0 ? formatCount(operationalDaily.shippedToday) : '—'}
           </p>
-          <p className={kpiFootnote}>{operationalDaily.shippedToday > 0 ? 'Cajas despachadas' : 'Nada despachado'}</p>
+          <p className={kpiFootnote}>
+            {operationalDaily.shippedToday > 0
+              ? 'Salida del día (confirmado + fecha despacho o despachado)'
+              : 'Sin salida registrada para esta fecha'}
+          </p>
         </div>
         <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
           <p className={kpiLabel}>MP disponible p/proceso</p>
@@ -523,7 +509,7 @@ export function EodPlanningSection({
             {mpDisponibleProceso == null
               ? 'Cargando recepción…'
               : mpDisponibleProceso.totalLb > 0
-                ? `${mpDisponibleProceso.lineCount} línea(s) aptas · solo recepciones confirmadas o cerradas`
+                ? `${mpDisponibleProceso.producerCount} productor(es) · ${mpDisponibleProceso.lineCount} línea(s) con saldo · recepción − volteado`
                 : 'Sin fruta disponible para reparto (confirmadas/cerradas con saldo)'}
           </p>
         </div>

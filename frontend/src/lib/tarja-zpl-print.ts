@@ -8,6 +8,24 @@ export const TARJA_LABEL_TEMPLATE_OPTIONS: { id: TarjaLabelTemplate; label: stri
   { id: 'detailed', label: 'Detallada' },
 ];
 
+/** Evita enviar HTML/SPA o JSON a la Zebra (en físico sale código HTML). */
+function assertPlainTextIsTarjaZpl(text: string, source: string): void {
+  const head = text.slice(0, 900);
+  if (/<!DOCTYPE\s+html/i.test(head) || /<\s*html[\s>/]/i.test(head)) {
+    throw new Error(
+      `${source}: se recibió HTML (p. ej. login o index del front), no ZPL. Revisá sesión, proxy y GET /api/labels/tarja/…`,
+    );
+  }
+  const t = text.replace(/^\uFEFF/, '').trimStart();
+  if (/^\s*\{/.test(t) && /"message"\s*:/.test(head)) {
+    throw new Error(`${source}: la respuesta parece JSON, no ZPL.`);
+  }
+  if (!/^\^XA/i.test(t)) {
+    const prev = t.slice(0, 120).replace(/\r?\n/g, ' ');
+    throw new Error(`${source}: debe empezar con ^XA. Inicio: ${prev}`);
+  }
+}
+
 /** Textos fijos del modal (independientes del catálogo API). */
 export const TARJA_TEMPLATE_UI: Record<
   TarjaLabelTemplate,
@@ -73,6 +91,34 @@ type LocalPrintersResponse = {
   printers?: LocalPrinterInfo[];
 };
 
+export type LocalPrintServiceStatus = 'ready' | 'no_printer';
+
+export type LocalPrintServiceStatusPayload = {
+  printer: string | null;
+  status: LocalPrintServiceStatus;
+  source?: 'env' | 'auto' | null;
+  available_printers?: string[];
+};
+
+export type LocalPrintersProbeResult =
+  | {
+      status: 'ok';
+      printers: LocalPrinterInfo[];
+      defaultPrinter?: string;
+      printService: LocalPrintServiceStatusPayload;
+    }
+  | {
+      status: 'no_printer';
+      printers: LocalPrinterInfo[];
+      defaultPrinter?: string;
+      printService: LocalPrintServiceStatusPayload;
+      message: string;
+    }
+  | {
+      status: 'unavailable' | 'error';
+      message?: string;
+    };
+
 export async function fetchTarjaZpl(tarjaId: number, template: TarjaLabelTemplate): Promise<string> {
   const q = new URLSearchParams({ template }).toString();
   const res = await apiFetch(`/api/labels/tarja/${tarjaId}?${q}`, {
@@ -83,7 +129,15 @@ export async function fetchTarjaZpl(tarjaId: number, template: TarjaLabelTemplat
   if (!res.ok) {
     throw new Error(await parseApiError(res));
   }
-  return res.text();
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('text/html')) {
+    throw new Error(
+      'El API respondió Content-Type HTML: revisá que /api/labels/tarja no lo intercepte el front estático ni un proxy incorrecto.',
+    );
+  }
+  const text = await res.text();
+  assertPlainTextIsTarjaZpl(text, 'ZPL tarja');
+  return text;
 }
 
 export function downloadZplFile(filename: string, zpl: string): void {
@@ -169,7 +223,10 @@ export function loadLastPrintPayload(): LastPrintPayload | null {
   }
 }
 
-/** Nombre de impresora sugerido por variable de entorno (`VITE_ZEBRA_PRINTER_NAME`). */
+/**
+ * Override manual de impresora (mismo valor que `ZEBRA_PRINTER_NAME` del servicio local).
+ * En el front: `VITE_ZEBRA_PRINTER_NAME` o `ZEBRA_PRINTER_NAME` en `.env` (Vite fusiona ambos).
+ */
 export function getConfiguredZebraPrinterName(): string | undefined {
   const env = import.meta.env.VITE_ZEBRA_PRINTER_NAME?.trim();
   return env || undefined;
@@ -350,6 +407,9 @@ export async function sendZplToLocalPrintService(
 > {
   if (!activePrintServiceBase) {
     const warm = await getLocalPrinters();
+    if (warm.status === 'no_printer') {
+      return { status: 'error', message: warm.message };
+    }
     if (warm.status !== 'ok') {
       return {
         status: 'unavailable',
@@ -382,8 +442,21 @@ export async function sendZplToLocalPrintService(
       }
     }
     if (!res.ok) {
+      if (res.status === 503 && body && typeof body === 'object' && 'error' in body) {
+        const errBody = body as { error?: string; available_printers?: string[]; message?: string };
+        const list = Array.isArray(errBody.available_printers) ? errBody.available_printers : [];
+        const detail =
+          list.length > 0
+            ? ` Impresoras instaladas: ${list.join(' · ')}.`
+            : ' Instalá el driver Zebra ZPL y reiniciá el servicio local.';
+        const msg =
+          (typeof errBody.error === 'string' && errBody.error.trim()) ||
+          'No se encontró impresora Zebra.';
+        return { status: 'error', message: `${msg}${detail}` };
+      }
       const message =
-        (body?.message && String(body.message).trim()) || `Servicio local respondió ${res.status}`;
+        (body && typeof body === 'object' && 'message' in body && String((body as { message?: string }).message).trim()) ||
+        `Servicio local respondió ${res.status}`;
       return { status: 'error', message };
     }
     if (!body?.ok) {
@@ -423,51 +496,99 @@ export function applyZplCopies(zpl: string, copies: number): string {
   return zpl.replace(/\^XZ\s*$/m, `^PQ${n},0,1,Y\n^XZ`);
 }
 
-export async function getLocalPrinters(): Promise<{
-  status: 'ok';
-  printers: LocalPrinterInfo[];
-  defaultPrinter?: string;
-} | {
-  status: 'unavailable' | 'error';
-  message?: string;
-}> {
+async function fetchLocalPrintServiceStatus(base: string): Promise<LocalPrintServiceStatusPayload | null> {
+  const ctrl = new AbortController();
+  const timeout = window.setTimeout(() => ctrl.abort(), 3200);
+  try {
+    const res = await fetch(`${stripTrailingSlash(base)}/status`, {
+      method: 'GET',
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as LocalPrintServiceStatusPayload;
+    if (data.status !== 'ready' && data.status !== 'no_printer') return null;
+    return {
+      printer: typeof data.printer === 'string' ? data.printer : null,
+      status: data.status,
+      source: data.source ?? null,
+      available_printers: Array.isArray(data.available_printers) ? data.available_printers : undefined,
+    };
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+/** Mensaje breve para el modal cuando el servicio responde pero no hay Zebra. */
+export function formatNoZebraPrinterMessage(_printService: LocalPrintServiceStatusPayload): string {
+  return 'No encontramos una impresora Zebra. Verificá que esté encendida, con driver ZPL instalado, y pulsá «Actualizar estado».';
+}
+
+export function printServiceSourceLabel(source?: 'env' | 'auto' | null): string | undefined {
+  if (source === 'auto') return 'Detectada automáticamente';
+  if (source === 'env') return 'Configurada en este equipo';
+  return undefined;
+}
+
+export async function getLocalPrinters(): Promise<LocalPrintersProbeResult> {
   const candidates = printServiceCandidateBases();
   lastPrintServiceProbeBases = [...candidates];
   activePrintServiceBase = null;
 
   for (const rawBase of candidates) {
     const base = stripTrailingSlash(rawBase);
+    const printService = await fetchLocalPrintServiceStatus(base);
+    if (!printService) {
+      continue;
+    }
+
     const ctrl = new AbortController();
     const timeout = window.setTimeout(() => ctrl.abort(), 3200);
+    let printers: LocalPrinterInfo[] = [];
+    let defaultPrinter: string | undefined;
     try {
       const res = await fetch(`${base}/printers`, {
         method: 'GET',
         signal: ctrl.signal,
       });
-      if (!res.ok) {
-        continue;
+      if (res.ok) {
+        const data = (await res.json()) as LocalPrintersResponse;
+        if (!data || data.ok !== false) {
+          printers = Array.isArray(data.printers) ? data.printers : [];
+          defaultPrinter = typeof data.defaultPrinter === 'string' ? data.defaultPrinter : undefined;
+        }
       }
-      const data = (await res.json()) as LocalPrintersResponse;
-      if (data && data.ok === false) {
-        continue;
-      }
-      activePrintServiceBase = base;
-      return {
-        status: 'ok',
-        printers: Array.isArray(data.printers) ? data.printers : [],
-        defaultPrinter: typeof data.defaultPrinter === 'string' ? data.defaultPrinter : undefined,
-      };
     } catch {
-      /* siguiente candidato */
+      /* lista opcional */
     } finally {
       window.clearTimeout(timeout);
     }
+
+    activePrintServiceBase = base;
+
+    if (printService.status === 'no_printer') {
+      return {
+        status: 'no_printer',
+        printers,
+        defaultPrinter,
+        printService,
+        message: formatNoZebraPrinterMessage(printService),
+      };
+    }
+
+    return {
+      status: 'ok',
+      printers,
+      defaultPrinter,
+      printService,
+    };
   }
 
   return {
     status: 'unavailable',
     message:
-      'No se detectó el servicio de impresión local en este equipo. Usá «Descargar ZPL» o iniciá el servicio en el PC de planta y volvé a abrir este diálogo.',
+      'No se detectó el servicio de impresión local en este equipo. Usá «Descargar ZPL» o iniciá el servicio en el PC de planta (npm run print-service o servicio «Pinebloom Zebra Print») y volvé a abrir este diálogo.',
   };
 }
 
