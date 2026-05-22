@@ -691,9 +691,9 @@ export function PtTagsPage() {
     const s = search.trim().toLowerCase();
     if (s) {
       list = list.filter(
-        (t) =>
-          t.tag_code.toLowerCase().includes(s) ||
-          t.format_code.toLowerCase().includes(s) ||
+      (t) =>
+        t.tag_code.toLowerCase().includes(s) ||
+        t.format_code.toLowerCase().includes(s) ||
           String(t.id).includes(s) ||
           (t.bol?.toLowerCase().includes(s) ?? false),
       );
@@ -1202,7 +1202,7 @@ export function PtTagsPage() {
       }
       const bulk = Math.min(100, Math.max(1, Math.floor(Number(body.bulk_units ?? 1))));
       const basePayload = {
-        fecha: new Date(body.fecha).toISOString(),
+          fecha: new Date(body.fecha).toISOString(),
         resultado: body.resultado,
         format_code: body.format_code,
         cajas_por_pallet: body.cajas_por_pallet,
@@ -1573,7 +1573,7 @@ export function PtTagsPage() {
             >
               <Info className="h-4 w-4" />
             </button>
-          </div>
+        </div>
           <p className={pageSubtitle}>Tarjas, formato y vínculo al proceso de fruta.</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -1593,12 +1593,12 @@ export function PtTagsPage() {
               openPtModalForEditRef.current = false;
             }}
           >
-            <DialogTrigger asChild>
+          <DialogTrigger asChild>
               <Button type="button" className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm">
-                <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
                 Nueva unidad PT
-              </Button>
-            </DialogTrigger>
+            </Button>
+          </DialogTrigger>
             <DialogContent
               className={cn(
                 operationalModalContentClass,
@@ -1620,7 +1620,7 @@ export function PtTagsPage() {
                     <X size={16} />
                   </button>
                 </div>
-              </DialogHeader>
+            </DialogHeader>
               <form
                 onSubmit={tagForm.handleSubmit((v) => {
                   if (editTag) {
@@ -1669,23 +1669,23 @@ export function PtTagsPage() {
                             Fecha
                           </Label>
                           <Input id="tag-fecha" type="datetime-local" className="h-9" {...tagForm.register('fecha')} />
-                          {tagForm.formState.errors.fecha && (
+                {tagForm.formState.errors.fecha && (
                             <p className="text-xs text-destructive">{tagForm.formState.errors.fecha.message}</p>
-                          )}
-                        </div>
+                )}
+              </div>
                         <div className="grid gap-1.5 rounded-lg border border-border/50 bg-muted/15 px-2.5 py-2">
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo de producto PT</Label>
-                          <select
+                <select
                             className="flex min-h-8 w-full rounded border-0 bg-transparent px-0 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
-                            {...tagForm.register('resultado')}
-                          >
+                  {...tagForm.register('resultado')}
+                >
                             {RESULTADOS_PT.map((r) => (
-                              <option key={r} value={r}>
+                    <option key={r} value={r}>
                                 {labelPtProductoPt(r)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                    </option>
+                  ))}
+                </select>
+              </div>
                         <div className="grid gap-1.5 lg:col-span-2">
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="format_code">
                             Formato de presentación *
@@ -1711,7 +1711,7 @@ export function PtTagsPage() {
                               {...tagForm.register('format_code')}
                             />
                           )}
-                          {tagForm.formState.errors.format_code && (
+                {tagForm.formState.errors.format_code && (
                             <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
                           )}
                           <p className="leading-tight text-[11px] text-muted-foreground">
@@ -1722,9 +1722,9 @@ export function PtTagsPage() {
                           </p>
                           {tagForm.formState.errors.cajas_por_pallet && (
                             <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_por_pallet.message}</p>
-                          )}
-                        </div>
-                      </div>
+                )}
+              </div>
+              </div>
                     </section>
 
                     {/* 2 · Proceso origen */}
@@ -1946,9 +1946,9 @@ export function PtTagsPage() {
                 </div>
 
                 <DialogFooter className={cn(operationalModalFooterClass, 'gap-2')}>
-                  <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
-                    Cancelar
-                  </Button>
+                <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
+                  Cancelar
+                </Button>
                   <Button
                     type="submit"
                     disabled={
@@ -1968,11 +1968,11 @@ export function PtTagsPage() {
                         : bulkUnitsSubmitLabel > 1
                           ? `Crear ${bulkUnitsSubmitLabel} unidades PT`
                           : 'Crear unidad PT'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
         </div>
       </div>
 
@@ -1985,7 +1985,7 @@ export function PtTagsPage() {
             <p className={kpiLabel}>Unidades (listado)</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(listKpis.unidades)}</p>
             <p className={kpiFootnote}>Filtradas</p>
-          </div>
+      </div>
           <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>Cajas totales</p>
             <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(listKpis.cajas)}</p>
@@ -2203,7 +2203,7 @@ export function PtTagsPage() {
             </h2>
             <span className={cn(sectionHint, '!mt-0')}>Compacta por formato · detallada completa</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
@@ -2223,7 +2223,7 @@ export function PtTagsPage() {
               >
                 Detallada
               </Button>
-            </div>
+                    </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
                 Ver criterios
@@ -2235,7 +2235,7 @@ export function PtTagsPage() {
                 <p><span className="font-semibold text-sky-700">Proceso directo:</span> unidad viene desde proceso</p>
                 <p><span className="font-semibold text-slate-700">Con BOL:</span> vinculada a documento comercial</p>
                 <p><span className="font-semibold text-slate-700">Sin ruta:</span> sin señal clara comercial/logística</p>
-              </div>
+                  </div>
             </details>
           </div>
         </div>
@@ -2311,16 +2311,16 @@ export function PtTagsPage() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setDetailTag(tag)}>
                                   Ver detalle
-                                </Button>
+                      </Button>
                                 <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => openPrintDialog(tag)}>
                                   Imprimir
-                                </Button>
+                    </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-600 hover:bg-slate-100">
                                       <MoreHorizontal className="h-4 w-4" />
                                       <span className="sr-only">Acciones</span>
-                                    </Button>
+                    </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-56">
                                     {canEditTag && (
@@ -2361,7 +2361,7 @@ export function PtTagsPage() {
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
-                              </div>
+                  </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -2375,12 +2375,12 @@ export function PtTagsPage() {
         ) : (
           <div className={cn(tableShell, 'overflow-x-auto')}>
             <Table className="min-w-[1140px] [&_td]:py-2.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right">
-              <TableHeader>
+                        <TableHeader>
                 <TableRow className={tableHeaderRow}>
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Código</TableHead>
-                  <TableHead>Productor</TableHead>
+                            <TableHead>Productor</TableHead>
                   <TableHead>Variedad</TableHead>
                   <TableHead>Formato</TableHead>
                   <TableHead className="text-right tabular-nums">Cajas</TableHead>
@@ -2389,9 +2389,9 @@ export function PtTagsPage() {
                   <TableHead>Comercial</TableHead>
                   <TableHead className="whitespace-nowrap">Unión</TableHead>
                   <TableHead className="text-right"> </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                 {filteredTags.map((tag) => (
                   <TableRow
                     key={tag.id}
@@ -2503,13 +2503,13 @@ export function PtTagsPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+        </div>
+      )}
       </section>
 
       <Dialog
@@ -2637,7 +2637,7 @@ export function PtTagsPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
+              <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDetailTag(null)}>
               Cerrar
             </Button>
@@ -2668,8 +2668,8 @@ export function PtTagsPage() {
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDeleteConfirmTag(null)}>
-              Cancelar
-            </Button>
+                  Cancelar
+                </Button>
             <Button
               type="button"
               variant="destructive"
@@ -2680,8 +2680,8 @@ export function PtTagsPage() {
               }}
             >
               {deletePtTagMut.isPending ? 'Eliminando…' : 'Eliminar'}
-            </Button>
-          </DialogFooter>
+                </Button>
+              </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2752,7 +2752,7 @@ export function PtTagsPage() {
               {localServiceState === 'ok' &&
               zebraPrinterList.length > 1 &&
               !showAllPrinters ? (
-                <div className="grid gap-2">
+              <div className="grid gap-2">
                   <div className="flex gap-2.5 rounded-lg border border-emerald-200/90 bg-emerald-50 px-3 py-2.5">
                     <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
                     <div className="min-w-0">
@@ -2760,7 +2760,7 @@ export function PtTagsPage() {
                       <p className="text-xs text-emerald-700">
                         {zebraPrinterList.length} impresoras Zebra en este equipo
                       </p>
-                    </div>
+              </div>
                   </div>
                   <select
                     className={filterSelectClass}
@@ -2926,7 +2926,7 @@ export function PtTagsPage() {
               }}
             >
               Descargar ZPL
-            </Button>
+                </Button>
             <Button
               type="button"
               disabled={!printTag || printingTag || !canPrintToLocalService}
@@ -2961,8 +2961,8 @@ export function PtTagsPage() {
               }}
             >
               {printingTag ? 'Imprimiendo…' : 'Imprimir'}
-            </Button>
-          </DialogFooter>
+                </Button>
+              </DialogFooter>
           {loadLastPrintPayload() != null ? (
             <button
               type="button"

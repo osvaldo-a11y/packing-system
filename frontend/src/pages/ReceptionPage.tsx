@@ -1128,7 +1128,7 @@ export function ReceptionPage() {
         <DialogContent
           className={cn(
             operationalModalContentClass,
-            'min-h-0 max-h-[96vh] w-[min(100vw-2rem,1024px)] min-w-[860px] max-w-4xl overflow-hidden p-0 [&>button]:hidden',
+            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
           <DialogHeader className={cn(operationalModalHeaderClass, 'border-b px-6 py-4')}>
@@ -1159,7 +1159,7 @@ export function ReceptionPage() {
           ) : null}
 
           <form onSubmit={form.handleSubmit(onSubmit)} className={operationalModalFormClass}>
-            <div className={cn(operationalModalBodyClass, 'overflow-y-auto px-0 py-0')}>
+            <div className={cn(operationalModalBodyClass, 'min-w-0 overflow-y-auto px-0 py-0 sm:px-2')}>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                 <section
                   className={cn(
@@ -1171,7 +1171,7 @@ export function ReceptionPage() {
                     <h3 className={operationalModalStepTitle}>Documento</h3>
                   </div>
                   <div className="space-y-[10px]">
-                    <div className="grid gap-[10px]" style={{ gridTemplateColumns: '1.6fr 2fr 1fr 1fr 1fr' }}>
+                    <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <div className="min-w-0 space-y-1.5">
                       <label className={compactFieldLabelClass}>Fecha y hora</label>
                       <Input
@@ -1250,7 +1250,7 @@ export function ReceptionPage() {
                       </select>
                     </div>
                     </div>
-                    <div className="grid gap-[10px]" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
                     <div className="min-w-0 space-y-1.5">
                       <label className={compactFieldLabelClass}>Referencia</label>
                       {editingId == null && !viewOnly ? (
@@ -1346,21 +1346,15 @@ export function ReceptionPage() {
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 overflow-visible pt-1">
+                  <div className="min-h-0 flex-1 overflow-x-auto overflow-y-visible pt-1">
                     <div className="space-y-4">
                     {lineDrafts.map((L, idx) => (
                       <div key={idx} className={cn(modalFormLineCard, 'space-y-2 rounded-md bg-muted/30 p-3')}>
                         {L.lot_code ? (
                           <p className="font-mono text-[11px] text-slate-500">Lote: {L.lot_code}</p>
                         ) : null}
-                        <div className="w-full overflow-hidden">
-                          <div
-                            className="grid w-full items-end gap-[6px]"
-                            style={{
-                              gridTemplateColumns:
-                                '0.8fr 1.1fr 0.7fr 1fr 1fr 0.7fr 1.2fr 0.6fr 28px',
-                            }}
-                          >
+                        <div className="w-full min-w-0">
+                          <div className="grid w-full min-w-[min(100%,36rem)] grid-cols-2 items-end gap-2 sm:min-w-[40rem] sm:grid-cols-3 md:grid-cols-4 lg:min-w-[52rem] lg:grid-cols-9 lg:gap-[6px]">
                           <div className="min-w-0 space-y-1">
                             <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Esp.</label>
                             <select
@@ -1535,7 +1529,7 @@ export function ReceptionPage() {
                               }
                             />
                           </div>
-                          <div className="flex w-7 items-end justify-end">
+                          <div className="col-span-2 flex items-end justify-end sm:col-span-1 lg:col-span-1">
                             <button
                               type="button"
                               className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600"
@@ -1547,7 +1541,6 @@ export function ReceptionPage() {
                               <Trash2 className="h-4 w-4 shrink-0" />
                             </button>
                           </div>
-                        </div>
                         </div>
                       </div>
                     ))}
