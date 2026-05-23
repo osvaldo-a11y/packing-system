@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -401,6 +402,7 @@ function fetchEligibleLines(producerId: number) {
 }
 
 export function ProcessesPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   /** Cerrar y reabrir a borrador vía PATCH; el resto de transiciones sigue siendo solo admin. */
@@ -750,7 +752,7 @@ export function ProcessesPage() {
         queryClient.invalidateQueries({ queryKey: ['processes', 'producers-with-eligible-mp'] }),
         queryClient.invalidateQueries({ queryKey: ['receptions'] }),
       ]);
-      toast.success('Proceso registrado');
+      toast.success(t('process.toast.created'));
       setOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -771,7 +773,7 @@ export function ProcessesPage() {
       };
     }) => apiJson(`/api/processes/${id}/weights`, { method: 'PATCH', body: JSON.stringify(body) }),
     onSuccess: async (_data, variables) => {
-      toast.success('Pesos actualizados');
+      toast.success(t('process.toast.updated'));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['processes'] }),
         queryClient.invalidateQueries({ queryKey: ['receptions'] }),
@@ -809,7 +811,7 @@ export function ProcessesPage() {
     mutationFn: (id: number) => apiJson(`/api/processes/${id}/confirm`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Proceso confirmado');
+      toast.success(t('process.toast.confirmed'));
       setWeightsOpen(false);
       setWeightsRow(null);
     },
@@ -821,7 +823,7 @@ export function ProcessesPage() {
       apiJson(`/api/processes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'cerrado' }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Proceso cerrado');
+      toast.success(t('process.toast.closed'));
       setWeightsOpen(false);
       setWeightsRow(null);
     },
@@ -832,7 +834,7 @@ export function ProcessesPage() {
     mutationFn: ({ id, status }: { id: number; status: ProcessStatusUi }) =>
       apiJson(`/api/processes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
     onSuccess: async (_data, variables) => {
-      toast.success('Estado del proceso actualizado');
+      toast.success(t('process.toast.statusUpdated'));
       await queryClient.invalidateQueries({ queryKey: ['processes'] });
       await queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
       const list = await queryClient.fetchQuery({ queryKey: ['processes'], queryFn: fetchProcesses });
@@ -863,7 +865,7 @@ export function ProcessesPage() {
 
   function submitNewProcess(v: CreateProcessForm) {
     if (!producerId || producerId <= 0) {
-      toast.error('Elegí un productor.');
+      toast.error(t('process.toast.noProducer'));
       return;
     }
     const allocations: { reception_line_id: number; lb_allocated: number }[] = [];
@@ -872,17 +874,17 @@ export function ProcessesPage() {
       if (!raw) continue;
       const lb = Number(raw);
       if (!Number.isFinite(lb) || lb <= 0) {
-        toast.error('Revisá los lb indicados por línea.');
+        toast.error(t('process.toast.checkLb'));
         return;
       }
       if (lb > ln.available_lb + ALLOC_EPS) {
-        toast.error(`Línea R${ln.reception_id}: no podés vaciar más que el saldo (${fmtLb2(ln.available_lb)} lb).`);
+        toast.error(t('process.toast.lineOverflow', { id: ln.reception_id, lb: fmtLb2(ln.available_lb) }));
         return;
       }
       allocations.push({ reception_line_id: ln.reception_line_id, lb_allocated: lb });
     }
     if (allocations.length === 0) {
-      toast.error('Indicá lb a vaciar en al menos una línea con saldo.');
+      toast.error(t('process.toast.noLines'));
       return;
     }
     const sum = allocations.reduce((s, a) => s + a.lb_allocated, 0);
@@ -892,7 +894,7 @@ export function ProcessesPage() {
       userFilledCreateComponents &&
       !destinoMatchesEntrada(sum, packoutFromTagsCreate, createComponentsTotal)
     ) {
-      toast.error('Lb entrada debe ser igual a componentes (en alta el packout desde unidades PT es 0). O vaciá los componentes.');
+      toast.error(t('process.toast.balanceError'));
       return;
     }
     const sendComponents = userFilledCreateComponents;
@@ -948,7 +950,7 @@ export function ProcessesPage() {
     }
     weightsOpenedFromUrlRef.current = true;
     openWeights(row);
-  }, [data, focusPid, openWeights]);
+  }, [data, focusPid, openWeights, t]);
 
   const focusRow = focusPid != null ? data?.find((r) => r.id === focusPid) : undefined;
 
@@ -1244,18 +1246,18 @@ export function ProcessesPage() {
                     ? 'Solo lectura (proceso cerrado)'
                     : adminEdit
                       ? 'Editar (admin): proceso cerrado'
-                      : 'Editar proceso'
+                      : t('process.table.actionEditTitle')
                 }
               >
                 {adminEdit ? (
                   <>
                     <Pencil className="h-3.5 w-3.5" />
-                    Editar
+                    {t('process.table.actionEdit')}
                   </>
                 ) : cerrado ? (
-                  'Ver'
+                  t('process.table.actionView')
                 ) : (
-                  'Editar'
+                  t('process.table.actionEdit')
                 )}
               </Button>
               <Button
@@ -1266,20 +1268,20 @@ export function ProcessesPage() {
                 onClick={async () => {
                   try {
                     await downloadPdf(`/api/documents/processes/${row.original.id}/pdf`, `proceso-${row.original.id}.pdf`);
-                    toast.success('PDF descargado');
+                    toast.success(t('process.toast.pdfReady'));
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                    toast.error(e instanceof Error ? e.message : t('process.toast.downloadError'));
                   }
                 }}
               >
-                PDF
+                {t('process.table.actionPdf')}
               </Button>
             </div>
           );
         },
       },
     ],
-    [openWeights, isAdmin],
+    [openWeights, isAdmin, t],
   );
 
   if (isPending) {
@@ -1313,17 +1315,17 @@ export function ProcessesPage() {
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
-            <h1 className={pageTitle}>Procesos de fruta</h1>
+            <h1 className={pageTitle}>{t('process.pageTitle')}</h1>
             <button
               type="button"
               className={pageInfoButton}
               title="Lb entrada = reparto por línea; packout desde unidades PT. Estados: borrador → confirmar → cerrado."
-              aria-label="Ayuda sobre procesos"
+              aria-label={t('process.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
           </div>
-          <p className={pageSubtitle}>Operación y liquidación por proceso.</p>
+          <p className={pageSubtitle}>{t('process.pageSubtitle')}</p>
         </div>
         <Dialog
           open={open}
@@ -1339,7 +1341,7 @@ export function ProcessesPage() {
           <DialogTrigger asChild>
             <Button className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm">
               <Plus className="h-4 w-4" />
-              Nuevo proceso
+              {t('process.newButton')}
             </Button>
           </DialogTrigger>
           <DialogContent
@@ -1352,13 +1354,13 @@ export function ProcessesPage() {
               <div className="flex items-center justify-between">
                 <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  Nuevo proceso
+                  {t('process.dialog.title')}
                 </DialogTitle>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                  aria-label="Cerrar"
+                  aria-label={t('process.dialog.closeAriaLabel')}
                 >
                   <X size={16} />
                 </button>
@@ -1375,16 +1377,16 @@ export function ProcessesPage() {
                   >
                     <div className={operationalModalSectionHeadingRow}>
                       <span className={operationalModalStepBadge}>1</span>
-                      <h3 className={operationalModalStepTitle}>Origen MP (recepciones)</h3>
+                      <h3 className={operationalModalStepTitle}>{t('process.dialog.step1')}</h3>
                     </div>
                     <div className="grid shrink-0 gap-2">
-                      <Label className="text-xs">Productor</Label>
+                      <Label className="text-xs">{t('process.dialog.producerLabel')}</Label>
                       <select
                         className={filterSelectClass}
                         value={producerId}
                         onChange={(e) => setProducerId(Number(e.target.value))}
                       >
-                        <option value={0}>Elegir productor…</option>
+                        <option value={0}>{t('process.dialog.producerPlaceholder')}</option>
                         {producersForCreate.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.nombre}
@@ -1394,26 +1396,23 @@ export function ProcessesPage() {
                       </select>
                       {producerIdsWithMp && producersForCreate.length === 0 ? (
                         <p className="text-sm text-amber-700 dark:text-amber-500">
-                          Ningún productor tiene fruta con saldo en recepción (no anulada). Revisá que la recepción tenga líneas
-                          con lb, que no esté anulada y que el productor coincida.
+                          {t('process.dialog.noMpWarning')}
                         </p>
                       ) : null}
                       {eligibleLoading && producerId > 0 ? (
-                        <p className="text-xs text-muted-foreground">Cargando líneas con saldo…</p>
+                        <p className="text-xs text-muted-foreground">{t('process.dialog.loadingLines')}</p>
                       ) : null}
                       {producerId > 0 && eligibleLines && eligibleLines.length === 0 && !eligibleLoading ? (
                         <p className="text-sm text-amber-700 dark:text-amber-500">
-                          No hay líneas con saldo disponible para este productor.
+                          {t('process.dialog.noLinesWarning')}
                         </p>
                       ) : null}
                     </div>
                       {eligibleLines && eligibleLines.length > 0 ? (
                         <div className="flex min-h-0 max-h-[min(58vh,560px)] flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card p-3">
-                          <Label className="shrink-0 text-sm">Vaciar MP (varias recepciones / líneas)</Label>
+                          <Label className="shrink-0 text-sm">{t('process.dialog.mpSectionLabel')}</Label>
                           <p className="shrink-0 text-xs text-muted-foreground">
-                            Indicá cuántas lb tomás de cada línea (hasta el saldo disponible). La suma define las{' '}
-                            <strong>lb entrada</strong>. Orden: recepciones más antiguas primero. Solo se listan
-                            recepciones en estado <strong>borrador</strong>.
+                            {t('process.dialog.mpSectionHint')}
                           </p>
                           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
                             {eligibleLines.map((ln) => (
@@ -1433,7 +1432,9 @@ export function ProcessesPage() {
                                   </span>
                                 </div>
                                 <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-                                  <span className="whitespace-nowrap text-xs text-slate-600">saldo {fmtLb2(ln.available_lb)} lb</span>
+                                  <span className="whitespace-nowrap text-xs text-slate-600">
+                                    {t('process.dialog.balanceLabel', { value: fmtLb2(ln.available_lb) })}
+                                  </span>
                                   <Input
                                     className={cn(filterInputClass, 'h-9 w-[7.5rem] shrink-0 sm:w-32')}
                                     placeholder="lb"
@@ -1464,12 +1465,12 @@ export function ProcessesPage() {
                   <section className={operationalModalSectionCard}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                       <span className={operationalModalStepBadge}>2</span>
-                      <h3 className={operationalModalStepTitle}>Fecha y línea de proceso</h3>
+                      <h3 className={operationalModalStepTitle}>{t('process.dialog.step2')}</h3>
                     </div>
                     <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
                       <div className="grid gap-1.5">
                         <Label className="text-xs" htmlFor="fecha_proceso">
-                          Fecha / hora proceso
+                          {t('process.dialog.fieldDatetime')}
                         </Label>
                         <Input
                           id="fecha_proceso"
@@ -1479,14 +1480,18 @@ export function ProcessesPage() {
                         />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label className="text-xs">Línea de proceso (máquina)</Label>
+                        <Label className="text-xs">{t('process.dialog.fieldMachine')}</Label>
                         <select className={filterSelectClass} {...form.register('process_machine_id', { valueAsNumber: true })}>
-                          <option value={0}>Elegir línea…</option>
-                          {activeMachineByKind.single ? <option value={activeMachineByKind.single.id}>Línea single</option> : null}
-                          {activeMachineByKind.double ? <option value={activeMachineByKind.double.id}>Línea double</option> : null}
+                          <option value={0}>{t('process.dialog.chooseLine')}</option>
+                          {activeMachineByKind.single ? (
+                            <option value={activeMachineByKind.single.id}>{t('process.dialog.machineLineSingle')}</option>
+                          ) : null}
+                          {activeMachineByKind.double ? (
+                            <option value={activeMachineByKind.double.id}>{t('process.dialog.machineLineDouble')}</option>
+                          ) : null}
                         </select>
                         <p className="text-[11px] leading-snug text-muted-foreground">
-                          Configurá máquinas en <strong>Mantenedores → Líneas de proceso</strong>.
+                          {t('process.dialog.machineHint')}
                         </p>
                       </div>
                     </div>
@@ -1495,11 +1500,11 @@ export function ProcessesPage() {
                   <section className={operationalModalSectionCard}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                       <span className={operationalModalStepBadge}>3</span>
-                      <h3 className={operationalModalStepTitle}>Entrada y nota</h3>
+                      <h3 className={operationalModalStepTitle}>{t('process.dialog.step3')}</h3>
                     </div>
                     <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
                       <div className="grid gap-1.5">
-                        <Label className="text-xs">Lb entrada (suma del reparto)</Label>
+                        <Label className="text-xs">{t('process.dialog.fieldEntrada')}</Label>
                         <Input
                           readOnly
                           className={cn(filterInputClass, 'bg-muted/50')}
@@ -1507,13 +1512,13 @@ export function ProcessesPage() {
                         />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label className="text-xs">Nota</Label>
+                        <Label className="text-xs">{t('process.dialog.fieldNota')}</Label>
                         <Input className={filterInputClass} {...form.register('nota')} />
                       </div>
                     </div>
                     {createSpeciesId == null ? (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Indicá lb en al menos una línea con saldo para determinar la especie y cargar los componentes de resultado.
+                        {t('process.dialog.speciesHint')}
                       </p>
                     ) : null}
                   </section>
@@ -1521,7 +1526,7 @@ export function ProcessesPage() {
                   <section className={operationalModalSectionMuted}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                       <span className={operationalModalStepBadge}>4</span>
-                      <h3 className={operationalModalStepTitle}>Componentes (resultado)</h3>
+                      <h3 className={operationalModalStepTitle}>{t('process.dialog.step4')}</h3>
                     </div>
                     {activeCreateComponents.length > 0 ? (
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1544,10 +1549,10 @@ export function ProcessesPage() {
                         ))}
                       </div>
                     ) : createSpeciesId != null ? (
-                      <p className="text-xs text-muted-foreground">No hay componentes activos para esta especie en mantenedores.</p>
+                      <p className="text-xs text-muted-foreground">{t('process.dialog.noComponents')}</p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Los componentes aparecen cuando hay reparto en líneas y la especie queda determinada.
+                        {t('process.dialog.componentsHint')}
                       </p>
                     )}
                   </section>
@@ -1555,27 +1560,34 @@ export function ProcessesPage() {
                   <div className="rounded-md border border-border/70 bg-muted/30 p-3">
                     {entradaSum > 0 ? (
                       <p className="mb-3 rounded-md border border-blue-200 bg-blue-50 p-2 text-[11px] leading-snug text-blue-800">
-                        En alta no hay unidades PT aún: packout = 0. Si cargás componentes, deben sumar la{' '}
-                        <strong className="text-blue-900">lb entrada</strong>.
+                        {t('process.dialog.calcNewNotice')}
                       </p>
                     ) : null}
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Calculadora de cuadre</p>
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                      {t('process.dialog.calcTitle')}
+                    </p>
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                       <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Lb entrada</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          {t('process.dialog.calcEntrada')}
+                        </p>
                         <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
                           {fmtLb2(entradaSum)}
                         </p>
                       </div>
                       <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Lb packout</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          {t('process.dialog.calcPackout')}
+                        </p>
                         <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
                           {fmtLb2(packoutFromTagsCreate)}
                         </p>
-                        <p className="mt-1 text-[9px] leading-tight text-slate-400">Desde PT (en alta: 0)</p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-400">{t('process.dialog.calcPackoutNote')}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-3 shadow-sm">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Componentes</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          {t('process.dialog.calcComponents')}
+                        </p>
                         <p className="mt-1.5 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
                           {fmtLb2(createComponentsTotal)}
                         </p>
@@ -1588,17 +1600,21 @@ export function ProcessesPage() {
                             : 'border-amber-200/80 bg-amber-50/45',
                         )}
                       >
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Diferencia</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                          {t('process.dialog.calcDiff')}
+                        </p>
                         <p className="mt-1 font-mono text-lg font-semibold tabular-nums leading-none text-slate-900">
                           {fmtLb2(diferenciaRep)}
                           <span className="ml-1 text-[10px] font-sans font-normal text-slate-500">lb</span>
                         </p>
-                        <p className="mt-1 text-[9px] leading-tight text-slate-500">entrada − packout − componentes</p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-500">{t('process.dialog.calcDiffNote')}</p>
                       </div>
                     </div>
                     {activeCreateComponents.length > 0 ? (
                       <div className="mt-4 space-y-1.5 rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Detalle componentes</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          {t('process.dialog.calcDetailTitle')}
+                        </p>
                         <ul className="space-y-1 text-xs">
                           {activeCreateComponents.map((c) => (
                             <li key={c.id} className="flex justify-between gap-3 tabular-nums">
@@ -1615,10 +1631,10 @@ export function ProcessesPage() {
             </div>
             <DialogFooter className={operationalModalFooterClass}>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancelar
+                {t('process.dialog.cancelButton')}
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Guardando…' : 'Registrar'}
+                {mutation.isPending ? t('process.dialog.savingButton') : t('process.dialog.registerButton')}
               </Button>
             </DialogFooter>
             </form>
@@ -1628,18 +1644,18 @@ export function ProcessesPage() {
 
       <section aria-labelledby="proc-kpis" className="space-y-3">
         <h2 id="proc-kpis" className="sr-only">
-          Indicadores del listado filtrado
+          {t('process.srKpis')}
         </h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Lb entrada</p>
+            <p className={kpiLabel}>{t('process.kpi.entrada')}</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{fmtLb2(processKpis.lbEntrada)}</p>
-            <p className={kpiFootnote}>Suma filtrada</p>
+            <p className={kpiFootnote}>{t('process.kpi.entradaNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Lb packout</p>
+            <p className={kpiLabel}>{t('process.kpi.packout')}</p>
             <p className={cn(kpiValueLg, 'text-green-700')}>{fmtLb2(processKpis.lbPack)}</p>
-            <p className={kpiFootnote}>Planificado / acumulado</p>
+            <p className={kpiFootnote}>{t('process.kpi.packoutNote')}</p>
           </div>
           <div
             className={cn(
@@ -1653,7 +1669,7 @@ export function ProcessesPage() {
                 : '',
             )}
           >
-            <p className={kpiLabel}>Rendimiento</p>
+            <p className={kpiLabel}>{t('process.kpi.rendimiento')}</p>
             <p
               className={cn(
                 kpiValueLg,
@@ -1668,12 +1684,12 @@ export function ProcessesPage() {
             >
               {processKpis.rendimientoPct != null ? `${formatPercent(processKpis.rendimientoPct, 2)}%` : '—'}
             </p>
-            <p className={kpiFootnote}>Packout / entrada</p>
+            <p className={kpiFootnote}>{t('process.kpi.rendimientoNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Cajas producidas</p>
+            <p className={kpiLabel}>{t('process.kpi.boxes')}</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(processKpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Desde unidades PT</p>
+            <p className={kpiFootnote}>{t('process.kpi.boxesNote')}</p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -1689,7 +1705,7 @@ export function ProcessesPage() {
                 : '',
             )}
           >
-            <p className={kpiLabel}>Merma</p>
+            <p className={kpiLabel}>{t('process.kpi.merma')}</p>
             <p
               className={cn(
                 kpiValueMd,
@@ -1704,17 +1720,17 @@ export function ProcessesPage() {
             >
               {fmtLb2(processKpis.lbMerma)}
             </p>
-            <p className={kpiFootnote}>Vista filtrada</p>
+            <p className={kpiFootnote}>{t('process.kpi.mermaNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Jugo</p>
+            <p className={kpiLabel}>{t('process.kpi.jugo')}</p>
             <p className={kpiValueMd}>{fmtLb2(processKpis.lbJugo)}</p>
-            <p className={kpiFootnote}>Vista filtrada</p>
+            <p className={kpiFootnote}>{t('process.kpi.jugoNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Desecho</p>
+            <p className={kpiLabel}>{t('process.kpi.desecho')}</p>
             <p className={kpiValueMd}>{fmtLb2(processKpis.lbDesecho)}</p>
-            <p className={kpiFootnote}>Vista filtrada</p>
+            <p className={kpiFootnote}>{t('process.kpi.desechoNote')}</p>
           </div>
         </div>
       </section>
@@ -1722,7 +1738,7 @@ export function ProcessesPage() {
       {focusPid != null ? (
         <div className="rounded-2xl border border-sky-100/80 bg-sky-50/30 px-4 py-3 sm:px-5">
           {data && !focusRow ? (
-            <p className={emptyStateBanner}>No hay proceso #{focusPid} en el listado.</p>
+            <p className={emptyStateBanner}>{t('process.focus.notFound', { id: focusPid })}</p>
           ) : focusRow ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm text-slate-700">
@@ -1732,7 +1748,10 @@ export function ProcessesPage() {
                 ) : null}
                 <span className="mx-2 text-slate-300">·</span>
                 <span className="text-slate-600">
-                  Packout {fmtLb2(focusRow.lb_packout_asociado)} / {fmtLb2(focusRow.lb_packout_restante)} · Ajustá el 100% en editar.
+                  {t('process.focus.packoutInfo', {
+                    current: fmtLb2(focusRow.lb_packout_asociado),
+                    remaining: fmtLb2(focusRow.lb_packout_restante),
+                  })}
                 </span>
               </div>
               <Button
@@ -1742,11 +1761,11 @@ export function ProcessesPage() {
                 className="h-9 shrink-0 rounded-lg"
                 onClick={() => openWeights(focusRow)}
               >
-                Editar proceso
+                {t('process.focus.editButton')}
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-slate-500">Cargando…</p>
+            <p className="text-sm text-slate-500">{t('process.focus.loading')}</p>
           )}
         </div>
       ) : null}
@@ -1782,11 +1801,12 @@ export function ProcessesPage() {
                         : 'bg-[#E24B4A]',
                   )}
                 />
-                Proceso #{weightsRow?.id ?? '—'}
+                {t('process.editDialog.titlePrefix')}
+                {weightsRow?.id ?? '—'}
                 {weightsRow?.csv_process_ref != null && weightsRow.csv_process_ref !== weightsRow.id ? (
                   <span className="text-sm font-normal text-muted-foreground">
                     {' '}
-                    · nº hoja {weightsRow.csv_process_ref}
+                    · {t('process.editDialog.sheetSuffix', { n: weightsRow.csv_process_ref })}
                   </span>
                 ) : null}
               </DialogTitle>
@@ -1794,7 +1814,7 @@ export function ProcessesPage() {
                 type="button"
                 onClick={() => setWeightsOpen(false)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('process.editDialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -1819,7 +1839,7 @@ export function ProcessesPage() {
                     >
                       <div className="flex items-start justify-between gap-1">
                         <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                          Entrada
+                          {t('process.editDialog.cardEntrada')}
                         </p>
                         {entradaLockedByMp && weightsModalCanEditWeights ? (
                           <Button
@@ -1827,7 +1847,7 @@ export function ProcessesPage() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-                            title="Corregir lb de entrada (reparto MP)"
+                            title={t('process.editDialog.correctEntradaTitle')}
                             aria-expanded={entradaMpEditOpen}
                             onClick={() => setEntradaMpEditOpen((o) => !o)}
                           >
@@ -1845,7 +1865,7 @@ export function ProcessesPage() {
                       title="Lb planificadas en unidades PT (cache). El cuadre usa el máximo entre esto y pallets PF asociados."
                     >
                       <p className="flex flex-wrap items-center gap-x-0.5 gap-y-0 text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                        En PT
+                        {t('process.editDialog.cardEnPt')}
                         <HelpCircle className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
                       </p>
                       <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
@@ -1878,22 +1898,26 @@ export function ProcessesPage() {
                       >
                         {fmtLb2(processEditModalSnapshot.pendiente)}
                       </p>
-                      <p className="text-[9px] text-muted-foreground">{processEditModalSnapshot.ok ? 'Cuadrado' : 'Ajustar'}</p>
+                      <p className="text-[9px] text-muted-foreground">
+                        {processEditModalSnapshot.ok ? t('process.editDialog.cardBalanced') : t('process.editDialog.cardAdjust')}
+                      </p>
                     </div>
                     <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-muted/25 px-2.5 py-2 sm:min-w-[12rem]">
-                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">Estado</p>
+                      <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                        {t('process.editDialog.cardStatus')}
+                      </p>
                       <div className="mt-1">
                         <ProcessStatusBadge status={weightsRow.process_status} />
                       </div>
                     </div>
                     {entradaMpEditOpen && entradaLockedByMp && weightsModalCanEditWeights ? (
                       <div className="w-full basis-full rounded-lg border border-primary/25 bg-muted/20 px-3 py-2.5 shadow-sm">
-                        <p className="text-[11px] font-medium text-foreground">Corregir entrada (MP)</p>
+                        <p className="text-[11px] font-medium text-foreground">{t('process.editDialog.entradaEditTitle')}</p>
                         <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-                          Usá punto decimal (ej. 5.868). El tope incluye lo ya asignado a este proceso.
+                          {t('process.editDialog.entradaEditHint')}
                         </p>
                         {editableMpLoading ? (
-                          <p className="mt-2 text-xs text-muted-foreground">Cargando saldo disponible…</p>
+                          <p className="mt-2 text-xs text-muted-foreground">{t('process.editDialog.loadingMp')}</p>
                         ) : null}
                         {(editableMpLines ?? []).length > 0 ? (
                           <ul className="mt-2 space-y-2">
@@ -1907,15 +1931,15 @@ export function ProcessesPage() {
                                   <span className="font-mono text-foreground">{ln.lot_code}</span>{' '}
                                   {ln.species_nombre}/{ln.variety_nombre}
                                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                                    Neto recepción: {fmtLb2(ln.net_lb_line)} lb
+                                    {t('process.editDialog.receptionNet', { value: fmtLb2(ln.net_lb_line) })}
                                   </span>
                                   <span className="mt-0.5 block text-xs font-medium text-emerald-800 dark:text-emerald-400">
-                                    Máx. editable: {fmtLb2(ln.available_lb)} lb
+                                    {t('process.editDialog.maxEditable', { value: fmtLb2(ln.available_lb) })}
                                   </span>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
                                   <Label htmlFor={`entrada-mp-${ln.reception_line_id}`} className="sr-only">
-                                    Lb asignadas
+                                    {t('process.editDialog.lbAssignedLabel')}
                                   </Label>
                                   <Input
                                     id={`entrada-mp-${ln.reception_line_id}`}
@@ -1943,12 +1967,11 @@ export function ProcessesPage() {
                           </ul>
                         ) : !editableMpLoading ? (
                           <p className="mt-2 text-xs text-amber-700 dark:text-amber-500">
-                            No hay líneas con saldo para ajustar la entrada.
+                            {t('process.editDialog.noMpLines')}
                           </p>
                         ) : null}
                         <p className="mt-2 text-[10px] text-muted-foreground">
-                          Suma reparto: <span className="font-semibold tabular-nums text-foreground">{fmtLb2(weightsMpAllocSumLb)}</span> lb ·
-                          guardá con «Guardar cambios».
+                          {t('process.editDialog.mpAllocSum', { value: fmtLb2(weightsMpAllocSumLb) })}
                         </p>
                       </div>
                     ) : null}
@@ -1960,10 +1983,13 @@ export function ProcessesPage() {
                   <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
                     <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="text-sm font-semibold text-foreground">Unidades PT vinculadas</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{t('process.editDialog.ptTitle')}</h3>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {linkedPtModalStats.rows} tarjas · {formatCount(linkedPtModalStats.cajas)} cajas ·{' '}
-                          {linkedPtModalStats.rows === 0 ? '—' : fmtLb2(linkedPtModalStats.lbSum)} lb
+                          {t('process.editDialog.ptStats', {
+                            rows: linkedPtModalStats.rows,
+                            boxes: formatCount(linkedPtModalStats.cajas),
+                            lb: linkedPtModalStats.rows === 0 ? '—' : fmtLb2(linkedPtModalStats.lbSum),
+                          })}
                         </p>
                       </div>
                       {linkedPtRowsForModal.length > 1 && canChangeProcessStatus ? (
@@ -1979,24 +2005,24 @@ export function ProcessesPage() {
                           }}
                         >
                           <Link2Off className="h-3.5 w-3.5" />
-                          Desvincular todas
+                          {t('process.editDialog.unlinkAll')}
                         </Button>
                       ) : null}
                     </div>
                     {linkedPtRowsForModal.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Ninguna unidad PT referencia este proceso.</p>
+                      <p className="text-xs text-muted-foreground">{t('process.editDialog.noPt')}</p>
                     ) : (
                       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded-md border border-border/80">
                         <Table className="min-w-[680px] text-xs [&_td]:py-1.5 [&_th]:h-8 [&_th]:py-1.5 [&_th]:text-[10px]">
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="whitespace-nowrap">Unidad PT</TableHead>
-                              <TableHead>Formato</TableHead>
-                              <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                              <TableHead className="text-right tabular-nums">LB (aprox.)</TableHead>
-                              <TableHead>Estado</TableHead>
-                              <TableHead>Cliente</TableHead>
-                              <TableHead className="text-right">Acción</TableHead>
+                              <TableHead className="whitespace-nowrap">{t('process.editDialog.colPtUnit')}</TableHead>
+                              <TableHead>{t('process.editDialog.colFormat')}</TableHead>
+                              <TableHead className="text-right tabular-nums">{t('process.editDialog.colBoxes')}</TableHead>
+                              <TableHead className="text-right tabular-nums">{t('process.editDialog.colLb')}</TableHead>
+                              <TableHead>{t('process.editDialog.colState')}</TableHead>
+                              <TableHead>{t('process.editDialog.colClient')}</TableHead>
+                              <TableHead className="text-right">{t('process.editDialog.colAction')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -2046,7 +2072,7 @@ export function ProcessesPage() {
                                         }}
                                       >
                                         <Link2Off className="h-3 w-3" />
-                                        Desligar
+                                        {t('process.editDialog.unlinkOne')}
                                       </Button>
                                     ) : linkedPtRowsForModal.length > 1 ? (
                                       <Button
@@ -2062,7 +2088,7 @@ export function ProcessesPage() {
                                         }}
                                       >
                                         <Link2Off className="h-3 w-3" />
-                                        Abrir
+                                        {t('process.editDialog.openPt')}
                                       </Button>
                                     ) : (
                                       <span className="text-[10px] text-muted-foreground">—</span>
@@ -2078,11 +2104,10 @@ export function ProcessesPage() {
                     {linkedPtRowsForModal.length > 1 ? (
                       <details className="mt-2 rounded-md border border-dashed border-border/70 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
                         <summary className="cursor-pointer list-none px-2 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/30">
-                          Varias tarjas: cómo desligar
+                          {t('process.editDialog.multiUnlinkHint')}
                         </summary>
                         <p className="border-t border-border/50 px-2 py-2 text-[10px] leading-snug text-muted-foreground">
-                          Usá <strong>Desligar / Abrir</strong> por fila o <strong>Desvincular todas</strong> arriba (pasa por borrador en
-                          servidor).
+                          {t('process.editDialog.multiUnlinkDesc')}
                         </p>
                       </details>
                     ) : null}
@@ -2092,12 +2117,14 @@ export function ProcessesPage() {
                   {canChangeProcessStatus ? (
                     <section className="rounded-lg border border-border bg-muted/20 p-3">
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-foreground">Estado del proceso</p>
-                        <span className="text-[10px] text-muted-foreground">{isAdmin ? 'Administración' : 'Supervisor'}</span>
+                        <p className="text-xs font-semibold text-foreground">{t('process.editDialog.statusTitle')}</p>
+                        <span className="text-[10px] text-muted-foreground">
+                          {isAdmin ? t('process.editDialog.statusAdmin') : t('process.editDialog.statusSupervisor')}
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="grid gap-1">
-                          <Label className="text-[10px] text-muted-foreground">Cambiar a</Label>
+                          <Label className="text-[10px] text-muted-foreground">{t('process.editDialog.statusChangeTo')}</Label>
                           <select
                             className="flex h-9 min-w-[180px] rounded-md border border-input bg-background px-2 py-1 text-sm"
                             value={adminStatusDraft}
@@ -2122,22 +2149,21 @@ export function ProcessesPage() {
                           })()}
                           onClick={() => adminEstadoMut.mutate({ id: weightsRow.id, status: adminStatusDraft })}
                         >
-                          {adminEstadoMut.isPending ? 'Aplicando…' : 'Aplicar estado'}
+                          {adminEstadoMut.isPending ? t('process.editDialog.statusApplying') : t('process.editDialog.statusApply')}
                         </Button>
                       </div>
                       {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
                         <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                          Borrador con PT #{weightsRow.tarja_id} aún enlazada: <strong>Aplicar estado</strong> desvincula en servidor.
+                          {t('process.editDialog.statusBorradorWarning', { id: weightsRow.tarja_id })}
                         </p>
                       ) : null}
                       <details className="group mt-2 rounded-md border border-border/60 bg-background/50 [&_summary::-webkit-details-marker]:hidden">
                         <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/40">
                           <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
-                          Ayuda estados y cuadre
+                          {t('process.editDialog.statusHelpTitle')}
                         </summary>
                         <p className="border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
-                          Pasar a <strong>confirmado</strong> exige cuadre (entrada = packout + componentes). Reabrir a borrador o cerrar
-                          son acciones administrativas según rol.
+                          {t('process.editDialog.statusHelpDesc')}
                         </p>
                       </details>
                     </section>
@@ -2165,19 +2191,19 @@ export function ProcessesPage() {
                         for (const [lineId, raw] of Object.entries(allocEditDrafts)) {
                           const n = parseAllocDraftLb(raw);
                           if (n == null) {
-                            toast.error('Revisá las libras del reparto (use punto decimal, ej. 5.868).');
+                            toast.error(t('process.toast.checkAllocLb'));
                             return;
                           }
                           if (n <= ALLOC_EPS) continue;
                           const ln = lineById.get(Number(lineId));
                           if (ln && n > ln.available_lb + ALLOC_EPS) {
-                            toast.error(`R${ln.reception_id}: máximo ${fmtLb2(ln.available_lb)} lb disponibles.`);
+                            toast.error(t('process.toast.lineMaxLb', { id: ln.reception_id, lb: fmtLb2(ln.available_lb) }));
                             return;
                           }
                           allocations.push({ reception_line_id: Number(lineId), lb_allocated: n });
                         }
                         if (allocations.length === 0) {
-                          toast.error('Indicá al menos una línea de recepción con libras en el reparto MP.');
+                          toast.error(t('process.toast.noAllocLines'));
                           return;
                         }
                         body.allocations = allocations;
@@ -2195,25 +2221,25 @@ export function ProcessesPage() {
                       <div className="flex min-w-0 flex-1 basis-full flex-wrap gap-2 rounded-lg border border-border bg-muted/15 p-3 sm:basis-auto">
                         <div className="min-w-[8.75rem] max-w-full flex-1">
                           <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                            Entrada
+                            {t('process.editDialog.cardEntrada')}
                           </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.entrada)}</p>
                         </div>
                         <div className="min-w-[8.75rem] max-w-full flex-1" title="Máx. entre PT planificado y pallets PF asociados (cuadre).">
                           <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                            En producto
+                            {t('process.editDialog.enProducto')}
                           </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.packoutProductLb)}</p>
                         </div>
                         <div className="min-w-[8.75rem] max-w-full flex-1">
                           <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                            Componentes
+                            {t('process.editDialog.cardComponents')}
                           </p>
                           <p className="mt-0.5 text-sm font-bold tabular-nums">{fmtLb2(processEditModalSnapshot.components)}</p>
                         </div>
                         <div className="min-w-[8.75rem] max-w-full flex-1">
                           <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                            Pendiente
+                            {t('process.editDialog.cardPending')}
                           </p>
                           <p
                             className={cn(
@@ -2230,7 +2256,7 @@ export function ProcessesPage() {
                           htmlFor="process-edit-merma-lb"
                           className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground"
                         >
-                          Merma
+                          {t('process.editDialog.mermaLabel')}
                         </Label>
                         {weightsModalCanEditWeights && weightsModalCanEditMermaLb ? (
                           <Input
@@ -2245,21 +2271,21 @@ export function ProcessesPage() {
                         )}
                         <p className="mt-1 text-[9px] leading-snug text-muted-foreground">
                           {weightsModalCanEditWeights && weightsModalCanEditMermaLb
-                            ? 'Editable · se guarda con «Guardar cambios».'
+                            ? t('process.editDialog.mermaEditable')
                             : !weightsModalCanEditMermaLb
-                              ? 'Con libras en el componente MERMA de la lista, editá ahí el valor.'
-                              : 'Registro del proceso'}
+                              ? t('process.editDialog.mermaComponentNote')
+                              : t('process.editDialog.mermaReadonly')}
                         </p>
                       </div>
                     </div>
                     {!processEditModalSnapshot.ok ? (
                       <p className="text-xs text-destructive">
-                        Pendiente distinto de 0: ajustá componentes, merma, entrada (lápiz en la tarjeta Entrada) o PT/pallets hasta cuadrar.
+                        {t('process.editDialog.pendingError')}
                       </p>
                     ) : null}
                     <details className="rounded-md border border-border/60 bg-muted/10 [&_summary::-webkit-details-marker]:hidden">
                       <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/30">
-                        Detalle técnico del reparto (PT vs PF)
+                        {t('process.editDialog.techDetailTitle')}
                       </summary>
                       <div className="space-y-1 border-t border-border/50 px-2 py-2 text-[11px] leading-snug text-muted-foreground">
                         <p>
@@ -2278,7 +2304,7 @@ export function ProcessesPage() {
                         <>
                           {st === 'cerrado' && isAdmin ? (
                             <p className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:border-amber-600 dark:bg-amber-950/30 dark:text-amber-100">
-                              <strong>Admin:</strong> edición con proceso cerrado; sigue el cuadre de lb.
+                              {t('process.editDialog.adminEditWarning')}
                             </p>
                           ) : null}
                           {(weightsRow.components ?? []).map((c) => (
@@ -2301,7 +2327,7 @@ export function ProcessesPage() {
                           ))}
                           {!entradaLockedByMp ? (
                             <div className="grid max-w-md gap-1.5">
-                              <Label className="text-xs">Lb entrada (cuadre)</Label>
+                              <Label className="text-xs">{t('process.editDialog.fieldEntradaManual')}</Label>
                               <Input
                                 type="number"
                                 step="0.001"
@@ -2310,12 +2336,12 @@ export function ProcessesPage() {
                                 {...weightsForm.register('lb_entrada')}
                               />
                               <p className="text-[10px] leading-snug text-muted-foreground">
-                                Sin líneas de recepción vinculadas; editá la entrada manualmente si aplica.
+                                {t('process.editDialog.fieldEntradaManualHint')}
                               </p>
                             </div>
                           ) : null}
                           <div className="grid max-w-md gap-1.5">
-                            <Label className="text-xs">Nota</Label>
+                            <Label className="text-xs">{t('process.editDialog.fieldNota')}</Label>
                             <Input className="h-9" disabled={!weightsModalCanEditWeights} {...weightsForm.register('nota')} />
                           </div>
                         </>
@@ -2329,11 +2355,11 @@ export function ProcessesPage() {
                 className={cn(operationalModalFooterClass, 'flex flex-wrap gap-2 sm:justify-end')}
               >
                 <Button type="button" variant="outline" onClick={() => setWeightsOpen(false)}>
-                  Cerrar
+                  {t('process.editDialog.closeButton')}
                 </Button>
                 {weightsModalCanEditWeights ? (
                   <Button type="submit" form="process-edit-weights-form" disabled={weightsMut.isPending}>
-                    {weightsMut.isPending ? 'Guardando…' : 'Guardar cambios'}
+                    {weightsMut.isPending ? t('process.editDialog.savingButton') : t('process.editDialog.saveButton')}
                   </Button>
                 ) : null}
                 {weightsRow.process_status === 'borrador' ? (
@@ -2343,7 +2369,7 @@ export function ProcessesPage() {
                     disabled={confirmMut.isPending}
                     onClick={() => confirmMut.mutate(weightsRow.id)}
                   >
-                    Confirmar proceso
+                    {t('process.editDialog.confirmButton')}
                   </Button>
                 ) : null}
                 {weightsRow.process_status === 'confirmado' ? (
@@ -2353,7 +2379,7 @@ export function ProcessesPage() {
                     disabled={cerradoMut.isPending}
                     onClick={() => cerradoMut.mutate(weightsRow.id)}
                   >
-                    Marcar cerrado
+                    {t('process.editDialog.closeProcessButton')}
                   </Button>
                 ) : null}
               </DialogFooter>
@@ -2364,7 +2390,7 @@ export function ProcessesPage() {
 
       <div className={cn(contentCard, 'px-4 py-5 sm:px-5')}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Filtros</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('process.filters.title')}</span>
           <button
             type="button"
             className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
@@ -2381,7 +2407,7 @@ export function ProcessesPage() {
               value={filterProducer}
               onChange={(e) => setFilterProducer(Number(e.target.value))}
             >
-              <option value={0}>Todos los productores</option>
+              <option value={0}>{t('process.filters.allProducers')}</option>
               {(producers ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
@@ -2395,7 +2421,7 @@ export function ProcessesPage() {
               value={filterVariedad}
               onChange={(e) => setFilterVariedad(Number(e.target.value))}
             >
-              <option value={0}>Todas las variedades</option>
+              <option value={0}>{t('process.filters.allVarieties')}</option>
               {varietyOptions.map(([id, name]) => (
                 <option key={id} value={id}>
                   {name}
@@ -2409,8 +2435,8 @@ export function ProcessesPage() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="todos">Todos los estados</option>
-              <option value="vinculable_pt">Solo vinculables a PT</option>
+              <option value="todos">{t('process.filters.allStates')}</option>
+              <option value="vinculable_pt">{t('process.filters.linkablePt')}</option>
               <option value="borrador">borrador</option>
               <option value="confirmado">confirmado</option>
               <option value="cerrado">cerrado</option>
@@ -2423,7 +2449,7 @@ export function ProcessesPage() {
               onChange={(e) => setFilterProcessFormat(e.target.value)}
               title="Filtra procesos con unidad PT del formato indicado"
             >
-              <option value="">Todos los formatos PT</option>
+              <option value="">{t('process.filters.allFormats')}</option>
               {formatFilterOptions.map((f) => (
                 <option key={f} value={f}>
                   {f}
@@ -2438,7 +2464,7 @@ export function ProcessesPage() {
               onChange={(e) => setFilterProcessClient(Number(e.target.value))}
               title="Filtra procesos con unidad PT asignada a este cliente"
             >
-              <option value={0}>Todos los clientes (PT)</option>
+              <option value={0}>{t('process.filters.allClients')}</option>
               {(commercialClients ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.codigo} — {c.nombre}
@@ -2453,9 +2479,9 @@ export function ProcessesPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="proc-listado" className={sectionTitle}>
-              Procesos
+              {t('process.table.title')}
             </h2>
-            <span className={cn(sectionHint, '!mt-0')}>Últimos 500 · control operativo por productor</span>
+            <span className={cn(sectionHint, '!mt-0')}>{t('process.table.hint')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
@@ -2466,7 +2492,7 @@ export function ProcessesPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('process.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -2475,18 +2501,26 @@ export function ProcessesPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('process.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
-                Ver criterios
+                {t('process.table.criteria')}
               </summary>
               <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
-                <p><span className="font-semibold text-emerald-700">Rend. bueno:</span> &ge; 80%</p>
-                <p><span className="font-semibold text-amber-700">Rend. medio:</span> 65% - 79%</p>
-                <p><span className="font-semibold text-rose-700">Rend. bajo:</span> &lt; 65%</p>
-                <p><span className="font-semibold text-rose-700">Merma alta:</span> &ge; 15%</p>
+                <p>
+                  <span className="font-semibold text-emerald-700">{t('process.table.criteriaGood')}</span> &ge; 80%
+                </p>
+                <p>
+                  <span className="font-semibold text-amber-700">{t('process.table.criteriaMed')}</span> 65% - 79%
+                </p>
+                <p>
+                  <span className="font-semibold text-rose-700">{t('process.table.criteriaLow')}</span> &lt; 65%
+                </p>
+                <p>
+                  <span className="font-semibold text-rose-700">{t('process.table.criteriaMerma')}</span> &ge; 15%
+                </p>
               </div>
             </details>
           </div>
@@ -2494,7 +2528,7 @@ export function ProcessesPage() {
         {viewMode === 'compact' ? (
           <div className="space-y-2.5">
             {compactGroups.length === 0 ? (
-              <p className={emptyStateBanner}>Sin procesos para el filtro actual.</p>
+              <p className={emptyStateBanner}>{t('process.table.empty')}</p>
             ) : (
               compactGroups.map((group, gi) => {
                 return (
@@ -2589,10 +2623,19 @@ export function ProcessesPage() {
                                           ? 'Solo lectura (proceso cerrado)'
                                           : adminEdit
                                             ? 'Editar (admin): proceso cerrado'
-                                            : 'Editar proceso'
+                                            : t('process.table.actionEditTitle')
                                       }
                                     >
-                                      {adminEdit ? <><Pencil className="h-3.5 w-3.5" />Editar</> : cerrado ? 'Ver' : 'Editar'}
+                                      {adminEdit ? (
+                                        <>
+                                          <Pencil className="h-3.5 w-3.5" />
+                                          {t('process.table.actionEdit')}
+                                        </>
+                                      ) : cerrado ? (
+                                        t('process.table.actionView')
+                                      ) : (
+                                        t('process.table.actionEdit')
+                                      )}
                                     </Button>
                                     <Button
                                       type="button"
@@ -2602,13 +2645,13 @@ export function ProcessesPage() {
                                       onClick={async () => {
                                         try {
                                           await downloadPdf(`/api/documents/processes/${r.id}/pdf`, `proceso-${r.id}.pdf`);
-                                          toast.success('PDF descargado');
+                                          toast.success(t('process.toast.pdfReady'));
                                         } catch (e) {
-                                          toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                          toast.error(e instanceof Error ? e.message : t('process.toast.downloadError'));
                                         }
                                       }}
                                     >
-                                      PDF
+                                      {t('process.table.actionPdf')}
                                     </Button>
                                   </div>
                                 </TableCell>
