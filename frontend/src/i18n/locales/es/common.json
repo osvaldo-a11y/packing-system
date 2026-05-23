@@ -573,5 +573,149 @@
       "lineMaxLb": "R{{id}}: máximo {{lb}} lb disponibles.",
       "noAllocLines": "Indicá al menos una línea de recepción con libras en el reparto MP."
     }
+  },
+  "salesOrder": {
+    "pageTitle": "Pedidos",
+    "pageSubtitle": "Planificación comercial por formato; seguí el cumplimiento en Avance y despacho.",
+    "newButton": "Nuevo pedido",
+    "inventoryButton": "Inventario PT",
+    "srKpis": "Indicadores",
+    "dialog": {
+      "createTitle": "Nuevo pedido",
+      "editTitle": "Editar pedido",
+      "closeAriaLabel": "Cerrar",
+      "clientLabel": "Cliente comercial",
+      "clientLoading": "Cargando maestro de clientes…",
+      "clientEmpty": "No hay clientes en el maestro (o todos inactivos sin incluir inactivos). Cargá al menos un cliente en Maestros antes de crear el pedido.",
+      "orderNumberLabel": "Núm. referencia / código",
+      "orderNumberPlaceholder": "Ej. SO-00001, BOL-12345",
+      "orderNumberHint": "Si lo dejás vacío, el sistema genera automáticamente SO-#####.",
+      "editOrderNumberLabel": "Nombre / referencia del pedido",
+      "editOrderNumberPlaceholder": "Ej. SO-00001, BOL-12345…",
+      "editOrderNumberHint": "Podés usar el BOL u otra clave para contrastar con documentos. Debe ser única (no repetir otro pedido).",
+      "linesLabel": "Líneas del pedido",
+      "addLine": "Agregar línea",
+      "colFormat": "Formato",
+      "colBoxes": "Cajas pedidas",
+      "colPrice": "Precio / caja (opcional)",
+      "colBrand": "Marca (opcional)",
+      "colVariety": "Variedad (opcional)",
+      "estadoComercialLabel": "Estado comercial",
+      "cancelButton": "Cancelar",
+      "creatingButton": "Creando…",
+      "createButton": "Crear",
+      "savingButton": "Guardando…",
+      "saveButton": "Guardar",
+      "markCanceled": "Marcar cancelado (0 cajas)"
+    },
+    "kpi": {
+      "total": "Pedidos totales",
+      "totalNote": "En vista actual",
+      "empty": "Sin cajas",
+      "emptyNote": "Volumen pedido = 0",
+      "withVolume": "Con volumen",
+      "withVolumeNote": "Cajas pedidas > 0",
+      "clients": "Clientes (vista)",
+      "clientsNote": "Distintos en pedidos filtrados",
+      "totalBoxes": "Cajas totales",
+      "totalBoxesNote": "Suma en vista",
+      "pallets": "Pallets (est.)",
+      "palletsNote": "Según maestro de formatos",
+      "lines": "Líneas comerciales",
+      "linesNote": "Σ líneas en pedidos de la vista",
+      "multiformat": "Multiformato",
+      "multiformatNote": "Pedidos con >1 formato"
+    },
+    "alerts": {
+      "title": "Señales operativas",
+      "vacios": "{{count}} pedido(s) sin cajas y sin estado cancelado — revisá líneas o marcá «Cancelado» en estado comercial.",
+      "cancelados": "{{count}} pedido(s) cancelados en la vista (cajas en 0, registro conservado).",
+      "sinCliente": "{{count}} pedido(s) sin nombre de cliente en maestro (solo ID).",
+      "sinLineas": "{{count}} pedido(s) sin líneas en la vista actual.",
+      "multiformato": "{{count}} pedido(s) combinan más de un formato — el avance cruza por formato/marca/variedad."
+    },
+    "segments": {
+      "label": "Vista",
+      "ariaLabel": "Segmento de pedidos",
+      "pending": "Pendientes",
+      "completed": "Completados",
+      "canceled": "Cancelados",
+      "noBoxes": "Sin cajas",
+      "all": "Todos",
+      "hint": "Pendientes: con cajas y saldo por despachar. Completados: despacho cruzado por pedido o BOL (= nº pedido) o sin faltante. Cancelados: estado cancelado/anulado. Sin cajas: volumen 0 sin cancelar."
+    },
+    "filters": {
+      "title": "Filtros",
+      "volume": "Volumen",
+      "volumeAll": "Todos",
+      "volumeWith": "Con volumen",
+      "volumeWithout": "Sin cajas",
+      "client": "Cliente",
+      "clientAll": "Todos",
+      "search": "Buscar",
+      "searchPlaceholder": "Número, cliente, ID, formato…"
+    },
+    "table": {
+      "title": "Listado comercial",
+      "hint": "{{count}} pedido(s) en vista «{{segment}}» · detalle PL/despacho en Avance",
+      "empty": "No hay pedidos cargados.",
+      "emptyFilter": "Sin coincidencias con el filtro.",
+      "noDate": "Sin fecha",
+      "colState": "Estado",
+      "colDate": "Fecha",
+      "colClient": "Cliente",
+      "colOrder": "Pedido",
+      "colFormats": "Formatos",
+      "colBoxes": "Cajas",
+      "colWeight": "Peso",
+      "colPl": "Packing list / Despacho",
+      "colActions": "Acciones",
+      "plDetail": "Detalle en avance",
+      "actionProgress": "Avance",
+      "actionEdit": "Editar"
+    },
+    "scopeNote": {
+      "title": "Nota de alcance",
+      "desc": "Referencia del pedido (por defecto SO-#####); podés cambiarla al editar (p. ej. BOL). Estados de despacho/PL y peso consolidado figuran en la vista de avance y en módulos Despachos / Packing Lists."
+    },
+    "toast": {
+      "created": "Pedido creado",
+      "updated": "Pedido actualizado (packing/factura regenerados en despachos vinculados)"
+    }
+  },
+  "salesOrderProgress": {
+    "backButton": "Pedidos",
+    "pageTitle": "Avance de pedido",
+    "clientFallback": "cliente #{{id}}",
+    "card": {
+      "title": "Por línea de pedido",
+      "howItWorks": "ℹ ¿Cómo funciona el avance?",
+      "description": "Depósito = pallets finales en estado definitivo sin PL ni despacho (mismo formato/marca/variedad que la línea). Reservado pedido = subset del depósito con «pedido previsto» = este pedido en Existencias PT. Asignado PL = en packing list PT confirmado (no reversado) vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con despacho confirmado o despachado.",
+      "emptyLines": "Este pedido no tiene líneas cargadas. Editá el pedido para agregar líneas por formato."
+    },
+    "table": {
+      "colFormat": "Formato",
+      "colVariety": "Variedad",
+      "colBrand": "Marca",
+      "colPrice": "$/caja",
+      "colOrdered": "Pedido",
+      "colDepot": "Depósito",
+      "colReserved": "Reservado",
+      "colAssignedPl": "Asign. PL",
+      "colDispatched": "Despachado",
+      "colPending": "Pendiente",
+      "colProgress": "Avance",
+      "totals": "Totales"
+    },
+    "fulfillment": {
+      "complete": "Completo",
+      "inProgress": "En curso",
+      "pending": "Pendiente"
+    },
+    "alerts": {
+      "dispatchOverOrder": "Despacho > pedido",
+      "plOverOrder": "PL > pedido",
+      "depotOverOrder": "Depósito > pedido"
+    }
   }
 }

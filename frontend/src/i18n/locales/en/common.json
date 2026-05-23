@@ -573,5 +573,149 @@
       "lineMaxLb": "R{{id}}: maximum {{lb}} lb available.",
       "noAllocLines": "Enter at least one reception line with lb in the MP allocation."
     }
+  },
+  "salesOrder": {
+    "pageTitle": "Sales orders",
+    "pageSubtitle": "Commercial planning by format; track fulfillment in Progress and dispatch.",
+    "newButton": "New order",
+    "inventoryButton": "PT Inventory",
+    "srKpis": "Indicators",
+    "dialog": {
+      "createTitle": "New order",
+      "editTitle": "Edit order",
+      "closeAriaLabel": "Close",
+      "clientLabel": "Commercial client",
+      "clientLoading": "Loading client master…",
+      "clientEmpty": "No clients in the master (or all inactive without including inactive). Add at least one client in Masters before creating the order.",
+      "orderNumberLabel": "Reference number / code",
+      "orderNumberPlaceholder": "E.g. SO-00001, BOL-12345",
+      "orderNumberHint": "If left empty, the system auto-generates SO-#####.",
+      "editOrderNumberLabel": "Order name / reference",
+      "editOrderNumberPlaceholder": "E.g. SO-00001, BOL-12345…",
+      "editOrderNumberHint": "You can use the BOL or another key to cross-reference with documents. Must be unique (no duplicates).",
+      "linesLabel": "Order lines",
+      "addLine": "Add line",
+      "colFormat": "Format",
+      "colBoxes": "Requested boxes",
+      "colPrice": "Price / box (optional)",
+      "colBrand": "Brand (optional)",
+      "colVariety": "Variety (optional)",
+      "estadoComercialLabel": "Commercial state",
+      "cancelButton": "Cancel",
+      "creatingButton": "Creating…",
+      "createButton": "Create",
+      "savingButton": "Saving…",
+      "saveButton": "Save",
+      "markCanceled": "Mark as canceled (0 boxes)"
+    },
+    "kpi": {
+      "total": "Total orders",
+      "totalNote": "In current view",
+      "empty": "No boxes",
+      "emptyNote": "Ordered volume = 0",
+      "withVolume": "With volume",
+      "withVolumeNote": "Requested boxes > 0",
+      "clients": "Clients (view)",
+      "clientsNote": "Distinct in filtered orders",
+      "totalBoxes": "Total boxes",
+      "totalBoxesNote": "Sum in view",
+      "pallets": "Pallets (est.)",
+      "palletsNote": "Based on format master",
+      "lines": "Commercial lines",
+      "linesNote": "Σ lines in view orders",
+      "multiformat": "Multiformat",
+      "multiformatNote": "Orders with >1 format"
+    },
+    "alerts": {
+      "title": "Operational signals",
+      "vacios": "{{count}} order(s) with no boxes and not canceled — check lines or mark «Canceled» in commercial state.",
+      "cancelados": "{{count}} canceled order(s) in view (boxes at 0, record kept).",
+      "sinCliente": "{{count}} order(s) with no client name in master (ID only).",
+      "sinLineas": "{{count}} order(s) with no lines in current view.",
+      "multiformato": "{{count}} order(s) combine more than one format — progress crosses by format/brand/variety."
+    },
+    "segments": {
+      "label": "View",
+      "ariaLabel": "Order segment",
+      "pending": "Pending",
+      "completed": "Completed",
+      "canceled": "Canceled",
+      "noBoxes": "No boxes",
+      "all": "All",
+      "hint": "Pending: with boxes and balance to dispatch. Completed: dispatch matched by order or BOL (= order no.) or no shortfall. Canceled: canceled/voided state. No boxes: volume 0 not canceled."
+    },
+    "filters": {
+      "title": "Filters",
+      "volume": "Volume",
+      "volumeAll": "All",
+      "volumeWith": "With volume",
+      "volumeWithout": "No boxes",
+      "client": "Client",
+      "clientAll": "All",
+      "search": "Search",
+      "searchPlaceholder": "Number, client, ID, format…"
+    },
+    "table": {
+      "title": "Commercial list",
+      "hint": "{{count}} order(s) in view «{{segment}}» · PL/dispatch detail in Progress",
+      "empty": "No orders loaded.",
+      "emptyFilter": "No matches for the current filter.",
+      "noDate": "No date",
+      "colState": "State",
+      "colDate": "Date",
+      "colClient": "Client",
+      "colOrder": "Order",
+      "colFormats": "Formats",
+      "colBoxes": "Boxes",
+      "colWeight": "Weight",
+      "colPl": "Packing list / Dispatch",
+      "colActions": "Actions",
+      "plDetail": "Detail in progress",
+      "actionProgress": "Progress",
+      "actionEdit": "Edit"
+    },
+    "scopeNote": {
+      "title": "Scope note",
+      "desc": "Order reference (default SO-#####); you can change it when editing (e.g. BOL). Dispatch/PL states and consolidated weight appear in the progress view and in Dispatches / Packing Lists modules."
+    },
+    "toast": {
+      "created": "Order created",
+      "updated": "Order updated (packing/invoice regenerated in linked dispatches)"
+    }
+  },
+  "salesOrderProgress": {
+    "backButton": "Orders",
+    "pageTitle": "Order progress",
+    "clientFallback": "client #{{id}}",
+    "card": {
+      "title": "By order line",
+      "howItWorks": "ℹ How does progress work?",
+      "description": "Depot = final pallets in definitive state without PL or dispatch (same format/brand/variety as the line). Reserved order = subset of depot with «planned order» = this order in PT Stock. Assigned PL = in confirmed PT packing list (not reversed) linked to the order by dispatch or by pallet with planned order. Dispatched = same criteria with confirmed or dispatched dispatch.",
+      "emptyLines": "This order has no lines loaded. Edit the order to add lines by format."
+    },
+    "table": {
+      "colFormat": "Format",
+      "colVariety": "Variety",
+      "colBrand": "Brand",
+      "colPrice": "$/box",
+      "colOrdered": "Ordered",
+      "colDepot": "Depot",
+      "colReserved": "Reserved",
+      "colAssignedPl": "Assigned PL",
+      "colDispatched": "Dispatched",
+      "colPending": "Pending",
+      "colProgress": "Progress",
+      "totals": "Totals"
+    },
+    "fulfillment": {
+      "complete": "Complete",
+      "inProgress": "In progress",
+      "pending": "Pending"
+    },
+    "alerts": {
+      "dispatchOverOrder": "Dispatch > order",
+      "plOverOrder": "PL > order",
+      "depotOverOrder": "Depot > order"
+    }
   }
 }

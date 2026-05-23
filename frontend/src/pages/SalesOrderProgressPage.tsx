@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { apiJson } from '@/api';
 import { Badge } from '@/components/ui/badge';
@@ -42,31 +43,35 @@ export type SalesOrderProgressApi = {
   };
 };
 
-function fulfillmentBadge(f: SalesOrderProgressLineApi['fulfillment']) {
+function fulfillmentBadge(
+  f: SalesOrderProgressLineApi['fulfillment'],
+  t: (key: string) => string
+) {
   switch (f) {
     case 'completo':
-      return <Badge className="border border-green-200 bg-green-50 text-green-700 hover:bg-green-50">Completo</Badge>;
+      return <Badge className="border border-green-200 bg-green-50 text-green-700 hover:bg-green-50">{t('salesOrderProgress.fulfillment.complete')}</Badge>;
     case 'parcial':
-      return <Badge className="border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">En curso</Badge>;
+      return <Badge className="border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">{t('salesOrderProgress.fulfillment.inProgress')}</Badge>;
     default:
-      return <Badge className="border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">Pendiente</Badge>;
+      return <Badge className="border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">{t('salesOrderProgress.fulfillment.pending')}</Badge>;
   }
 }
 
-function alertLabel(code: string) {
+function alertLabel(code: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   switch (code) {
     case 'despacho_sobre_pedido':
-      return 'Despacho > pedido';
+      return t('salesOrderProgress.alerts.dispatchOverOrder');
     case 'asignacion_pl_sobre_pedido':
-      return 'PL > pedido';
+      return t('salesOrderProgress.alerts.plOverOrder');
     case 'deposito_sobre_pedido':
-      return 'Depósito > pedido';
+      return t('salesOrderProgress.alerts.depotOverOrder');
     default:
       return code;
   }
 }
 
 export function SalesOrderProgressPage() {
+  const { t } = useTranslation('common');
   const { id } = useParams<{ id: string }>();
   const orderId = id ? Number(id) : NaN;
 
@@ -114,11 +119,11 @@ export function SalesOrderProgressPage() {
         <Button variant="ghost" size="sm" className="gap-1" asChild>
           <Link to="/sales-orders">
             <ArrowLeft className="h-4 w-4" />
-            Pedidos
+            {t('salesOrderProgress.backButton')}
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Avance de pedido</h1>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('salesOrderProgress.pageTitle')}</h1>
           <p className="text-muted-foreground">
             <span className="font-mono">{data.order.order_number}</span>
             {data.order.cliente_nombre?.trim() ? (
@@ -128,7 +133,10 @@ export function SalesOrderProgressPage() {
                 <span className="text-muted-foreground"> (#{data.order.cliente_id})</span>
               </>
             ) : (
-              <span className="text-muted-foreground"> · cliente #{data.order.cliente_id}</span>
+              <span className="text-muted-foreground">
+                {' '}
+                · {t('salesOrderProgress.clientFallback', { id: data.order.cliente_id })}
+              </span>
             )}
           </p>
         </div>
@@ -136,35 +144,32 @@ export function SalesOrderProgressPage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Por línea de pedido</CardTitle>
+          <CardTitle className="text-base">{t('salesOrderProgress.card.title')}</CardTitle>
           <details className="rounded-md border border-blue-200 bg-blue-50 p-2">
-            <summary className="cursor-pointer text-sm font-medium text-blue-700">ℹ ¿Cómo funciona el avance?</summary>
+            <summary className="cursor-pointer text-sm font-medium text-blue-700">{t('salesOrderProgress.card.howItWorks')}</summary>
             <CardDescription className="mt-2 text-slate-600">
-              Depósito = pallets finales en estado definitivo sin PL ni despacho (mismo formato/marca/variedad que la línea).
-              Reservado pedido = subset del depósito con «pedido previsto» = este pedido en Existencias PT. Asignado PL = en packing list PT
-              confirmado (no reversado) vinculado al pedido por despacho o por pallet con pedido previsto. Despachado = mismo criterio con
-              despacho confirmado o despachado.
+              {t('salesOrderProgress.card.description')}
             </CardDescription>
           </details>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {data.lines.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Este pedido no tiene líneas cargadas. Editá el pedido para agregar líneas por formato.</p>
+            <p className="text-sm text-muted-foreground">{t('salesOrderProgress.card.emptyLines')}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Formato</TableHead>
-                  <TableHead>Variedad</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead className="text-right">$/caja</TableHead>
-                  <TableHead className="text-right">Pedido</TableHead>
-                  <TableHead className="text-right">Depósito</TableHead>
-                  <TableHead className="text-right">Reservado</TableHead>
-                  <TableHead className="text-right">Asign. PL</TableHead>
-                  <TableHead className="text-right">Despachado</TableHead>
-                  <TableHead className="text-right">Pendiente</TableHead>
-                  <TableHead>Avance</TableHead>
+                  <TableHead>{t('salesOrderProgress.table.colFormat')}</TableHead>
+                  <TableHead>{t('salesOrderProgress.table.colVariety')}</TableHead>
+                  <TableHead>{t('salesOrderProgress.table.colBrand')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colPrice')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colOrdered')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colDepot')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colReserved')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colAssignedPl')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colDispatched')}</TableHead>
+                  <TableHead className="text-right">{t('salesOrderProgress.table.colPending')}</TableHead>
+                  <TableHead>{t('salesOrderProgress.table.colProgress')}</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -183,19 +188,19 @@ export function SalesOrderProgressPage() {
                     <TableCell className="text-right tabular-nums">{row.assigned_pl_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.dispatched_boxes}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.pending_boxes}</TableCell>
-                    <TableCell>{fulfillmentBadge(row.fulfillment)}</TableCell>
+                    <TableCell>{fulfillmentBadge(row.fulfillment, t)}</TableCell>
                     <TableCell>
                       {row.alerts.length > 0 ? (
                         <span className="inline-flex flex-wrap items-center gap-1 text-amber-700 dark:text-amber-400" title={row.alerts.join(', ')}>
                           <AlertTriangle className="h-4 w-4 shrink-0" />
-                          <span className="text-xs">{row.alerts.map(alertLabel).join(' · ')}</span>
+                          <span className="text-xs">{row.alerts.map((a) => alertLabel(a, t)).join(' · ')}</span>
                         </span>
                       ) : null}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/50 font-medium">
-                  <TableCell colSpan={4}>Totales</TableCell>
+                  <TableCell colSpan={4}>{t('salesOrderProgress.table.totals')}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.requested_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.produced_depot_boxes}</TableCell>
                   <TableCell className="text-right tabular-nums">{data.totals.reserved_depot_boxes}</TableCell>

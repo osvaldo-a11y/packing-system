@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Info, ListOrdered, Pencil, Plus, Trash2, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -239,6 +240,7 @@ function formatLinesPreview(r: SalesOrderRow): string {
 }
 
 export function SalesOrdersPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canManage = role === 'admin' || role === 'supervisor';
   const queryClient = useQueryClient();
@@ -359,7 +361,7 @@ export function SalesOrdersPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
-      toast.success('Pedido creado');
+      toast.success(t('salesOrder.toast.created'));
       setCreateOpen(false);
       createForm.reset({
         cliente_id: firstClientId || 1,
@@ -415,7 +417,7 @@ export function SalesOrdersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Pedido actualizado (packing/factura regenerados en despachos vinculados)');
+      toast.success(t('salesOrder.toast.updated'));
       setEditRow(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -527,39 +529,39 @@ export function SalesOrdersPage() {
       lines.push({
         key: 'vacios',
         tone: 'warn',
-        text: `${formatCount(kpis.vacios)} pedido(s) sin cajas y sin estado cancelado — revisá líneas o marcá «Cancelado» en estado comercial.`,
+        text: t('salesOrder.alerts.vacios', { count: formatCount(kpis.vacios) }),
       });
     }
     if (kpis.cancelados > 0 && filterSegment === 'todos') {
       lines.push({
         key: 'cancelados',
         tone: 'info',
-        text: `${formatCount(kpis.cancelados)} pedido(s) cancelados en la vista (cajas en 0, registro conservado).`,
+        text: t('salesOrder.alerts.cancelados', { count: formatCount(kpis.cancelados) }),
       });
     }
     if (kpis.sinNombreCliente > 0) {
       lines.push({
         key: 'cliente',
         tone: 'warn',
-        text: `${formatCount(kpis.sinNombreCliente)} pedido(s) sin nombre de cliente en maestro (solo ID).`,
+        text: t('salesOrder.alerts.sinCliente', { count: formatCount(kpis.sinNombreCliente) }),
       });
     }
     if (kpis.sinLineas > 0) {
       lines.push({
         key: 'lineas',
         tone: 'warn',
-        text: `${formatCount(kpis.sinLineas)} pedido(s) sin líneas en la vista actual.`,
+        text: t('salesOrder.alerts.sinLineas', { count: formatCount(kpis.sinLineas) }),
       });
     }
     if (kpis.multiformato > 0) {
       lines.push({
         key: 'multi',
         tone: 'info',
-        text: `${formatCount(kpis.multiformato)} pedido(s) combinan más de un formato — el avance cruza por formato/marca/variedad.`,
+        text: t('salesOrder.alerts.multiformato', { count: formatCount(kpis.multiformato) }),
       });
     }
     return lines;
-  }, [kpis.vacios, kpis.cancelados, kpis.sinNombreCliente, kpis.sinLineas, kpis.multiformato, filterSegment]);
+  }, [kpis.vacios, kpis.cancelados, kpis.sinNombreCliente, kpis.sinLineas, kpis.multiformato, filterSegment, t]);
 
   const helpTitle =
     'Líneas por formato de presentación (cajas pedidas; precio/caja y marca/variedad opcionales). Los totales se calculan desde las líneas; los pallets estimados usan max_boxes_per_pallet del formato cuando existe en el maestro. Crear y modificar: supervisor o admin. La relación con packing list y despacho se consolida en la pantalla Avance del pedido.';
@@ -596,12 +598,12 @@ export function SalesOrdersPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Pedidos</h2>
+          <h2 className={pageTitle}>{t('salesOrder.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <p className={pageSubtitle}>
-              Planificación comercial por formato; seguí el cumplimiento en Avance y despacho.
+              {t('salesOrder.pageSubtitle')}
             </p>
-            <button type="button" className={pageInfoButton} title={helpTitle} aria-label="Ayuda pedidos">
+            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={t('salesOrder.pageTitle')}>
               <Info className="h-4 w-4" />
             </button>
           </div>
@@ -612,7 +614,7 @@ export function SalesOrdersPage() {
               <DialogTrigger asChild>
                 <Button size="sm" className={btnToolbarPrimary}>
                   <Plus className="h-4 w-4" />
-                  Nuevo pedido
+                  {t('salesOrder.newButton')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl [&>button]:hidden">
@@ -620,13 +622,13 @@ export function SalesOrdersPage() {
                   <div className="flex items-center justify-between">
                     <DialogTitle className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                      Nuevo pedido
+                      {t('salesOrder.dialog.createTitle')}
                     </DialogTitle>
                     <button
                       type="button"
                       onClick={() => setCreateOpen(false)}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                      aria-label="Cerrar"
+                      aria-label={t('salesOrder.dialog.closeAriaLabel')}
                     >
                       <X size={16} />
                     </button>
@@ -634,9 +636,9 @@ export function SalesOrdersPage() {
                 </DialogHeader>
                 <form onSubmit={createForm.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3 py-2">
                   <div className="grid gap-2">
-                    <Label htmlFor="c_cliente">Cliente comercial</Label>
+                    <Label htmlFor="c_cliente">{t('salesOrder.dialog.clientLabel')}</Label>
                     {clientsMaster === undefined ? (
-                      <p className="text-sm text-muted-foreground">Cargando maestro de clientes…</p>
+                      <p className="text-sm text-muted-foreground">{t('salesOrder.dialog.clientLoading')}</p>
                     ) : clientsMaster.length === 0 ? (
                       <div
                         role="status"
@@ -644,8 +646,7 @@ export function SalesOrdersPage() {
                       >
                         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                         <span>
-                          No hay clientes en el maestro (o todos inactivos sin incluir inactivos). Cargá al menos un cliente en Maestros antes de
-                          crear el pedido.
+                          {t('salesOrder.dialog.clientEmpty')}
                         </span>
                       </div>
                     ) : (
@@ -663,23 +664,23 @@ export function SalesOrdersPage() {
                     )}
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="c_order_number">Núm. referencia / código</Label>
+                    <Label htmlFor="c_order_number">{t('salesOrder.dialog.orderNumberLabel')}</Label>
                     <Input
                       id="c_order_number"
                       className={filterInputClass}
-                      placeholder="Ej. SO-00001, BOL-12345"
+                      placeholder={t('salesOrder.dialog.orderNumberPlaceholder')}
                       autoComplete="off"
                       {...createForm.register('order_number')}
                     />
                     <p className="text-[10px] text-slate-500">
-                      Si lo dejás vacío, el sistema genera automáticamente <strong>SO-#####</strong>.
+                      {t('salesOrder.dialog.orderNumberHint')}
                     </p>
                     {createForm.formState.errors.order_number ? (
                       <p className="text-sm text-destructive">{createForm.formState.errors.order_number.message}</p>
                     ) : null}
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <Label>Líneas del pedido</Label>
+                    <Label>{t('salesOrder.dialog.linesLabel')}</Label>
                     <Button
                       type="button"
                       size="sm"
@@ -690,7 +691,7 @@ export function SalesOrdersPage() {
                       }
                     >
                       <Plus className="mr-1 h-3.5 w-3.5" />
-                      Agregar línea
+                      {t('salesOrder.dialog.addLine')}
                     </Button>
                   </div>
                   <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/30 p-3">
@@ -700,7 +701,7 @@ export function SalesOrdersPage() {
                         className="grid gap-2 border-b border-slate-100 pb-3 last:border-0 last:pb-0 sm:grid-cols-2 lg:grid-cols-3"
                       >
                         <div className="grid gap-1">
-                          <Label className="text-xs text-slate-500">Formato</Label>
+                          <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colFormat')}</Label>
                           <select
                             className={filterSelectClass}
                             {...createForm.register(`lines.${idx}.presentation_format_id`, { valueAsNumber: true })}
@@ -713,7 +714,7 @@ export function SalesOrdersPage() {
                           </select>
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs text-slate-500">Cajas pedidas</Label>
+                          <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colBoxes')}</Label>
                           <Input
                             className={filterInputClass}
                             type="number"
@@ -722,11 +723,11 @@ export function SalesOrdersPage() {
                           />
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs text-slate-500">Precio / caja (opcional)</Label>
+                          <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colPrice')}</Label>
                           <Input className={filterInputClass} placeholder="—" {...createForm.register(`lines.${idx}.unit_price`)} />
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs text-slate-500">Marca (opcional)</Label>
+                          <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colBrand')}</Label>
                           <select className={filterSelectClass} {...createForm.register(`lines.${idx}.brand_id`, { valueAsNumber: true })}>
                             <option value={0}>—</option>
                             {(brandsForCreate ?? []).map((b) => (
@@ -737,7 +738,7 @@ export function SalesOrdersPage() {
                           </select>
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs text-slate-500">Variedad (opcional)</Label>
+                          <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colVariety')}</Label>
                           <select
                             className={filterSelectClass}
                             {...createForm.register(`lines.${idx}.variety_id`, { valueAsNumber: true })}
@@ -784,7 +785,7 @@ export function SalesOrdersPage() {
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/inventario" className="gap-2">
               <ListOrdered className="h-4 w-4" />
-              Inventario PT
+              {t('salesOrder.inventoryButton')}
             </Link>
           </Button>
         </div>
@@ -792,57 +793,57 @@ export function SalesOrdersPage() {
 
       <section aria-labelledby="so-kpis" className="space-y-4">
         <h2 id="so-kpis" className="sr-only">
-          Indicadores
+          {t('salesOrder.srKpis')}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
-            <p className={kpiLabel}>Pedidos totales</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.total')}</p>
             <p className={kpiValueLg}>{formatCount(kpis.total)}</p>
-            <p className={kpiFootnote}>En vista actual</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.totalNote')}</p>
           </div>
           <div className={cn(kpiCard, kpis.vacios > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Sin cajas</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.empty')}</p>
             <p className={cn(kpiValueLg, kpis.vacios > 0 ? 'text-amber-700' : 'text-green-700')}>{formatCount(kpis.vacios)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Volumen pedido = 0</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('salesOrder.kpi.emptyNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Con volumen</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.withVolume')}</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(kpis.conVolumen)}</p>
-            <p className={kpiFootnote}>Cajas pedidas &gt; 0</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.withVolumeNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Clientes (vista)</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.clients')}</p>
             <p className={kpiValueLg}>{formatCount(kpis.clientesActivos)}</p>
-            <p className={kpiFootnote}>Distintos en pedidos filtrados</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.clientsNote')}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(kpiCardSm, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.totalBoxes')}</p>
             <p className={cn(kpiValueMd, 'text-green-700')}>{formatCount(kpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.totalBoxesNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Pallets (est.)</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.pallets')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.totalPalletsEst)}</p>
-            <p className={kpiFootnote}>Según maestro de formatos</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.palletsNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Líneas comerciales</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.lines')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.sumLineas)}</p>
-            <p className={kpiFootnote}>Σ líneas en pedidos de la vista</p>
+            <p className={kpiFootnote}>{t('salesOrder.kpi.linesNote')}</p>
           </div>
           <div className={cn(kpiCardSm, kpis.multiformato > 0 ? 'border-amber-200 bg-amber-50' : '')}>
-            <p className={kpiLabel}>Multiformato</p>
+            <p className={kpiLabel}>{t('salesOrder.kpi.multiformat')}</p>
             <p className={cn(kpiValueMd, kpis.multiformato > 0 ? 'text-amber-700' : '')}>{formatCount(kpis.multiformato)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Pedidos con &gt;1 formato</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('salesOrder.kpi.multiformatNote')}</p>
           </div>
         </div>
       </section>
 
       {alertLines.length > 0 ? (
         <div className={signalsPanel}>
-          <p className={signalsTitle}>Señales operativas</p>
+          <p className={signalsTitle}>{t('salesOrder.alerts.title')}</p>
           <ul className="space-y-2">
             {alertLines.map((a) => (
               <li
@@ -863,15 +864,15 @@ export function SalesOrdersPage() {
 
       <div className={filterPanel}>
         <div className="mb-4 space-y-2">
-          <span className={signalsTitle}>Vista</span>
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Segmento de pedidos">
+          <span className={signalsTitle}>{t('salesOrder.segments.label')}</span>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label={t('salesOrder.segments.ariaLabel')}>
             {(
               [
-                { id: 'pendiente' as const, label: 'Pendientes', count: segmentCounts.pendiente },
-                { id: 'completado' as const, label: 'Completados', count: segmentCounts.completado },
-                { id: 'cancelado' as const, label: 'Cancelados', count: segmentCounts.cancelado },
-                { id: 'sin_cajas' as const, label: 'Sin cajas', count: segmentCounts.sin_cajas },
-                { id: 'todos' as const, label: 'Todos', count: segmentCounts.todos },
+                { id: 'pendiente' as const, label: t('salesOrder.segments.pending'), count: segmentCounts.pendiente },
+                { id: 'completado' as const, label: t('salesOrder.segments.completed'), count: segmentCounts.completado },
+                { id: 'cancelado' as const, label: t('salesOrder.segments.canceled'), count: segmentCounts.cancelado },
+                { id: 'sin_cajas' as const, label: t('salesOrder.segments.noBoxes'), count: segmentCounts.sin_cajas },
+                { id: 'todos' as const, label: t('salesOrder.segments.all'), count: segmentCounts.todos },
               ] as const
             ).map((tab) => (
               <button
@@ -900,12 +901,11 @@ export function SalesOrdersPage() {
             ))}
           </div>
           <p className="text-[12px] leading-snug text-slate-500">
-            Pendientes: con cajas y saldo por despachar. Completados: despacho cruzado por pedido o BOL (= nº pedido) o sin
-            faltante. Cancelados: estado cancelado/anulado. Sin cajas: volumen 0 sin cancelar.
+            {t('salesOrder.segments.hint')}
           </p>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('salesOrder.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -917,21 +917,21 @@ export function SalesOrdersPage() {
         </div>
         <div className="grid gap-3 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-xs text-slate-500">Volumen</Label>
+            <Label className="text-xs text-slate-500">{t('salesOrder.filters.volume')}</Label>
             <select className={filterSelectClass} value={filterVolume} onChange={(e) => setFilterVolume(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="con">Con volumen</option>
-              <option value="sin">Sin cajas</option>
+              <option value="">{t('salesOrder.filters.volumeAll')}</option>
+              <option value="con">{t('salesOrder.filters.volumeWith')}</option>
+              <option value="sin">{t('salesOrder.filters.volumeWithout')}</option>
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">Cliente</Label>
+            <Label className="text-xs text-slate-500">{t('salesOrder.filters.client')}</Label>
             <select
               className={filterSelectClass}
               value={filterClientId}
               onChange={(e) => setFilterClientId(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('salesOrder.filters.clientAll')}</option>
               {clientOptions.map(([id, nombre]) => (
                 <option key={id} value={id}>
                   {nombre}
@@ -940,10 +940,10 @@ export function SalesOrdersPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-5">
-            <Label className="text-xs text-slate-500">Buscar</Label>
+            <Label className="text-xs text-slate-500">{t('salesOrder.filters.search')}</Label>
             <Input
               className={filterInputClass}
-              placeholder="Número, cliente, ID, formato…"
+              placeholder={t('salesOrder.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -954,41 +954,43 @@ export function SalesOrdersPage() {
       <section className="space-y-3" aria-labelledby="so-tabla">
         <div>
           <h2 id="so-tabla" className={sectionTitle}>
-            Listado comercial
+            {t('salesOrder.table.title')}
           </h2>
           <p className={sectionHint}>
-            {filtered.length} pedido(s) en vista «
-            {filterSegment === 'todos'
-              ? 'Todos'
-              : filterSegment === 'pendiente'
-                ? 'Pendientes'
-                : filterSegment === 'completado'
-                  ? 'Completados'
-                  : filterSegment === 'cancelado'
-                    ? 'Cancelados'
-                    : 'Sin cajas'}
-            » · detalle PL/despacho en <span className="font-medium text-slate-600">Avance</span>
+            {t('salesOrder.table.hint', {
+              count: filtered.length,
+              segment:
+                filterSegment === 'todos'
+                  ? t('salesOrder.segments.all')
+                  : filterSegment === 'pendiente'
+                    ? t('salesOrder.segments.pending')
+                    : filterSegment === 'completado'
+                      ? t('salesOrder.segments.completed')
+                      : filterSegment === 'cancelado'
+                        ? t('salesOrder.segments.canceled')
+                        : t('salesOrder.segments.noBoxes'),
+            })}
           </p>
         </div>
 
         {!data?.length ? (
-          <p className={emptyStatePanel}>No hay pedidos cargados.</p>
+          <p className={emptyStatePanel}>{t('salesOrder.table.empty')}</p>
         ) : !filtered.length ? (
-          <p className={emptyStatePanel}>Sin coincidencias con el filtro.</p>
+          <p className={emptyStatePanel}>{t('salesOrder.table.emptyFilter')}</p>
         ) : (
           <div className={tableShell}>
             <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[130px]">Estado</TableHead>
-                  <TableHead className="whitespace-nowrap text-slate-500">Fecha</TableHead>
-                  <TableHead className="min-w-[160px]">Cliente</TableHead>
-                  <TableHead className="min-w-[120px]">Pedido</TableHead>
-                  <TableHead className="min-w-[160px]">Formatos</TableHead>
-                  <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                  <TableHead className="text-right tabular-nums">Peso</TableHead>
-                  <TableHead className="min-w-[200px]">Packing list / Despacho</TableHead>
-                  <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                  <TableHead className="min-w-[130px]">{t('salesOrder.table.colState')}</TableHead>
+                  <TableHead className="whitespace-nowrap text-slate-500">{t('salesOrder.table.colDate')}</TableHead>
+                  <TableHead className="min-w-[160px]">{t('salesOrder.table.colClient')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('salesOrder.table.colOrder')}</TableHead>
+                  <TableHead className="min-w-[160px]">{t('salesOrder.table.colFormats')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('salesOrder.table.colBoxes')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('salesOrder.table.colWeight')}</TableHead>
+                  <TableHead className="min-w-[200px]">{t('salesOrder.table.colPl')}</TableHead>
+                  <TableHead className="w-[200px] text-right">{t('salesOrder.table.colActions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1003,7 +1005,7 @@ export function SalesOrdersPage() {
                           {new Date(firstDispatchDateByOrder.get(r.id)!).toLocaleDateString('es')}
                         </span>
                       ) : (
-                        <span className="text-slate-400">Sin fecha</span>
+                        <span className="text-slate-400">{t('salesOrder.table.noDate')}</span>
                       )}
                     </TableCell>
                     <TableCell className="max-w-[200px] align-top">
@@ -1053,12 +1055,12 @@ export function SalesOrdersPage() {
                           Despacho
                         </Link>
                       </div>
-                      <p className="mt-1 text-[10px] text-slate-400">Detalle en avance</p>
+                      <p className="mt-1 text-[10px] text-slate-400">{t('salesOrder.table.plDetail')}</p>
                     </TableCell>
                     <TableCell className="align-top">
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <Button variant="ghost" size="sm" className="h-8 rounded-lg text-slate-700" asChild>
-                          <Link to={`/sales-orders/${r.id}/avance`}>Avance</Link>
+                          <Link to={`/sales-orders/${r.id}/avance`}>{t('salesOrder.table.actionProgress')}</Link>
                         </Button>
                         {canManage ? (
                           <Button
@@ -1069,7 +1071,7 @@ export function SalesOrdersPage() {
                             onClick={() => setEditRow(r)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                            Editar
+                            {t('salesOrder.table.actionEdit')}
                           </Button>
                         ) : null}
                       </div>
@@ -1084,10 +1086,9 @@ export function SalesOrdersPage() {
 
       <Card className="rounded-2xl border-slate-100 bg-slate-50/30 shadow-none">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-600">Nota de alcance</CardTitle>
+          <CardTitle className="text-sm font-medium text-slate-600">{t('salesOrder.scopeNote.title')}</CardTitle>
           <CardDescription className="text-[13px] text-slate-500">
-            Referencia del pedido (por defecto SO-#####); podés cambiarla al editar (p. ej. BOL). Estados de despacho/PL y peso
-            consolidado figuran en la vista de avance y en módulos Despachos / Packing Lists.
+            {t('salesOrder.scopeNote.desc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0" />
@@ -1104,7 +1105,7 @@ export function SalesOrdersPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Editar pedido{' '}
+                {t('salesOrder.dialog.editTitle')}{' '}
                 <span className="font-mono text-base font-semibold text-primary">
                   {editOrderNumberWatch?.trim() || editRow?.order_number}
                 </span>
@@ -1113,7 +1114,7 @@ export function SalesOrdersPage() {
                 type="button"
                 onClick={() => setEditRow(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('salesOrder.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -1126,16 +1127,16 @@ export function SalesOrdersPage() {
               key={editRow.id}
             >
               <div className="grid gap-1.5">
-                <Label htmlFor="edit-order-number">Nombre / referencia del pedido</Label>
+                <Label htmlFor="edit-order-number">{t('salesOrder.dialog.editOrderNumberLabel')}</Label>
                 <Input
                   id="edit-order-number"
                   className={filterInputClass}
-                  placeholder="Ej. SO-00001, BOL-12345…"
+                  placeholder={t('salesOrder.dialog.editOrderNumberPlaceholder')}
                   autoComplete="off"
                   {...editForm.register('order_number')}
                 />
                 <p className="text-[11px] text-slate-500">
-                  Podés usar el BOL u otra clave para contrastar con documentos. Debe ser única (no repetir otro pedido).
+                  {t('salesOrder.dialog.editOrderNumberHint')}
                 </p>
                 {editForm.formState.errors.order_number ? (
                   <p className="text-sm text-destructive">{editForm.formState.errors.order_number.message}</p>
@@ -1143,7 +1144,7 @@ export function SalesOrdersPage() {
               </div>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="edit-estado-comercial">Estado comercial</Label>
+                  <Label htmlFor="edit-estado-comercial">{t('salesOrder.dialog.estadoComercialLabel')}</Label>
                   <select
                     id="edit-estado-comercial"
                     className={filterSelectClass}
@@ -1170,13 +1171,13 @@ export function SalesOrdersPage() {
                         }
                       }}
                     >
-                      Marcar cancelado (0 cajas)
+                      {t('salesOrder.dialog.markCanceled')}
                     </Button>
                   </div>
                 ) : null}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <Label>Líneas del pedido</Label>
+                <Label>{t('salesOrder.dialog.linesLabel')}</Label>
                 <Button
                   type="button"
                   size="sm"
@@ -1187,7 +1188,7 @@ export function SalesOrdersPage() {
                   }
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
-                  Agregar línea
+                  {t('salesOrder.dialog.addLine')}
                 </Button>
               </div>
               <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/30 p-3">
@@ -1197,7 +1198,7 @@ export function SalesOrdersPage() {
                     className="grid gap-2 border-b border-slate-100 pb-3 last:border-0 last:pb-0 sm:grid-cols-2 lg:grid-cols-3"
                   >
                     <div className="grid gap-1">
-                      <Label className="text-xs text-slate-500">Formato</Label>
+                      <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colFormat')}</Label>
                       <select
                         className={filterSelectClass}
                         {...editForm.register(`lines.${idx}.presentation_format_id`, { valueAsNumber: true })}
@@ -1210,7 +1211,7 @@ export function SalesOrdersPage() {
                       </select>
                     </div>
                     <div className="grid gap-1">
-                      <Label className="text-xs text-slate-500">Cajas pedidas</Label>
+                      <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colBoxes')}</Label>
                       <Input
                         className={filterInputClass}
                         type="number"
@@ -1219,11 +1220,11 @@ export function SalesOrdersPage() {
                       />
                     </div>
                     <div className="grid gap-1">
-                      <Label className="text-xs text-slate-500">Precio / caja (opcional)</Label>
+                      <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colPrice')}</Label>
                       <Input className={filterInputClass} placeholder="—" {...editForm.register(`lines.${idx}.unit_price`)} />
                     </div>
                     <div className="grid gap-1">
-                      <Label className="text-xs text-slate-500">Marca (opcional)</Label>
+                      <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colBrand')}</Label>
                       <select className={filterSelectClass} {...editForm.register(`lines.${idx}.brand_id`, { valueAsNumber: true })}>
                         <option value={0}>—</option>
                         {(brandsForEdit ?? []).map((b) => (
@@ -1234,7 +1235,7 @@ export function SalesOrdersPage() {
                       </select>
                     </div>
                     <div className="grid gap-1">
-                      <Label className="text-xs text-slate-500">Variedad (opcional)</Label>
+                      <Label className="text-xs text-slate-500">{t('salesOrder.dialog.colVariety')}</Label>
                       <select className={filterSelectClass} {...editForm.register(`lines.${idx}.variety_id`, { valueAsNumber: true })}>
                         <option value={0}>—</option>
                         {(varieties ?? []).map((v) => (
@@ -1261,10 +1262,10 @@ export function SalesOrdersPage() {
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" className="rounded-xl" onClick={() => setEditRow(null)}>
-                  Cancelar
+                  {t('salesOrder.dialog.cancelButton')}
                 </Button>
                 <Button type="submit" className="rounded-xl bg-emerald-600 hover:bg-emerald-700" disabled={editMut.isPending || !formats?.length}>
-                  {editMut.isPending ? 'Guardando…' : 'Guardar'}
+                  {editMut.isPending ? t('salesOrder.dialog.savingButton') : t('salesOrder.dialog.saveButton')}
                 </Button>
               </DialogFooter>
             </form>
