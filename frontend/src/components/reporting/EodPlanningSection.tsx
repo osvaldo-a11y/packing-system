@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Copy } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ import {
   formatDayKeySpanishLong,
   wrapHtmlFragmentForClipboard,
   type EodReportClientBlock,
+  type EodReportLabels,
 } from '@/lib/eod-report-clipboard';
 import { dispatchCountsAsShippedOnDay, toLocalDayKey } from '@/lib/dispatch-shipped-day';
 import { formatCount, formatLb } from '@/lib/number-format';
@@ -216,6 +218,7 @@ export function EodPlanningSection({
   finOpenByDefault = false,
   planningHint,
 }: EodPlanningSectionProps) {
+  const { t } = useTranslation('common');
   const [opsDayKey, setOpsDayKey] = useState<string>(() => escDay(new Date()));
 
   const { data: tags } = useQuery({
@@ -371,12 +374,30 @@ export function EodPlanningSection({
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [tags, shippedDay, commercialClients, formatCanonicalByNorm, opsDayKey, existenciasCamaraRows]);
 
+  const eodLabels = useMemo<EodReportLabels>(
+    () => ({
+      title: t('eod.email.title'),
+      mpLabel: t('eod.email.mpLabel'),
+      clientPrefix: t('eod.email.clientPrefix'),
+      noMovement: t('eod.email.noMovement'),
+      noBoxes: t('eod.email.noBoxes'),
+      packed: t('eod.email.packed'),
+      camara: t('eod.email.camara'),
+      shipped: t('eod.email.shipped'),
+      pageTitle: t('eod.email.pageTitle'),
+      days: t('eod.email.days', { returnObjects: true }) as string[],
+      months: t('eod.email.months', { returnObjects: true }) as string[],
+      dateFormat: t('eod.email.dateFormat'),
+    }),
+    [t],
+  );
+
   const eodClipboardPayload = useMemo(() => {
     const mpLine =
       mpDisponibleProceso != null && mpDisponibleProceso.totalLb > 0
         ? `${formatLb(mpDisponibleProceso.totalLb, 2)} lb`
-        : 'Sin stock disponible';
-    const fechaHeaderEs = formatDayKeySpanishLong(opsDayKey);
+        : t('eod.email.mpNone');
+    const fechaHeaderEs = formatDayKeySpanishLong(opsDayKey, eodLabels);
     const blocks: EodReportClientBlock[] = endOfDayByClient.map((r) => {
       const pM = breakdownRowsToNormQty(r.packed);
       const cM = breakdownRowsToNormQty(r.cooler);
@@ -398,11 +419,11 @@ export function EodPlanningSection({
           stripParenthesesText(nk === '—' ? '—' : (formatCanonicalByNorm.get(nk) ?? titleCaseFormatFallback(nk))),
       };
     });
-    const htmlFragment = buildEodReportHtml({ fechaHeaderEs, mpLine, blocks });
-    const plain = buildEodReportPlain({ fechaHeaderEs, mpLine, blocks });
-    const htmlDoc = wrapHtmlFragmentForClipboard(htmlFragment);
+    const htmlFragment = buildEodReportHtml({ fechaHeaderEs, mpLine, blocks, labels: eodLabels });
+    const plain = buildEodReportPlain({ fechaHeaderEs, mpLine, blocks, labels: eodLabels });
+    const htmlDoc = wrapHtmlFragmentForClipboard(htmlFragment, eodLabels.pageTitle);
     return { htmlDoc, plain, htmlFragment };
-  }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm]);
+  }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm, eodLabels]);
 
   const finDelDiaBlock = (
     <details
@@ -413,8 +434,8 @@ export function EodPlanningSection({
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 marker:content-none sm:px-5 [&::-webkit-details-marker]:hidden">
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día</p>
-          <p className="text-xs text-slate-500">Cierre por cliente y formato · copiar al correo</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{t('eod.title')}</p>
+          <p className="text-xs text-slate-500">{t('eod.subtitle')}</p>
         </div>
         <button
           type="button"
@@ -431,20 +452,20 @@ export function EodPlanningSection({
                     'text/plain': new Blob([plain], { type: 'text/plain' }),
                   }),
                 ]);
-                toast.success('Resumen Fin del día copiado (HTML + texto)');
+                toast.success(t('eod.toastSuccess'));
               } catch {
                 try {
                   await navigator.clipboard.writeText(plain);
-                  toast.success('Resumen copiado (texto)');
+                  toast.success(t('eod.toastSuccessPlain'));
                 } catch {
-                  toast.error('No se pudo copiar');
+                  toast.error(t('eod.toastError'));
                 }
               }
             })();
           }}
         >
           <Copy className="h-3 w-3" aria-hidden />
-          Copiar
+          {t('eod.copyButton')}
         </button>
       </summary>
       <div className="border-t border-slate-100 px-4 pb-4 pt-2 sm:px-5">
@@ -461,15 +482,18 @@ export function EodPlanningSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 id="rep-planificacion-diaria" className="text-base font-semibold text-slate-900">
-            Planificación diaria
+            {t('eod.planning.title')}
           </h2>
           <p className={sectionHint}>
             {planningHint ??
-              `KPIs del día${showCommercialOffer ? '; abajo planificación rápida y simulación' : ''}.${showFinDelDia ? (finFirst ? ' Fin del día arriba en esta pantalla.' : ' Fin del día al final de OPERACIÓN.') : ''}`}
+              t('eod.planning.hintBase') +
+                (showCommercialOffer ? t('eod.planning.hintCommercial') : '') +
+                '.' +
+                (showFinDelDia ? (finFirst ? t('eod.planning.hintFinFirst') : t('eod.planning.hintFinEnd')) : '')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-[11px] text-slate-500">Fecha operativa</Label>
+          <Label className="text-[11px] text-slate-500">{t('eod.planning.dateLabel')}</Label>
           <Input
             type="date"
             className="h-8 w-[160px] bg-white"
@@ -480,37 +504,40 @@ export function EodPlanningSection({
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:gap-3">
         <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-          <p className={kpiLabel}>Packed día</p>
+          <p className={kpiLabel}>{t('eod.planning.packedDay')}</p>
           <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
-          <p className={kpiFootnote}>Cajas</p>
+          <p className={kpiFootnote}>{t('eod.planning.packedUnit')}</p>
         </div>
         <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-          <p className={kpiLabel}>En cámara (saldo día)</p>
+          <p className={kpiLabel}>{t('eod.planning.coolerBalance')}</p>
           <p className={cn(kpiValueMd, 'text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
-          <p className={kpiFootnote}>Packed − shipped</p>
+          <p className={kpiFootnote}>{t('eod.planning.coolerDesc')}</p>
         </div>
         <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-          <p className={kpiLabel}>Shipped día</p>
+          <p className={kpiLabel}>{t('eod.planning.shippedDay')}</p>
           <p className={cn(kpiValueMd, 'text-xl')}>
             {operationalDaily.shippedToday > 0 ? formatCount(operationalDaily.shippedToday) : '—'}
           </p>
           <p className={kpiFootnote}>
             {operationalDaily.shippedToday > 0
-              ? 'Salida del día (confirmado + fecha despacho o despachado)'
-              : 'Sin salida registrada para esta fecha'}
+              ? t('eod.planning.shippedDesc')
+              : t('eod.planning.shippedNone')}
           </p>
         </div>
         <div className="rounded-xl border border-emerald-100/90 bg-emerald-50/50 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-          <p className={kpiLabel}>MP disponible p/proceso</p>
+          <p className={kpiLabel}>{t('eod.planning.mpTitle')}</p>
           <p className={cn(kpiValueMd, 'text-xl text-emerald-950')}>
             {mpDisponibleProceso == null ? '…' : mpDisponibleProceso.totalLb > 0 ? formatLb(mpDisponibleProceso.totalLb, 2) : '—'}
           </p>
           <p className={kpiFootnote}>
             {mpDisponibleProceso == null
-              ? 'Cargando recepción…'
+              ? t('eod.planning.mpLoading')
               : mpDisponibleProceso.totalLb > 0
-                ? `${mpDisponibleProceso.producerCount} productor(es) · ${mpDisponibleProceso.lineCount} línea(s) con saldo · recepción − volteado`
-                : 'Sin fruta disponible para reparto (confirmadas/cerradas con saldo)'}
+                ? t('eod.planning.mpDetail', {
+                    producers: mpDisponibleProceso.producerCount,
+                    lines: mpDisponibleProceso.lineCount,
+                  })
+                : t('eod.planning.mpNone')}
           </p>
         </div>
       </div>
@@ -521,7 +548,7 @@ export function EodPlanningSection({
     <section className="space-y-4" aria-labelledby="rep-planificacion-diaria">
       {!showDailyPlanningKpis ? (
         <h2 id="rep-planificacion-diaria" className="sr-only">
-          Planificación rápida y simulación
+          {t('eod.planning.srOnly')}
         </h2>
       ) : null}
       {finFirst && showFinDelDia ? finDelDiaBlock : null}

@@ -1,5 +1,20 @@
 import { formatCount } from '@/lib/number-format';
 
+export type EodReportLabels = {
+  title: string;
+  mpLabel: string;
+  clientPrefix: string;
+  noMovement: string;
+  noBoxes: string;
+  packed: string;
+  camara: string;
+  shipped: string;
+  pageTitle: string;
+  days: string[];
+  months: string[];
+  dateFormat: string;
+};
+
 function esc(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -25,7 +40,10 @@ const MESES_ES = [
 ] as const;
 
 /** Ej. `YYYY-MM-DD` → `Sábado 10 de mayo, 2026` (calendario local). */
-export function formatDayKeySpanishLong(dayKey: string): string {
+export function formatDayKeySpanishLong(
+  dayKey: string,
+  labels?: Pick<EodReportLabels, 'days' | 'months' | 'dateFormat'>,
+): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey.trim());
   if (!m) return dayKey.trim();
   const y = Number(m[1]);
@@ -34,10 +52,17 @@ export function formatDayKeySpanishLong(dayKey: string): string {
   if (!Number.isFinite(y) || monthIndex < 0 || monthIndex > 11 || !Number.isFinite(d)) return dayKey.trim();
   const date = new Date(y, monthIndex, d);
   if (Number.isNaN(date.getTime())) return dayKey.trim();
-  const wd = DIAS_ES[date.getDay()] ?? '';
-  const mes = MESES_ES[monthIndex] ?? '';
+  const dias = labels?.days ?? DIAS_ES;
+  const meses = labels?.months ?? MESES_ES;
+  const fmt = labels?.dateFormat ?? '{{day}} {{date}} de {{month}}, {{year}}';
+  const wd = dias[date.getDay()] ?? '';
+  const mes = meses[monthIndex] ?? '';
   const wdCap = wd.charAt(0).toUpperCase() + wd.slice(1);
-  return `${wdCap} ${d} de ${mes}, ${y}`;
+  return fmt
+    .replace('{{day}}', wdCap)
+    .replace('{{date}}', String(d))
+    .replace('{{month}}', mes)
+    .replace('{{year}}', String(y));
 }
 
 /** Estilos inline pensados para clientes de correo (Outlook/Gmail): compacto, ejecutivo. */
@@ -74,21 +99,25 @@ const TD_METRIC_CELL =
 const TD_METRIC_MID =
   'vertical-align:top;text-align:center;padding:6px 4px;width:33.33%;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;font-family:Segoe UI,Arial,Helvetica,sans-serif;';
 
-function htmlFormatMetricCard(label: string, n: { packed: number; camara: number; shipped: number }): string {
+function htmlFormatMetricCard(
+  label: string,
+  n: { packed: number; camara: number; shipped: number },
+  labels: EodReportLabels,
+): string {
   return (
     `<div style="${CARD_WRAP}">` +
     `<p style="${FMT_CARD_TITLE}">${esc(label)}</p>` +
     `<table style="${THREE_COL_TBL}" cellpadding="0" cellspacing="0" role="presentation"><tr>` +
     `<td style="${TD_METRIC_CELL}">` +
-    `<p style="${METRIC_LABEL_MAIL}">Packed</p>` +
+    `<p style="${METRIC_LABEL_MAIL}">${esc(labels.packed)}</p>` +
     `<p style="${METRIC_VAL_MAIL}">${esc(formatCount(n.packed))}</p>` +
     `</td>` +
     `<td style="${TD_METRIC_MID}">` +
-    `<p style="${METRIC_LABEL_MAIL}">En cámara</p>` +
+    `<p style="${METRIC_LABEL_MAIL}">${esc(labels.camara)}</p>` +
     `<p style="${METRIC_VAL_CAM_MAIL}">${esc(formatCount(n.camara))}</p>` +
     `</td>` +
     `<td style="${TD_METRIC_CELL}">` +
-    `<p style="${METRIC_LABEL_MAIL}">Shipped</p>` +
+    `<p style="${METRIC_LABEL_MAIL}">${esc(labels.shipped)}</p>` +
     `<p style="${METRIC_VAL_MAIL}">${esc(formatCount(n.shipped))}</p>` +
     `</td>` +
     `</tr></table></div>`
@@ -117,28 +146,29 @@ export function buildEodReportPlain(params: {
   fechaHeaderEs: string;
   mpLine: string;
   blocks: EodReportClientBlock[];
+  labels: EodReportLabels;
 }): string {
-  const { fechaHeaderEs, mpLine, blocks } = params;
+  const { fechaHeaderEs, mpLine, blocks, labels } = params;
   const lines: string[] = [
-    `FIN DEL DÍA – UNIDAD PT · ${fechaHeaderEs}`,
+    `${labels.title} · ${fechaHeaderEs}`,
     '',
-    'Materia prima disponible para proceso:',
+    `${labels.mpLabel}:`,
     mpLine,
     '',
     '────────────────────────────────────',
   ];
   if (blocks.length === 0) {
     lines.push('');
-    lines.push('Sin movimiento por cliente para la fecha indicada.');
+    lines.push(labels.noMovement);
     return lines.join('\n').trim();
   }
   for (const b of blocks) {
     lines.push('');
-    lines.push(`CLIENTE: ${b.label}`);
+    lines.push(`${labels.clientPrefix} ${b.label}`);
     const withData = normsWithAnyCajas(b);
     if (withData.length === 0) {
       lines.push('');
-      lines.push('Sin cajas por formato para este cliente en la fecha.');
+      lines.push(labels.noBoxes);
       lines.push('');
       lines.push('────────────────────────────────────');
       continue;
@@ -147,7 +177,9 @@ export function buildEodReportPlain(params: {
       const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
       lines.push('');
       lines.push(`— ${b.formatLabel(nk)}`);
-      lines.push(`   Packed · ${formatCount(n.packed)}  |  En cámara · ${formatCount(n.camara)}  |  Shipped · ${formatCount(n.shipped)}`);
+      lines.push(
+        `   ${labels.packed} · ${formatCount(n.packed)}  |  ${labels.camara} · ${formatCount(n.camara)}  |  ${labels.shipped} · ${formatCount(n.shipped)}`,
+      );
     }
     lines.push('');
     lines.push('────────────────────────────────────');
@@ -159,21 +191,22 @@ export function buildEodReportHtml(params: {
   fechaHeaderEs: string;
   mpLine: string;
   blocks: EodReportClientBlock[];
+  labels: EodReportLabels;
 }): string {
-  const { fechaHeaderEs, mpLine, blocks } = params;
+  const { fechaHeaderEs, mpLine, blocks, labels } = params;
   const parts: string[] = [];
   parts.push(
     `<div style="${HDR_BLOCK}">` +
-      `<p style="${H1}">FIN DEL DÍA – UNIDAD PT · ${esc(fechaHeaderEs)}</p>` +
+      `<p style="${H1}">${esc(labels.title)} · ${esc(fechaHeaderEs)}</p>` +
       `</div>`,
   );
   parts.push(
-    `<div style="${MP_WRAP}"><span style="${MP_LABEL}">Materia prima disponible para proceso</span><br/>${esc(mpLine)}</div>`,
+    `<div style="${MP_WRAP}"><span style="${MP_LABEL}">${esc(labels.mpLabel)}</span><br/>${esc(mpLine)}</div>`,
   );
   parts.push(`<hr style="${SEP_AFTER_MP}" />`);
 
   if (blocks.length === 0) {
-    parts.push(`<p style="${EMPTY_P}">Sin movimiento por cliente para la fecha indicada.</p>`);
+    parts.push(`<p style="${EMPTY_P}">${esc(labels.noMovement)}</p>`);
     return `<div style="${ROOT}">${parts.join('')}</div>`;
   }
 
@@ -181,16 +214,16 @@ export function buildEodReportHtml(params: {
     const b = blocks[i]!;
     const sectionStyle = i === 0 ? SECTION_FIRST : SECTION_NEXT;
     parts.push(`<div style="${sectionStyle}">`);
-    parts.push(`<h3 style="${CLIENTH3}">CLIENTE: ${esc(b.label)}</h3>`);
+    parts.push(`<h3 style="${CLIENTH3}">${esc(labels.clientPrefix)} ${esc(b.label)}</h3>`);
     const withData = normsWithAnyCajas(b);
     if (withData.length === 0) {
-      parts.push(`<p style="${EMPTY_P}">Sin cajas por formato para este cliente en la fecha.</p>`);
+      parts.push(`<p style="${EMPTY_P}">${esc(labels.noBoxes)}</p>`);
       parts.push('</div>');
       continue;
     }
     for (const nk of withData) {
       const n = b.nums.get(nk) ?? { packed: 0, camara: 0, shipped: 0 };
-      parts.push(htmlFormatMetricCard(b.formatLabel(nk), n));
+      parts.push(htmlFormatMetricCard(b.formatLabel(nk), n, labels));
     }
     parts.push('</div>');
   }
@@ -198,6 +231,9 @@ export function buildEodReportHtml(params: {
   return `<div style="${ROOT}">${parts.join('')}</div>`;
 }
 
-export function wrapHtmlFragmentForClipboard(fragment: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fin del día PT</title></head><body style="margin:0;padding:14px 14px 20px;background:#ffffff;color:#334155;font-family:Segoe UI,Arial,Helvetica,sans-serif;">${fragment}</body></html>`;
+export function wrapHtmlFragmentForClipboard(
+  fragment: string,
+  pageTitle: string = 'End of day PT',
+): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(pageTitle)}</title></head><body style="margin:0;padding:14px 14px 20px;background:#ffffff;color:#334155;font-family:Segoe UI,Arial,Helvetica,sans-serif;">${fragment}</body></html>`;
 }

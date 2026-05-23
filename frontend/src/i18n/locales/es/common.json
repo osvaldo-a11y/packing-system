@@ -204,5 +204,48 @@
       "guide": "Guía",
       "about": "Acerca"
     }
+  },
+  "eod": {
+    "title": "Fin del día",
+    "subtitle": "Cierre por cliente y formato · copiar al correo",
+    "copyButton": "Copiar",
+    "toastSuccess": "Resumen Fin del día copiado (HTML + texto)",
+    "toastSuccessPlain": "Resumen copiado (texto)",
+    "toastError": "No se pudo copiar",
+    "planning": {
+      "title": "Planificación diaria",
+      "srOnly": "Planificación rápida y simulación",
+      "dateLabel": "Fecha operativa",
+      "hintBase": "KPIs del día",
+      "hintCommercial": "; abajo planificación rápida y simulación",
+      "hintFinFirst": " Fin del día arriba en esta pantalla.",
+      "hintFinEnd": " Fin del día al final de OPERACIÓN.",
+      "packedDay": "Packed día",
+      "packedUnit": "Cajas",
+      "coolerBalance": "En cámara (saldo día)",
+      "coolerDesc": "Packed − shipped",
+      "shippedDay": "Shipped día",
+      "shippedDesc": "Salida del día (confirmado + fecha despacho o despachado)",
+      "shippedNone": "Sin salida registrada para esta fecha",
+      "mpTitle": "MP disponible p/proceso",
+      "mpLoading": "Cargando recepción…",
+      "mpNone": "Sin fruta disponible para reparto (confirmadas/cerradas con saldo)",
+      "mpDetail": "{{producers}} productor(es) · {{lines}} línea(s) con saldo · recepción − volteado"
+    },
+    "email": {
+      "title": "FIN DEL DÍA – UNIDAD PT",
+      "mpLabel": "Materia prima disponible para proceso",
+      "mpNone": "Sin stock disponible",
+      "clientPrefix": "CLIENTE:",
+      "noMovement": "Sin movimiento por cliente para la fecha indicada.",
+      "noBoxes": "Sin cajas por formato para este cliente en la fecha.",
+      "packed": "Packed",
+      "camara": "En cámara",
+      "shipped": "Shipped",
+      "pageTitle": "Fin del día PT",
+      "days": ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
+      "months": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+      "dateFormat": "{{day}} {{date}} de {{month}}, {{year}}"
+    }
   }
 }

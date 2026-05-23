@@ -204,5 +204,48 @@
       "guide": "Guide",
       "about": "About"
     }
+  },
+  "eod": {
+    "title": "End of day",
+    "subtitle": "Close by client and format · copy to email",
+    "copyButton": "Copy",
+    "toastSuccess": "End of day summary copied (HTML + text)",
+    "toastSuccessPlain": "Summary copied (text)",
+    "toastError": "Could not copy",
+    "planning": {
+      "title": "Daily planning",
+      "srOnly": "Quick planning and simulation",
+      "dateLabel": "Operational date",
+      "hintBase": "Day KPIs",
+      "hintCommercial": "; quick planning and simulation below",
+      "hintFinFirst": " End of day above on this screen.",
+      "hintFinEnd": " End of day at the bottom of OPERATIONS.",
+      "packedDay": "Packed today",
+      "packedUnit": "Boxes",
+      "coolerBalance": "In cooler (day balance)",
+      "coolerDesc": "Packed − shipped",
+      "shippedDay": "Shipped today",
+      "shippedDesc": "Day exit (confirmed + dispatch date or dispatched)",
+      "shippedNone": "No exit recorded for this date",
+      "mpTitle": "MP available for processing",
+      "mpLoading": "Loading reception…",
+      "mpNone": "No fruit available for distribution (confirmed/closed with balance)",
+      "mpDetail": "{{producers}} producer(s) · {{lines}} line(s) with balance · reception − turned"
+    },
+    "email": {
+      "title": "END OF DAY – PT UNIT",
+      "mpLabel": "Raw material available for processing",
+      "mpNone": "No stock available",
+      "clientPrefix": "CLIENT:",
+      "noMovement": "No movement by client for the indicated date.",
+      "noBoxes": "No boxes by format for this client on this date.",
+      "packed": "Packed",
+      "camara": "In cooler",
+      "shipped": "Shipped",
+      "pageTitle": "End of day PT",
+      "days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      "dateFormat": "{{day}} {{date}} {{month}}, {{year}}"
+    }
   }
 }
