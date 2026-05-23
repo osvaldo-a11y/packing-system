@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, ChevronDown, ChevronRight, Info, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -358,6 +359,7 @@ function lineDraftsFromReception(r: ReceptionRow): LineDraft[] {
 }
 
 export function ReceptionPage() {
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const { role } = useAuth();
   const isAdmin = role === 'admin';
@@ -644,32 +646,32 @@ export function ReceptionPage() {
       lines.push({
         key: 'sin-lineas',
         tone: 'warn',
-        text: `${formatCount(receptionKpis.nSinLineas)} recepción(es) sin líneas en la vista — revisá carga o filtros.`,
+        text: t('reception.alerts.noLines', { count: formatCount(receptionKpis.nSinLineas) }),
       });
     }
     if (nNetZero > 0) {
       lines.push({
         key: 'net-zero',
         tone: 'warn',
-        text: `${formatCount(nNetZero)} recepción(es) con líneas pero lb netos no suman positivo — revisá pesadas.`,
+        text: t('reception.alerts.netZero', { count: formatCount(nNetZero) }),
       });
     }
     if (nSinProductor > 0) {
       lines.push({
         key: 'sin-prod',
         tone: 'warn',
-        text: `${formatCount(nSinProductor)} recepción(es) sin nombre de productor en maestro.`,
+        text: t('reception.alerts.noProducer', { count: formatCount(nSinProductor) }),
       });
     }
     if (receptionKpis.nAnulado > 0) {
       lines.push({
         key: 'anulados',
         tone: 'info',
-        text: `${formatCount(receptionKpis.nAnulado)} documento(s) anulado(s) en la vista actual.`,
+        text: t('reception.alerts.voided', { count: formatCount(receptionKpis.nAnulado) }),
       });
     }
     return lines;
-  }, [filteredReceptions, receptionKpis.nSinLineas, receptionKpis.nAnulado]);
+  }, [filteredReceptions, receptionKpis.nSinLineas, receptionKpis.nAnulado, t]);
 
   const form = useForm<HeaderForm>({
     resolver: zodResolver(headerSchema),
@@ -1076,15 +1078,15 @@ export function ReceptionPage() {
   const receptionDialogTitle =
     viewOnly && editingId != null
       ? receptionHumanLabel
-        ? `Recepción · ${receptionHumanLabel} (#${editingId}, solo lectura)`
-        : `Recepción #${editingId} (solo lectura)`
+        ? t('reception.dialog.viewOnly', { label: receptionHumanLabel, id: editingId })
+        : t('reception.dialog.viewOnlyNoLabel', { id: editingId })
       : adminStateOnlyEdit && editingId != null
-        ? `Admin · estado documento · #${editingId}`
+        ? t('reception.dialog.adminState', { id: editingId })
         : editingId != null
           ? receptionHumanLabel
-            ? `Editar recepción · ${receptionHumanLabel} (#${editingId})`
-            : `Editar recepción #${editingId}`
-          : 'Registrar recepción';
+            ? t('reception.dialog.editWithLabel', { label: receptionHumanLabel, id: editingId })
+            : t('reception.dialog.editNoLabel', { id: editingId })
+          : t('reception.dialog.new');
 
   const helpTitle =
     'Informe PDF formal para el productor. Cerrado (documento): estado «cerrado» — cierre administrativo; no usar para nuevos procesos. Abierto: aún no cerrado; el saldo de lb por línea se controla al crear procesos. Una recepción queda consumida en la práctica cuando no queda MP disponible en sus líneas; el documento puede seguir «abierto» hasta que operación cierre el estado.';
@@ -1143,7 +1145,7 @@ export function ReceptionPage() {
                 type="button"
                 onClick={() => closeDialog()}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('reception.dialog.closeAriaLabel')}
               >
                 <X size={16} className="text-muted-foreground" />
               </button>
@@ -1152,9 +1154,7 @@ export function ReceptionPage() {
 
           {adminStateOnlyEdit ? (
             <div className="mx-6 -mt-1 mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-950">
-              Modo administrador: solo podés cambiar el <span className="font-semibold">estado del documento</span>. El
-              resto queda bloqueado. «Anulado» usa el mismo flujo que siempre (p. ej. no se permite si ya hay procesos
-              con MP de esta recepción).
+              {t('reception.dialog.adminNotice')}
             </div>
           ) : null}
 
@@ -1168,12 +1168,12 @@ export function ReceptionPage() {
                   )}
                 >
                   <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                    <h3 className={operationalModalStepTitle}>Documento</h3>
+                    <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionDoc')}</h3>
                   </div>
                   <div className="space-y-[10px]">
                     <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Fecha y hora</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDatetime')}</label>
                       <Input
                         type="datetime-local"
                         disabled={lockNonStateFields}
@@ -1182,13 +1182,13 @@ export function ReceptionPage() {
                       />
                     </div>
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Productor grower</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldProducer')}</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                         disabled={lockNonStateFields}
                         {...form.register('producer_id', { valueAsNumber: true })}
                       >
-                        <option value={0}>Elegir…</option>
+                        <option value={0}>{t('reception.dialog.choosePlaceholder')}</option>
                         {sortedProducers.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.nombre}
@@ -1197,27 +1197,27 @@ export function ReceptionPage() {
                       </select>
                     </div>
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Tipo fruta</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldFruitType')}</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                         disabled={lockNonStateFields}
                         {...form.register('reception_type_id', { valueAsNumber: true })}
                       >
                         {(receptionTypes ?? [])
-                          .filter((t) => t.activo !== false)
-                          .map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.codigo === 'hand_picking'
-                                ? 'Mano'
-                                : t.codigo === 'machine_picking'
-                                  ? 'Máquina'
-                                  : t.nombre}
+                          .filter((rt) => rt.activo !== false)
+                          .map((rt) => (
+                            <option key={rt.id} value={rt.id}>
+                              {rt.codigo === 'hand_picking'
+                                ? t('reception.dialog.fruitTypeHand')
+                                : rt.codigo === 'machine_picking'
+                                  ? t('reception.dialog.fruitTypeMachine')
+                                  : rt.nombre}
                             </option>
                           ))}
                       </select>
                     </div>
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Mercado</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                         disabled={lockNonStateFields}
@@ -1234,7 +1234,7 @@ export function ReceptionPage() {
                       </select>
                     </div>
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Estado documento</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDocState')}</label>
                       <select
                         className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                         disabled={viewOnly}
@@ -1252,18 +1252,18 @@ export function ReceptionPage() {
                     </div>
                     <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Referencia</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldReference')}</label>
                       {editingId == null && !viewOnly ? (
                         <div className="space-y-0.5">
                           <Input
                             className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase"
                             maxLength={64}
-                            placeholder="Ej. JDS410 (opcional; vacío = automático)"
+                            placeholder={t('reception.dialog.fieldReferencePlaceholder')}
                             autoComplete="off"
                             {...form.register('reference_code')}
                           />
                           <p className="text-[10px] leading-tight text-muted-foreground">
-                            Misma referencia puede repetirse en otra recepción (ej. mano/máquina). El lote de línea incluye el id de recepción. &gt; en CSV opcional; se guarda en mayúsculas.
+                            {t('reception.dialog.fieldReferenceHint')}
                           </p>
                         </div>
                       ) : (
@@ -1274,17 +1274,17 @@ export function ReceptionPage() {
                           )}
                         >
                           {serverReference ??
-                            (editingId == null ? 'Se asignará al guardar' : '—')}
+                            (editingId == null ? t('reception.dialog.referenceAutoAssign') : '—')}
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>Documento / guía</label>
+                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
                       <Input
                         disabled={lockNonStateFields}
                         className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
                         maxLength={10}
-                        placeholder="Máx. 10 car."
+                        placeholder={t('reception.dialog.fieldDocPlaceholder')}
                         {...form.register('document_number')}
                       />
                     </div>
@@ -1301,9 +1301,9 @@ export function ReceptionPage() {
                     <div className="flex min-w-0 flex-wrap items-start gap-2">
                       <span className={operationalModalStepBadge}>2</span>
                       <div>
-                        <h3 className={operationalModalStepTitle}>Líneas de partida</h3>
+                        <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionLines')}</h3>
                         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                          Especie, variedad, pesos y envase por fila.
+                          {t('reception.dialog.linesHint')}
                         </p>
                       </div>
                     </div>
@@ -1315,7 +1315,7 @@ export function ReceptionPage() {
                           disabled={lockNonStateFields}
                           onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
                         />
-                        Copiar última línea
+                        {t('reception.dialog.copyLastLine')}
                       </label>
                       <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
                         <input
@@ -1324,7 +1324,7 @@ export function ReceptionPage() {
                           disabled={lockNonStateFields}
                           onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
                         />
-                        Aplicar variedad a líneas involucradas
+                        {t('reception.dialog.applyVariety')}
                       </label>
                       <button
                         type="button"
@@ -1341,7 +1341,7 @@ export function ReceptionPage() {
                           })
                         }
                       >
-                        + Línea
+                        {t('reception.dialog.addLine')}
                       </button>
                     </div>
                   </div>
@@ -1351,12 +1351,12 @@ export function ReceptionPage() {
                     {lineDrafts.map((L, idx) => (
                       <div key={idx} className={cn(modalFormLineCard, 'space-y-2 rounded-md bg-muted/30 p-3')}>
                         {L.lot_code ? (
-                          <p className="font-mono text-[11px] text-slate-500">Lote: {L.lot_code}</p>
+                          <p className="font-mono text-[11px] text-slate-500">{t('reception.dialog.lotPrefix')} {L.lot_code}</p>
                         ) : null}
                         <div className="w-full min-w-0">
                           <div className="grid w-full min-w-[min(100%,36rem)] grid-cols-2 items-end gap-2 sm:min-w-[40rem] sm:grid-cols-3 md:grid-cols-4 lg:min-w-[52rem] lg:grid-cols-9 lg:gap-[6px]">
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Esp.</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colSpecies')}</label>
                             <select
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                               title={
@@ -1385,7 +1385,7 @@ export function ReceptionPage() {
                             </select>
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Variedad</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colVariety')}</label>
                             <select
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                               title={
@@ -1420,7 +1420,7 @@ export function ReceptionPage() {
                             </select>
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Cal.</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colQuality')}</label>
                             <select
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                               title={
@@ -1444,7 +1444,7 @@ export function ReceptionPage() {
                             </select>
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Bruto lb</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colGrossLb')}</label>
                             <Input
                               type="number"
                               step="0.01"
@@ -1460,7 +1460,7 @@ export function ReceptionPage() {
                             />
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Neto lb</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colNetLb')}</label>
                             <Input
                               type="number"
                               step="0.01"
@@ -1475,7 +1475,7 @@ export function ReceptionPage() {
                             />
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Cant.</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colQty')}</label>
                             <Input
                               disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
@@ -1488,7 +1488,7 @@ export function ReceptionPage() {
                             />
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Envase</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colContainer')}</label>
                             <select
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
                               title={
@@ -1517,7 +1517,7 @@ export function ReceptionPage() {
                             </select>
                           </div>
                           <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">Temp °F</label>
+                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colTemp')}</label>
                             <Input
                               disabled={lockNonStateFields}
                               className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
@@ -1533,8 +1533,8 @@ export function ReceptionPage() {
                             <button
                               type="button"
                               className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600"
-                              aria-label={`Eliminar línea ${idx + 1}`}
-                              title="Eliminar línea"
+                              aria-label={t('reception.dialog.deleteLineAriaLabel', { n: idx + 1 })}
+                              title={t('reception.dialog.deleteLineTitle')}
                               onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
                               disabled={lockNonStateFields || lineDrafts.length <= 1}
                             >
@@ -1551,24 +1551,24 @@ export function ReceptionPage() {
 
                 <section className={cn(operationalModalSectionCard, 'shrink-0 px-4 py-[14px]')}>
                   <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                    <h3 className={operationalModalStepTitle}>Observaciones</h3>
+                    <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionNotes')}</h3>
                   </div>
                   <label className={compactFieldLabelClass} htmlFor="reception-notes">
-                    OBSERVACIONES
+                    {t('reception.dialog.notesLabel')}
                   </label>
                   <textarea
                     id="reception-notes"
                     rows={2}
                     disabled={lockNonStateFields}
                     className="h-auto min-h-[56px] w-full resize-y rounded-md border border-border px-2 py-1.5 text-xs"
-                    placeholder="Opcional"
+                    placeholder={t('reception.dialog.notesPlaceholder')}
                     {...form.register('notes')}
                   />
                 </section>
 
                 {viewOnly && viewStateCodigo === 'confirmado' && editingId != null && cerradoStateId > 0 ? (
                   <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">
-                    <span>Documento confirmado: podés cerrarlo para dejarlo solo lectura definitivo.</span>
+                    <span>{t('reception.dialog.confirmNotice')}</span>
                     <Button
                       type="button"
                       size="sm"
@@ -1576,7 +1576,7 @@ export function ReceptionPage() {
                       disabled={transitionMut.isPending}
                       onClick={() => transitionMut.mutate({ id: editingId, document_state_id: cerradoStateId })}
                     >
-                      {transitionMut.isPending ? 'Aplicando…' : 'Pasar a Cerrado'}
+                      {transitionMut.isPending ? t('reception.dialog.closingApplying') : t('reception.dialog.closingButton')}
                     </Button>
                   </div>
                 ) : null}
@@ -1591,9 +1591,9 @@ export function ReceptionPage() {
               )}
             >
               <div className="order-2 text-[11px] text-muted-foreground sm:order-1">
-                Neto: <span className="font-medium text-foreground">{formatLb(lineTotals.net, 2)} lb</span>
-                {' · '}Bruto: <span className="font-medium text-foreground">{formatLb(lineTotals.gross, 2)} lb</span>
-                {' · '}Envases: <span className="font-medium text-foreground">{formatCount(lineTotals.qty)}</span>
+                {t('reception.dialog.footerNet')} <span className="font-medium text-foreground">{formatLb(lineTotals.net, 2)} lb</span>
+                {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-foreground">{formatLb(lineTotals.gross, 2)} lb</span>
+                {' · '}{t('reception.dialog.footerContainers')} <span className="font-medium text-foreground">{formatCount(lineTotals.qty)}</span>
               </div>
               <div className="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:shrink-0">
                 {showConfirmReceptionButton ? (
@@ -1604,11 +1604,11 @@ export function ReceptionPage() {
                     onClick={() => transitionMut.mutate({ id: editingId as number, document_state_id: confirmadoStateId })}
                   >
                     <CheckCircle className="mr-1.5 h-4 w-4" />
-                    {transitionMut.isPending ? 'Confirmando…' : 'Confirmar recepción'}
+                    {transitionMut.isPending ? t('reception.dialog.confirmingButton') : t('reception.dialog.confirmReceptionButton')}
                   </Button>
                 ) : null}
                 <Button type="button" variant="outline" onClick={() => closeDialog()}>
-                  {viewOnly ? 'Cerrar' : 'Cancelar'}
+                  {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
                 </Button>
                 {!viewOnly ? (
                   <button
@@ -1617,10 +1617,10 @@ export function ReceptionPage() {
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
                     {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending
-                      ? 'Guardando…'
+                      ? t('reception.dialog.savingButton')
                       : adminStateOnlyEdit
-                        ? 'Guardar estado'
-                        : 'Guardar'}
+                        ? t('reception.dialog.saveStateButton')
+                        : t('reception.dialog.saveButton')}
                   </button>
                 ) : null}
               </div>
@@ -1631,9 +1631,9 @@ export function ReceptionPage() {
 
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Recepciones</h2>
+          <h2 className={pageTitle}>{t('reception.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>Ingreso de materia prima a planta: pesos, lotes y trazabilidad hacia proceso.</p>
+            <p className={pageSubtitle}>{t('reception.pageSubtitle')}</p>
             <button type="button" className={pageInfoButton} title={helpTitle} aria-label="Ayuda recepciones">
               <Info className="h-4 w-4" />
             </button>
@@ -1641,19 +1641,19 @@ export function ReceptionPage() {
         </div>
         <Button className={cn(btnToolbarPrimary, 'shrink-0')} onClick={() => openNew()}>
           <Plus className="h-4 w-4" />
-          Nueva recepción
+          {t('reception.newButton')}
         </Button>
       </div>
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
         <h2 id="rec-kpis" className="sr-only">
-          Indicadores
+          {t('reception.srKpis')}
         </h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
-            <p className={kpiLabel}>Recepciones totales</p>
+            <p className={kpiLabel}>{t('reception.kpi.total')}</p>
             <p className={kpiValueLg}>{formatCount(receptionKpis.nRecepciones)}</p>
-            <p className={kpiFootnote}>En vista actual</p>
+            <p className={kpiFootnote}>{t('reception.kpi.totalNote')}</p>
           </div>
           <div
             className={cn(
@@ -1661,14 +1661,14 @@ export function ReceptionPage() {
               receptionKpis.nBorrador > 0 ? 'border-amber-200 bg-amber-50' : '',
             )}
           >
-            <p className={kpiLabel}>Borradores</p>
+            <p className={kpiLabel}>{t('reception.kpi.drafts')}</p>
             <p className={cn(kpiValueLg, receptionKpis.nBorrador > 0 ? 'text-amber-700' : '')}>{formatCount(receptionKpis.nBorrador)}</p>
-            <p className={kpiFootnote}>Estado documento</p>
+            <p className={kpiFootnote}>{t('reception.kpi.draftsNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Confirmadas</p>
+            <p className={kpiLabel}>{t('reception.kpi.confirmed')}</p>
             <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(receptionKpis.nConfirmado)}</p>
-            <p className={kpiFootnote}>Listas operativamente</p>
+            <p className={kpiFootnote}>{t('reception.kpi.confirmedNote')}</p>
           </div>
           <div
             className={cn(
@@ -1676,28 +1676,28 @@ export function ReceptionPage() {
               receptionKpis.nCerrado > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
             )}
           >
-            <p className={kpiLabel}>Cerradas</p>
+            <p className={kpiLabel}>{t('reception.kpi.closed')}</p>
             <p className={cn(kpiValueLg, receptionKpis.nCerrado > 0 ? 'text-violet-950' : '')}>
               {formatCount(receptionKpis.nCerrado)}
             </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Cierre administrativo</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('reception.kpi.closedNote')}</p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(kpiCardSm, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Lb netas recibidas</p>
+            <p className={kpiLabel}>{t('reception.kpi.netLb')}</p>
             <p className={cn(kpiValueMd, 'text-blue-700')}>{formatLb(receptionKpis.totalNet, 2)}</p>
-            <p className={kpiFootnote}>Suma líneas (filtro)</p>
+            <p className={kpiFootnote}>{t('reception.kpi.netLbNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Productores activos</p>
+            <p className={kpiLabel}>{t('reception.kpi.producers')}</p>
             <p className={kpiValueMd}>{formatCount(receptionKpis.nProductores)}</p>
-            <p className={kpiFootnote}>En vista</p>
+            <p className={kpiFootnote}>{t('reception.kpi.producersNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Líneas / lotes</p>
+            <p className={kpiLabel}>{t('reception.kpi.lines')}</p>
             <p className={kpiValueMd}>{formatCount(receptionKpis.nLineasTotal)}</p>
-            <p className={kpiFootnote}>Lotes distintos: {formatCount(receptionKpis.nLotesDistinct)}</p>
+            <p className={kpiFootnote}>{t('reception.kpi.linesNote', { count: formatCount(receptionKpis.nLotesDistinct) })}</p>
           </div>
           <div
             className={cn(
@@ -1705,18 +1705,18 @@ export function ReceptionPage() {
               receptionKpis.nAnulado > 0 ? 'border-rose-200/90 bg-rose-50/40' : '',
             )}
           >
-            <p className={kpiLabel}>Anulados</p>
+            <p className={kpiLabel}>{t('reception.kpi.voided')}</p>
             <p className={cn(kpiValueMd, receptionKpis.nAnulado > 0 ? 'text-rose-900' : '')}>
               {formatCount(receptionKpis.nAnulado)}
             </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Documentos anulados</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('reception.kpi.voidedNote')}</p>
           </div>
         </div>
       </section>
 
       {receptionAlertLines.length > 0 ? (
         <div className={signalsPanel}>
-          <p className={signalsTitle}>Señales operativas</p>
+          <p className={signalsTitle}>{t('reception.alerts.title')}</p>
           <ul className="space-y-2">
             {receptionAlertLines.map((a) => (
               <li
@@ -1737,7 +1737,7 @@ export function ReceptionPage() {
 
       <div className={filterPanel}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('reception.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -1749,9 +1749,9 @@ export function ReceptionPage() {
         </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Productor</Label>
+            <Label className="text-xs text-slate-500">{t('reception.filters.producer')}</Label>
             <select className={filterSelectClass} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
-              <option value={0}>Todos</option>
+              <option value={0}>{t('reception.filters.producerAll')}</option>
               {(producers ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
@@ -1760,9 +1760,9 @@ export function ReceptionPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Variedad (línea)</Label>
+            <Label className="text-xs text-slate-500">{t('reception.filters.variety')}</Label>
             <select className={filterSelectClass} value={filterVariety} onChange={(e) => setFilterVariety(Number(e.target.value))}>
-              <option value={0}>Todas</option>
+              <option value={0}>{t('reception.filters.varietyAll')}</option>
               {(varieties ?? []).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.nombre}
@@ -1771,29 +1771,29 @@ export function ReceptionPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Tipo fruta</Label>
+            <Label className="text-xs text-slate-500">{t('reception.filters.fruitType')}</Label>
             <select className={filterSelectClass} value={filterTipo} onChange={(e) => setFilterTipo(Number(e.target.value))}>
-              <option value={0}>Todos</option>
-              {(receptionTypes ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
+              <option value={0}>{t('reception.filters.fruitTypeAll')}</option>
+              {(receptionTypes ?? []).map((rt) => (
+                <option key={rt.id} value={rt.id}>
+                  {rt.nombre}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Uso documento</Label>
+            <Label className="text-xs text-slate-500">{t('reception.filters.usage')}</Label>
             <select className={filterSelectClass} value={filterUso} onChange={(e) => setFilterUso(e.target.value as typeof filterUso)}>
-              <option value="todos">Todos</option>
-              <option value="abierto">Solo abiertos</option>
-              <option value="cerrado">Solo cerrados</option>
+              <option value="todos">{t('reception.filters.usageAll')}</option>
+              <option value="abierto">{t('reception.filters.usageOpen')}</option>
+              <option value="cerrado">{t('reception.filters.usageClosed')}</option>
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">Buscar</Label>
+            <Label className="text-xs text-slate-500">{t('reception.filters.search')}</Label>
             <Input
               className={filterInputClass}
-              placeholder="Ref., guía, productor, nota, lote…"
+              placeholder={t('reception.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1805,11 +1805,10 @@ export function ReceptionPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
           <h2 id="rec-tabla" className={sectionTitle}>
-            Historial operativo
+            {t('reception.table.title')}
           </h2>
           <p className={sectionHint}>
-            {filteredReceptions.length} registro(s) · lb netas: suma de líneas; si todas dan 0, se muestra el neto de
-            cabecera (net_weight_lb).
+            {t('reception.table.hint', { count: filteredReceptions.length })}
           </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1823,7 +1822,7 @@ export function ReceptionPage() {
                 disabled={bulkConfirmCloseDraftsMut.isPending || confirmReceptionMut.isPending}
               >
                 <CheckCircle className="h-3.5 w-3.5" />
-                Confirmar y cerrar borradores
+                {t('reception.table.confirmAllButton')}
               </Button>
             ) : null}
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
@@ -1834,7 +1833,7 @@ export function ReceptionPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('reception.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -1843,13 +1842,13 @@ export function ReceptionPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('reception.table.viewDetailed')}
               </Button>
             </div>
           </div>
         </div>
         {!filteredReceptions.length ? (
-          <p className={emptyStatePanel}>Sin recepciones con el filtro actual.</p>
+          <p className={emptyStatePanel}>{t('reception.table.empty')}</p>
         ) : viewMode === 'compact' ? (
           <div className="space-y-2.5">
             {compactGroups.map((group, gi) => (
@@ -1864,14 +1863,14 @@ export function ReceptionPage() {
                     />
                     <span className="font-semibold">{group.producerName}</span>
                     <span className="mx-2 text-slate-400">·</span>
-                    <span>{formatCount(group.receptions.length)} recepciones</span>
+                    <span>{formatCount(group.receptions.length)} {t('reception.table.groupReceptions')}</span>
                     <span className="mx-2 text-slate-400">·</span>
-                    <span>{formatLb(group.totalNet, 2)} lb netas</span>
+                    <span>{formatLb(group.totalNet, 2)} {t('reception.table.groupNetLb')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {group.pendingCount > 0 ? (
                       <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                        {formatCount(group.pendingCount)} pendientes
+                        {formatCount(group.pendingCount)} {t('reception.table.groupPending')}
                       </span>
                     ) : null}
                   </div>
@@ -1880,12 +1879,12 @@ export function ReceptionPage() {
                   <Table className="min-w-[860px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
-                        <TableHead className="min-w-[146px]">Estado</TableHead>
-                        <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                        <TableHead className="min-w-[110px]">Variedad</TableHead>
-                        <TableHead className="min-w-[180px]">Guía / lote</TableHead>
-                        <TableHead className="text-right tabular-nums">Lb netas</TableHead>
-                        <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                        <TableHead className="min-w-[146px]">{t('reception.table.colState')}</TableHead>
+                        <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
+                        <TableHead className="min-w-[110px]">{t('reception.table.colVariety')}</TableHead>
+                        <TableHead className="min-w-[180px]">{t('reception.table.colGuide')}</TableHead>
+                        <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
+                        <TableHead className="w-[200px] text-right">{t('reception.table.colActions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1906,7 +1905,7 @@ export function ReceptionPage() {
                               <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
                               <TableCell className="max-w-[200px] py-2 align-top font-mono text-xs text-slate-800">
                                 {r.reference_code ?? r.document_number ?? '—'}
-                                {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">Lote: {lotesResumen(r)}</p> : null}
+                                {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                               </TableCell>
                               <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
                                 <span className="text-[15px] font-semibold leading-none">{formatLb(netLb, 2)}</span>
@@ -1922,7 +1921,7 @@ export function ReceptionPage() {
                                       onClick={() => void confirmReceptionFromList(r.id)}
                                     >
                                       <CheckCircle className="h-3.5 w-3.5" />
-                                      Confirmar
+                                      {t('reception.table.actionConfirm')}
                                     </Button>
                                   ) : null}
                                   <Button
@@ -1933,7 +1932,7 @@ export function ReceptionPage() {
                                     onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
-                                    Editar
+                                    {t('reception.table.actionEdit')}
                                   </Button>
                                   <Button
                                     type="button"
@@ -1943,14 +1942,14 @@ export function ReceptionPage() {
                                     onClick={async () => {
                                       try {
                                         await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
-                                        toast.success('Informe listo');
+                                        toast.success(t('reception.toast.reportReady'));
                                       } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                        toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
                                       }
                                     }}
                                   >
                                     <Printer className="h-3.5 w-3.5" />
-                                    Informe
+                                    {t('reception.table.actionReport')}
                                   </Button>
                                   <Button
                                     type="button"
@@ -1965,7 +1964,7 @@ export function ReceptionPage() {
                                     }
                                   >
                                     {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                    Ver detalle
+                                    {t('reception.table.actionDetail')}
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1974,17 +1973,17 @@ export function ReceptionPage() {
                               <TableRow className="bg-slate-50/55">
                                 <TableCell colSpan={6} className="py-2">
                                   <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
-                                    <p><span className="font-semibold text-slate-800">ID:</span> #{r.id}</p>
-                                    <p><span className="font-semibold text-slate-800">Tipo:</span> {r.reception_type?.nombre ?? '—'}</p>
-                                    <p><span className="font-semibold text-slate-800">Doc/guía:</span> {r.document_number ?? '—'}</p>
-                                    <p><span className="font-semibold text-slate-800">Mercado:</span> {r.mercado?.nombre ?? '—'}</p>
-                                    <p className="col-span-2"><span className="font-semibold text-slate-800">Referencia:</span> {r.reference_code ?? '—'}</p>
-                                    <p><span className="font-semibold text-slate-800">Líneas:</span> {formatCount(r.lines?.length ?? 0)}</p>
-                                    <p className="col-span-1"><span className="font-semibold text-slate-800">Planta:</span> {r.plant_code ?? '—'}</p>
-                                    <p className="col-span-2"><span className="font-semibold text-slate-800">Lotes:</span> {lotesDetalle(r)}</p>
+                                    <p><span className="font-semibold text-slate-800">{t('reception.table.detailId')}</span> #{r.id}</p>
+                                    <p><span className="font-semibold text-slate-800">{t('reception.table.detailType')}</span> {r.reception_type?.nombre ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">{t('reception.table.detailDoc')}</span> {r.document_number ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">{t('reception.table.detailMarket')}</span> {r.mercado?.nombre ?? '—'}</p>
+                                    <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailReference')}</span> {r.reference_code ?? '—'}</p>
+                                    <p><span className="font-semibold text-slate-800">{t('reception.table.detailLines')}</span> {formatCount(r.lines?.length ?? 0)}</p>
+                                    <p className="col-span-1"><span className="font-semibold text-slate-800">{t('reception.table.detailPlant')}</span> {r.plant_code ?? '—'}</p>
+                                    <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailLots')}</span> {lotesDetalle(r)}</p>
                                   </div>
                                   <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
-                                    <span className="font-semibold text-slate-800">Observaciones:</span> {r.notes?.trim() || '—'}
+                                    <span className="font-semibold text-slate-800">{t('reception.table.detailNotes')}</span> {r.notes?.trim() || '—'}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -2003,14 +2002,14 @@ export function ReceptionPage() {
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[168px]">Estado</TableHead>
-                  <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                  <TableHead className="min-w-[140px]">Productor</TableHead>
-                  <TableHead className="min-w-[120px]">Guía / lote</TableHead>
-                  <TableHead className="min-w-[100px]">Variedad</TableHead>
-                  <TableHead className="text-right tabular-nums">Lb netas</TableHead>
-                  {viewMode === 'detailed' ? <TableHead className="min-w-[140px]">Observaciones</TableHead> : null}
-                  <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                  <TableHead className="min-w-[168px]">{t('reception.table.colState')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
+                  <TableHead className="min-w-[140px]">{t('reception.table.colProducer')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('reception.table.colGuide')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('reception.table.colVariety')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
+                  {viewMode === 'detailed' ? <TableHead className="min-w-[140px]">{t('reception.table.colNotes')}</TableHead> : null}
+                  <TableHead className="w-[200px] text-right">{t('reception.table.colActions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2036,7 +2035,7 @@ export function ReceptionPage() {
                         </TableCell>
                         <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
                           {r.reference_code ?? r.document_number ?? '—'}
-                          {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">Lote: {lotesResumen(r)}</p> : null}
+                          {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                         </TableCell>
                         <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
                         <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
@@ -2062,7 +2061,7 @@ export function ReceptionPage() {
                                 onClick={() => void confirmReceptionFromList(r.id)}
                               >
                                 <CheckCircle className="h-3.5 w-3.5" />
-                                Confirmar
+                                {t('reception.table.actionConfirm')}
                               </Button>
                             ) : null}
                             <Button
@@ -2073,7 +2072,7 @@ export function ReceptionPage() {
                               onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
                             >
                               <Pencil className="h-3.5 w-3.5" />
-                              Editar
+                              {t('reception.table.actionEdit')}
                             </Button>
                             <Button
                               type="button"
@@ -2083,14 +2082,14 @@ export function ReceptionPage() {
                               onClick={async () => {
                                 try {
                                   await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
-                                  toast.success('Informe listo');
+                                  toast.success(t('reception.toast.reportReady'));
                                 } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : 'Error al descargar');
+                                  toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
                                 }
                               }}
                             >
                               <Printer className="h-3.5 w-3.5" />
-                              Informe
+                              {t('reception.table.actionReport')}
                             </Button>
                             <Button
                               type="button"
@@ -2105,7 +2104,7 @@ export function ReceptionPage() {
                               }
                             >
                               {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                              Ver detalle
+                              {t('reception.table.actionDetail')}
                             </Button>
                           </div>
                         </TableCell>
@@ -2114,17 +2113,17 @@ export function ReceptionPage() {
                         <TableRow className="bg-slate-50/55">
                           <TableCell colSpan={8} className="py-2">
                             <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
-                              <p><span className="font-semibold text-slate-800">ID:</span> #{r.id}</p>
-                              <p><span className="font-semibold text-slate-800">Tipo:</span> {r.reception_type?.nombre ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">Doc/guía:</span> {r.document_number ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">Mercado:</span> {r.mercado?.nombre ?? '—'}</p>
-                              <p className="col-span-2"><span className="font-semibold text-slate-800">Referencia:</span> {r.reference_code ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">Líneas:</span> {formatCount(r.lines?.length ?? 0)}</p>
-                              <p><span className="font-semibold text-slate-800">Planta:</span> {r.plant_code ?? '—'}</p>
-                              <p className="col-span-2"><span className="font-semibold text-slate-800">Lotes:</span> {lotesDetalle(r)}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailId')}</span> #{r.id}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailType')}</span> {r.reception_type?.nombre ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailDoc')}</span> {r.document_number ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailMarket')}</span> {r.mercado?.nombre ?? '—'}</p>
+                              <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailReference')}</span> {r.reference_code ?? '—'}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailLines')}</span> {formatCount(r.lines?.length ?? 0)}</p>
+                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailPlant')}</span> {r.plant_code ?? '—'}</p>
+                              <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailLots')}</span> {lotesDetalle(r)}</p>
                             </div>
                             <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
-                              <span className="font-semibold text-slate-800">Observaciones:</span> {r.notes?.trim() || '—'}
+                              <span className="font-semibold text-slate-800">{t('reception.table.detailNotes')}</span> {r.notes?.trim() || '—'}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -2141,32 +2140,33 @@ export function ReceptionPage() {
       <section aria-labelledby="rec-analisis" className="space-y-3">
         <div>
           <h2 id="rec-analisis" className={sectionTitle}>
-            Análisis de volumen
+            {t('reception.analysis.title')}
           </h2>
           <p className={sectionHint}>
-            Derivado del filtro actual · promedio{' '}
-            {receptionKpis.avgLbPorRecepcion != null ? formatLb(receptionKpis.avgLbPorRecepcion, 2) : '—'} lb por recepción
+            {t('reception.analysis.hint', {
+              avg: receptionKpis.avgLbPorRecepcion != null ? formatLb(receptionKpis.avgLbPorRecepcion, 2) : '—',
+            })}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Card className={contentCard}>
             <CardHeader className="space-y-3 pb-4 pt-5">
               <CardDescription className="text-[11px] font-medium uppercase tracking-[0.06em] text-slate-400">
-                Manual vs máquina (lb netos)
+                {t('reception.analysis.manualVsMachine')}
               </CardDescription>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-slate-500">Manual</p>
+                  <p className="text-xs text-slate-500">{t('reception.analysis.manual')}</p>
                   <p className="text-xl font-semibold tabular-nums text-slate-900">{formatLb(receptionKpis.lbManual, 2)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Máquina</p>
+                  <p className="text-xs text-slate-500">{t('reception.analysis.machine')}</p>
                   <p className="text-xl font-semibold tabular-nums text-slate-900">{formatLb(receptionKpis.lbMaquina, 2)}</p>
                 </div>
               </div>
               {receptionKpis.lbOtroTipo > 0.001 ? (
                 <p className="text-xs text-slate-500">
-                  Otros tipos:{' '}
+                  {t('reception.analysis.otherTypes')}{' '}
                   <span className="font-medium tabular-nums text-slate-800">{formatLb(receptionKpis.lbOtroTipo, 2)}</span> lb
                 </p>
               ) : null}
@@ -2175,11 +2175,11 @@ export function ReceptionPage() {
           <Card className={contentCard}>
             <CardHeader className="space-y-2 pb-4 pt-5">
               <CardDescription className="text-[11px] font-medium uppercase tracking-[0.06em] text-slate-400">
-                Top variedades (lb)
+                {t('reception.analysis.topVarieties')}
               </CardDescription>
               <ol className="list-none space-y-2 text-sm">
                 {receptionKpis.topVariedades.length === 0 ? (
-                  <li className="text-slate-500">Sin líneas en el filtro.</li>
+                  <li className="text-slate-500">{t('reception.analysis.topVarietiesEmpty')}</li>
                 ) : (
                   receptionKpis.topVariedades.map(([name, lb], i) => (
                     <li key={name} className="flex min-w-0 justify-between gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
@@ -2196,11 +2196,11 @@ export function ReceptionPage() {
           <Card className={contentCard}>
             <CardHeader className="space-y-2 pb-4 pt-5">
               <CardDescription className="text-[11px] font-medium uppercase tracking-[0.06em] text-slate-400">
-                Top productores (lb)
+                {t('reception.analysis.topProducers')}
               </CardDescription>
               <ol className="list-none space-y-2 text-sm">
                 {receptionKpis.topProductores.length === 0 ? (
-                  <li className="text-slate-500">Sin datos.</li>
+                  <li className="text-slate-500">{t('reception.analysis.topProducersEmpty')}</li>
                 ) : (
                   receptionKpis.topProductores.map(([name, lb], i) => (
                     <li key={name} className="flex min-w-0 justify-between gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
