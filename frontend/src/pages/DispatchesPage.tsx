@@ -674,9 +674,9 @@ export function DispatchesPage() {
     const list = salesOrdersForDispatch ?? [];
     const cid = plCommercialPreview.unified ?? 0;
     const base = {
-      fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
-      numero_bol: '',
-      temperatura_f: 34,
+        fecha_despacho: toDatetimeLocalValue(new Date().toISOString()),
+        numero_bol: '',
+        temperatura_f: 34,
       thermograph_serial: '',
       thermograph_notes: '',
       client_id: cid,
@@ -1366,15 +1366,15 @@ export function DispatchesPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label>Pedido</Label>
-                    <select
+                <select
                       className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                       disabled={
                         dispatchPedidoClienteId == null ||
                         pedidoOptions.length === 0 ||
                         salesOrdersForDispatchFetching
                       }
-                      {...dispatchForm.register('orden_id', { valueAsNumber: true })}
-                    >
+                  {...dispatchForm.register('orden_id', { valueAsNumber: true })}
+                >
                       {dispatchPedidoClienteId == null ? (
                         <option value="">Seleccioná packing lists con el mismo cliente</option>
                       ) : salesOrdersForDispatchFetching ? (
@@ -1383,15 +1383,15 @@ export function DispatchesPage() {
                         <option value="">Sin pedidos pendientes para este cliente</option>
                       ) : (
                         pedidoOptions.map((o) => (
-                          <option key={o.id} value={o.id}>
+                    <option key={o.id} value={o.id}>
                             {o.order_number}
                             {o.cliente_nombre?.trim()
                               ? ` · ${o.cliente_nombre}`
                               : ` · cliente #${o.cliente_id}`}
-                          </option>
+                    </option>
                         ))
                       )}
-                    </select>
+                </select>
                     {dispatchPedidoClienteId != null ? (
                       <p className="text-[11px] leading-snug text-muted-foreground">
                         Solo pedidos <strong>pendientes</strong> de este cliente (cajas por despachar), ordenados por nº de pedido.
@@ -1403,7 +1403,7 @@ export function DispatchesPage() {
                     ) : (
                       <p className="text-[11px] leading-snug text-muted-foreground">Elegí primero uno o más packing lists PT.</p>
                     )}
-                  </div>
+              </div>
                   <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
                     Cliente: {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
                     <span className="font-mono text-xs">#{selectedSalesOrder?.id ?? '—'}</span>

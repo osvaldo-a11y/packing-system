@@ -16,6 +16,7 @@ import {
   User,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { useAuth } from '@/AuthContext';
@@ -606,6 +607,7 @@ function ReceivedPackedAreaChart({
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation('common');
   const { username, role, token } = useAuth();
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
 
@@ -920,7 +922,7 @@ export function DashboardPage() {
         const pendingPlPallets = Math.max(0, reqPallets - plPalletsDone);
         const pendingSalidaPallets = Math.max(0, reqPallets - dispPalletsDone);
         const dueIso = orderLoadDateIso(o);
-        const dueLabel = dueIso ? new Date(dueIso).toLocaleDateString('es-AR') : 'Sin fecha';
+        const dueLabel = dueIso ? new Date(dueIso).toLocaleDateString('es-AR') : t('dashboard.gauges.noDate');
         const urgent = dueIso ? new Date(dueIso).getTime() <= new Date(Date.now() + 86_400_000).getTime() : false;
         const hasNoProgress = pctCooler <= 1;
         const estadoComercial = (o.estado_comercial ?? '').trim() || null;
@@ -952,7 +954,7 @@ export function DashboardPage() {
         if (a.salidaCompleta !== b.salidaCompleta) return Number(a.salidaCompleta) - Number(b.salidaCompleta);
         return b.pendingPallets - a.pendingPallets;
       });
-  }, [ordersForProgress, progressQueries]);
+  }, [ordersForProgress, progressQueries, t]);
 
   const gaugeRowsCompleted = useMemo((): GaugeCompleted[] => {
     const rows = ordersForProgress
@@ -995,11 +997,11 @@ export function DashboardPage() {
   const tripajeCards = useMemo(() => {
     const mats = (matsQ.data ?? []).filter((m) => m.activo);
     const defs: Array<{ key: string; icon: string; label: string; unitsPerPallet: number; matcher: RegExp }> = [
-      { key: 'esquineros', icon: '📐', label: 'Esquineros', unitsPerPallet: 96, matcher: /esquiner|corner|angulo/ },
-      { key: 'interconectores', icon: '🔗', label: 'Interconectores', unitsPerPallet: 24, matcher: /interconector|interconnect|clip/ },
-      { key: 'pallets', icon: '🪵', label: 'Pallets', unitsPerPallet: 1, matcher: /pallet|tarima|palet/ },
-      { key: 'fleje', icon: '📎', label: 'Fleje (rollos)', unitsPerPallet: 1, matcher: /fleje|strap/ },
-      { key: 'zuncho', icon: '🔒', label: 'Zuncho (rollos)', unitsPerPallet: 1, matcher: /zuncho|zunch|cincho|seal/ },
+      { key: 'esquineros', icon: '📐', label: t('dashboard.tripaje.labels.esquineros'), unitsPerPallet: 96, matcher: /esquiner|corner|angulo/ },
+      { key: 'interconectores', icon: '🔗', label: t('dashboard.tripaje.labels.interconectores'), unitsPerPallet: 24, matcher: /interconector|interconnect|clip/ },
+      { key: 'pallets', icon: '🪵', label: t('dashboard.tripaje.labels.pallets'), unitsPerPallet: 1, matcher: /pallet|tarima|palet/ },
+      { key: 'fleje', icon: '📎', label: t('dashboard.tripaje.labels.fleje'), unitsPerPallet: 1, matcher: /fleje|strap/ },
+      { key: 'zuncho', icon: '🔒', label: t('dashboard.tripaje.labels.zuncho'), unitsPerPallet: 1, matcher: /zuncho|zunch|cincho|seal/ },
     ];
     return defs.map((d) => {
       let qty = 0;
@@ -1010,7 +1012,7 @@ export function DashboardPage() {
       const containers = qty / Math.max(1e-9, d.unitsPerPallet) / 24;
       return { ...d, qty, containers };
     });
-  }, [matsQ.data]);
+  }, [matsQ.data, t]);
 
   const capacityCards = useMemo(() => {
     const recipes = (recipesQ.data ?? []).filter((r) => r.activo);
@@ -1186,7 +1188,7 @@ export function DashboardPage() {
         id: `r-${r.id}`,
         ts: new Date(iso).getTime(),
         when: new Date(iso).toLocaleString('es-AR'),
-        kind: 'Recepción',
+        kind: t('dashboard.activity.kindReception'),
         detail: r.reference_code || `#${r.id}`,
         to: '/receptions',
       });
@@ -1197,7 +1199,7 @@ export function DashboardPage() {
         id: `p-${p.id}`,
         ts: new Date(iso).getTime(),
         when: new Date(iso).toLocaleString('es-AR'),
-        kind: 'Proceso',
+        kind: t('dashboard.activity.kindProcess'),
         detail: `#${p.id}`,
         to: '/processes',
       });
@@ -1208,13 +1210,13 @@ export function DashboardPage() {
         id: `d-${d.id}`,
         ts: new Date(iso).getTime(),
         when: new Date(iso).toLocaleString('es-AR'),
-        kind: 'Despacho',
+        kind: t('dashboard.activity.kindDispatch'),
         detail: d.numero_bol || `#${d.id}`,
         to: '/dispatches',
       });
     }
     return rows.sort((a, b) => b.ts - a.ts).slice(0, 8);
-  }, [receptionsFiltered, processesFiltered, dispatchesFiltered]);
+  }, [receptionsFiltered, processesFiltered, dispatchesFiltered, t]);
 
   type DashboardAlertVariant = 'material_critical' | 'tripaje_critical' | 'order_risk' | 'info';
 
@@ -1223,16 +1225,16 @@ export function DashboardPage() {
     if ((trace?.materials_low_stock?.length ?? 0) > 0) {
       rows.push({
         key: 'mat-low',
-        title: `Material crítico: ${trace!.materials_low_stock.length}`,
-        desc: 'Stock bajo en materiales de empaque clave.',
+        title: t('dashboard.alerts.materialCriticalTitle', { count: trace!.materials_low_stock.length }),
+        desc: t('dashboard.alerts.materialCriticalDesc'),
         variant: 'material_critical',
       });
     }
     if (riskOrdersCount > 0) {
       rows.push({
         key: 'risk-orders',
-        title: `Pedidos en riesgo: ${riskOrdersCount}`,
-        desc: 'Carga cercana o pallets pendientes altos.',
+        title: t('dashboard.alerts.orderRiskTitle', { count: riskOrdersCount }),
+        desc: t('dashboard.alerts.orderRiskDesc'),
         variant: 'order_risk',
       });
     }
@@ -1240,21 +1242,21 @@ export function DashboardPage() {
     if (tripajeCritical > 0) {
       rows.push({
         key: 'tripaje',
-        title: `Tripaje crítico: ${tripajeCritical}`,
-        desc: 'Hay recursos con menos de 1 contenedor posible.',
+        title: t('dashboard.alerts.tripajeCriticalTitle', { count: tripajeCritical }),
+        desc: t('dashboard.alerts.tripajeCriticalDesc'),
         variant: 'tripaje_critical',
       });
     }
     if (!rows.length) {
       rows.push({
         key: 'ok',
-        title: 'Sin alertas críticas',
-        desc: 'Operación sin bloqueos mayores con los filtros actuales.',
+        title: t('dashboard.alerts.okTitle'),
+        desc: t('dashboard.alerts.okDesc'),
         variant: 'info',
       });
     }
     return rows.slice(0, 3);
-  }, [trace?.materials_low_stock.length, riskOrdersCount, tripajeCards]);
+  }, [trace?.materials_low_stock.length, riskOrdersCount, tripajeCards, t]);
 
   const dashboardLoading =
     canLoad &&
@@ -1284,13 +1286,13 @@ export function DashboardPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
-          <h1 className={pageTitle}>Inicio operativo</h1>
-          <p className={pageSubtitle}>Entrada, proceso, salida, riesgo comercial y capacidad en una sola vista.</p>
+          <h1 className={pageTitle}>{t('dashboard.title')}</h1>
+          <p className={pageSubtitle}>{t('dashboard.subtitle')}</p>
         </div>
         <div className="space-y-1 text-right">
           <p className="text-sm text-slate-700">
             <User className="mr-1 inline h-4 w-4 text-slate-400" />
-            {username ?? 'Sesión'} {role ? <span className="text-slate-400">· {role}</span> : null}
+            {username ?? t('dashboard.session')} {role ? <span className="text-slate-400">· {role}</span> : null}
           </p>
           <p className="text-[11px] text-slate-500">
             <Calendar className="mr-1 inline h-3.5 w-3.5" />
@@ -1301,17 +1303,17 @@ export function DashboardPage() {
 
       {!canLoad ? (
         <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white px-4 py-3 text-sm text-amber-950 shadow-sm ring-1 ring-amber-100/80">
-          <strong className="font-semibold">No hay datos hasta iniciar sesión.</strong>{' '}
-          Las métricas se cargan desde el servidor con tu token activo.{' '}
+          <strong className="font-semibold">{t('dashboard.noAuth.title')}</strong>{' '}
+          {t('dashboard.noAuth.desc')}{' '}
           <Link to="/login" className="font-medium underline underline-offset-2 hover:no-underline">
-            Ir a iniciar sesión
+            {t('dashboard.noAuth.link')}
           </Link>
         </div>
       ) : null}
 
       {canLoad && dashboardListError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
-          <strong className="font-semibold">No se pudieron cargar algunos listados.</strong> Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos.
+          <strong className="font-semibold">{t('dashboard.loadError.title')}</strong> {t('dashboard.loadError.desc')}
         </div>
       ) : null}
 
@@ -1319,9 +1321,9 @@ export function DashboardPage() {
         <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1.5 md:h-10 md:max-h-10 md:flex-nowrap md:gap-2">
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {[
-              { key: 'today', label: 'Hoy' },
-              { key: 'week', label: 'Semana' },
-              { key: 'accumulated', label: 'Acumulado' },
+              { key: 'today', label: t('dashboard.filters.today') },
+              { key: 'week', label: t('dashboard.filters.week') },
+              { key: 'accumulated', label: t('dashboard.filters.accumulated') },
             ].map((p) => (
               <button
                 key={p.key}
@@ -1345,7 +1347,7 @@ export function DashboardPage() {
               value={producerId === 'all' ? 'all' : String(producerId)}
               onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
-              <option value="all">Todos los productores</option>
+              <option value="all">{t('dashboard.filters.allProducers')}</option>
               {(producers ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
@@ -1357,7 +1359,7 @@ export function DashboardPage() {
               value={speciesId === 'all' ? 'all' : String(speciesId)}
               onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
-              <option value="all">Toda la fruta</option>
+              <option value="all">{t('dashboard.filters.allFruit')}</option>
               {(species ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nombre}
@@ -1369,9 +1371,9 @@ export function DashboardPage() {
               value={workMode}
               onChange={(e) => setWorkMode(e.target.value as WorkMode)}
             >
-              <option value="both">Mano + Máquina</option>
-              <option value="hand">Mano</option>
-              <option value="machine">Máquina</option>
+              <option value="both">{t('dashboard.filters.both')}</option>
+              <option value="hand">{t('dashboard.filters.hand')}</option>
+              <option value="machine">{t('dashboard.filters.machine')}</option>
             </select>
           </div>
         </div>
@@ -1379,14 +1381,14 @@ export function DashboardPage() {
 
       <section className="space-y-3">
       <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Entrada · Proceso · Salida</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
           <p className="mt-1 text-[11px] text-slate-500">{describePeriodDashboard(period)}</p>
       </div>
         {!canLoad ? (
           <div className={emptyStateBanner}>
-            Métricas y gráficas requieren sesión iniciada.{' '}
+            {t('dashboard.kpi.loginRequired')}{' '}
             <Link to="/login" className="font-medium underline underline-offset-2">
-              Entrá con tu cuenta
+              {t('dashboard.kpi.loginLink')}
             </Link>
           </div>
         ) : dashboardLoading ? (
@@ -1397,7 +1399,7 @@ export function DashboardPage() {
               ))}
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{t('dashboard.kpi.commercial')}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
             <div className="grid w-full min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
@@ -1412,46 +1414,51 @@ export function DashboardPage() {
                 <div className="flex items-start gap-2 sm:gap-3">
                   <span className="shrink-0 text-xl leading-none sm:text-2xl">📥</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0F6E56] sm:text-xs">Total recibido</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0F6E56] sm:text-xs">{t('dashboard.kpi.received')}</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums text-[#0F6E56] sm:text-2xl xl:text-3xl 2xl:text-4xl">
                       {format2(receivedLb)} lb
                     </p>
                   </div>
                 </div>
-                <p className="mt-1.5 text-xs text-[#0F6E56] sm:text-sm">Promedio diario: {format2(averageReceivedDaily)} lb</p>
+                <p className="mt-1.5 text-xs text-[#0F6E56] sm:text-sm">{t('dashboard.kpi.receivedAvg', { value: format2(averageReceivedDaily) })}</p>
                 <p className="mt-1.5 text-[10px] leading-snug text-[#0F6E56]/85 sm:text-[11px]">
-                  {receptionsFiltered.length.toLocaleString('es-AR')} recepciones · {processesFiltered.length.toLocaleString('es-AR')} procesos
+                  {t('dashboard.kpi.receivedDetail', {
+                    receptions: receptionsFiltered.length.toLocaleString('es-AR'),
+                    processes: processesFiltered.length.toLocaleString('es-AR'),
+                  })}
                 </p>
               </div>
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <span className="shrink-0 text-xl leading-none sm:text-2xl">⚙️</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total empacado</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">{t('dashboard.kpi.packed')}</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
                       {format2(totalPackedLb)} lb
                     </p>
                   </div>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Packout neto registrado en tarjas PT.</p>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">{t('dashboard.kpi.packedDesc')}</p>
                 <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
-                  {ptTagsFiltered.length.toLocaleString('es-AR')} tarjas
-                  {ptTagsFilteredWithoutNetLb > 0 ? ` · ${ptTagsFilteredWithoutNetLb} sin peso` : ''}
+                  {t('dashboard.kpi.packedDetail', { count: ptTagsFiltered.length.toLocaleString('es-AR') })}
+                  {ptTagsFilteredWithoutNetLb > 0
+                    ? t('dashboard.kpi.packedNoWeight', { count: ptTagsFilteredWithoutNetLb })
+                    : ''}
                 </p>
               </div>
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <span className="shrink-0 text-xl leading-none sm:text-2xl">🚚</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total despachado</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">{t('dashboard.kpi.dispatched')}</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
                       {format2(totalDispatchedLb)} lb
                     </p>
                   </div>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Salida física en factura lb o estimación por tarja.</p>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">{t('dashboard.kpi.dispatchedDesc')}</p>
                 <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
-                  {dispatchesCountForKpi.toLocaleString('es-AR')} despachos filtrados
+                  {t('dashboard.kpi.dispatchedDetail', { count: dispatchesCountForKpi.toLocaleString('es-AR') })}
                 </p>
               </div>
               <div
@@ -1465,7 +1472,7 @@ export function DashboardPage() {
                 <div className="flex items-start gap-2 sm:gap-3">
                   <span className="shrink-0 text-xl leading-none sm:text-2xl">{netOperationalLb >= 0 ? '✅' : '⚠️'}</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 sm:text-xs">Saldo operativo</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700 sm:text-xs">{t('dashboard.kpi.balance')}</p>
                     <p
                       className={cn(
                         'mt-0.5 truncate text-xl font-bold tabular-nums sm:text-2xl xl:text-3xl 2xl:text-4xl',
@@ -1476,14 +1483,16 @@ export function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Empacado − despachado en el período.</p>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">{t('dashboard.kpi.balanceDesc')}</p>
                 <p className="mt-1.5 text-[10px] text-slate-500 sm:text-[11px]">
-                  {riskOrdersCount > 0 ? `${riskOrdersCount} pedidos en riesgo` : 'Sin pedidos en riesgo'}
+                  {riskOrdersCount > 0
+                    ? t('dashboard.kpi.ordersAtRisk', { count: riskOrdersCount })
+                    : t('dashboard.kpi.noOrdersAtRisk')}
                 </p>
               </div>
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Comercial</span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{t('dashboard.kpi.commercial')}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
             <div className="grid w-full min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
@@ -1496,14 +1505,14 @@ export function DashboardPage() {
                 <div className="flex items-start gap-2 sm:gap-3">
                   <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 sm:h-6 sm:w-6" aria-hidden />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Total ventas</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">{t('dashboard.kpi.totalSales')}</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
                       ${formatMoney(totalSalesBilled)}
                     </p>
                   </div>
                 </div>
                 <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">
-                  {invoicesIssuedCount.toLocaleString('es-AR')} facturas emitidas
+                  {t('dashboard.kpi.invoicesIssued', { count: invoicesIssuedCount.toLocaleString('es-AR') })}
                 </p>
                 <p
                   className={cn(
@@ -1511,20 +1520,22 @@ export function DashboardPage() {
                     riskOrdersCount > 0 ? 'text-amber-600' : 'text-green-600',
                   )}
                 >
-                  {riskOrdersCount > 0 ? `⚠ ${riskOrdersCount} pedidos en riesgo` : 'Sin pedidos en riesgo'}
+                  {riskOrdersCount > 0
+                    ? `⚠ ${t('dashboard.kpi.ordersAtRisk', { count: riskOrdersCount })}`
+                    : t('dashboard.kpi.noOrdersAtRisk')}
                 </p>
               </div>
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 sm:h-6 sm:w-6" aria-hidden />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">Precio prom. / lb</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-xs">{t('dashboard.kpi.pricePerLb')}</p>
                     <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl xl:text-3xl 2xl:text-4xl">
                       {pricePerLbBilled != null ? `$${formatMoney(pricePerLbBilled)} / lb` : '—'}
                     </p>
                   </div>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">Promedio ponderado del período</p>
+                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">{t('dashboard.kpi.weightedAvg')}</p>
               </div>
             </div>
           </div>
@@ -1533,18 +1544,18 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className={sectionTitle}>Avance de pedidos pendientes</h2>
+          <h2 className={sectionTitle}>{t('dashboard.gauges.title')}</h2>
           <p className={sectionHint}>
             {gaugeRowsRadar.length > 0
-              ? 'Hasta 5 pedidos con saldo. Cámara: reserva en cooler, BOL en existencias o cajas en packing list del pedido. Salida física: Sí/No según despacho completo.'
-              : 'Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.'}
+              ? t('dashboard.gauges.hintWithBalance')
+              : t('dashboard.gauges.hintNoBalance')}
           </p>
         </div>
         {!canLoad ? (
           <p className={emptyStateBanner}>
-            Para ver avance comercial iniciá sesión.{' '}
+            {t('dashboard.gauges.loginRequired')}{' '}
             <Link to="/login" className="underline underline-offset-2">
-              Login
+              {t('dashboard.gauges.loginLink')}
             </Link>
           </p>
         ) : ordersQ.isPending || (ordersForProgress.length > 0 && progressQueries.some((q) => q.isPending)) ? (
@@ -1554,7 +1565,7 @@ export function DashboardPage() {
             ))}
           </div>
         ) : gaugeDisplayRows.length === 0 ? (
-          <p className={emptyStateBanner}>Sin datos de pedidos para mostrar.</p>
+          <p className={emptyStateBanner}>{t('dashboard.gauges.noData')}</p>
         ) : (
           <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {gaugeDisplayRows.map((g) => {
@@ -1578,7 +1589,7 @@ export function DashboardPage() {
                           preserveAspectRatio="xMidYMid meet"
                           className="h-32 w-full max-w-[240px] sm:h-40"
                           role="img"
-                          aria-label="Pedido completado"
+                          aria-label={t('dashboard.gauges.ariaCompleted')}
                         >
                           <path d={arcPath(100, 100, 70, 180, 360)} fill="none" stroke="#E5E7EB" strokeWidth={14} strokeLinecap="round" />
                           <path d={arcFull} fill="none" stroke="#0F6E56" strokeWidth={14} strokeLinecap="round" />
@@ -1589,9 +1600,10 @@ export function DashboardPage() {
                       </div>
                       <footer className="space-y-1 text-center text-sm text-[#0F6E56] sm:text-base lg:text-lg">
                         <p className="font-medium leading-snug">
-                          ✅ Enviado{' '}
-                          <span className="tabular-nums font-semibold">{Math.round(g.dispatchedBoxes).toLocaleString('es-AR')}</span> /{' '}
-                          <span className="tabular-nums">{Math.round(g.requestedBoxes).toLocaleString('es-AR')}</span> cajas
+                          {t('dashboard.gauges.sent', {
+                            dispatched: Math.round(g.dispatchedBoxes).toLocaleString('es-AR'),
+                            requested: Math.round(g.requestedBoxes).toLocaleString('es-AR'),
+                          })}
                         </p>
                       </footer>
                     </article>
@@ -1634,9 +1646,9 @@ export function DashboardPage() {
                     </header>
                     <div className="flex w-full min-w-0 flex-col items-center justify-center gap-2">
                       <div className="w-full shrink-0 px-0.5 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Cámara</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">{t('dashboard.gauges.camera')}</p>
                         <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
-                          Cooler, existencias (BOL) o packing list del pedido
+                          {t('dashboard.gauges.cameraDesc')}
                         </p>
                       </div>
                       <svg
@@ -1679,27 +1691,32 @@ export function DashboardPage() {
                             : 'border-slate-300 bg-slate-50 text-slate-700',
                         )}
                       >
-                        Salida física:{' '}
-                        <span className="ml-1.5">{g.salidaCompleta ? 'Sí' : 'No'}</span>
+                        {t('dashboard.gauges.physicalExit')}{' '}
+                        <span className="ml-1.5">{g.salidaCompleta ? t('dashboard.gauges.yes') : t('dashboard.gauges.no')}</span>
                       </div>
                     </div>
                     <footer className={cn('space-y-1 text-center text-sm sm:text-base lg:text-lg', pendingTone.text)}>
                       <p className="font-medium leading-snug">
-                        📅 Carga: {g.dueLabel} {g.urgent ? '· CRÍTICO' : ''}
+                        {t('dashboard.gauges.loadDate', { label: g.dueLabel })}
+                        {g.urgent ? ` ${t('dashboard.gauges.criticalSuffix')}` : ''}
                       </p>
                       <p className="text-sm tabular-nums sm:text-base">
                         PL:{' '}
-                        {g.pendingPallets > 0.02 ? `falt. ${formatPallets(g.pendingPallets)} pal` : 'sin faltantes'}
+                        {g.pendingPallets > 0.02
+                          ? t('dashboard.gauges.plMissing', { pallets: formatPallets(g.pendingPallets) })
+                          : t('dashboard.gauges.plOk')}
                       </p>
                       {g.waitingPackingFromDepot ? (
                         <p className="text-sm font-medium leading-snug text-amber-950">
-                          Reservado en cámara: {Math.round(g.depotReservedBoxes).toLocaleString('es-AR')} cajas — falta PL.
+                          {t('dashboard.gauges.depotReserved', {
+                            boxes: Math.round(g.depotReservedBoxes).toLocaleString('es-AR'),
+                          })}
                         </p>
                       ) : g.pctCooler >= 99 && (g.pendingPallets > 0.02 || g.pendingSalidaPallets > 0.02) ? (
                         <p className="text-sm font-medium leading-snug text-slate-700">
                           {g.pendingPallets > 0.02
-                            ? 'Cámara lista para el pedido: seguí con PL y despacho.'
-                            : 'Listo en PL: pendiente salida / despacho.'}
+                            ? t('dashboard.gauges.cameraReady')
+                            : t('dashboard.gauges.plReady')}
                         </p>
                       ) : null}
                       {g.waitingPackingFromDepot && g.estadoComercial ? (
@@ -1718,8 +1735,8 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className={sectionTitle}>Recursos de tripaje compartidos</h2>
-          <p className={sectionHint}>Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets</p>
+          <h2 className={sectionTitle}>{t('dashboard.tripaje.title')}</h2>
+          <p className={sectionHint}>{t('dashboard.tripaje.hint')}</p>
               </div>
         {matsQ.isPending ? (
           <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -1755,7 +1772,7 @@ export function DashboardPage() {
                       </span>
                       {level === 'critical' ? (
                         <span className="shrink-0 rounded-full border border-red-400 bg-red-100 px-1.5 py-0 text-[10px] font-semibold text-red-700">
-                          ⚠ Crítico
+                          {t('dashboard.tripaje.criticalBadge')}
                         </span>
                       ) : level === 'warn' ? (
                         <span className="shrink-0 rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0 text-[10px] font-semibold text-amber-800">
@@ -1781,7 +1798,7 @@ export function DashboardPage() {
                         level === 'ok' && 'text-[10px] sm:text-xs text-slate-600',
                       )}
                     >
-                      ≈ {format2(r.containers)} cont posibles
+                      {t('dashboard.tripaje.containers', { value: format2(r.containers) })}
                     </p>
                   </div>
                 );
@@ -1792,8 +1809,8 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className={sectionTitle}>Capacidad por formato</h2>
-          <p className={sectionHint}>Cuello de botella = mínimo entre cajas, clamshell y etiquetas por cliente.</p>
+          <h2 className={sectionTitle}>{t('dashboard.capacity.title')}</h2>
+          <p className={sectionHint}>{t('dashboard.capacity.hint')}</p>
         </div>
         {formatsQ.isPending || recipesQ.isPending || matsQ.isPending ? (
           <div className="grid gap-3 xl:grid-cols-3">
@@ -1829,18 +1846,18 @@ export function DashboardPage() {
                   </header>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span>📦 Cajas</span>
+                      <span>{t('dashboard.capacity.boxes')}</span>
                       <span className="tabular-nums">{format2(c.boxesContainers)} cont</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>🫙 Clamshell</span>
+                      <span>{t('dashboard.capacity.clamshell')}</span>
                       <span className="tabular-nums">{format2(c.clamshellContainers)} cont</span>
                     </div>
                   </div>
                   <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Etiquetas por cliente</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.capacity.labelsByClient')}</p>
                     {c.etiquetasByClient.length === 0 ? (
-                      <p className="text-xs text-slate-500">Sin clientes exigidos para este formato en pedidos activos.</p>
+                      <p className="text-xs text-slate-500">{t('dashboard.capacity.noClients')}</p>
                     ) : (
                       <div className="space-y-1.5">
                         {c.etiquetasByClient.map((r) => (
@@ -1864,27 +1881,27 @@ export function DashboardPage() {
       <section className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
           <div>
-            <h2 className={sectionTitle}>Recibido vs empacado (lb)</h2>
+            <h2 className={sectionTitle}>{t('dashboard.chart.title')}</h2>
             <p className={sectionHint}>
-              Mismos filtros que arriba (período, productor, especie, modo). Compará entrada de fruta vs packout PT.
+              {t('dashboard.chart.hint')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Eje temporal</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dashboard.chart.axisLabel')}</span>
               <select
                 className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                 value={chartGranularity}
                 onChange={(e) => setChartGranularity(e.target.value as ChartGranularity)}
               >
-                <option value="day">Por día</option>
-                <option value="week">Por semana (lun–dom)</option>
+                <option value="day">{t('dashboard.chart.byDay')}</option>
+                <option value="week">{t('dashboard.chart.byWeek')}</option>
               </select>
             </label>
           </div>
         </div>
         {!canLoad ? (
-          <p className={emptyStateBanner}>Gráfico no disponible sin sesión.</p>
+          <p className={emptyStateBanner}>{t('dashboard.chart.noSession')}</p>
         ) : recQ.isPending || tagsQ.isPending ? (
           <Skeleton className="h-64 rounded-2xl" />
         ) : (
@@ -1894,14 +1911,14 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <div>
-          <h2 className={sectionTitle}>Producción por cliente</h2>
+          <h2 className={sectionTitle}>{t('dashboard.production.title')}</h2>
           <p className={sectionHint}>
-            Barras relativas al producido (referencia 100%). En cámara estimado como producido − despachado para la vista.
+            {t('dashboard.production.hint')}
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           {productionByClient.length === 0 ? (
-            <p className={emptyStateBanner}>Sin datos por cliente.</p>
+            <p className={emptyStateBanner}>{t('dashboard.production.noData')}</p>
           ) : (
             <div className="space-y-4">
               {productionByClient.map((r) => {
@@ -1929,7 +1946,11 @@ export function DashboardPage() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Prod: {format2(produced)} · Cámara: {format2(camara)} · Desp: {format2(r.dispatched)}
+                      {t('dashboard.production.detail', {
+                        produced: format2(produced),
+                        camera: format2(camara),
+                        dispatched: format2(r.dispatched),
+                      })}
                     </p>
                   </div>
           );
@@ -1940,7 +1961,7 @@ export function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className={sectionTitle}>Alertas</h2>
+        <h2 className={sectionTitle}>{t('dashboard.alerts.title')}</h2>
         <div className="space-y-2">
           {alerts.map((a) => {
             const isRed = a.variant === 'material_critical' || a.variant === 'tripaje_critical';
@@ -1992,31 +2013,31 @@ export function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Accesos rápidos</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.quickAccess.title')}</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/receptions"><Import className="mr-2 h-4 w-4" />Nueva recepción</Link>
+            <Link to="/receptions"><Import className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newReception')}</Link>
           </Button>
           <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/processes"><ClipboardList className="mr-2 h-4 w-4" />Nuevo proceso</Link>
+            <Link to="/processes"><ClipboardList className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newProcess')}</Link>
           </Button>
           <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/pt-tags"><Tag className="mr-2 h-4 w-4" />Nueva unidad PT</Link>
+            <Link to="/pt-tags"><Tag className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newPtUnit')}</Link>
           </Button>
           <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/dispatches"><Truck className="mr-2 h-4 w-4" />Nuevo despacho</Link>
+            <Link to="/dispatches"><Truck className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newDispatch')}</Link>
           </Button>
         </div>
       </section>
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-medium text-slate-500">Actividad reciente</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">Últimos eventos del período filtrado.</p>
+          <h2 className="text-sm font-medium text-slate-500">{t('dashboard.activity.title')}</h2>
+          <p className="mt-0.5 text-[11px] text-slate-400">{t('dashboard.activity.hint')}</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white px-4 py-2">
           {activityRows.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-slate-400">Sin datos.</p>
+            <p className="py-6 text-center text-[13px] text-slate-400">{t('dashboard.activity.noData')}</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {activityRows.map((row) => (
@@ -2036,22 +2057,22 @@ export function DashboardPage() {
       <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
         <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
           <Factory className="h-3.5 w-3.5" />
-          Planta
+          {t('dashboard.footer.plant')}
         </Link>
         <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
           <Library className="h-3.5 w-3.5" />
-          Mantenedores
+          {t('dashboard.footer.masters')}
         </Link>
         <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
-          Reportes
+          {t('dashboard.footer.reports')}
         </Link>
         <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
           <GitBranch className="h-3.5 w-3.5" />
-          Guía
+          {t('dashboard.footer.guide')}
         </Link>
         <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
           <Info className="h-3.5 w-3.5" />
-          Acerca
+          {t('dashboard.footer.about')}
         </Link>
       </footer>
     </div>

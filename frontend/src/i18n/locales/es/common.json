@@ -64,5 +64,145 @@
       "cargaMasiva": "Carga masiva",
       "apiDocs": "API docs"
     }
+  },
+  "dashboard": {
+    "title": "Inicio operativo",
+    "subtitle": "Entrada, proceso, salida, riesgo comercial y capacidad en una sola vista.",
+    "session": "Sesión",
+    "noAuth": {
+      "title": "No hay datos hasta iniciar sesión.",
+      "desc": "Las métricas se cargan desde el servidor con tu token activo.",
+      "link": "Ir a iniciar sesión"
+    },
+    "loadError": {
+      "title": "No se pudieron cargar algunos listados.",
+      "desc": "Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos."
+    },
+    "filters": {
+      "today": "Hoy",
+      "week": "Semana",
+      "accumulated": "Acumulado",
+      "allProducers": "Todos los productores",
+      "allFruit": "Toda la fruta",
+      "both": "Mano + Máquina",
+      "hand": "Mano",
+      "machine": "Máquina"
+    },
+    "kpi": {
+      "sectionTitle": "Entrada · Proceso · Salida",
+      "loginRequired": "Métricas y gráficas requieren sesión iniciada.",
+      "loginLink": "Entrá con tu cuenta",
+      "commercial": "Comercial",
+      "received": "Total recibido",
+      "receivedAvg": "Promedio diario: {{value}} lb",
+      "receivedDetail": "{{receptions}} recepciones · {{processes}} procesos",
+      "packed": "Total empacado",
+      "packedDesc": "Packout neto registrado en tarjas PT.",
+      "packedDetail": "{{count}} tarjas",
+      "packedNoWeight": "· {{count}} sin peso",
+      "dispatched": "Total despachado",
+      "dispatchedDesc": "Salida física en factura lb o estimación por tarja.",
+      "dispatchedDetail": "{{count}} despachos filtrados",
+      "balance": "Saldo operativo",
+      "balanceDesc": "Empacado − despachado en el período.",
+      "ordersAtRisk": "{{count}} pedidos en riesgo",
+      "noOrdersAtRisk": "Sin pedidos en riesgo",
+      "totalSales": "Total ventas",
+      "invoicesIssued": "{{count}} facturas emitidas",
+      "pricePerLb": "Precio prom. / lb",
+      "weightedAvg": "Promedio ponderado del período"
+    },
+    "gauges": {
+      "title": "Avance de pedidos pendientes",
+      "hintWithBalance": "Hasta 5 pedidos con saldo. Cámara: reserva en cooler, BOL en existencias o cajas en packing list del pedido. Salida física: Sí/No según despacho completo.",
+      "hintNoBalance": "Sin pedidos con saldo: mostrando los últimos 5 pedidos enviados.",
+      "loginRequired": "Para ver avance comercial iniciá sesión.",
+      "loginLink": "Login",
+      "noData": "Sin datos de pedidos para mostrar.",
+      "ariaCompleted": "Pedido completado",
+      "sent": "✅ Enviado {{dispatched}} / {{requested}} cajas",
+      "camera": "Cámara",
+      "cameraDesc": "Cooler, existencias (BOL) o packing list del pedido",
+      "criticalBadge": "⚠ Crítico",
+      "physicalExit": "Salida física:",
+      "yes": "Sí",
+      "no": "No",
+      "loadDate": "📅 Carga: {{label}}",
+      "noDate": "Sin fecha",
+      "criticalSuffix": "· CRÍTICO",
+      "plMissing": "falt. {{pallets}} pal",
+      "plOk": "sin faltantes",
+      "depotReserved": "Reservado en cámara: {{boxes}} cajas — falta PL.",
+      "cameraReady": "Cámara lista para el pedido: seguí con PL y despacho.",
+      "plReady": "Listo en PL: pendiente salida / despacho."
+    },
+    "tripaje": {
+      "title": "Recursos de tripaje compartidos",
+      "hint": "Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets",
+      "criticalBadge": "⚠ Crítico",
+      "containers": "≈ {{value}} cont posibles",
+      "labels": {
+        "esquineros": "Esquineros",
+        "interconectores": "Interconectores",
+        "pallets": "Pallets",
+        "fleje": "Fleje (rollos)",
+        "zuncho": "Zuncho (rollos)"
+      }
+    },
+    "capacity": {
+      "title": "Capacidad por formato",
+      "hint": "Cuello de botella = mínimo entre cajas, clamshell y etiquetas por cliente.",
+      "boxes": "📦 Cajas",
+      "clamshell": "🫙 Clamshell",
+      "labelsByClient": "Etiquetas por cliente",
+      "noClients": "Sin clientes exigidos para este formato en pedidos activos."
+    },
+    "chart": {
+      "title": "Recibido vs empacado (lb)",
+      "hint": "Mismos filtros que arriba (período, productor, especie, modo). Compará entrada de fruta vs packout PT.",
+      "axisLabel": "Eje temporal",
+      "byDay": "Por día",
+      "byWeek": "Por semana (lun–dom)",
+      "noSession": "Gráfico no disponible sin sesión."
+    },
+    "production": {
+      "title": "Producción por cliente",
+      "hint": "Barras relativas al producido (referencia 100%). En cámara estimado como producido − despachado para la vista.",
+      "noData": "Sin datos por cliente.",
+      "detail": "Prod: {{produced}} · Cámara: {{camera}} · Desp: {{dispatched}}"
+    },
+    "alerts": {
+      "title": "Alertas",
+      "materialCriticalTitle": "Material crítico: {{count}}",
+      "materialCriticalDesc": "Stock bajo en materiales de empaque clave.",
+      "orderRiskTitle": "Pedidos en riesgo: {{count}}",
+      "orderRiskDesc": "Carga cercana o pallets pendientes altos.",
+      "tripajeCriticalTitle": "Tripaje crítico: {{count}}",
+      "tripajeCriticalDesc": "Hay recursos con menos de 1 contenedor posible.",
+      "okTitle": "Sin alertas críticas",
+      "okDesc": "Operación sin bloqueos mayores con los filtros actuales."
+    },
+    "quickAccess": {
+      "title": "Accesos rápidos",
+      "newReception": "Nueva recepción",
+      "newProcess": "Nuevo proceso",
+      "newPtUnit": "Nueva unidad PT",
+      "newDispatch": "Nuevo despacho"
+    },
+    "activity": {
+      "title": "Actividad reciente",
+      "hint": "Últimos eventos del período filtrado.",
+      "noData": "Sin datos.",
+      "kindReception": "Recepción",
+      "kindProcess": "Proceso",
+      "kindDispatch": "Despacho"
+    },
+    "footer": {
+      "plant": "Planta",
+      "masters": "Mantenedores",
+      "reports": "Reportes",
+      "guide": "Guía",
+      "about": "Acerca"
+    }
   }
 }

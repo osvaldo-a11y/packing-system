@@ -64,5 +64,145 @@
       "cargaMasiva": "Bulk import",
       "apiDocs": "API docs"
     }
+  },
+  "dashboard": {
+    "title": "Operations hub",
+    "subtitle": "Intake, processing, output, commercial risk and capacity in one view.",
+    "session": "Session",
+    "noAuth": {
+      "title": "No data until you sign in.",
+      "desc": "Metrics are loaded from the server with your active token.",
+      "link": "Go to sign in"
+    },
+    "loadError": {
+      "title": "Some lists could not be loaded.",
+      "desc": "Try again later or check your connection; KPIs may be incomplete."
+    },
+    "filters": {
+      "today": "Today",
+      "week": "Week",
+      "accumulated": "Accumulated",
+      "allProducers": "All producers",
+      "allFruit": "All fruit",
+      "both": "Hand + Machine",
+      "hand": "Hand",
+      "machine": "Machine"
+    },
+    "kpi": {
+      "sectionTitle": "Intake · Processing · Output",
+      "loginRequired": "Metrics and charts require an active session.",
+      "loginLink": "Sign in with your account",
+      "commercial": "Commercial",
+      "received": "Total received",
+      "receivedAvg": "Daily average: {{value}} lb",
+      "receivedDetail": "{{receptions}} receptions · {{processes}} processes",
+      "packed": "Total packed",
+      "packedDesc": "Net packout recorded in PT tags.",
+      "packedDetail": "{{count}} tags",
+      "packedNoWeight": "· {{count}} without weight",
+      "dispatched": "Total dispatched",
+      "dispatchedDesc": "Physical exit via invoice lb or tag estimate.",
+      "dispatchedDetail": "{{count}} dispatches filtered",
+      "balance": "Operational balance",
+      "balanceDesc": "Packed − dispatched in the period.",
+      "ordersAtRisk": "{{count}} orders at risk",
+      "noOrdersAtRisk": "No orders at risk",
+      "totalSales": "Total sales",
+      "invoicesIssued": "{{count}} invoices issued",
+      "pricePerLb": "Avg. price / lb",
+      "weightedAvg": "Weighted average for the period"
+    },
+    "gauges": {
+      "title": "Pending orders progress",
+      "hintWithBalance": "Up to 5 orders with balance. Camera: cooler reserve, BOL in stock or boxes in order packing list. Physical exit: Yes/No based on complete dispatch.",
+      "hintNoBalance": "No orders with balance: showing last 5 shipped orders.",
+      "loginRequired": "Sign in to see commercial progress.",
+      "loginLink": "Login",
+      "noData": "No order data to display.",
+      "ariaCompleted": "Order completed",
+      "sent": "✅ Shipped {{dispatched}} / {{requested}} boxes",
+      "camera": "Cooler",
+      "cameraDesc": "Cooler, stock (BOL) or order packing list",
+      "criticalBadge": "⚠ Critical",
+      "physicalExit": "Physical exit:",
+      "yes": "Yes",
+      "no": "No",
+      "loadDate": "📅 Load: {{label}}",
+      "noDate": "No date",
+      "criticalSuffix": "· CRITICAL",
+      "plMissing": "missing {{pallets}} pal",
+      "plOk": "no shortfalls",
+      "depotReserved": "Reserved in camera: {{boxes}} boxes — PL pending.",
+      "cameraReady": "Camera ready for order: continue with PL and dispatch.",
+      "plReady": "Ready in PL: pending exit / dispatch."
+    },
+    "tripaje": {
+      "title": "Shared lashing resources",
+      "hint": "Available for all orders · minimum 1 cont = 24 pallets",
+      "criticalBadge": "⚠ Critical",
+      "containers": "≈ {{value}} possible cont",
+      "labels": {
+        "esquineros": "Corners",
+        "interconectores": "Tie sheet",
+        "pallets": "Pallets",
+        "fleje": "Strap (rolls)",
+        "zuncho": "Banding (rolls)"
+      }
+    },
+    "capacity": {
+      "title": "Capacity by format",
+      "hint": "Bottleneck = minimum between boxes, clamshell and labels per client.",
+      "boxes": "📦 Boxes",
+      "clamshell": "🫙 Clamshell",
+      "labelsByClient": "Labels by client",
+      "noClients": "No clients required for this format in active orders."
+    },
+    "chart": {
+      "title": "Received vs packed (lb)",
+      "hint": "Same filters as above (period, producer, species, mode). Compare fruit intake vs PT packout.",
+      "axisLabel": "Time axis",
+      "byDay": "By day",
+      "byWeek": "By week (Mon–Sun)",
+      "noSession": "Chart not available without session."
+    },
+    "production": {
+      "title": "Production by client",
+      "hint": "Bars relative to produced (100% reference). Camera estimated as produced − dispatched for this view.",
+      "noData": "No data by client.",
+      "detail": "Prod: {{produced}} · Camera: {{camera}} · Disp: {{dispatched}}"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "materialCriticalTitle": "Critical material: {{count}}",
+      "materialCriticalDesc": "Low stock on key packaging materials.",
+      "orderRiskTitle": "Orders at risk: {{count}}",
+      "orderRiskDesc": "Load date near or high pending pallets.",
+      "tripajeCriticalTitle": "Critical lashing: {{count}}",
+      "tripajeCriticalDesc": "Resources with less than 1 possible container.",
+      "okTitle": "No critical alerts",
+      "okDesc": "No major blockers with current filters."
+    },
+    "quickAccess": {
+      "title": "Quick access",
+      "newReception": "New reception",
+      "newProcess": "New process",
+      "newPtUnit": "New PT unit",
+      "newDispatch": "New dispatch"
+    },
+    "activity": {
+      "title": "Recent activity",
+      "hint": "Last events in the filtered period.",
+      "noData": "No data.",
+      "kindReception": "Reception",
+      "kindProcess": "Process",
+      "kindDispatch": "Dispatch"
+    },
+    "footer": {
+      "plant": "Plant",
+      "masters": "Masters",
+      "reports": "Reports",
+      "guide": "Guide",
+      "about": "About"
+    }
   }
 }
