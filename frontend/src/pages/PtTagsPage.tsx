@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -42,7 +43,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { dispatchCountsAsShippedOnDay, toLocalDayKey } from '@/lib/dispatch-shipped-day';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   downloadZplFile,
@@ -66,7 +66,6 @@ import {
   type TarjaLabelTemplate,
 } from '@/lib/tarja-zpl-print';
 import {
-  contentCard,
   emptyStatePanel,
   filterInputClass,
   filterPanel,
@@ -75,7 +74,6 @@ import {
   kpiFootnote,
   kpiLabel,
   kpiValueLg,
-  kpiValueMd,
   operationalModalBodyClass,
   operationalModalContentClass,
   operationalModalFooterClass,
@@ -103,15 +101,21 @@ import type { FruitProcessRow } from './ProcessesPage';
 /** Unidad PT = producto físico (pallet); solo destinos de producto terminado. */
 const RESULTADOS_PT = ['cajas', 'IQF'] as const;
 
-function labelPtProductoPt(r: (typeof RESULTADOS_PT)[number]) {
-  if (r === 'cajas') return 'Cajas (producto terminado)';
-  return 'IQF (producto terminado)';
+function labelPtProductoPt(
+  r: (typeof RESULTADOS_PT)[number],
+  t: (key: string) => string
+) {
+  if (r === 'cajas') return t('ptTag.ptType.cajas');
+  return t('ptTag.ptType.iqf');
 }
 
-function labelProcesoEstadoParaSelector(p: FruitProcessRow) {
+function labelProcesoEstadoParaSelector(
+  p: FruitProcessRow,
+  t: (key: string) => string
+) {
   const st = p.process_status ?? 'borrador';
-  if (st === 'borrador') return 'borrador';
-  if (st === 'confirmado') return 'confirmado';
+  if (st === 'borrador') return t('ptTag.processStatus.borrador');
+  if (st === 'confirmado') return t('ptTag.processStatus.confirmado');
   return st;
 }
 const FORMAT_CODE_RE = /^(\d+)x(\d+(?:\.\d+)?)oz$/i;
@@ -256,100 +260,6 @@ type DispatchDayRow = {
   } | null;
 };
 
-type FormatBreakdownRow = { format: string; cajas: number };
-
-type EndOfDayClientRow = {
-  label: string;
-  packed: FormatBreakdownRow[];
-  cooler: FormatBreakdownRow[];
-  shipped: FormatBreakdownRow[];
-};
-
-/** Clave estable para agrupar formatos (mayúsc/minus/ espacios). */
-function normFormatKey(raw: string): string {
-  const t = raw.trim();
-  return t ? t.toLowerCase() : '—';
-}
-
-/** Título legible si no hay maestro (entrada ya en minúsculas salvo '—'). */
-function titleCaseFormatFallback(normKey: string): string {
-  if (normKey === '—') return '—';
-  if (normKey === 'sin formato') return 'Sin formato';
-  return normKey
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => {
-      if (/^\d/.test(w)) return w;
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
-    .join(' ');
-}
-
-function mergeFormatIntoMap(target: Map<string, number>, rawFormat: string, cajas: number) {
-  const nk = normFormatKey(rawFormat);
-  target.set(nk, (target.get(nk) ?? 0) + cajas);
-}
-
-function mapToSortedBreakdown(
-  m: Map<string, number>,
-  canonicalByNorm: Map<string, string>,
-): FormatBreakdownRow[] {
-  return [...m.entries()]
-    .filter(([, cajas]) => cajas > 0)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([nk, cajas]) => {
-      const format =
-        nk === '—'
-          ? '—'
-          : (canonicalByNorm.get(nk) ?? titleCaseFormatFallback(nk));
-      return { format, cajas };
-    });
-}
-
-function subtractFormatMaps(base: Map<string, number>, discount: Map<string, number>): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const [k, v] of base) {
-    const next = v - (discount.get(k) ?? 0);
-    if (next > 0) out.set(k, next);
-  }
-  return out;
-}
-
-function shippedCajasByFormat(
-  d: DispatchDayRow,
-  formatByTarjaId: Map<number, string>,
-): Map<string, number> {
-  const out = new Map<string, number>();
-  const invLines = d.invoice?.lines;
-  if (invLines && invLines.length > 0) {
-    for (const li of invLines) {
-      const cajas = Number(li.cajas) || 0;
-      if (cajas <= 0) continue;
-      let fc = (li.packaging_code ?? '').trim();
-      if (!fc && li.tarja_id != null && Number(li.tarja_id) > 0) {
-        fc = formatByTarjaId.get(Number(li.tarja_id)) ?? '';
-      }
-      mergeFormatIntoMap(out, fc || 'sin formato', cajas);
-    }
-    return out;
-  }
-  for (const it of d.items ?? []) {
-    const cajas = Number(it.cajas_despachadas ?? it.cajas ?? 0);
-    if (cajas <= 0) continue;
-    const tid = Number(it.tarja_id);
-    const fc =
-      Number.isFinite(tid) && tid > 0 ? formatByTarjaId.get(tid) ?? 'sin formato' : 'sin formato';
-    mergeFormatIntoMap(out, fc, cajas);
-  }
-  return out;
-}
-
-function totalCajasFromFormatMap(m: Map<string, number>): number {
-  let s = 0;
-  for (const v of m.values()) s += v;
-  return s;
-}
-
 function tagVarietyLabel(t: PtTagApi, processById: Map<number, FruitProcessRow>) {
   const names = new Set<string>();
   for (const it of t.items) {
@@ -369,7 +279,13 @@ function tagProcessRefLabel(t: PtTagApi) {
   return `${ids.length} proc.`;
 }
 
-function OperationalTagBadge({ tag }: { tag: PtTagApi }) {
+function OperationalTagBadge({
+  tag,
+  t,
+}: {
+  tag: PtTagApi;
+  t: (key: string) => string;
+}) {
   const ok = tag.total_cajas > 0;
   return (
     <span
@@ -380,7 +296,7 @@ function OperationalTagBadge({ tag }: { tag: PtTagApi }) {
           : 'border-slate-200/90 bg-slate-100 text-slate-700',
       )}
     >
-      {ok ? 'Disponible' : 'Sin cajas'}
+      {ok ? t('ptTag.operationalBadge.available') : t('ptTag.operationalBadge.noBoxes')}
     </span>
   );
 }
@@ -409,45 +325,48 @@ function tagProducerLabel(t: PtTagApi, producerById: Map<number, string>) {
   return `Varios (${ids.length})`;
 }
 
-function compactTagStateTone(tag: PtTagApi): {
-  label: string;
-  badge: string;
-  bar: string;
-} {
+function compactTagStateTone(
+  tag: PtTagApi,
+  t: (key: string) => string
+): { label: string; badge: string; bar: string } {
   const assignment = commercialAssignment(tag);
   if (tag.total_cajas <= 0) {
     return {
-      label: 'Pendiente',
+      label: t('ptTag.compactTone.pending'),
       badge: 'border-amber-200 bg-amber-50 text-amber-900',
       bar: 'bg-amber-400',
     };
   }
   if (assignment === 'full') {
     return {
-      label: 'Definitiva',
+      label: t('ptTag.compactTone.definitive'),
       badge: 'border-emerald-200 bg-emerald-50 text-emerald-900',
       bar: 'bg-emerald-400',
     };
   }
   if (assignment === 'partial') {
     return {
-      label: 'Incompleta',
+      label: t('ptTag.compactTone.incomplete'),
       badge: 'border-amber-200 bg-amber-50 text-amber-900',
       bar: 'bg-amber-400',
     };
   }
   return {
-    label: 'Pendiente',
+    label: t('ptTag.compactTone.pending'),
     badge: 'border-slate-200 bg-slate-50 text-slate-700',
     bar: 'bg-slate-300',
   };
 }
 
-function compactTagTraceability(tag: PtTagApi, dispatchedTagIds: Set<number>): string {
-  if (dispatchedTagIds.has(tag.id)) return 'Despacho';
-  if (tag.es_union_tarjas || tag.excluida_suma_packout) return 'Repaletizaje';
-  if ((tag.bol ?? '').trim()) return 'Packing list / BOL';
-  return 'Proceso directo';
+function compactTagTraceability(
+  tag: PtTagApi,
+  dispatchedTagIds: Set<number>,
+  t: (key: string) => string
+): string {
+  if (dispatchedTagIds.has(tag.id)) return t('ptTag.traceability.dispatch');
+  if (tag.es_union_tarjas || tag.excluida_suma_packout) return t('ptTag.traceability.repallet');
+  if ((tag.bol ?? '').trim()) return t('ptTag.traceability.packingList');
+  return t('ptTag.traceability.direct');
 }
 
 /** Asignación comercial temprana (solo datos ya guardados en la unidad PT). */
@@ -462,22 +381,27 @@ function commercialAssignment(t: PtTagApi): CommercialAssignment {
   return 'partial';
 }
 
-function CommercialStatusBadge({ state }: { state: CommercialAssignment }) {
+function CommercialStatusBadge({
+  state,
+  t,
+}: {
+  state: CommercialAssignment;
+  t: (key: string) => string;
+}) {
   const meta = {
     none: {
-      label: 'Sin asignación',
-      title: 'Esta unidad aún no tiene destino comercial definido (cliente previsto).',
+      label: t('ptTag.commercialBadge.noneLabel'),
+      title: t('ptTag.commercialBadge.noneTitle'),
       className: 'border-rose-200/90 bg-rose-50 text-rose-900',
     },
     partial: {
-      label: 'Parcial',
-      title:
-        'Cliente previsto cargado; conviene completar marca o BOL/referencia para cerrar la asignación operativa.',
+      label: t('ptTag.commercialBadge.partialLabel'),
+      title: t('ptTag.commercialBadge.partialTitle'),
       className: 'border-amber-200/90 bg-amber-50 text-amber-950',
     },
     full: {
-      label: 'Asignado',
-      title: 'Destino comercial indicado: cliente y marca o BOL/referencia.',
+      label: t('ptTag.commercialBadge.fullLabel'),
+      title: t('ptTag.commercialBadge.fullTitle'),
       className: 'border-emerald-200/80 bg-emerald-50 text-emerald-900',
     },
   }[state];
@@ -495,6 +419,7 @@ function CommercialStatusBadge({ state }: { state: CommercialAssignment }) {
 }
 
 export function PtTagsPage() {
+  const { t } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
   const canEditTag = role === 'admin' || role === 'supervisor';
@@ -533,7 +458,6 @@ export function PtTagsPage() {
   const [filterClient, setFilterClient] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<'todas' | 'disponible' | 'sin_cajas'>('todas');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
-  const [opsDayKey, setOpsDayKey] = useState<string>(() => toLocalDayKey(new Date()));
 
   const { data: tags, isPending, isError, error } = useQuery({
     queryKey: ['pt-tags'],
@@ -603,18 +527,6 @@ export function PtTagsPage() {
   }, [producersList]);
 
   const activePresFormats = useMemo(() => (presFormats ?? []).filter((f) => f.activo), [presFormats]);
-
-  /** Un solo texto por formato: mismo código que en maestros (primera variante guardada). */
-  const formatCanonicalByNorm = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const f of presFormats ?? []) {
-      const code = f.format_code.trim();
-      if (!code) continue;
-      const nk = code.toLowerCase();
-      if (!m.has(nk)) m.set(nk, code);
-    }
-    return m;
-  }, [presFormats]);
 
   const tarjaPrintTemplateChoices = useMemo(() => {
     const rows =
@@ -719,14 +631,6 @@ export function PtTagsPage() {
     return list;
   }, [tags, search, filterProducer, filterFormat, filterClient, filterEstado]);
 
-  const formatByTarjaId = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const t of tags ?? []) {
-      m.set(t.id, (t.format_code ?? '').trim() || '—');
-    }
-    return m;
-  }, [tags]);
-
   const listKpis = useMemo(() => {
     const rows = filteredTags;
     let cajas = 0;
@@ -812,12 +716,16 @@ export function PtTagsPage() {
     return [...map.values()]
       .map((g) => {
         const clientSet = new Set<string>();
-        for (const t of g.tags) {
-          const c = clientLabel(t);
-          if (c && c !== 'Sin cliente') clientSet.add(c);
+        for (const tag of g.tags) {
+          const c = clientLabel(tag);
+          if (c && c !== t('ptTag.clientSummary.none')) clientSet.add(c);
         }
         const arr = [...clientSet];
-        const clientSummary = arr.length === 0 ? 'Sin cliente' : arr.length === 1 ? arr[0] : 'Varios clientes';
+        const clientSummary = arr.length === 0
+          ? t('ptTag.clientSummary.none')
+          : arr.length === 1
+            ? arr[0]
+            : t('ptTag.clientSummary.multiple');
         return {
           ...g,
           clientSummary,
@@ -826,127 +734,6 @@ export function PtTagsPage() {
       })
       .sort((a, b) => b.totalCajas - a.totalCajas);
   }, [filteredTags]);
-
-  const operationalDaily = useMemo(() => {
-    const tagList = tags ?? [];
-    let packedToday = 0;
-    for (const t of tagList) {
-      if (toLocalDayKey(t.fecha) !== opsDayKey) continue;
-      if (!countsTowardPtProductionTotals(t)) continue;
-      packedToday += t.total_cajas;
-    }
-    let shippedToday = 0;
-    for (const d of dispatchesList ?? []) {
-      if (!dispatchCountsAsShippedOnDay(d, opsDayKey)) continue;
-      shippedToday += totalCajasFromFormatMap(shippedCajasByFormat(d, formatByTarjaId));
-    }
-    const coolerBoxes = Math.max(0, packedToday - shippedToday);
-    const pendingLb = (processes ?? []).reduce((s, p) => {
-      const st = p.process_status ?? 'borrador';
-      if (st === 'cerrado') return s;
-      const lb = Number(p.lb_pt_restante);
-      return s + (Number.isFinite(lb) && lb > 0 ? lb : 0);
-    }, 0);
-    return { packedToday, coolerBoxes, shippedToday, pendingLb };
-  }, [tags, dispatchesList, processes, formatByTarjaId, opsDayKey]);
-
-  const endOfDayByClient = useMemo((): EndOfDayClientRow[] => {
-    type Agg = { label: string; packed: Map<string, number>; cooler: Map<string, number>; shipped: Map<string, number> };
-    const clientMap = new Map<string, Agg>();
-
-    function keyForClient(id: number | null | undefined, nombre: string | null | undefined): string {
-      if (id != null && Number(id) > 0) return `id:${id}`;
-      const n = (nombre ?? '').trim();
-      return n ? `n:${n.toUpperCase()}` : 'n:SIN CLIENTE';
-    }
-
-    function labelFor(key: string, nombre: string | null | undefined) {
-      if (key.startsWith('id:')) {
-        const id = Number(key.slice(3));
-        const c = (commercialClients ?? []).find((x) => x.id === id);
-        return (c?.nombre ?? nombre ?? `Cliente #${id}`).trim().toUpperCase();
-      }
-      return (nombre ?? 'SIN CLIENTE').trim().toUpperCase() || 'SIN CLIENTE';
-    }
-
-    const ensure = (key: string, nombre: string | null | undefined) => {
-      const cur = clientMap.get(key);
-      if (cur) return cur;
-      const a: Agg = {
-        label: labelFor(key, nombre),
-        packed: new Map(),
-        cooler: new Map(),
-        shipped: new Map(),
-      };
-      clientMap.set(key, a);
-      return a;
-    };
-
-    for (const t of tags ?? []) {
-      if (toLocalDayKey(t.fecha) !== opsDayKey) continue;
-      if (!countsTowardPtProductionTotals(t)) continue;
-      const cid = t.client_id != null ? Number(t.client_id) : 0;
-      const cn = cid > 0 ? (commercialClients ?? []).find((c) => c.id === cid)?.nombre ?? null : null;
-      const key = keyForClient(cid > 0 ? cid : null, cn);
-      const cell = ensure(key, cn);
-      const fc = (t.format_code ?? '').trim() || '—';
-      mergeFormatIntoMap(cell.packed, fc, t.total_cajas);
-    }
-
-    for (const d of dispatchesList ?? []) {
-      if (!dispatchCountsAsShippedOnDay(d, opsDayKey)) continue;
-      const nombre = (d.client_nombre ?? d.cliente_nombre ?? '').trim();
-      const cid = d.client_id != null ? Number(d.client_id) : 0;
-      const key = keyForClient(cid > 0 ? cid : null, nombre || null);
-      const cell = ensure(key, nombre || null);
-      const byF = shippedCajasByFormat(d, formatByTarjaId);
-      for (const [fc, cajas] of byF) {
-        mergeFormatIntoMap(cell.shipped, fc, cajas);
-      }
-    }
-
-    for (const a of clientMap.values()) {
-      a.cooler = subtractFormatMaps(a.packed, a.shipped);
-    }
-
-    return [...clientMap.values()]
-      .map((a) => ({
-        label: a.label,
-        packed: mapToSortedBreakdown(a.packed, formatCanonicalByNorm),
-        cooler: mapToSortedBreakdown(a.cooler, formatCanonicalByNorm),
-        shipped: mapToSortedBreakdown(a.shipped, formatCanonicalByNorm),
-      }))
-      .filter((r) => r.packed.length + r.cooler.length + r.shipped.length > 0)
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [tags, dispatchesList, commercialClients, formatByTarjaId, formatCanonicalByNorm, opsDayKey]);
-
-  const endOfDayPlainText = useMemo(() => {
-    function linesFor(prefix: string, rows: FormatBreakdownRow[]): string[] {
-      return rows.map((row) => `${prefix}: ${row.cajas} · ${row.format}`);
-    }
-    const blocks = endOfDayByClient.map((r) => {
-      const inner = [
-        r.label,
-        ...linesFor('Packed', r.packed),
-        ...linesFor('Cooler', r.cooler),
-        ...linesFor('Shipped', r.shipped),
-      ];
-      return inner.join('\n');
-    });
-    return blocks.join('\n\n');
-  }, [endOfDayByClient]);
-
-  const pendingCajasEst = useMemo(() => {
-    const vals = activePresFormats
-      .map((f) => Number(f.net_weight_lb_per_box))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    if (!vals.length) return null;
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    if (avg <= 0) return null;
-    const lb = operationalDaily.pendingLb;
-    if (lb <= 0) return null;
-    return Math.round(lb / avg);
-  }, [activePresFormats, operationalDaily.pendingLb]);
 
   const openTagIdFromUrl = Number(searchParams.get('open') || '') || null;
 
@@ -966,11 +753,6 @@ export function PtTagsPage() {
       { replace: true },
     );
   }, [openTagIdFromUrl, tags, setSearchParams]);
-
-  const unassignedPtCount = useMemo(
-    () => (tags ?? []).filter((t) => commercialAssignment(t) === 'none').length,
-    [tags],
-  );
 
   const tagForm = useForm<CreateTagForm>({
     resolver: zodResolver(createTagSchema),
@@ -1239,9 +1021,9 @@ export function PtTagsPage() {
     onSuccess: (data) => {
       setTagOpen(false);
       if (data.created > 1) {
-        toast.success(`${data.created} unidades PT creadas y vinculadas al proceso`);
+        toast.success(t('ptTag.toast.createdBulk', { count: data.created }));
       } else {
-        toast.success('Unidad PT creada y vinculada al proceso');
+        toast.success(t('ptTag.toast.created'));
       }
       if (data.createdTags.length > 0) {
         startTransition(() => {
@@ -1271,7 +1053,7 @@ export function PtTagsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
       queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Unidad PT actualizada');
+      toast.success(t('ptTag.toast.updated'));
       setEditTag(null);
       setTagOpen(false);
     },
@@ -1283,7 +1065,7 @@ export function PtTagsPage() {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
       queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Unidad PT eliminada');
+      toast.success(t('ptTag.toast.deleted'));
       setDeleteConfirmTag(null);
       setDetailTag((cur) => (cur?.id === id ? null : cur));
     },
@@ -1321,9 +1103,9 @@ export function PtTagsPage() {
       variant === 'etiqueta' ? `unidad-pt-${tag.id}-etiqueta.pdf` : `unidad-pt-${tag.id}-detalle.pdf`;
     try {
       await downloadPdf(`/api/documents/pt-tags/${tag.id}/pdf${q}`, name);
-      toast.success(variant === 'etiqueta' ? 'PDF etiqueta Unidad PT descargado' : 'PDF detalle / trazabilidad descargado');
+      toast.success(variant === 'etiqueta' ? t('ptTag.toast.pdfLabelReady') : t('ptTag.toast.pdfDetailReady'));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error PDF');
+      toast.error(e instanceof Error ? e.message : t('ptTag.toast.pdfDetailReady'));
     }
   }
 
@@ -1333,7 +1115,7 @@ export function PtTagsPage() {
         template: options?.template ?? 'standard',
         copies: options?.copies ?? 1,
         printerName: options?.printerName,
-        onPrintQueued: () => toast.success('Enviado a impresión'),
+        onPrintQueued: () => toast.success(t('ptTag.toast.printQueued')),
       });
       if (result.mode === 'sent_to_local_service') {
         return;
@@ -1343,19 +1125,19 @@ export function PtTagsPage() {
       const sinBrowserPrint =
         'No hace falta Zebra Browser Print: en este PC ejecutá run-print-service.bat (carpeta local-zebra-print-service del proyecto, con Node) y volvé a «Imprimir».';
       if (result.reason === 'service_unavailable') {
-        toast.warning('No se detectó el servicio local de impresión Zebra en este equipo.', {
+        toast.warning(t('ptTag.toast.printServiceUnavailable'), {
           description: `${sinBrowserPrint} ${descRespaldo}`,
           duration: 12_000,
         });
         return;
       }
-      toast.error('Error al enviar a impresión', {
+      toast.error(t('ptTag.toast.printError'), {
         description: [result.message, descRespaldo].filter(Boolean).join(' · '),
         duration: 10_000,
       });
     } catch (e) {
-      toast.error('Error al enviar a impresión', {
-        description: e instanceof Error ? e.message : 'No se pudo imprimir etiqueta',
+      toast.error(t('ptTag.toast.printError'), {
+        description: e instanceof Error ? e.message : t('ptTag.toast.printError'),
       });
     }
   }
@@ -1363,12 +1145,12 @@ export function PtTagsPage() {
   async function reprintLastPtTagPayload() {
     const last = loadLastPrintPayload();
     if (!last) {
-      toast.error('No hay una impresión previa registrada en este navegador.');
+      toast.error(t('ptTag.toast.noPreviousPrint'));
       return;
     }
     const tag = (tags ?? []).find((t) => t.id === last.tarjaId);
     if (!tag) {
-      toast.error('La última tarja no aparece en la lista cargada; buscala y volvé a imprimir desde la fila.');
+      toast.error(t('ptTag.toast.tagNotFound'));
       return;
     }
     const printersResp = await getLocalPrinters();
@@ -1393,9 +1175,9 @@ export function PtTagsPage() {
     try {
       const zpl = await fetchTarjaZpl(tag.id, template);
       downloadZplFile(`unidad-pt-${tag.id}.zpl`, zpl);
-      toast.success('Archivo ZPL descargado');
+      toast.success(t('ptTag.toast.zplReady'));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo descargar ZPL');
+      toast.error(e instanceof Error ? e.message : t('ptTag.toast.zplError'));
     }
   }
 
@@ -1564,17 +1346,17 @@ export function PtTagsPage() {
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
-            <h1 className={pageTitle}>Unidad PT</h1>
+            <h1 className={pageTitle}>{t('ptTag.pageTitle')}</h1>
             <button
               type="button"
               className={pageInfoButton}
               title="Alta de tarja TAR-… y vínculo a proceso; genera pallet PF-… y stock en Existencias PT. Flujo: repalet, packing lists, BOL, despacho."
-              aria-label="Ayuda Unidad PT"
+              aria-label={t('ptTag.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
         </div>
-          <p className={pageSubtitle}>Tarjas, formato y vínculo al proceso de fruta.</p>
+          <p className={pageSubtitle}>{t('ptTag.pageSubtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <Dialog
@@ -1596,7 +1378,7 @@ export function PtTagsPage() {
           <DialogTrigger asChild>
               <Button type="button" className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm">
               <Plus className="h-4 w-4" />
-                Nueva unidad PT
+                {t('ptTag.newButton')}
             </Button>
           </DialogTrigger>
             <DialogContent
@@ -1609,13 +1391,13 @@ export function PtTagsPage() {
                 <div className="flex items-center justify-between">
                   <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
                     <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    {editTag ? `Editar ${editTag.tag_code}` : 'Nueva unidad PT'}
+                    {editTag ? t('ptTag.dialog.titleEdit', { code: editTag.tag_code }) : t('ptTag.dialog.titleNew')}
                   </DialogTitle>
                   <button
                     type="button"
                     onClick={() => setTagOpen(false)}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                    aria-label="Cerrar"
+                    aria-label={t('ptTag.dialog.closeAriaLabel')}
                   >
                     <X size={16} />
                   </button>
@@ -1627,7 +1409,7 @@ export function PtTagsPage() {
                     const hasDest =
                       (v.client_id ?? 0) > 0 || !!(v.bol?.trim()) || (v.brand_id ?? 0) > 0;
                     if (!hasDest) {
-                      toast.warning('Se recomienda asignar destino comercial (cliente, BOL o referencia) para trazabilidad.');
+                      toast.warning(t('ptTag.toast.destinationWarning'));
                     }
                     const body: UpdateTagForm = {
                       format_code: v.format_code.trim(),
@@ -1648,7 +1430,7 @@ export function PtTagsPage() {
                   const hasDest =
                     (v.client_id ?? 0) > 0 || !!(v.bol?.trim()) || (v.brand_id ?? 0) > 0;
                   if (!hasDest) {
-                    toast.warning('Se recomienda asignar destino comercial (cliente, BOL o referencia) para trazabilidad.');
+                    toast.warning(t('ptTag.toast.destinationWarning'));
                   }
                   createTagMut.mutate(v);
                 })}
@@ -1661,12 +1443,12 @@ export function PtTagsPage() {
                     <section className={operationalModalSectionCard}>
                       <div className={operationalModalSectionHeadingRow}>
                         <span className={operationalModalStepBadge}>1</span>
-                        <h3 className={operationalModalStepTitle}>Formato</h3>
+                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step1')}</h3>
                       </div>
                       <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-fecha">
-                            Fecha
+                            {t('ptTag.dialog.fieldDate')}
                           </Label>
                           <Input id="tag-fecha" type="datetime-local" className="h-9" {...tagForm.register('fecha')} />
                 {tagForm.formState.errors.fecha && (
@@ -1674,21 +1456,21 @@ export function PtTagsPage() {
                 )}
               </div>
                         <div className="grid gap-1.5 rounded-lg border border-border/50 bg-muted/15 px-2.5 py-2">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo de producto PT</Label>
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('ptTag.dialog.fieldProductType')}</Label>
                 <select
                             className="flex min-h-8 w-full rounded border-0 bg-transparent px-0 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
                   {...tagForm.register('resultado')}
                 >
                             {RESULTADOS_PT.map((r) => (
                     <option key={r} value={r}>
-                                {labelPtProductoPt(r)}
+                                {labelPtProductoPt(r, t)}
                     </option>
                   ))}
                 </select>
               </div>
                         <div className="grid gap-1.5 lg:col-span-2">
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="format_code">
-                            Formato de presentación *
+                            {t('ptTag.dialog.fieldFormat')}
                           </Label>
                           {activePresFormats.length > 0 ? (
                             <select
@@ -1701,7 +1483,7 @@ export function PtTagsPage() {
                                 <option key={f.id} value={f.format_code}>
                                   {f.format_code}
                                   {f.descripcion ? ` — ${f.descripcion}` : ''}
-                                  {f.net_weight_lb_per_box != null ? ` · ${f.net_weight_lb_per_box} lb/caja` : ''}
+                                  {f.net_weight_lb_per_box != null ? ` · ${f.net_weight_lb_per_box} ${t('ptTag.formatSelector.lbPerBox')}` : ''}
                                 </option>
                               ))}
                             </select>
@@ -1715,7 +1497,7 @@ export function PtTagsPage() {
                             <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
                           )}
                           <p className="leading-tight text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground/75">Cajas/pallet:</span>{' '}
+                            <span className="font-medium text-foreground/75">{t('ptTag.dialog.formatHint')}</span>{' '}
                             <span className="tabular-nums font-semibold text-foreground/90">{tagForm.watch('cajas_por_pallet')}</span>
                             {' · '}
                             <span className="font-mono text-foreground/70">{watchedTagFormatCode || '—'}</span>
@@ -1731,12 +1513,12 @@ export function PtTagsPage() {
                     <section className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
                       <div className={operationalModalSectionHeadingRow}>
                         <span className={operationalModalStepBadge}>2</span>
-                        <h3 className={operationalModalStepTitle}>Proceso origen</h3>
+                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step2')}</h3>
                       </div>
                       <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto">
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-process">
-                            Proceso *
+                            {t('ptTag.dialog.fieldProcess')}
                           </Label>
                           <select
                             id="tag-process"
@@ -1744,7 +1526,7 @@ export function PtTagsPage() {
                             className="min-w-0 flex h-auto min-h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70 sm:text-sm"
                             {...tagForm.register('process_id', { valueAsNumber: true })}
                           >
-                            <option value={0}>Elegir proceso…</option>
+                            <option value={0}>{t('ptTag.dialog.choosePlaceholder')}</option>
                             {(editTag
                               ? editTag.items.length > 1
                                 ? processesForTagModal
@@ -1752,10 +1534,10 @@ export function PtTagsPage() {
                               : availableProcesses
                             ).map((p) => (
                               <option key={p.id} value={p.id}>
-                                [{labelProcesoEstadoParaSelector(p)}] #{p.id} · {p.variedad_nombre ?? '—'} · entrada{' '}
+                                [{labelProcesoEstadoParaSelector(p, t)}] #{p.id} · {p.variedad_nombre ?? '—'} · {t('ptTag.processSelector.entrada')}{' '}
                                 {fmtLbCell(p.lb_entrada ?? p.peso_procesado_lb)}
                                 {p.lb_pt_restante != null && String(p.lb_pt_restante).trim() !== ''
-                                  ? ` · restante PT ${fmtLbCell(p.lb_pt_restante)}`
+                                  ? ` · ${t('ptTag.processSelector.restantePt')} ${fmtLbCell(p.lb_pt_restante)}`
                                   : ''}{' '}
                                 · {new Date(p.fecha_proceso).toLocaleDateString('es')}
                               </option>
@@ -1768,12 +1550,12 @@ export function PtTagsPage() {
 
                         {editTag && editTag.items.length > 1 ? (
                           <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                            Varias líneas de proceso: no se editan aquí.
+                            {t('ptTag.dialog.multiProcessWarning')}
                           </p>
                         ) : null}
                         {!editTag && availableProcesses.length === 0 ? (
                           <p className="text-xs leading-snug text-amber-800 dark:text-amber-200">
-                            No hay procesos disponibles (borrador/confirmado con lb para PT).
+                            {t('ptTag.dialog.noProcesses')}
                           </p>
                         ) : null}
 
@@ -1781,14 +1563,14 @@ export function PtTagsPage() {
                           <div className="space-y-2">
                             <div className="flex flex-wrap gap-2">
                               <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
-                                LB DISPONIBLES:{' '}
+                                {t('ptTag.dialog.lbAvailable')}{' '}
                                 {selectedProcForCreate.lb_pt_restante != null &&
                                 String(selectedProcForCreate.lb_pt_restante).trim() !== ''
                                   ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
                                   : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
                               </span>
                               <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
-                                CAJAS SUGERIDAS: {maxCajasDesdeProcesoCreate ?? '—'}
+                                {t('ptTag.dialog.suggestedBoxes')} {maxCajasDesdeProcesoCreate ?? '—'}
                               </span>
                             </div>
                             {procesoVsTopeHint ? (
@@ -1801,8 +1583,8 @@ export function PtTagsPage() {
                                 )}
                               >
                                 {procesoVsTopeHint.tone === 'ok'
-                                  ? `Hay margen · Podés subir hasta ${maxCajasDesdeProcesoCreate ?? 0} cajas`
-                                  : 'Sin margen disponible'}
+                                  ? t('ptTag.dialog.marginOk', { max: maxCajasDesdeProcesoCreate ?? 0 })
+                                  : t('ptTag.dialog.noMargin')}
                               </div>
                             ) : null}
                           </div>
@@ -1816,11 +1598,11 @@ export function PtTagsPage() {
                     <section className={operationalModalSectionCard}>
                       <div className={operationalModalSectionHeadingRow}>
                         <span className={operationalModalStepBadge}>3</span>
-                        <h3 className={operationalModalStepTitle}>Cantidad</h3>
+                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step3')}</h3>
                       </div>
                       <div className="grid max-w-md gap-2">
                         <Label htmlFor="cajas_generadas" className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Cajas a cargar *
+                          {t('ptTag.dialog.fieldBoxes')}
                         </Label>
                         <Input
                           id="cajas_generadas"
@@ -1846,21 +1628,23 @@ export function PtTagsPage() {
                         />
                         {maxCajasDesdeProcesoCreate != null && !(editTag && editTag.items.length > 1) ? (
                           <p className="text-[11px] leading-tight text-muted-foreground">
-                            Máx. sugerido:{' '}
-                            <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span> cajas
+                            {t('ptTag.dialog.maxSuggested')}{' '}
+                            <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span>{' '}
+                            {t('ptTag.dialog.maxNote')}
                             {!editTag && maxCajasDesdeProcesoCreate > cajasPorPalletFormato ? (
                               <>
                                 {' '}
-                                · valor inicial:{' '}
-                                <span className="font-semibold text-foreground">{cajasPorPalletFormato}</span> (1 pallet)
+                                {t('ptTag.dialog.initialValue')}{' '}
+                                <span className="font-semibold text-foreground">{cajasPorPalletFormato}</span>{' '}
+                                {t('ptTag.dialog.onePallet')}
                               </>
                             ) : null}
                           </p>
                         ) : null}
                         {editTag && editTag.items.length > 1 ? (
-                          <p className="text-[11px] leading-tight text-muted-foreground">Varias líneas; no se edita aquí.</p>
+                          <p className="text-[11px] leading-tight text-muted-foreground">{t('ptTag.dialog.multiLinesNote')}</p>
                         ) : editTag ? (
-                          <p className="text-[11px] leading-tight text-muted-foreground">Validación en servidor (lb / packout).</p>
+                          <p className="text-[11px] leading-tight text-muted-foreground">{t('ptTag.dialog.serverValidation')}</p>
                         ) : null}
                         {tagForm.formState.errors.cajas_generadas ? (
                           <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
@@ -1868,7 +1652,7 @@ export function PtTagsPage() {
                         {!editTag ? (
                           <div className="mt-2 grid gap-1.5">
                             <Label htmlFor="tag-bulk-units" className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              Unidades idénticas
+                              {t('ptTag.dialog.bulkUnitsLabel')}
                             </Label>
                             <Input
                               id="tag-bulk-units"
@@ -1881,7 +1665,7 @@ export function PtTagsPage() {
                               {...tagForm.register('bulk_units', { valueAsNumber: true })}
                             />
                             <p className="text-[10px] leading-tight text-muted-foreground">
-                              Crea N tarjas con los mismos datos
+                              {t('ptTag.dialog.bulkUnitsHint')}
                             </p>
                             {tagForm.formState.errors.bulk_units && (
                               <p className="text-xs text-destructive">{tagForm.formState.errors.bulk_units.message}</p>
@@ -1895,17 +1679,17 @@ export function PtTagsPage() {
                     <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
                       <div className="mb-2 flex flex-wrap items-baseline gap-2">
                         <span className={operationalModalStepBadge}>4</span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Comercial</span>
-                        <span className="text-[10px] text-muted-foreground/80">opcional</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('ptTag.dialog.step4')}</span>
+                        <span className="text-[10px] text-muted-foreground/80">{t('ptTag.dialog.step4Optional')}</span>
                       </div>
                       <div className="grid gap-2.5 sm:grid-cols-2">
                         <div className="grid gap-1">
-                          <Label className="text-[11px] text-muted-foreground">Cliente</Label>
+                          <Label className="text-[11px] text-muted-foreground">{t('ptTag.dialog.fieldClient')}</Label>
                           <select
                             className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
                             {...tagForm.register('client_id', { valueAsNumber: true })}
                           >
-                            <option value={0}>Sin definir</option>
+                            <option value={0}>{t('ptTag.dialog.clientUndefined')}</option>
                             {(commercialClients ?? []).map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.codigo} — {c.nombre}
@@ -1914,12 +1698,12 @@ export function PtTagsPage() {
                           </select>
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-[11px] text-muted-foreground">Marca</Label>
+                          <Label className="text-[11px] text-muted-foreground">{t('ptTag.dialog.fieldBrand')}</Label>
                           <select
                             className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
                             {...tagForm.register('brand_id', { valueAsNumber: true })}
                           >
-                            <option value={0}>Sin definir</option>
+                            <option value={0}>{t('ptTag.dialog.brandUndefined')}</option>
                             {(brandsForTagClient ?? []).map((b) => (
                               <option key={b.id} value={b.id}>
                                 {b.codigo} — {b.nombre}
@@ -1929,11 +1713,11 @@ export function PtTagsPage() {
                         </div>
                         <div className="grid gap-1 sm:col-span-2">
                           <Label htmlFor="tag-bol-prev" className="text-[11px] text-muted-foreground">
-                            Referencia / BOL prevista
+                            {t('ptTag.dialog.fieldBol')}
                           </Label>
                           <Input
                             id="tag-bol-prev"
-                            placeholder="Opcional"
+                            placeholder={t('ptTag.dialog.fieldBolPlaceholder')}
                             className="h-9 rounded-md text-xs"
                             {...tagForm.register('bol')}
                           />
@@ -1947,7 +1731,7 @@ export function PtTagsPage() {
 
                 <DialogFooter className={cn(operationalModalFooterClass, 'gap-2')}>
                 <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
-                  Cancelar
+                  {t('ptTag.dialog.cancelButton')}
                 </Button>
                   <Button
                     type="submit"
@@ -1959,15 +1743,18 @@ export function PtTagsPage() {
                   >
                     {editTag
                       ? updateTagMut.isPending
-                        ? 'Guardando…'
-                        : 'Guardar cambios'
+                        ? t('ptTag.dialog.savingButton')
+                        : t('ptTag.dialog.saveButton')
                       : createTagMut.isPending
                         ? bulkCreateProgress
-                          ? `Creando ${bulkCreateProgress.cur}/${bulkCreateProgress.total}…`
-                          : 'Creando…'
+                          ? t('ptTag.dialog.creatingBulkButton', {
+                              cur: bulkCreateProgress.cur,
+                              total: bulkCreateProgress.total,
+                            })
+                          : t('ptTag.dialog.creatingButton')
                         : bulkUnitsSubmitLabel > 1
-                          ? `Crear ${bulkUnitsSubmitLabel} unidades PT`
-                          : 'Crear unidad PT'}
+                          ? t('ptTag.dialog.createBulkButton', { n: bulkUnitsSubmitLabel })
+                          : t('ptTag.dialog.createButton')}
                 </Button>
               </DialogFooter>
             </form>
@@ -1978,23 +1765,23 @@ export function PtTagsPage() {
 
       <section aria-labelledby="pt-kpis" className="space-y-4">
         <h2 id="pt-kpis" className="sr-only">
-          Indicadores del listado filtrado
+          {t('ptTag.srKpis')}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Unidades (listado)</p>
+            <p className={kpiLabel}>{t('ptTag.kpi.units')}</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(listKpis.unidades)}</p>
-            <p className={kpiFootnote}>Filtradas</p>
+            <p className={kpiFootnote}>{t('ptTag.kpi.unitsNote')}</p>
       </div>
           <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('ptTag.kpi.boxes')}</p>
             <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(listKpis.cajas)}</p>
-            <p className={kpiFootnote}>Sin doble conteo repallet</p>
+            <p className={kpiFootnote}>{t('ptTag.kpi.boxesNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Lb totales</p>
+            <p className={kpiLabel}>{t('ptTag.kpi.lb')}</p>
             <p className={cn(kpiValueLg, 'text-blue-700')}>{formatLb(listKpis.lb, 2)}</p>
-            <p className={kpiFootnote}>Peso neto en vista</p>
+            <p className={kpiFootnote}>{t('ptTag.kpi.lbNote')}</p>
           </div>
           <div
             className={cn(
@@ -2002,135 +1789,37 @@ export function PtTagsPage() {
               listKpis.sinCliente > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50',
             )}
           >
-            <p className={kpiLabel}>Pendientes de asignar</p>
+            <p className={kpiLabel}>{t('ptTag.kpi.pending')}</p>
             <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-700' : 'text-green-700')}>
               {formatCount(listKpis.sinCliente)}
             </p>
-            <p className={kpiFootnote}>Sin destino comercial</p>
+            <p className={kpiFootnote}>{t('ptTag.kpi.pendingNote')}</p>
           </div>
         </div>
       </section>
 
-      <details className={cn(contentCard, 'group')}>
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700 marker:content-none">
-          Más paneles operativos
-        </summary>
-        <div className="space-y-3 border-t border-slate-200/70 px-4 py-3">
-          <section className="grid gap-3 xl:grid-cols-2 xl:gap-5 @container/daily" aria-labelledby="pt-daily-ops">
-            <h2 id="pt-daily-ops" className="sr-only">
-              Operación del día
-            </h2>
-            <div className={cn(contentCard, 'px-3 py-3 sm:px-5 sm:py-4')}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen del día (operación)</p>
-                <div className="flex items-center gap-2">
-                  <Label className="text-[11px] text-slate-500">Fecha</Label>
-                  <Input
-                    type="date"
-                    className="h-8 w-[150px] bg-white"
-                    value={opsDayKey}
-                    onChange={(e) => setOpsDayKey(e.target.value || toLocalDayKey(new Date()))}
-                  />
-                </div>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3 sm:gap-3">
-                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-                  <p className={kpiLabel}>Packed día</p>
-                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.packedToday)}</p>
-                  <p className={kpiFootnote}>Cajas</p>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-                  <p className={kpiLabel}>Saldo del día</p>
-                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.coolerBoxes)}</p>
-                  <p className={kpiFootnote}>Packed - Shipped</p>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
-                  <p className={kpiLabel}>Shipped día</p>
-                  <p className={cn(kpiValueMd, 'max-xl:text-xl')}>{formatCount(operationalDaily.shippedToday)}</p>
-                  <p className={kpiFootnote}>Cajas (factura o ítems)</p>
-                </div>
-              </div>
-            </div>
-            <div className={cn(contentCard, 'flex flex-col px-3 py-3 sm:px-5 sm:py-4')}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fin del día por cliente</p>
-                  <p className="mt-1 max-xl:text-[10px] text-[11px] leading-snug text-slate-400">
-                    Fecha seleccionada ({opsDayKey}). Formatos unificados con maestros; línea: cantidad · formato.
-                  </p>
-                </div>
-              </div>
-              <pre className="mt-3 max-h-[min(48vh,320px)] max-xl:max-h-[38vh] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 font-mono text-[10px] leading-relaxed text-slate-800 sm:p-3 sm:text-[11px]">
-                {endOfDayPlainText || `Sin datos para ${opsDayKey}.`}
-              </pre>
-            </div>
-          </section>
-          <div className={cn(contentCard, 'flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5')}>
-            <p className="text-sm font-medium text-slate-800">Proyección · pendiente por embalar</p>
-            <div className="text-left sm:text-right">
-              <p className="text-base font-semibold tabular-nums text-slate-900 sm:text-lg">
-                Pendiente mañana: {formatLb(operationalDaily.pendingLb, 2)} lb
-              </p>
-              {pendingCajasEst != null ? (
-                <p className="text-[11px] text-slate-500">
-                  ~{formatCount(pendingCajasEst)} cajas (estim. lb ÷ neto medio formatos activos)
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className={kpiCard}>
-              <p className={kpiLabel}>Peso total (lb)</p>
-              <p className={kpiValueLg}>{formatLb(listKpis.lb, 2)}</p>
-              <p className={kpiFootnote}>Neto declarado</p>
-            </div>
-            <div className={cn(kpiCard, listKpis.sinCliente > 0 ? 'border-amber-200/80 bg-amber-50/40' : '')}>
-              <p className={kpiLabel}>Sin cliente</p>
-              <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-950' : '')}>
-                {formatCount(listKpis.sinCliente)}
-              </p>
-              <p className={kpiFootnote}>Comercial pendiente</p>
-            </div>
-            <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Sin cajas</p>
-              <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.sinCajas)}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-100/90 bg-slate-50/40 px-4 py-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Uniones</p>
-              <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{formatCount(listKpis.uniones)}</p>
-            </div>
-          </div>
-          {unassignedPtCount > 0 ? (
-            <div className="rounded-2xl border border-amber-100/90 bg-amber-50/35 px-4 py-3 text-sm text-amber-950">
-              <span className="font-medium">Global:</span>{' '}
-              {unassignedPtCount} unidad{unassignedPtCount === 1 ? '' : 'es'} sin cliente previsto en todo el sistema.
-            </div>
-          ) : null}
-        </div>
-      </details>
-
       <div className={filterPanel}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Filtros</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('ptTag.filters.title')}</span>
         </div>
         <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
           <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">Buscar</Label>
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.search')}</Label>
             <Input
               className={filterInputClass}
-              placeholder="Código, formato, BOL, ID…"
+              placeholder={t('ptTag.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">Productor</Label>
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.producer')}</Label>
             <select
               className={filterSelectClass}
               value={filterProducer}
               onChange={(e) => setFilterProducer(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('ptTag.filters.producerAll')}</option>
               {(producersList ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo ? `${p.codigo} · ` : ''}
@@ -2140,13 +1829,13 @@ export function PtTagsPage() {
             </select>
           </div>
           <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">Formato</Label>
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.format')}</Label>
             <select
               className={filterSelectClass}
               value={filterFormat}
               onChange={(e) => setFilterFormat(e.target.value)}
             >
-              <option value="">Todos</option>
+              <option value="">{t('ptTag.filters.formatAll')}</option>
               {formatOptions.map((f) => (
                 <option key={f} value={f}>
                   {f}
@@ -2155,23 +1844,23 @@ export function PtTagsPage() {
             </select>
           </div>
           <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">Estado cajas</Label>
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.boxState')}</Label>
             <select
               className={filterSelectClass}
               value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}
             >
-              <option value="todas">Todas</option>
-              <option value="disponible">Con cajas (disponible)</option>
-              <option value="sin_cajas">Sin cajas</option>
+              <option value="todas">{t('ptTag.filters.boxStateAll')}</option>
+              <option value="disponible">{t('ptTag.filters.boxStateAvailable')}</option>
+              <option value="sin_cajas">{t('ptTag.filters.boxStateEmpty')}</option>
             </select>
           </div>
         </div>
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-medium text-slate-500">Más filtros</summary>
+          <summary className="cursor-pointer text-xs font-medium text-slate-500">{t('ptTag.filters.moreFilters')}</summary>
           <div className="mt-2 grid gap-2 md:grid-cols-2">
             <div className="grid min-w-0 gap-1.5">
-              <Label className="text-[11px] font-medium text-slate-500">Cliente previsto</Label>
+              <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.expectedClient')}</Label>
               <select
                 className={filterSelectClass}
                 value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
@@ -2182,8 +1871,8 @@ export function PtTagsPage() {
                   else setFilterClient(Number(v));
                 }}
               >
-                <option value="">Todos</option>
-                <option value="-1">Sin cliente</option>
+                <option value="">{t('ptTag.filters.clientAll')}</option>
+                <option value="-1">{t('ptTag.filters.clientNone')}</option>
                 {(commercialClients ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.codigo} — {c.nombre}
@@ -2199,9 +1888,9 @@ export function PtTagsPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="pt-listado" className={sectionTitle}>
-              Unidades PT
+              {t('ptTag.table.title')}
             </h2>
-            <span className={cn(sectionHint, '!mt-0')}>Compacta por formato · detallada completa</span>
+            <span className={cn(sectionHint, '!mt-0')}>{t('ptTag.table.hint')}</span>
           </div>
                     <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
@@ -2212,7 +1901,7 @@ export function PtTagsPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('ptTag.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -2221,26 +1910,26 @@ export function PtTagsPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('ptTag.table.viewDetailed')}
               </Button>
                     </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
-                Ver criterios
+                {t('ptTag.table.criteria')}
               </summary>
               <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
-                <p><span className="font-semibold text-emerald-700">Definitivo:</span> unidad lista/confirmada</p>
-                <p><span className="font-semibold text-amber-700">Pendiente:</span> unidad no cerrada o incompleta</p>
-                <p><span className="font-semibold text-violet-700">Repaletizaje:</span> unión o movimiento entre pallets</p>
-                <p><span className="font-semibold text-sky-700">Proceso directo:</span> unidad viene desde proceso</p>
-                <p><span className="font-semibold text-slate-700">Con BOL:</span> vinculada a documento comercial</p>
-                <p><span className="font-semibold text-slate-700">Sin ruta:</span> sin señal clara comercial/logística</p>
+                <p><span className="font-semibold text-emerald-700">{t('ptTag.table.criteriaDefinitive')}</span> {t('ptTag.criteria.definitiveDesc')}</p>
+                <p><span className="font-semibold text-amber-700">{t('ptTag.table.criteriaPending')}</span> {t('ptTag.criteria.pendingDesc')}</p>
+                <p><span className="font-semibold text-violet-700">{t('ptTag.table.criteriaRepallet')}</span> {t('ptTag.criteria.repalletDesc')}</p>
+                <p><span className="font-semibold text-sky-700">{t('ptTag.table.criteriaDirect')}</span> {t('ptTag.criteria.directDesc')}</p>
+                <p><span className="font-semibold text-slate-700">{t('ptTag.table.criteriaBol')}</span> {t('ptTag.criteria.bolDesc')}</p>
+                <p><span className="font-semibold text-slate-700">{t('ptTag.table.criteriaNoRoute')}</span> {t('ptTag.criteria.noRouteDesc')}</p>
                   </div>
             </details>
           </div>
         </div>
         {filteredTags.length === 0 ? (
-          <div className={cn(emptyStatePanel, 'py-14')}>No hay resultados. Creá una unidad o ajustá filtros.</div>
+          <div className={cn(emptyStatePanel, 'py-14')}>{t('ptTag.table.empty')}</div>
         ) : viewMode === 'compact' ? (
           <div className="space-y-2.5">
             {groupedTagsByFormat.map((group) => (
@@ -2249,15 +1938,16 @@ export function PtTagsPage() {
                   <div className="min-w-0">
                     <p className="font-mono text-sm font-semibold text-slate-900">{group.format}</p>
                     <p className="text-[11px] text-slate-500">
-                      {formatCount(group.totalCajas)} cajas · {formatLb(group.totalLb, 2)} lb · {formatCount(group.tags.length)} unidad(es)
+                      {formatCount(group.totalCajas)} {t('ptTag.table.groupBoxes')} · {formatLb(group.totalLb, 2)}{' '}
+                      {t('ptTag.table.groupLb')} · {formatCount(group.tags.length)} {t('ptTag.table.groupUnits')}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-900">
-                      Definitivas: {formatCount(group.definitivas)}
+                      {t('ptTag.table.groupDefinitive')} {formatCount(group.definitivas)}
                     </span>
                     <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
-                      Pendientes: {formatCount(group.pendientes)}
+                      {t('ptTag.table.groupPending')} {formatCount(group.pendientes)}
                     </span>
                     <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">
                       {group.clientSummary}
@@ -2268,21 +1958,21 @@ export function PtTagsPage() {
                   <Table className="min-w-[980px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Código / Tarja</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Productor</TableHead>
-                        <TableHead>Variedad</TableHead>
-                        <TableHead className="text-right">Cajas</TableHead>
-                        <TableHead className="text-right">Lb</TableHead>
-                        <TableHead>Trazabilidad</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                        <TableHead>{t('ptTag.table.colState')}</TableHead>
+                        <TableHead>{t('ptTag.table.colCode')}</TableHead>
+                        <TableHead>{t('ptTag.table.colClient')}</TableHead>
+                        <TableHead>{t('ptTag.table.colProducer')}</TableHead>
+                        <TableHead>{t('ptTag.table.colVariety')}</TableHead>
+                        <TableHead className="text-right">{t('ptTag.table.colBoxes')}</TableHead>
+                        <TableHead className="text-right">{t('ptTag.table.colLb')}</TableHead>
+                        <TableHead>{t('ptTag.table.colTrace')}</TableHead>
+                        <TableHead className="text-right">{t('ptTag.table.colActions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {group.tags.map((tag) => {
-                        const tone = compactTagStateTone(tag);
-                        const trace = compactTagTraceability(tag, dispatchedTagIds);
+                        const tone = compactTagStateTone(tag, t);
+                        const trace = compactTagTraceability(tag, dispatchedTagIds, t);
                         return (
                           <TableRow key={tag.id} className={cn(tableBodyRow, 'cursor-pointer hover:bg-slate-50/70')} onClick={() => setDetailTag(tag)}>
                             <TableCell className="py-2.5">
@@ -2310,10 +2000,10 @@ export function PtTagsPage() {
                             <TableCell className="py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-1.5">
                                 <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setDetailTag(tag)}>
-                                  Ver detalle
+                                  {t('ptTag.table.actionDetail')}
                       </Button>
                                 <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => openPrintDialog(tag)}>
-                                  Imprimir
+                                  {t('ptTag.table.actionPrint')}
                     </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -2332,24 +2022,24 @@ export function PtTagsPage() {
                                         }}
                                       >
                                         <Pencil className="mr-2 h-4 w-4" />
-                                        Editar
+                                        {t('ptTag.table.actionEdit')}
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem onClick={() => openLineage(tag)}>
                                       <Waypoints className="mr-2 h-4 w-4" />
-                                      Ver trazabilidad
+                                      {t('ptTag.table.actionTraceability')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
                                       <FileDown className="mr-2 h-4 w-4" />
-                                      PDF detalle / trazabilidad
+                                      {t('ptTag.table.actionPdfDetail')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
                                       <FileDown className="mr-2 h-4 w-4" />
-                                      PDF etiqueta pallet
+                                      {t('ptTag.table.actionPdfLabel')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
                                       <FileDown className="mr-2 h-4 w-4" />
-                                      Descargar ZPL etiqueta
+                                      {t('ptTag.table.actionZpl')}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -2357,7 +2047,7 @@ export function PtTagsPage() {
                                       onClick={() => setDeleteConfirmTag(tag)}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
-                                      Eliminar
+                                      {t('ptTag.table.actionDelete')}
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -2377,17 +2067,17 @@ export function PtTagsPage() {
             <Table className="min-w-[1140px] [&_td]:py-2.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right">
                         <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Código</TableHead>
-                            <TableHead>Productor</TableHead>
-                  <TableHead>Variedad</TableHead>
-                  <TableHead>Formato</TableHead>
-                  <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                  <TableHead className="text-right tabular-nums">Lb</TableHead>
-                  <TableHead>Proceso</TableHead>
-                  <TableHead>Comercial</TableHead>
-                  <TableHead className="whitespace-nowrap">Unión</TableHead>
+                  <TableHead>{t('ptTag.table.colState')}</TableHead>
+                  <TableHead>{t('ptTag.table.colDate')}</TableHead>
+                  <TableHead>{t('ptTag.table.colCode')}</TableHead>
+                            <TableHead>{t('ptTag.table.colProducer')}</TableHead>
+                  <TableHead>{t('ptTag.table.colVariety')}</TableHead>
+                  <TableHead>{t('ptTag.table.colFormat')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('ptTag.table.colBoxes')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('ptTag.table.colLb')}</TableHead>
+                  <TableHead>{t('ptTag.table.colProcess')}</TableHead>
+                  <TableHead>{t('ptTag.table.colCommercial')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('ptTag.table.colUnion')}</TableHead>
                   <TableHead className="text-right"> </TableHead>
                           </TableRow>
                         </TableHeader>
@@ -2399,7 +2089,7 @@ export function PtTagsPage() {
                     onClick={() => setDetailTag(tag)}
                   >
                     <TableCell>
-                      <OperationalTagBadge tag={tag} />
+                      <OperationalTagBadge tag={tag} t={t} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-slate-600">{formatTagDateShort(tag.fecha)}</TableCell>
                     <TableCell>
@@ -2432,7 +2122,7 @@ export function PtTagsPage() {
                     </TableCell>
                     <TableCell className="min-w-[140px]">
                       <div className="flex flex-col gap-1">
-                        <CommercialStatusBadge state={commercialAssignment(tag)} />
+                        <CommercialStatusBadge state={commercialAssignment(tag)} t={t} />
                         <span className="truncate text-[11px] text-slate-500" title={clientLabel(tag)}>
                           {clientLabel(tag)}
                         </span>
@@ -2444,7 +2134,7 @@ export function PtTagsPage() {
                           className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
                           title="Unión de 2+ tarjas"
                         >
-                          Sí
+                          {t('ptTag.table.unionYes')}
                         </span>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
@@ -2469,28 +2159,28 @@ export function PtTagsPage() {
                                 }}
                               >
                                 <Pencil className="mr-2 h-4 w-4" />
-                                Editar
+                                {t('ptTag.table.actionEdit')}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => openLineage(tag)}>
                               <Waypoints className="mr-2 h-4 w-4" />
-                              Ver trazabilidad
+                              {t('ptTag.table.actionTraceability')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'detalle')}>
                               <FileDown className="mr-2 h-4 w-4" />
-                              PDF detalle / trazabilidad
+                              {t('ptTag.table.actionPdfDetail')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
                               <FileDown className="mr-2 h-4 w-4" />
-                              PDF etiqueta pallet
+                              {t('ptTag.table.actionPdfLabel')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => void downloadPtTagZpl(tag)}>
                               <FileDown className="mr-2 h-4 w-4" />
-                              Descargar ZPL etiqueta
+                              {t('ptTag.table.actionZpl')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openPrintDialog(tag)}>
                               <Printer className="mr-2 h-4 w-4" />
-                              Imprimir etiqueta PT
+                              {t('ptTag.table.actionPrint')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -2498,7 +2188,7 @@ export function PtTagsPage() {
                               onClick={() => setDeleteConfirmTag(tag)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
+                              {t('ptTag.table.actionDelete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -2531,7 +2221,7 @@ export function PtTagsPage() {
                       : 'border-amber-200 bg-amber-50 text-amber-700',
                   )}
                 >
-                  {commercialAssignment(detailTag) === 'none' ? 'Disponible' : 'Asignado'}
+                  {commercialAssignment(detailTag) === 'none' ? t('ptTag.detail.available') : t('ptTag.detail.assigned')}
                 </span>
               ) : null}
             </div>
@@ -2546,10 +2236,10 @@ export function PtTagsPage() {
           {detailTag && (
             <div className="space-y-4 text-sm">
               <section className="space-y-2 rounded-lg border border-border/80 bg-muted/20 p-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Producto</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('ptTag.detail.sectionProduct')}</h3>
                 <dl className="grid gap-2 sm:grid-cols-2">
                   <DetailRow
-                    label="Proceso origen"
+                    label={t('ptTag.detail.labelProcessOrigin')}
                     value={
                       detailTag.items.length > 0
                         ? `#${detailTag.items[0].process_id} · ${
@@ -2561,54 +2251,55 @@ export function PtTagsPage() {
                     }
                   />
                   <DetailRow
-                    label="Cajas en línea"
+                    label={t('ptTag.detail.labelLineBoxes')}
                     value={
                       detailTag.items.length > 0
-                        ? `${detailTag.items[0].cajas_generadas} · Pallets: ${detailTag.items[0].pallets_generados}`
+                        ? `${detailTag.items[0].cajas_generadas} · ${t('ptTag.detail.labelBoxesPallets')} ${detailTag.items[0].pallets_generados}`
                         : '—'
                     }
                   />
-                  <DetailRow label="Productor" value={tagProducerLabel(detailTag, producerById)} />
-                  <DetailRow label="Especie" value={<EspeciesCell items={detailTag.items} processById={processById} />} />
-                  <DetailRow label="Variedad" value={<VariedadesCell items={detailTag.items} processById={processById} />} />
-                  <DetailRow label="Formato" value={<span className="font-mono">{detailTag.format_code}</span>} />
+                  <DetailRow label={t('ptTag.detail.labelProducer')} value={tagProducerLabel(detailTag, producerById)} />
+                  <DetailRow label={t('ptTag.detail.labelSpecies')} value={<EspeciesCell items={detailTag.items} processById={processById} />} />
+                  <DetailRow label={t('ptTag.detail.labelVariety')} value={<VariedadesCell items={detailTag.items} processById={processById} />} />
+                  <DetailRow label={t('ptTag.detail.labelFormat')} value={<span className="font-mono">{detailTag.format_code}</span>} />
                   <DetailRow
-                    label="Tipo PT"
+                    label={t('ptTag.detail.labelPtType')}
                     value={labelPtProductoPt(
                       RESULTADOS_PT.includes(detailTag.resultado as (typeof RESULTADOS_PT)[number])
                         ? (detailTag.resultado as (typeof RESULTADOS_PT)[number])
                         : 'cajas',
+                      t,
                     )}
                   />
-                  <DetailRow label="Cajas (total)" value={String(detailTag.total_cajas)} />
-                  <DetailRow label="Lb neto" value={fmtLbCell(detailTag.net_weight_lb)} />
+                  <DetailRow label={t('ptTag.detail.labelBoxesTotal')} value={String(detailTag.total_cajas)} />
+                  <DetailRow label={t('ptTag.detail.labelLb')} value={fmtLbCell(detailTag.net_weight_lb)} />
                 </dl>
               </section>
 
               <section className="space-y-2 rounded-lg border border-border/80 bg-muted/20 p-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comercial</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('ptTag.detail.sectionCommercial')}</h3>
                 <dl className="grid gap-2 sm:grid-cols-2">
-                  <DetailRow label="Cliente" value={clientLabel(detailTag)} />
-                  <DetailRow label="Marca" value={brandLabel(detailTag) ?? '—'} />
-                  <DetailRow label="BOL / referencia" value={detailTag.bol?.trim() || '—'} />
-                  <DetailRow label="Pedido previsto" value="—" />
-                  <DetailRow label="Clamshell" value="—" />
-                  <DetailRow label="Etiqueta" value="—" />
+                  <DetailRow label={t('ptTag.detail.labelClient')} value={clientLabel(detailTag)} />
+                  <DetailRow label={t('ptTag.detail.labelBrand')} value={brandLabel(detailTag) ?? '—'} />
+                  <DetailRow label={t('ptTag.detail.labelBol')} value={detailTag.bol?.trim() || '—'} />
+                  <DetailRow label={t('ptTag.detail.labelPlannedOrder')} value="—" />
+                  <DetailRow label={t('ptTag.detail.labelClamshell')} value="—" />
+                  <DetailRow label={t('ptTag.detail.labelLabel')} value="—" />
                 </dl>
               </section>
 
               <div className="flex flex-wrap gap-2 border-t border-border pt-3">
                 <Button type="button" variant="secondary" size="sm" onClick={() => openLineage(detailTag)}>
                   <Waypoints className="mr-1 h-3.5 w-3.5" />
-                  Trazabilidad
+                  {t('ptTag.detail.actionTraceability')}
                 </Button>
                 <Button type="button" variant="secondary" size="sm" onClick={() => void downloadPtPdf(detailTag, 'detalle')}>
                   <FileDown className="mr-1 h-3.5 w-3.5" />
-                  PDF detalle
+                  {t('ptTag.detail.actionPdfDetail')}
                 </Button>
                 <Button type="button" variant="secondary" size="sm" onClick={() => void downloadPtPdf(detailTag, 'etiqueta')}>
                   <FileDown className="mr-1 h-3.5 w-3.5" />
-                  PDF etiqueta
+                  {t('ptTag.detail.actionPdfLabel')}
                 </Button>
                 {canEditTag && (
                   <Button
@@ -2622,7 +2313,7 @@ export function PtTagsPage() {
                       setTagOpen(true);
                     }}
                   >
-                    Editar
+                    {t('ptTag.detail.actionEdit')}
                   </Button>
                 )}
                 <Button
@@ -2632,14 +2323,14 @@ export function PtTagsPage() {
                   onClick={() => setDeleteConfirmTag(detailTag)}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />
-                  Eliminar
+                  {t('ptTag.detail.actionDelete')}
                 </Button>
               </div>
             </div>
           )}
               <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDetailTag(null)}>
-              Cerrar
+              {t('ptTag.detail.closeButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2653,12 +2344,8 @@ export function PtTagsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Eliminar unidad PT</DialogTitle>
-            <DialogDescription>
-              Se borra la tarja, sus ítems de proceso vinculados en esta unidad, consumos de embalaje asociados y pallets
-              finales en borrador. No se puede si la unidad está en un despacho, en una factura, en un merge, o si un
-              pallet final ya está en packing list o despachado: en esos casos el sistema mostrará el motivo.
-            </DialogDescription>
+            <DialogTitle>{t('ptTag.delete.title')}</DialogTitle>
+            <DialogDescription>{t('ptTag.delete.description')}</DialogDescription>
           </DialogHeader>
           {deleteConfirmTag ? (
             <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm font-semibold text-slate-900">
@@ -2668,7 +2355,7 @@ export function PtTagsPage() {
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDeleteConfirmTag(null)}>
-                  Cancelar
+                  {t('ptTag.delete.cancelButton')}
                 </Button>
             <Button
               type="button"
@@ -2679,7 +2366,7 @@ export function PtTagsPage() {
                 deletePtTagMut.mutate(deleteConfirmTag.id);
               }}
             >
-              {deletePtTagMut.isPending ? 'Eliminando…' : 'Eliminar'}
+              {deletePtTagMut.isPending ? t('ptTag.delete.deletingButton') : t('ptTag.delete.deleteButton')}
                 </Button>
               </DialogFooter>
         </DialogContent>
@@ -2693,16 +2380,14 @@ export function PtTagsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Impresión de etiqueta PT</DialogTitle>
+            <DialogTitle>{t('ptTag.print.title')}</DialogTitle>
             <DialogDescription>
-              {printTag
-                ? `${printTag.tag_code} — ${printTag.format_code}`
-                : 'Elegí plantilla e impresora.'}
+              {printTag ? `${printTag.tag_code} — ${printTag.format_code}` : t('ptTag.print.title')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-1.5">
-              <Label>Tipo de etiqueta</Label>
+              <Label>{t('ptTag.print.labelTypeLabel')}</Label>
               <select
                 className={filterSelectClass}
                 value={printTemplate}
@@ -2724,12 +2409,12 @@ export function PtTagsPage() {
                   onChange={(e) => setPrintRememberTemplate(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300"
                 />
-                Recordar esta plantilla
+                {t('ptTag.print.rememberTemplate')}
               </label>
             </div>
             <div className="grid gap-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label className="mb-0">Impresora</Label>
+                <Label className="mb-0">{t('ptTag.print.printerLabel')}</Label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -2743,11 +2428,11 @@ export function PtTagsPage() {
                   ) : (
                     <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   )}
-                  Actualizar
+                  {t('ptTag.print.refreshButton')}
                 </Button>
               </div>
               {localServiceState === 'idle' && probingPrintService ? (
-                <p className="text-xs text-slate-500">Buscando impresora…</p>
+                <p className="text-xs text-slate-500">{t('ptTag.print.searching')}</p>
               ) : null}
               {localServiceState === 'ok' &&
               zebraPrinterList.length > 1 &&
@@ -2756,9 +2441,9 @@ export function PtTagsPage() {
                   <div className="flex gap-2.5 rounded-lg border border-emerald-200/90 bg-emerald-50 px-3 py-2.5">
                     <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-emerald-950">Lista para imprimir</p>
+                      <p className="text-sm font-medium text-emerald-950">{t('ptTag.print.readyTitle')}</p>
                       <p className="text-xs text-emerald-700">
-                        {zebraPrinterList.length} impresoras Zebra en este equipo
+                        {t('ptTag.print.printerCount', { count: zebraPrinterList.length })}
                       </p>
               </div>
                   </div>
@@ -2770,8 +2455,8 @@ export function PtTagsPage() {
                     {zebraPrinterList.map((p) => (
                       <option key={p.name} value={p.name}>
                         {p.name}
-                        {p.isDefault ? ' (predeterminada)' : ''}
-                        {localPrintService?.printer === p.name ? ' — sugerida' : ''}
+                        {p.isDefault ? ` ${t('ptTag.print.defaultSuffix')}` : ''}
+                        {localPrintService?.printer === p.name ? ` ${t('ptTag.print.suggestedSuffix')}` : ''}
                       </option>
                     ))}
                   </select>
@@ -2780,7 +2465,7 @@ export function PtTagsPage() {
                     className="w-fit text-left text-xs font-medium text-sky-700 underline decoration-sky-700/40 underline-offset-2 hover:text-sky-900"
                     onClick={() => setShowAllPrinters(true)}
                   >
-                    Mostrar todas las impresoras del equipo
+                    {t('ptTag.print.showAll')}
                   </button>
                 </div>
               ) : null}
@@ -2790,7 +2475,7 @@ export function PtTagsPage() {
                 <div className="flex gap-2.5 rounded-lg border border-emerald-200/90 bg-emerald-50 px-3 py-2.5">
                   <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-emerald-950">Lista para imprimir</p>
+                    <p className="text-sm font-medium text-emerald-950">{t('ptTag.print.readyTitle')}</p>
                     <p className="truncate text-sm text-emerald-900" title={zebraPrinterList[0].name}>
                       {zebraPrinterList[0].name}
                     </p>
@@ -2804,7 +2489,7 @@ export function PtTagsPage() {
               ) : null}
               {localServiceState === 'no_printer' ? (
                 <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm leading-snug text-rose-950">
-                  <p className="font-medium">Sin impresora Zebra</p>
+                  <p className="font-medium">{t('ptTag.print.noZebra')}</p>
                   <p className="mt-1 text-xs text-rose-800">{localServiceMessage}</p>
                   {localPrintService?.available_printers && localPrintService.available_printers.length > 0 ? (
                     <ul className="mt-2 max-h-28 list-inside list-disc overflow-y-auto space-y-0.5 text-xs text-rose-900/90">
@@ -2822,13 +2507,13 @@ export function PtTagsPage() {
               !localPrintService?.printer &&
               !showAllPrinters ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-800">
-                  No hay impresora Zebra en este equipo.{' '}
+                  {t('ptTag.print.noZebraFallback')}{' '}
                   <button
                     type="button"
                     className="font-medium text-sky-700 underline decoration-sky-700/50 underline-offset-2 hover:text-sky-800"
                     onClick={() => setShowAllPrinters(true)}
                   >
-                    Mostrar todas las impresoras
+                    {t('ptTag.print.showAllPrinters')}
                   </button>
                 </div>
               ) : null}
@@ -2841,14 +2526,12 @@ export function PtTagsPage() {
                     disabled={localServiceState !== 'ok'}
                   >
                     <option value="">
-                      {showAllPrinters
-                        ? 'Predeterminada del equipo'
-                        : 'Selección automática'}
+                      {showAllPrinters ? t('ptTag.print.defaultPrinter') : t('ptTag.print.autoPrinter')}
                     </option>
                     {(showAllPrinters ? localPrinters : zebraPrinterList).map((p) => (
                       <option key={p.name} value={p.name}>
                         {p.name}
-                        {p.isDefault ? ' (predeterminada)' : ''}
+                        {p.isDefault ? ` ${t('ptTag.print.defaultSuffix')}` : ''}
                       </option>
                     ))}
                   </select>
@@ -2871,7 +2554,7 @@ export function PtTagsPage() {
                       })
                     }
                   >
-                    {showAllPrinters ? 'Mostrar solo impresoras Zebra' : 'Mostrar todas las impresoras'}
+                    {showAllPrinters ? t('ptTag.print.showZebraOnly') : t('ptTag.print.showAllPrinters')}
                   </button>
                 </>
               ) : null}
@@ -2883,14 +2566,14 @@ export function PtTagsPage() {
                     onChange={(e) => setPrintRememberPrinter(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300"
                   />
-                  Recordar esta impresora en este equipo
+                  {t('ptTag.print.rememberPrinter')}
                 </label>
               ) : null}
               {localServiceState === 'unavailable' || localServiceState === 'error' ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
-                  <p className="font-medium">Servicio de impresión no disponible</p>
+                  <p className="font-medium">{t('ptTag.print.serviceUnavailableTitle')}</p>
                   <p className="mt-1 text-xs leading-snug text-amber-900">
-                    Iniciá el servicio de impresión en este PC o usá «Descargar ZPL» para imprimir manualmente.
+                    {t('ptTag.print.serviceUnavailableDesc')}
                   </p>
                   {localServiceMessage ? (
                     <p className="mt-2 border-t border-amber-200/80 pt-2 text-[11px] leading-snug text-amber-950/90">
@@ -2901,7 +2584,7 @@ export function PtTagsPage() {
               ) : null}
             </div>
             <div className="grid gap-1.5">
-              <Label>Copias</Label>
+              <Label>{t('ptTag.print.copiesLabel')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -2911,7 +2594,7 @@ export function PtTagsPage() {
                 onChange={(e) => setPrintCopies(Math.min(99, Math.max(1, Number(e.target.value) || 1)))}
               />
               <p className="text-xs text-slate-500">
-                Por defecto 1 copia por etiqueta enviada al servicio local.
+                {t('ptTag.print.copiesHint')}
               </p>
             </div>
           </div>
@@ -2925,7 +2608,7 @@ export function PtTagsPage() {
                 void downloadPtTagZpl(printTag, printTemplate);
               }}
             >
-              Descargar ZPL
+              {t('ptTag.print.downloadZpl')}
                 </Button>
             <Button
               type="button"
@@ -2960,7 +2643,7 @@ export function PtTagsPage() {
                 }).finally(() => setPrintingTag(false));
               }}
             >
-              {printingTag ? 'Imprimiendo…' : 'Imprimir'}
+              {printingTag ? t('ptTag.print.printingButton') : t('ptTag.print.printButton')}
                 </Button>
               </DialogFooter>
           {loadLastPrintPayload() != null ? (
@@ -2969,7 +2652,7 @@ export function PtTagsPage() {
               className="-mt-2 w-full px-6 text-center text-xs font-medium text-sky-700 underline decoration-sky-700/35 underline-offset-2 hover:text-sky-900"
               onClick={() => void reprintLastPtTagPayload()}
             >
-              Reimprimir última tarja
+              {t('ptTag.print.reprintLast')}
             </button>
           ) : null}
         </DialogContent>
@@ -2984,33 +2667,38 @@ export function PtTagsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Trazabilidad unidad PT #{lineageData?.tarja_id}</DialogTitle>
+            <DialogTitle>
+              {t('ptTag.lineage.titlePrefix')}
+              {lineageData?.tarja_id}
+            </DialogTitle>
           </DialogHeader>
           {lineageData && (
             <div className="space-y-3 text-sm">
               <div>
-                <p className="font-medium">Origen (ancestros)</p>
+                <p className="font-medium">{t('ptTag.lineage.originsTitle')}</p>
                 {lineageData.ancestors.length === 0 ? (
-                  <p className="text-muted-foreground">Ninguno</p>
+                  <p className="text-muted-foreground">{t('ptTag.lineage.noOrigins')}</p>
                 ) : (
                   <ul className="list-inside list-disc">
                     {lineageData.ancestors.map((a) => (
                       <li key={`${a.tarja_id}-${a.relation}`}>
-                        Unidad PT #{a.tarja_id} · {a.relation}
+                        {t('ptTag.lineage.unitPrefix')}
+                        {a.tarja_id} · {a.relation}
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
               <div>
-                <p className="font-medium">Derivados (descendientes)</p>
+                <p className="font-medium">{t('ptTag.lineage.derivedTitle')}</p>
                 {lineageData.descendants.length === 0 ? (
-                  <p className="text-muted-foreground">Ninguno</p>
+                  <p className="text-muted-foreground">{t('ptTag.lineage.noDerived')}</p>
                 ) : (
                   <ul className="list-inside list-disc">
                     {lineageData.descendants.map((a) => (
                       <li key={`${a.tarja_id}-${a.relation}`}>
-                        Unidad PT #{a.tarja_id} · {a.relation}
+                        {t('ptTag.lineage.unitPrefix')}
+                        {a.tarja_id} · {a.relation}
                       </li>
                     ))}
                   </ul>
@@ -3020,7 +2708,7 @@ export function PtTagsPage() {
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setLineageOpen(false)}>
-              Cerrar
+              {t('ptTag.lineage.closeButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
