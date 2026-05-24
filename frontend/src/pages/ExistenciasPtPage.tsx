@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Info, Layers, ListOrdered, RotateCcw, Tag, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
@@ -173,7 +174,13 @@ function BoxesHighlightCell({ r }: { r: ExistenciaPtRow }) {
   );
 }
 
-function PalletStatusBadge({ status }: { status: string }) {
+function PalletStatusBadge({
+  status,
+  t,
+}: {
+  status: string;
+  t: (key: string) => string;
+}) {
   const s = String(status || '').toLowerCase();
   const map: Record<string, string> = {
     definitivo: 'border-emerald-200/80 bg-emerald-50 text-emerald-900',
@@ -183,6 +190,14 @@ function PalletStatusBadge({ status }: { status: string }) {
     revertido: 'border-amber-200/80 bg-amber-50 text-amber-950',
     asignado_pl: 'border-sky-200/80 bg-sky-50 text-sky-900',
   };
+  const labelMap: Record<string, string> = {
+    definitivo: t('existenciasPt.palletStatus.definitivo'),
+    borrador: t('existenciasPt.palletStatus.borrador'),
+    anulado: t('existenciasPt.palletStatus.anulado'),
+    repaletizado: t('existenciasPt.palletStatus.repaletizado'),
+    revertido: t('existenciasPt.palletStatus.revertido'),
+    asignado_pl: t('existenciasPt.palletStatus.asignado_pl'),
+  };
   return (
     <span
       className={cn(
@@ -191,19 +206,25 @@ function PalletStatusBadge({ status }: { status: string }) {
       )}
       title={status}
     >
-      {status}
+      {labelMap[s] ?? status}
     </span>
   );
 }
 
-function RepalletEstadoCell({ r }: { r: ExistenciaPtRow }) {
+function RepalletEstadoCell({
+  r,
+  t,
+}: {
+  r: ExistenciaPtRow;
+  t: (key: string) => string;
+}) {
   if (r.repalletizaje === 'resultado') {
     return (
       <span
         className="inline-flex rounded-full border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-900"
-        title="Resultado de repaletizaje"
+        title={t('existenciasPt.repallet.resultTitle')}
       >
-        Resultado
+        {t('existenciasPt.repallet.result')}
       </span>
     );
   }
@@ -211,31 +232,40 @@ function RepalletEstadoCell({ r }: { r: ExistenciaPtRow }) {
     return (
       <span
         className="inline-flex rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-950"
-        title="Origen consumido en repallet"
+        title={t('existenciasPt.repallet.originTitle')}
       >
-        Origen
+        {t('existenciasPt.repallet.origin')}
       </span>
     );
   }
   return <span className="text-xs text-slate-400">—</span>;
 }
 
-function logisticaResumen(r: ExistenciaPtRow): string {
-  if (r.dispatch_bol?.trim()) return `BOL ${r.dispatch_bol.trim()}`;
-  if (r.sales_order_number?.trim()) return `Pedido ${r.sales_order_number.trim()}`;
-  if (r.planned_order_number?.trim()) return `Plan ${r.planned_order_number.trim()}`;
-  if (r.dispatch_id != null && r.dispatch_id > 0) return `Desp. #${r.dispatch_id}`;
+function logisticaResumen(
+  r: ExistenciaPtRow,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
+  if (r.dispatch_bol?.trim()) return t('existenciasPt.logistica.bol', { value: r.dispatch_bol.trim() });
+  if (r.sales_order_number?.trim()) return t('existenciasPt.logistica.order', { value: r.sales_order_number.trim() });
+  if (r.planned_order_number?.trim()) return t('existenciasPt.logistica.plan', { value: r.planned_order_number.trim() });
+  if (r.dispatch_id != null && r.dispatch_id > 0) return t('existenciasPt.logistica.dispatch', { value: r.dispatch_id });
   return '—';
 }
 
-function DisponibilidadBadge({ r }: { r: ExistenciaPtRow }) {
+function DisponibilidadBadge({
+  r,
+  t,
+}: {
+  r: ExistenciaPtRow;
+  t: (key: string) => string;
+}) {
   if (canBulkBol(r)) {
     return (
       <span
         className="inline-flex max-w-[140px] truncate rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-900"
-        title="Definitivo y sin despacho"
+        title={t('existenciasPt.disponibilidad.inDepositTitle')}
       >
-        En depósito
+        {t('existenciasPt.disponibilidad.inDeposit')}
       </span>
     );
   }
@@ -243,9 +273,9 @@ function DisponibilidadBadge({ r }: { r: ExistenciaPtRow }) {
     return (
       <span
         className="inline-flex max-w-[140px] truncate rounded-full border border-sky-200/80 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-900"
-        title="Reservado en packing list"
+        title={t('existenciasPt.disponibilidad.reservedPlTitle')}
       >
-        Reservado PL
+        {t('existenciasPt.disponibilidad.reservedPl')}
       </span>
     );
   }
@@ -253,17 +283,23 @@ function DisponibilidadBadge({ r }: { r: ExistenciaPtRow }) {
     return (
       <span
         className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-800"
-        title="Ya despachado"
+        title={t('existenciasPt.disponibilidad.dispatchedTitle')}
       >
-        Despachado
+        {t('existenciasPt.disponibilidad.dispatched')}
       </span>
     );
   }
   return <span className="text-[11px] text-slate-400">—</span>;
 }
 
-function LogisticaCell({ r }: { r: ExistenciaPtRow }) {
-  const line1 = logisticaResumen(r);
+function LogisticaCell({
+  r,
+  t,
+}: {
+  r: ExistenciaPtRow;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const line1 = logisticaResumen(r, t);
   const bol = r.bol?.trim();
   return (
     <div className="max-w-[168px] space-y-0.5">
@@ -279,30 +315,36 @@ function LogisticaCell({ r }: { r: ExistenciaPtRow }) {
   );
 }
 
-function compactStateTone(r: ExistenciaPtRow): { bar: string; label: string; badge: string } {
+function compactStateTone(
+  r: ExistenciaPtRow,
+  t: (key: string) => string
+): { bar: string; label: string; badge: string } {
   const s = String(r.status || '').toLowerCase();
   if (s === 'anulado') {
-    return { bar: 'bg-rose-400', label: 'Problema', badge: 'border-rose-200 bg-rose-50 text-rose-900' };
+    return { bar: 'bg-rose-400', label: t('existenciasPt.compactTone.problem'), badge: 'border-rose-200 bg-rose-50 text-rose-900' };
   }
   if (r.dispatch_id != null && Number(r.dispatch_id) > 0) {
-    return { bar: 'bg-slate-400', label: 'Despachado', badge: 'border-slate-200 bg-slate-100 text-slate-800' };
+    return { bar: 'bg-slate-400', label: t('existenciasPt.compactTone.dispatched'), badge: 'border-slate-200 bg-slate-100 text-slate-800' };
   }
   if (s === 'asignado_pl' || r.planned_sales_order_id != null) {
-    return { bar: 'bg-sky-400', label: 'Comprometido', badge: 'border-sky-200 bg-sky-50 text-sky-900' };
+    return { bar: 'bg-sky-400', label: t('existenciasPt.compactTone.committed'), badge: 'border-sky-200 bg-sky-50 text-sky-900' };
   }
   if (s === 'borrador' || s === 'revertido') {
-    return { bar: 'bg-amber-400', label: 'Pendiente', badge: 'border-amber-200 bg-amber-50 text-amber-900' };
+    return { bar: 'bg-amber-400', label: t('existenciasPt.compactTone.pending'), badge: 'border-amber-200 bg-amber-50 text-amber-900' };
   }
-  return { bar: 'bg-emerald-400', label: 'Disponible', badge: 'border-emerald-200 bg-emerald-50 text-emerald-900' };
+  return { bar: 'bg-emerald-400', label: t('existenciasPt.compactTone.available'), badge: 'border-emerald-200 bg-emerald-50 text-emerald-900' };
 }
 
-function compactTraceabilityBadges(r: ExistenciaPtRow): string[] {
+function compactTraceabilityBadges(
+  r: ExistenciaPtRow,
+  t: (key: string) => string
+): string[] {
   const out: string[] = [];
-  if (r.repalletizaje === 'resultado' || r.repalletizaje === 'origen') out.push('Re-paletizado');
-  if (r.dispatch_id != null && Number(r.dispatch_id) > 0) out.push('Despachado');
-  else if (r.status === 'asignado_pl' || r.planned_order_number?.trim()) out.push('En PL');
-  if (r.sales_order_number?.trim()) out.push('En pedido');
-  if (out.length === 0) out.push('Sin compromiso');
+  if (r.repalletizaje === 'resultado' || r.repalletizaje === 'origen') out.push(t('existenciasPt.traceability.repallet'));
+  if (r.dispatch_id != null && Number(r.dispatch_id) > 0) out.push(t('existenciasPt.traceability.dispatched'));
+  else if (r.status === 'asignado_pl' || r.planned_order_number?.trim()) out.push(t('existenciasPt.traceability.inPl'));
+  if (r.sales_order_number?.trim()) out.push(t('existenciasPt.traceability.inOrder'));
+  if (out.length === 0) out.push(t('existenciasPt.traceability.noCommit'));
   return out;
 }
 
@@ -368,6 +410,7 @@ type PalletTraceabilityResponse = {
 const TRACE_PREFETCH = 28;
 
 export function ExistenciasPtPage() {
+  const { t } = useTranslation('common');
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [speciesId, setSpeciesId] = useState(0);
@@ -613,7 +656,7 @@ export function ExistenciasPtPage() {
         body: JSON.stringify({ final_pallet_ids: [...selectedIds], bol }),
       }),
     onSuccess: (data) => {
-      toast.success(`BOL asignado a ${data.updated} registro(s) de Unidad PT.`);
+      toast.success(t('existenciasPt.toast.bolAssigned', { count: data.updated }));
       setBolDialogOpen(false);
       setBolInput('');
       setSelectedIds(new Set());
@@ -634,7 +677,7 @@ export function ExistenciasPtPage() {
       if (data.warnings?.length) {
         toast.warning(data.warnings.join(' '));
       }
-      toast.success('Packing list borrador creado.');
+      toast.success(t('existenciasPt.toast.plCreated'));
       setSelectedIds(new Set());
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['existencias-pt', 'reserved-pl'] });
@@ -740,7 +783,12 @@ export function ExistenciasPtPage() {
           byClient.set(c, (byClient.get(c) ?? 0) + r.boxes);
         }
         const sortedClients = [...byClient.entries()].sort((a, b) => b[1] - a[1]);
-        const principalClient = sortedClients.length === 0 ? 'Sin cliente' : sortedClients.length === 1 ? sortedClients[0][0] : 'Varios clientes';
+        const principalClient =
+          sortedClients.length === 0
+            ? t('existenciasPt.clientSummary.none')
+            : sortedClients.length === 1
+              ? sortedClients[0][0]
+              : t('existenciasPt.clientSummary.multiple');
         const sortedRows = g.rows
           .slice()
           .sort((a, b) => (a.client_nombre ?? '').localeCompare(b.client_nombre ?? '') || b.id - a.id);
@@ -752,20 +800,20 @@ export function ExistenciasPtPage() {
         };
       })
       .sort((a, b) => b.totalBoxes - a.totalBoxes);
-  }, [filteredRows]);
+  }, [filteredRows, t]);
 
   return (
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Existencias PT · Inventario cámara</h2>
+          <h2 className={pageTitle}>{t('existenciasPt.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>Stock PT en cámara, BOL, despacho y packing lists.</p>
+            <p className={pageSubtitle}>{t('existenciasPt.pageSubtitle')}</p>
             <button
               type="button"
               className={pageInfoButton}
               title="El pallet nace en Unidad PT (PF-…). Por defecto: definitivo, sin despacho. KPIs y reservas PL en paralelo a la API."
-              aria-label="Ayuda inventario"
+              aria-label={t('existenciasPt.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
@@ -775,19 +823,19 @@ export function ExistenciasPtPage() {
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/repaletizar" className="gap-2">
               <RotateCcw className="h-4 w-4" />
-              Repaletizaje
+              {t('existenciasPt.repalletButton')}
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/packing-lists" className="gap-2">
               <ListOrdered className="h-4 w-4" />
-              Packing Lists PT
+              {t('existenciasPt.plButton')}
             </Link>
           </Button>
           <Button asChild size="sm" className={cn(btnToolbarPrimary, 'px-4')}>
             <Link to="/pt-tags" className="gap-2">
               <Tag className="h-4 w-4" />
-              Unidad PT
+              {t('existenciasPt.ptUnitButton')}
             </Link>
           </Button>
         </div>
@@ -795,33 +843,33 @@ export function ExistenciasPtPage() {
 
       <section aria-labelledby="ex-kpis" className="space-y-4">
         <h2 id="ex-kpis" className="sr-only">
-          Indicadores de inventario
+          {t('existenciasPt.srKpis')}
         </h2>
         <div className={kpiGrid}>
           <div className={kpiCard}>
-            <p className={kpiLabel}>En cámara (filas)</p>
+            <p className={kpiLabel}>{t('existenciasPt.kpi.inCamera')}</p>
             <p className={kpiValueLg}>{isPending ? '—' : formatCount(totalEnListado)}</p>
-            <p className={kpiFootnote}>Listado actual · máx. 500</p>
+            <p className={kpiFootnote}>{t('existenciasPt.kpi.inCameraNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('existenciasPt.kpi.totalBoxes')}</p>
             <p className={kpiValueLg}>{isPending ? '—' : formatCount(kpiTotals.cajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('existenciasPt.kpi.totalBoxesNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Peso total (lb)</p>
+            <p className={kpiLabel}>{t('existenciasPt.kpi.totalLb')}</p>
             <p className={kpiValueLg}>{isPending ? '—' : fmtLb(kpiTotals.lb)}</p>
-            <p className={kpiFootnote}>Disponible</p>
+            <p className={kpiFootnote}>{t('existenciasPt.kpi.totalLbNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Unidades PT (tarjas)</p>
+            <p className={kpiLabel}>{t('existenciasPt.kpi.ptUnits')}</p>
             <p className={kpiValueLg}>{kpiPtDisponibles == null ? '—' : formatCount(kpiPtDisponibles)}</p>
-            <p className={kpiFootnote}>Con cajas · mismos filtros</p>
+            <p className={kpiFootnote}>{t('existenciasPt.kpi.ptUnitsNote')}</p>
           </div>
         </div>
         <div className={kpiGrid}>
           <div className="flex min-h-[132px] flex-col justify-between rounded-lg border border-border bg-background p-4">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reservadas packing list</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.kpi.reservedPl')}</p>
             <p
               className={cn(
                 'text-2xl font-semibold tabular-nums',
@@ -832,14 +880,14 @@ export function ExistenciasPtPage() {
             >
               {kpiUnidadesReservadasPl == null ? '—' : formatCount(kpiUnidadesReservadasPl)}
             </p>
-            <p className="text-[11px] text-muted-foreground">Estado asignado_pl · filtros alineados</p>
+            <p className="text-[11px] text-muted-foreground">{t('existenciasPt.kpi.reservedPlNote')}</p>
           </div>
         </div>
       </section>
 
       <div className={filterPanel}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('existenciasPt.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -851,7 +899,7 @@ export function ExistenciasPtPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Especie</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.species')}</Label>
             <select
               className={filterSelectClass}
               value={speciesId}
@@ -861,7 +909,7 @@ export function ExistenciasPtPage() {
                 setVarietyId(0);
               }}
             >
-              <option value={0}>Todas</option>
+              <option value={0}>{t('existenciasPt.filters.speciesAll')}</option>
               {(species ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nombre}
@@ -870,13 +918,13 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Variedad</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.variety')}</Label>
             <select
               className={filterSelectClass}
               value={varietyId}
               onChange={(e) => setVarietyId(Number(e.target.value))}
             >
-              <option value={0}>Todas</option>
+              <option value={0}>{t('existenciasPt.filters.varietyAll')}</option>
               {(varieties ?? [])
                 .filter((v) => (speciesId > 0 ? v.species_id === speciesId : true))
                 .map((v) => (
@@ -887,13 +935,13 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Formato</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.format')}</Label>
             <select
               className={filterSelectClass}
               value={formatId}
               onChange={(e) => setFormatId(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('existenciasPt.filters.formatAll')}</option>
               {(formats ?? [])
                 .filter((f) => f.activo)
                 .map((f) => (
@@ -904,13 +952,13 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.client')}</Label>
             <select
               className={filterSelectClass}
               value={clientId}
               onChange={(e) => setClientId(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('existenciasPt.filters.clientAll')}</option>
               {(clients ?? [])
                 .filter((c) => c.activo)
                 .map((c) => (
@@ -921,14 +969,14 @@ export function ExistenciasPtPage() {
             </select>
           </div>
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.status')}</Label>
             <select
               className={filterSelectClass}
               disabled={soloDeposito}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
-              <option value="">Todos (según reglas)</option>
+              <option value="">{t('existenciasPt.filters.statusAll')}</option>
               <option value="borrador">borrador</option>
               <option value="definitivo">definitivo</option>
               <option value="anulado">anulado</option>
@@ -938,26 +986,26 @@ export function ExistenciasPtPage() {
             </select>
               {soloDeposito ? (
               <p className="text-[11px] text-muted-foreground">
-                Fijo: definitivo, sin despacho, cajas/lb &gt; 0.
+                {t('existenciasPt.filters.statusFixed')}
               </p>
             ) : null}
           </div>
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">BOL</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.bol')}</Label>
             <select
               className={filterSelectClass}
               value={bolFilter}
               onChange={(e) => setBolFilter(e.target.value)}
               title="Filtra en el listado ya cargado (máx. 500 filas). No cambia la consulta al servidor."
             >
-              <option value="">Todos</option>
+              <option value="">{t('existenciasPt.filters.bolAll')}</option>
               {bolOptions.map((b) => (
                 <option key={b} value={b}>
                   {b}
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-muted-foreground">Solo BOL presentes en este lote.</p>
+            <p className="text-[11px] text-muted-foreground">{t('existenciasPt.filters.bolHint')}</p>
           </div>
           <div className="grid gap-2 sm:col-span-2 lg:col-span-3 xl:col-span-6">
             <div className="flex flex-wrap items-center gap-4">
@@ -971,7 +1019,7 @@ export function ExistenciasPtPage() {
                     if (e.target.checked) setStatus('');
                   }}
                 />
-                Solo disponibles en depósito (definitivo y sin despacho)
+                {t('existenciasPt.filters.depositOnly')}
               </label>
               {!soloDeposito ? (
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -981,7 +1029,7 @@ export function ExistenciasPtPage() {
                     checked={excluirAnulados}
                     onChange={(e) => setExcluirAnulados(e.target.checked)}
                   />
-                  Excluir anulados (si no elegís estado)
+                  {t('existenciasPt.filters.excludeVoided')}
                 </label>
               ) : null}
             </div>
@@ -993,23 +1041,27 @@ export function ExistenciasPtPage() {
         <div className="sticky top-0 z-40 flex flex-col gap-2 rounded-xl border border-slate-200 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85">
           {selectionByFormat.length > 0 ? (
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-slate-800">
-              {selectionByFormat.map(([fmt, t]) => (
+              {selectionByFormat.map(([fmt, sel]) => (
                 <span key={fmt} className="tabular-nums">
                   <span className="font-mono font-semibold text-slate-900">{fmt}</span>
                   <span className="text-slate-500"> · </span>
-                  <span className="font-semibold text-slate-900">{formatCount(t.boxes)}</span>
-                  <span className="text-slate-600"> cajas</span>
+                  <span className="font-semibold text-slate-900">{formatCount(sel.boxes)}</span>
+                  <span className="text-slate-600"> {t('existenciasPt.selection.boxes')}</span>
                   <span className="text-slate-500"> · </span>
-                  <span className="font-semibold text-slate-900">{t.pallets}</span>
-                  <span className="text-slate-600">{t.pallets === 1 ? ' pallet' : ' pallets'}</span>
+                  <span className="font-semibold text-slate-900">{sel.pallets}</span>
+                  <span className="text-slate-600">
+                    {sel.pallets === 1 ? ` ${t('existenciasPt.selection.pallet')}` : ` ${t('existenciasPt.selection.pallets')}`}
+                  </span>
                 </span>
               ))}
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-2 text-sm sm:border-0 sm:pt-0">
-            <span className="font-semibold tabular-nums text-slate-800">{selectedIds.size} seleccionado(s)</span>
+            <span className="font-semibold tabular-nums text-slate-800">
+              {selectedIds.size} {t('existenciasPt.selection.selected')}
+            </span>
             <Button type="button" size="sm" className="h-9 rounded-lg" onClick={() => setBolDialogOpen(true)}>
-              Asignar BOL
+              {t('existenciasPt.selection.assignBol')}
             </Button>
             <Button
               type="button"
@@ -1019,10 +1071,10 @@ export function ExistenciasPtPage() {
               disabled={createPlMut.isPending}
               onClick={() => createPlMut.mutate()}
             >
-              {createPlMut.isPending ? 'Creando…' : 'Crear packing list'}
+              {createPlMut.isPending ? t('existenciasPt.selection.creating') : t('existenciasPt.selection.createPl')}
             </Button>
             <Button type="button" size="sm" variant="ghost" className="h-9 rounded-lg" onClick={() => setSelectedIds(new Set())}>
-              Quitar selección
+              {t('existenciasPt.selection.clearSelection')}
             </Button>
           </div>
         </div>
@@ -1032,11 +1084,16 @@ export function ExistenciasPtPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h3 id="ex-inventario" className={sectionTitle}>
-              Inventario cámara
+              {t('existenciasPt.table.title')}
             </h3>
             <p className={sectionHint}>
-              {filteredRows.length} en vista
-              {(rows?.length ?? 0) !== filteredRows.length ? ` · ${rows?.length ?? 0} cargadas` : ''} · máx. 500
+              {t('existenciasPt.table.hint', {
+                filtered: filteredRows.length,
+                extra:
+                  (rows?.length ?? 0) !== filteredRows.length
+                    ? t('existenciasPt.table.hintExtra', { total: rows?.length ?? 0 })
+                    : '',
+              })}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1059,7 +1116,7 @@ export function ExistenciasPtPage() {
                 )}
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('existenciasPt.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -1071,31 +1128,37 @@ export function ExistenciasPtPage() {
                 )}
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('existenciasPt.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                Ver criterios
+                {t('existenciasPt.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
                 <p>
-                  <span className="font-semibold text-emerald-700">Disponible:</span> stock libre para uso logístico
+                  <span className="font-semibold text-emerald-700">{t('existenciasPt.table.criteriaAvailable')}</span>{' '}
+                  {t('existenciasPt.table.criteriaAvailableDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-sky-700">En PL:</span> unidad vinculada a Packing List
+                  <span className="font-semibold text-sky-700">{t('existenciasPt.table.criteriaInPl')}</span>{' '}
+                  {t('existenciasPt.table.criteriaInPlDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-amber-800">En pedido:</span> stock comprometido con pedido
+                  <span className="font-semibold text-amber-800">{t('existenciasPt.table.criteriaInOrder')}</span>{' '}
+                  {t('existenciasPt.table.criteriaInOrderDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-600">Despachado:</span> stock ya salido
+                  <span className="font-semibold text-slate-600">{t('existenciasPt.table.criteriaDispatched')}</span>{' '}
+                  {t('existenciasPt.table.criteriaDispatchedDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-violet-700">Re-paletizado:</span> unidad generada o modificada por repaletizaje
+                  <span className="font-semibold text-violet-700">{t('existenciasPt.table.criteriaRepallet')}</span>{' '}
+                  {t('existenciasPt.table.criteriaRepalletDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-700">Sin compromiso:</span> stock sin vínculo comercial/logístico actual
+                  <span className="font-semibold text-slate-700">{t('existenciasPt.table.criteriaNoCommit')}</span>{' '}
+                  {t('existenciasPt.table.criteriaNoCommitDesc')}
                 </p>
               </div>
             </details>
@@ -1109,12 +1172,12 @@ export function ExistenciasPtPage() {
             </div>
           ) : isError ? (
             <div role="alert" className={errorStatePanel}>
-              {(error as Error)?.message ?? 'Error al cargar'}
+              {(error as Error)?.message ?? t('existenciasPt.table.loadError')}
             </div>
           ) : !rows?.length ? (
-            <p className={emptyStatePanel}>No hay Unidades PT que coincidan con los filtros.</p>
+            <p className={emptyStatePanel}>{t('existenciasPt.table.empty')}</p>
           ) : !filteredRows.length ? (
-            <p className={emptyStatePanel}>Ningún pallet con el BOL elegido en este lote (máx. 500). Elegí Todos en BOL o ampliá filtros.</p>
+            <p className={emptyStatePanel}>{t('existenciasPt.table.emptyBol')}</p>
           ) : viewMode === 'compact' ? (
             <div className="space-y-4">
               {groupedByFormat.map((group) => (
@@ -1122,23 +1185,27 @@ export function ExistenciasPtPage() {
                   <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
                     <p className="font-mono text-sm font-semibold text-slate-900">{group.format}</p>
                     <p className="text-xs text-slate-600">
-                      <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                      <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span>{' '}
+                      {t('existenciasPt.selection.boxes')}
                     </p>
                     <p className="text-xs text-slate-600">
                       <span className="font-semibold text-slate-900">{fmtLb(group.totalLb)}</span> lb
                     </p>
-                    <p className="text-xs text-slate-600">{formatCount(group.pallets)} pallets</p>
                     <p className="text-xs text-slate-600">
-                      Cliente: <span className="font-medium text-slate-900">{group.principalClient}</span>
+                      {formatCount(group.pallets)} {t('existenciasPt.selection.pallets')}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {t('existenciasPt.table.clientLabel')}{' '}
+                      <span className="font-medium text-slate-900">{group.principalClient}</span>
                     </p>
                     {group.hasCommitted ? (
                       <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-900">
-                        Stock comprometido
+                        {t('existenciasPt.table.committed')}
                       </span>
                     ) : null}
                     {group.hasDispatched ? (
                       <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800">
-                        Con despachos
+                        {t('existenciasPt.table.withDispatches')}
                       </span>
                     ) : null}
                   </div>
@@ -1153,24 +1220,24 @@ export function ExistenciasPtPage() {
                             checked={allEligibleSelected}
                             disabled={eligibleRows.length === 0}
                             onChange={toggleSelectAllEligible}
-                            title="Seleccionar filas elegibles (definitivo, sin despacho)"
+                            title={t('existenciasPt.table.selectAllTitle')}
                           />
                         </TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Unidad PT / Pallet</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Productor</TableHead>
-                        <TableHead>Variedad</TableHead>
-                        <TableHead className="text-right">Cajas disp.</TableHead>
-                        <TableHead className="text-right">Peso (lb)</TableHead>
-                        <TableHead>Ubicación</TableHead>
-                        <TableHead>Trazabilidad</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                        <TableHead>{t('existenciasPt.table.colState')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colPtUnit')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colClient')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colProducer')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colVariety')}</TableHead>
+                        <TableHead className="text-right">{t('existenciasPt.table.colBoxesAvail')}</TableHead>
+                        <TableHead className="text-right">{t('existenciasPt.table.colLb')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colLocation')}</TableHead>
+                        <TableHead>{t('existenciasPt.table.colTrace')}</TableHead>
+                        <TableHead className="text-right">{t('existenciasPt.table.colActions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {group.rows.map((r) => {
-                        const tone = compactStateTone(r);
+                        const tone = compactStateTone(r, t);
                         const producerCell = producerLabelForPallet(r);
                         const vu = verUnidadesVisibility(r);
                         const codeDisplay =
@@ -1178,7 +1245,7 @@ export function ExistenciasPtPage() {
                           r.tag_code?.trim() ||
                           r.corner_board_code ||
                           `PF-${r.id}`;
-                        const traceBadges = compactTraceabilityBadges(r);
+                        const traceBadges = compactTraceabilityBadges(r, t);
                         return (
                           <TableRow key={r.id} className={cn(tableBodyRow, 'relative')}>
                             <TableCell className="w-11 py-2.5 pl-4 pr-0">
@@ -1237,10 +1304,12 @@ export function ExistenciasPtPage() {
                             <TableCell className="py-2.5 text-right">
                               <div className="flex justify-end gap-1.5">
                                 <Button asChild type="button" variant="outline" size="sm" className="h-7 rounded-md px-2 text-[11px]">
-                                  <Link to={`/existencias-pt/detalle/${r.id}`}>Ver detalle</Link>
+                                  <Link to={`/existencias-pt/detalle/${r.id}`}>{t('existenciasPt.table.actionDetail')}</Link>
                                 </Button>
                                 {vu === 'hide' ? (
-                                  <span className="inline-flex items-center text-[11px] text-slate-400">Sin detalle PT</span>
+                                  <span className="inline-flex items-center text-[11px] text-slate-400">
+                                    {t('existenciasPt.table.noDetailPt')}
+                                  </span>
                                 ) : (
                                   <Button
                                     type="button"
@@ -1254,7 +1323,7 @@ export function ExistenciasPtPage() {
                                     }}
                                   >
                                     <Layers className="h-3.5 w-3.5" />
-                                    Unidades
+                                    {t('existenciasPt.table.actionUnits')}
                                   </Button>
                                 )}
                               </div>
@@ -1280,22 +1349,22 @@ export function ExistenciasPtPage() {
                         checked={allEligibleSelected}
                         disabled={eligibleRows.length === 0}
                         onChange={toggleSelectAllEligible}
-                        title="Seleccionar filas elegibles (definitivo, sin despacho)"
+                        title={t('existenciasPt.table.selectAllTitle')}
                       />
                     </TableHead>
-                    <TableHead className="min-w-[120px]">Código / unidad</TableHead>
-                    <TableHead className="whitespace-nowrap">Estado</TableHead>
-                    <TableHead className="whitespace-nowrap">Formato</TableHead>
-                    <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                    <TableHead className="whitespace-nowrap text-right tabular-nums">Peso (lb)</TableHead>
-                    <TableHead className="min-w-[100px]">Cliente</TableHead>
-                    <TableHead className="min-w-[88px]">Ubicación</TableHead>
-                    <TableHead className="min-w-[120px]">Productor</TableHead>
-                    <TableHead className="min-w-[100px]">Variedad</TableHead>
-                    <TableHead className="min-w-[100px]">Condición</TableHead>
-                    <TableHead className="min-w-[120px]">Logística</TableHead>
-                    <TableHead className="whitespace-nowrap">Repallet</TableHead>
-                    <TableHead className="w-[132px] text-right">Acciones</TableHead>
+                    <TableHead className="min-w-[120px]">{t('existenciasPt.table.colCode')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('existenciasPt.table.colState')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('existenciasPt.table.colFormat')}</TableHead>
+                    <TableHead className="text-right tabular-nums">{t('existenciasPt.table.colBoxes')}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right tabular-nums">{t('existenciasPt.table.colLb')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('existenciasPt.table.colClient')}</TableHead>
+                    <TableHead className="min-w-[88px]">{t('existenciasPt.table.colLocation')}</TableHead>
+                    <TableHead className="min-w-[120px]">{t('existenciasPt.table.colProducer')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('existenciasPt.table.colVariety')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('existenciasPt.table.colCondition')}</TableHead>
+                    <TableHead className="min-w-[120px]">{t('existenciasPt.table.colLogistics')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('existenciasPt.table.colRepallet')}</TableHead>
+                    <TableHead className="w-[132px] text-right">{t('existenciasPt.table.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1318,8 +1387,8 @@ export function ExistenciasPtPage() {
                             onChange={() => toggleRow(r.id)}
                             title={
                               canBulkBol(r)
-                                ? 'Seleccionar para asignación de BOL'
-                                : 'Solo definitivos sin despacho'
+                                ? t('existenciasPt.table.selectRowTitle')
+                                : t('existenciasPt.table.selectRowDisabled')
                             }
                           />
                         </TableCell>
@@ -1340,7 +1409,7 @@ export function ExistenciasPtPage() {
                           </div>
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <PalletStatusBadge status={r.status} />
+                          <PalletStatusBadge status={r.status} t={t} />
                         </TableCell>
                         <TableCell className="py-3.5">
                           <span className="font-mono text-sm font-medium text-slate-800">{r.format_code ?? '—'}</span>
@@ -1374,13 +1443,13 @@ export function ExistenciasPtPage() {
                           ) : null}
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <DisponibilidadBadge r={r} />
+                          <DisponibilidadBadge r={r} t={t} />
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <LogisticaCell r={r} />
+                          <LogisticaCell r={r} t={t} />
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <RepalletEstadoCell r={r} />
+                          <RepalletEstadoCell r={r} t={t} />
                         </TableCell>
                         <TableCell className="py-3.5 text-right">
                           {vu === 'hide' ? (
@@ -1388,7 +1457,7 @@ export function ExistenciasPtPage() {
                               className="inline-block max-w-[118px] text-left text-[11px] leading-snug text-slate-400"
                               title="Este stock proviene de líneas sin vínculo a unidad PT por proceso (modelo actual). No hay listado de tarjas que mostrar."
                             >
-                              Sin detalle PT
+                              {t('existenciasPt.table.noDetailPt')}
                             </span>
                           ) : (
                             <Button
@@ -1403,12 +1472,12 @@ export function ExistenciasPtPage() {
                               }}
                               title={
                                 vu === 'wait'
-                                  ? 'Comprobando trazabilidad…'
-                                  : 'Ver unidades PT vinculadas vía proceso'
+                                  ? t('existenciasPt.table.checkingTrace')
+                                  : t('existenciasPt.table.viewPtUnits')
                               }
                             >
                               <Layers className="h-3.5 w-3.5" />
-                              Unidades
+                              {t('existenciasPt.table.actionUnits')}
                             </Button>
                           )}
                         </TableCell>
@@ -1436,14 +1505,14 @@ export function ExistenciasPtPage() {
           <div className="flex items-center border-b border-border px-4 py-3">
             <span className="mr-2 h-2 w-2 rounded-full bg-[#1D9E75]" aria-hidden />
             <span className="text-sm font-semibold">
-              Unidades PT · {unitsDialogPalletCode || '—'}
+              {t('existenciasPt.unitsDialog.title', { code: unitsDialogPalletCode || '—' })}
             </span>
             <div className="flex-1" />
             <button
               type="button"
               onClick={() => setUnitsForPalletId(null)}
               className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-              aria-label="Cerrar"
+              aria-label={t('existenciasPt.unitsDialog.closeAriaLabel')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -1452,18 +1521,17 @@ export function ExistenciasPtPage() {
             <div className={cn(operationalModalBodyClass, 'max-h-[min(58vh,520px)] overflow-y-auto lg:px-8')}>
           <div className="space-y-2 text-sm">
             <p className="text-[11px] leading-snug text-muted-foreground">
-              Tarjas vinculadas vía proceso (misma cadena que el detalle del pallet).
+              {t('existenciasPt.unitsDialog.hint')}
             </p>
             <details className="group text-[13px] text-muted-foreground">
               <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
                   <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                  Más contexto
+                  {t('existenciasPt.unitsDialog.moreContext')}
                 </span>
               </summary>
               <p className="mt-2 max-w-prose text-pretty leading-snug">
-                Tarjas vinculadas vía proceso de las líneas del registro logístico (misma cadena que la trazabilidad del detalle). El stock
-                mostrado en la tabla principal es el de cámara / existencias PT.
+                {t('existenciasPt.unitsDialog.moreContextDesc')}
               </p>
             </details>
             {unitsForPalletId != null && traceUnitsPending ? (
@@ -1473,12 +1541,11 @@ export function ExistenciasPtPage() {
               </div>
             ) : traceUnitsError ? (
               <div role="alert" className={errorStatePanel}>
-                No se pudo cargar la trazabilidad de este registro.
+                {t('existenciasPt.unitsDialog.loadError')}
               </div>
             ) : ptUnitsInDialog.length === 0 ? (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Este stock puede existir sin listado de unidades PT visibles: líneas sin proceso con tarja, o modelo
-                cargado antes de la trazabilidad completa. El total de cajas/lb sigue siendo válido para operación.
+                {t('existenciasPt.unitsDialog.emptyDesc')}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -1490,11 +1557,11 @@ export function ExistenciasPtPage() {
                     <div>
                       <span className="font-mono font-medium">{u.tag_code}</span>
                       <p className="text-xs text-muted-foreground">
-                        {u.total_cajas} cajas en la unidad PT (stock global de la tarja)
+                        {t('existenciasPt.unitsDialog.unitBoxes', { count: u.total_cajas })}
                       </p>
                     </div>
                     <Button variant="secondary" size="sm" asChild>
-                      <Link to="/pt-tags">Ir a Unidad PT</Link>
+                      <Link to="/pt-tags">{t('existenciasPt.unitsDialog.goToPtUnit')}</Link>
                     </Button>
                   </li>
                 ))}
@@ -1504,7 +1571,7 @@ export function ExistenciasPtPage() {
             </div>
           <DialogFooter className={operationalModalFooterClass}>
             <Button type="button" variant="outline" onClick={() => setUnitsForPalletId(null)}>
-              Cerrar
+              {t('existenciasPt.unitsDialog.closeButton')}
             </Button>
           </DialogFooter>
           </div>
@@ -1519,30 +1586,29 @@ export function ExistenciasPtPage() {
           )}
         >
           <DialogHeader className={operationalModalHeaderClass}>
-            <DialogTitle className={operationalModalTitleClass}>Asignar BOL</DialogTitle>
+            <DialogTitle className={operationalModalTitleClass}>{t('existenciasPt.bolDialog.title')}</DialogTitle>
             <DialogDescription className={operationalModalDescriptionClass}>
-              Mismo BOL para {selectedIds.size} registro(s) seleccionado(s), solo en estado definitivo sin despacho.
+              {t('existenciasPt.bolDialog.description', { count: selectedIds.size })}
             </DialogDescription>
             <details className="group text-[13px] text-muted-foreground">
               <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
                 <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
                   <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                  Alcance y corrección
+                  {t('existenciasPt.bolDialog.scopeTitle')}
                 </span>
               </summary>
               <p className="mt-2 max-w-prose text-pretty leading-snug">
-                Se aplicará el mismo BOL a los seleccionados. Solo aplica a Unidad PT en estado definitivo sin despacho; podés corregirlo
-                después desde el detalle o el flujo logístico habitual.
+                {t('existenciasPt.bolDialog.scopeDesc')}
               </p>
             </details>
           </DialogHeader>
           <div className={cn(operationalModalFormClass)}>
           <div className={cn(operationalModalBodyClass, 'lg:px-8')}>
           <div className="grid gap-2 py-2">
-            <Label htmlFor="bulk-bol">BOL (pedido)</Label>
+            <Label htmlFor="bulk-bol">{t('existenciasPt.bolDialog.bolLabel')}</Label>
             <Input
               id="bulk-bol"
-              placeholder="Ej. BOL-2026-0042"
+              placeholder={t('existenciasPt.bolDialog.bolPlaceholder')}
               value={bolInput}
               onChange={(e) => setBolInput(e.target.value)}
               autoComplete="off"
@@ -1551,14 +1617,14 @@ export function ExistenciasPtPage() {
           </div>
           <DialogFooter className={cn(operationalModalFooterClass, 'gap-2 sm:gap-0')}>
             <Button type="button" variant="outline" onClick={() => setBolDialogOpen(false)}>
-              Cancelar
+              {t('existenciasPt.bolDialog.cancelButton')}
             </Button>
             <Button
               type="button"
               disabled={bulkBolMut.isPending || selectedIds.size === 0}
               onClick={() => bulkBolMut.mutate(bolInput)}
             >
-              {bulkBolMut.isPending ? 'Guardando…' : 'Aplicar'}
+              {bulkBolMut.isPending ? t('existenciasPt.bolDialog.savingButton') : t('existenciasPt.bolDialog.applyButton')}
             </Button>
           </DialogFooter>
           </div>

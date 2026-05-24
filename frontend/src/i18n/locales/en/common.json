@@ -1000,5 +1000,177 @@
       "zplError": "Could not download ZPL",
       "destinationWarning": "It is recommended to assign a commercial destination (client, BOL or reference) for traceability."
     }
+  },
+  "existenciasPt": {
+    "pageTitle": "PT Stock · Camera inventory",
+    "pageSubtitle": "PT stock in camera, BOL, dispatch and packing lists.",
+    "repalletButton": "Repallet",
+    "plButton": "PT Packing Lists",
+    "ptUnitButton": "PT Unit",
+    "srKpis": "Inventory indicators",
+    "kpi": {
+      "inCamera": "In camera (rows)",
+      "inCameraNote": "Current list · max. 500",
+      "totalBoxes": "Total boxes",
+      "totalBoxesNote": "Sum in view",
+      "totalLb": "Total weight (lb)",
+      "totalLbNote": "Available",
+      "ptUnits": "PT units (tags)",
+      "ptUnitsNote": "With boxes · same filters",
+      "reservedPl": "Reserved packing list",
+      "reservedPlNote": "Status assigned_pl · aligned filters"
+    },
+    "filters": {
+      "title": "Filters",
+      "species": "Species",
+      "speciesAll": "All",
+      "variety": "Variety",
+      "varietyAll": "All",
+      "format": "Format",
+      "formatAll": "All",
+      "client": "Client",
+      "clientAll": "All",
+      "status": "Status",
+      "statusAll": "All (by rules)",
+      "statusFixed": "Fixed: definitive, no dispatch, boxes/lb > 0.",
+      "bol": "BOL",
+      "bolAll": "All",
+      "bolHint": "Only BOLs present in this batch.",
+      "depositOnly": "Available in depot only (definitive and no dispatch)",
+      "excludeVoided": "Exclude voided (if no status selected)"
+    },
+    "selection": {
+      "boxes": "boxes",
+      "pallet": "pallet",
+      "pallets": "pallets",
+      "selected": "selected",
+      "assignBol": "Assign BOL",
+      "createPl": "Create packing list",
+      "creating": "Creating…",
+      "clearSelection": "Clear selection"
+    },
+    "table": {
+      "title": "Camera inventory",
+      "hint": "{{filtered}} in view{{extra}} · max. 500",
+      "hintExtra": " · {{total}} loaded",
+      "selectAllTitle": "Select eligible rows (definitive, no dispatch)",
+      "selectRowTitle": "Select for BOL assignment",
+      "selectRowDisabled": "Definitive without dispatch only",
+      "viewCompact": "Compact",
+      "viewDetailed": "Detailed",
+      "criteria": "View criteria",
+      "criteriaAvailable": "Available:",
+      "criteriaAvailableDesc": "free stock for logistics use",
+      "criteriaInPl": "In PL:",
+      "criteriaInPlDesc": "unit linked to Packing List",
+      "criteriaInOrder": "In order:",
+      "criteriaInOrderDesc": "stock committed to order",
+      "criteriaDispatched": "Dispatched:",
+      "criteriaDispatchedDesc": "stock already shipped",
+      "criteriaRepallet": "Re-palletized:",
+      "criteriaRepalletDesc": "unit generated or modified by repallet",
+      "criteriaNoCommit": "No commitment:",
+      "criteriaNoCommitDesc": "stock without current commercial/logistics link",
+      "loadError": "Error loading",
+      "empty": "No PT Units match the current filters.",
+      "emptyBol": "No pallets with the selected BOL in this batch (max. 500). Choose All in BOL or expand filters.",
+      "colCode": "Code / unit",
+      "colState": "State",
+      "colFormat": "Format",
+      "colBoxes": "Boxes",
+      "colLb": "Weight (lb)",
+      "colClient": "Client",
+      "colLocation": "Location",
+      "colProducer": "Producer",
+      "colVariety": "Variety",
+      "colCondition": "Condition",
+      "colLogistics": "Logistics",
+      "colRepallet": "Repallet",
+      "colActions": "Actions",
+      "colPtUnit": "PT Unit / Pallet",
+      "colTrace": "Traceability",
+      "colBoxesAvail": "Avail. boxes",
+      "committed": "Committed stock",
+      "withDispatches": "With dispatches",
+      "clientLabel": "Client:",
+      "actionDetail": "View detail",
+      "actionUnits": "Units",
+      "noDetailPt": "No PT detail",
+      "checkingTrace": "Checking traceability…",
+      "viewPtUnits": "View PT units linked via process"
+    },
+    "compactTone": {
+      "problem": "Problem",
+      "dispatched": "Dispatched",
+      "committed": "Committed",
+      "pending": "Pending",
+      "available": "Available"
+    },
+    "traceability": {
+      "repallet": "Re-palletized",
+      "dispatched": "Dispatched",
+      "inPl": "In PL",
+      "inOrder": "In order",
+      "noCommit": "No commitment"
+    },
+    "disponibilidad": {
+      "inDeposit": "In depot",
+      "inDepositTitle": "Definitive and no dispatch",
+      "reservedPl": "Reserved PL",
+      "reservedPlTitle": "Reserved in packing list",
+      "dispatched": "Dispatched",
+      "dispatchedTitle": "Already dispatched"
+    },
+    "repallet": {
+      "result": "Result",
+      "resultTitle": "Repallet result",
+      "origin": "Origin",
+      "originTitle": "Origin consumed in repallet"
+    },
+    "logistica": {
+      "bol": "BOL {{value}}",
+      "order": "Order {{value}}",
+      "plan": "Plan {{value}}",
+      "dispatch": "Disp. #{{value}}"
+    },
+    "unitsDialog": {
+      "title": "PT Units · {{code}}",
+      "closeAriaLabel": "Close",
+      "hint": "Tags linked via process (same chain as pallet detail).",
+      "moreContext": "More context",
+      "moreContextDesc": "Tags linked via process from the logistics record lines (same chain as the detail traceability). The stock shown in the main table is the camera / PT stock.",
+      "loadError": "Could not load traceability for this record.",
+      "emptyDesc": "This stock may exist without visible PT unit list: lines without process with tag, or model loaded before full traceability. Total boxes/lb remain valid for operations.",
+      "unitBoxes": "{{count}} boxes in the PT unit (global tag stock)",
+      "goToPtUnit": "Go to PT Unit",
+      "closeButton": "Close"
+    },
+    "bolDialog": {
+      "title": "Assign BOL",
+      "description": "Same BOL for {{count}} selected record(s), definitive state without dispatch only.",
+      "scopeTitle": "Scope and correction",
+      "scopeDesc": "The same BOL will be applied to the selected records. Only applies to PT Unit in definitive state without dispatch; you can correct it later from the detail or the usual logistics flow.",
+      "bolLabel": "BOL (order)",
+      "bolPlaceholder": "E.g. BOL-2026-0042",
+      "cancelButton": "Cancel",
+      "savingButton": "Saving…",
+      "applyButton": "Apply"
+    },
+    "palletStatus": {
+      "definitivo": "Definitive",
+      "borrador": "Draft",
+      "anulado": "Voided",
+      "repaletizado": "Repalletized",
+      "revertido": "Reverted",
+      "asignado_pl": "Assigned PL"
+    },
+    "clientSummary": {
+      "none": "No client",
+      "multiple": "Multiple clients"
+    },
+    "toast": {
+      "bolAssigned": "BOL assigned to {{count}} PT Unit record(s).",
+      "plCreated": "Draft packing list created."
+    }
   }
 }

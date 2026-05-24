@@ -1000,5 +1000,177 @@
       "zplError": "No se pudo descargar ZPL",
       "destinationWarning": "Se recomienda asignar destino comercial (cliente, BOL o referencia) para trazabilidad."
     }
+  },
+  "existenciasPt": {
+    "pageTitle": "Existencias PT · Inventario cámara",
+    "pageSubtitle": "Stock PT en cámara, BOL, despacho y packing lists.",
+    "repalletButton": "Repaletizaje",
+    "plButton": "Packing Lists PT",
+    "ptUnitButton": "Unidad PT",
+    "srKpis": "Indicadores de inventario",
+    "kpi": {
+      "inCamera": "En cámara (filas)",
+      "inCameraNote": "Listado actual · máx. 500",
+      "totalBoxes": "Cajas totales",
+      "totalBoxesNote": "Suma en vista",
+      "totalLb": "Peso total (lb)",
+      "totalLbNote": "Disponible",
+      "ptUnits": "Unidades PT (tarjas)",
+      "ptUnitsNote": "Con cajas · mismos filtros",
+      "reservedPl": "Reservadas packing list",
+      "reservedPlNote": "Estado asignado_pl · filtros alineados"
+    },
+    "filters": {
+      "title": "Filtros",
+      "species": "Especie",
+      "speciesAll": "Todas",
+      "variety": "Variedad",
+      "varietyAll": "Todas",
+      "format": "Formato",
+      "formatAll": "Todos",
+      "client": "Cliente",
+      "clientAll": "Todos",
+      "status": "Estado",
+      "statusAll": "Todos (según reglas)",
+      "statusFixed": "Fijo: definitivo, sin despacho, cajas/lb > 0.",
+      "bol": "BOL",
+      "bolAll": "Todos",
+      "bolHint": "Solo BOL presentes en este lote.",
+      "depositOnly": "Solo disponibles en depósito (definitivo y sin despacho)",
+      "excludeVoided": "Excluir anulados (si no elegís estado)"
+    },
+    "selection": {
+      "boxes": "cajas",
+      "pallet": "pallet",
+      "pallets": "pallets",
+      "selected": "seleccionado(s)",
+      "assignBol": "Asignar BOL",
+      "createPl": "Crear packing list",
+      "creating": "Creando…",
+      "clearSelection": "Quitar selección"
+    },
+    "table": {
+      "title": "Inventario cámara",
+      "hint": "{{filtered}} en vista{{extra}} · máx. 500",
+      "hintExtra": " · {{total}} cargadas",
+      "selectAllTitle": "Seleccionar filas elegibles (definitivo, sin despacho)",
+      "selectRowTitle": "Seleccionar para asignación de BOL",
+      "selectRowDisabled": "Solo definitivos sin despacho",
+      "viewCompact": "Compacta",
+      "viewDetailed": "Detallada",
+      "criteria": "Ver criterios",
+      "criteriaAvailable": "Disponible:",
+      "criteriaAvailableDesc": "stock libre para uso logístico",
+      "criteriaInPl": "En PL:",
+      "criteriaInPlDesc": "unidad vinculada a Packing List",
+      "criteriaInOrder": "En pedido:",
+      "criteriaInOrderDesc": "stock comprometido con pedido",
+      "criteriaDispatched": "Despachado:",
+      "criteriaDispatchedDesc": "stock ya salido",
+      "criteriaRepallet": "Re-paletizado:",
+      "criteriaRepalletDesc": "unidad generada o modificada por repaletizaje",
+      "criteriaNoCommit": "Sin compromiso:",
+      "criteriaNoCommitDesc": "stock sin vínculo comercial/logístico actual",
+      "loadError": "Error al cargar",
+      "empty": "No hay Unidades PT que coincidan con los filtros.",
+      "emptyBol": "Ningún pallet con el BOL elegido en este lote (máx. 500). Elegí Todos en BOL o ampliá filtros.",
+      "colCode": "Código / unidad",
+      "colState": "Estado",
+      "colFormat": "Formato",
+      "colBoxes": "Cajas",
+      "colLb": "Peso (lb)",
+      "colClient": "Cliente",
+      "colLocation": "Ubicación",
+      "colProducer": "Productor",
+      "colVariety": "Variedad",
+      "colCondition": "Condición",
+      "colLogistics": "Logística",
+      "colRepallet": "Repallet",
+      "colActions": "Acciones",
+      "colPtUnit": "Unidad PT / Pallet",
+      "colTrace": "Trazabilidad",
+      "colBoxesAvail": "Cajas disp.",
+      "committed": "Stock comprometido",
+      "withDispatches": "Con despachos",
+      "clientLabel": "Cliente:",
+      "actionDetail": "Ver detalle",
+      "actionUnits": "Unidades",
+      "noDetailPt": "Sin detalle PT",
+      "checkingTrace": "Comprobando trazabilidad…",
+      "viewPtUnits": "Ver unidades PT vinculadas vía proceso"
+    },
+    "compactTone": {
+      "problem": "Problema",
+      "dispatched": "Despachado",
+      "committed": "Comprometido",
+      "pending": "Pendiente",
+      "available": "Disponible"
+    },
+    "traceability": {
+      "repallet": "Re-paletizado",
+      "dispatched": "Despachado",
+      "inPl": "En PL",
+      "inOrder": "En pedido",
+      "noCommit": "Sin compromiso"
+    },
+    "disponibilidad": {
+      "inDeposit": "En depósito",
+      "inDepositTitle": "Definitivo y sin despacho",
+      "reservedPl": "Reservado PL",
+      "reservedPlTitle": "Reservado en packing list",
+      "dispatched": "Despachado",
+      "dispatchedTitle": "Ya despachado"
+    },
+    "repallet": {
+      "result": "Resultado",
+      "resultTitle": "Resultado de repaletizaje",
+      "origin": "Origen",
+      "originTitle": "Origen consumido en repallet"
+    },
+    "logistica": {
+      "bol": "BOL {{value}}",
+      "order": "Pedido {{value}}",
+      "plan": "Plan {{value}}",
+      "dispatch": "Desp. #{{value}}"
+    },
+    "unitsDialog": {
+      "title": "Unidades PT · {{code}}",
+      "closeAriaLabel": "Cerrar",
+      "hint": "Tarjas vinculadas vía proceso (misma cadena que el detalle del pallet).",
+      "moreContext": "Más contexto",
+      "moreContextDesc": "Tarjas vinculadas vía proceso de las líneas del registro logístico (misma cadena que la trazabilidad del detalle). El stock mostrado en la tabla principal es el de cámara / existencias PT.",
+      "loadError": "No se pudo cargar la trazabilidad de este registro.",
+      "emptyDesc": "Este stock puede existir sin listado de unidades PT visibles: líneas sin proceso con tarja, o modelo cargado antes de la trazabilidad completa. El total de cajas/lb sigue siendo válido para operación.",
+      "unitBoxes": "{{count}} cajas en la unidad PT (stock global de la tarja)",
+      "goToPtUnit": "Ir a Unidad PT",
+      "closeButton": "Cerrar"
+    },
+    "bolDialog": {
+      "title": "Asignar BOL",
+      "description": "Mismo BOL para {{count}} registro(s) seleccionado(s), solo en estado definitivo sin despacho.",
+      "scopeTitle": "Alcance y corrección",
+      "scopeDesc": "Se aplicará el mismo BOL a los seleccionados. Solo aplica a Unidad PT en estado definitivo sin despacho; podés corregirlo después desde el detalle o el flujo logístico habitual.",
+      "bolLabel": "BOL (pedido)",
+      "bolPlaceholder": "Ej. BOL-2026-0042",
+      "cancelButton": "Cancelar",
+      "savingButton": "Guardando…",
+      "applyButton": "Aplicar"
+    },
+    "palletStatus": {
+      "definitivo": "Definitivo",
+      "borrador": "Borrador",
+      "anulado": "Anulado",
+      "repaletizado": "Repaletizado",
+      "revertido": "Revertido",
+      "asignado_pl": "Asignado PL"
+    },
+    "clientSummary": {
+      "none": "Sin cliente",
+      "multiple": "Varios clientes"
+    },
+    "toast": {
+      "bolAssigned": "BOL asignado a {{count}} registro(s) de Unidad PT.",
+      "plCreated": "Packing list borrador creado."
+    }
   }
 }
