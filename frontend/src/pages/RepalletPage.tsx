@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, Info, ListOrdered, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson } from '@/api';
 import { Button } from '@/components/ui/button';
@@ -86,7 +87,13 @@ function isPartialPallet(r: ExistenciaPtRow): boolean {
   return (Number(r.boxes) || 0) < max;
 }
 
-function PalletStatusBadge({ status }: { status: string }) {
+function PalletStatusBadge({
+  status,
+  t,
+}: {
+  status: string;
+  t: (key: string) => string;
+}) {
   const s = String(status || '').toLowerCase();
   const map: Record<string, string> = {
     definitivo: 'border-emerald-200/80 bg-emerald-50 text-emerald-900',
@@ -96,21 +103,35 @@ function PalletStatusBadge({ status }: { status: string }) {
     revertido: 'border-amber-200/80 bg-amber-50 text-amber-950',
     asignado_pl: 'border-sky-200/80 bg-sky-50 text-sky-900',
   };
+  const labelMap: Record<string, string> = {
+    definitivo: t('repallet.palletStatus.definitivo'),
+    borrador: t('repallet.palletStatus.borrador'),
+    anulado: t('repallet.palletStatus.anulado'),
+    repaletizado: t('repallet.palletStatus.repaletizado'),
+    revertido: t('repallet.palletStatus.revertido'),
+    asignado_pl: t('repallet.palletStatus.asignado_pl'),
+  };
   return (
     <span className={cn(badgePill, 'max-w-[140px]', map[s] ?? 'border-slate-200 bg-slate-50 text-slate-800')} title={status}>
-      {status}
+      {labelMap[s] ?? status}
     </span>
   );
 }
 
-function RepalletRoleBadge({ r }: { r: ExistenciaPtRow }) {
+function RepalletRoleBadge({
+  r,
+  t,
+}: {
+  r: ExistenciaPtRow;
+  t: (key: string) => string;
+}) {
   if (r.repalletizaje === 'resultado') {
     return (
       <span
         className="inline-flex rounded-full border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-900"
-        title="Resultado de repaletizaje"
+        title={t('repallet.roleBadge.resultTitle')}
       >
-        Resultado
+        {t('repallet.roleBadge.result')}
       </span>
     );
   }
@@ -118,20 +139,21 @@ function RepalletRoleBadge({ r }: { r: ExistenciaPtRow }) {
     return (
       <span
         className="inline-flex rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-950"
-        title="Origen consumido en repallet"
+        title={t('repallet.roleBadge.originTitle')}
       >
-        Origen
+        {t('repallet.roleBadge.origin')}
       </span>
     );
   }
   return (
     <span className="inline-flex rounded-full border border-slate-200/90 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-      Operativo
+      {t('repallet.roleBadge.operative')}
     </span>
   );
 }
 
 export function RepalletPage() {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: rows, isPending } = useQuery({
@@ -278,32 +300,35 @@ export function RepalletPage() {
       lines.push({
         key: 'sin-cajas',
         tone: 'warn',
-        text: `${formatCount(kpis.sinCajas)} pallet(s) con 0 cajas en la vista — revisá consistencia antes de mover stock.`,
+        text: t('repallet.alerts.sinCajas', { count: formatCount(kpis.sinCajas) }),
       });
     }
     if (kpis.conDespacho > 0) {
       lines.push({
         key: 'despacho',
         tone: 'info',
-        text: `${formatCount(kpis.conDespacho)} registro(s) muestran vínculo con despacho; el listado sigue el filtro “solo depósito” del servidor.`,
+        text: t('repallet.alerts.conDespacho', { count: formatCount(kpis.conDespacho) }),
       });
     }
     if (kpis.origen > 0 && kpis.resultado > 0) {
       lines.push({
         key: 'traza',
         tone: 'info',
-        text: `En vista: ${formatCount(kpis.origen)} origen(es) y ${formatCount(kpis.resultado)} resultado(s) de repaletizaje para trazabilidad.`,
+        text: t('repallet.alerts.traza', {
+          origins: formatCount(kpis.origen),
+          results: formatCount(kpis.resultado),
+        }),
       });
     }
     if (partialCountInBase > 0) {
       lines.push({
         key: 'parciales',
         tone: 'info',
-        text: `${formatCount(partialCountInBase)} pallet(s) con menos cajas que el tope del formato (en el universo antes de “solo incompletos”). Usá el filtro Completitud para acotar tabla y selectores de origen.`,
+        text: t('repallet.alerts.parciales', { count: formatCount(partialCountInBase) }),
       });
     }
     return lines;
-  }, [kpis.sinCajas, kpis.conDespacho, kpis.origen, kpis.resultado, partialCountInBase]);
+  }, [kpis.sinCajas, kpis.conDespacho, kpis.origen, kpis.resultado, partialCountInBase, t]);
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -329,11 +354,9 @@ export function RepalletPage() {
     },
   });
 
-  const helpBody =
-    'Tomá cajas de uno o más pallets en depósito (definitivo, sin despacho) y formá un pallet nuevo. La restricción principal es que compartan formato (y el resto de cabecera: cliente, especie, calidad operativa, packing, mercado, marca). Podés mezclar varias variedades en el destino; cada combinación proceso/variedad/ref queda en su línea. Registra el evento para trazabilidad.';
+  const helpBody = t('repallet.helpBody');
 
-  const nuevoRepalletInfo =
-    'Orígenes (FIFO por líneas). Los filtros (incl. Completitud: solo incompletos vs tope) y la tabla usan el mismo universo (solo depósito). Las cajas a mover no pueden superar lo disponible por pallet.';
+  const nuevoRepalletInfo = t('repallet.newRepalletInfo');
 
   const scrollToForm = () => {
     document.getElementById('repallet-origenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -358,12 +381,12 @@ export function RepalletPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Existencias PT · Repaletizaje</h2>
+          <h2 className={pageTitle}>{t('repallet.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <p className={pageSubtitle}>
-              Reorganizá cajas entre pallets PT en depósito y generá un pallet resultado con trazabilidad.
+              {t('repallet.pageSubtitle')}
             </p>
-            <button type="button" className={pageInfoButton} title={helpBody} aria-label="Ayuda repaletizaje">
+            <button type="button" className={pageInfoButton} title={helpBody} aria-label={t('repallet.pageTitle')}>
               <Info className="h-4 w-4" />
             </button>
           </div>
@@ -372,14 +395,14 @@ export function RepalletPage() {
               to="/existencias-pt/inventario"
               className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
             >
-              Volver a Existencias PT (inventario cámara)
+              {t('repallet.backLink')}
             </Link>
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" size="sm" className={btnToolbarOutline} onClick={scrollToForm}>
             <Plus className="mr-1.5 h-4 w-4" />
-            Configurar orígenes
+            {t('repallet.configButton')}
           </Button>
           <Button
             type="button"
@@ -388,7 +411,7 @@ export function RepalletPage() {
             disabled={totalCajasAMover === 0 || mut.isPending}
             onClick={() => mut.mutate()}
           >
-            {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
+            {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
           </Button>
         </div>
       </div>
@@ -396,8 +419,8 @@ export function RepalletPage() {
       <Card id="repallet-origenes" className={contentCard}>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className={cn(sectionTitle, 'mb-0')}>Nuevo repaletizaje</CardTitle>
-            <button type="button" className={pageInfoButton} title={nuevoRepalletInfo} aria-label="Instrucciones nuevo repaletizaje">
+            <CardTitle className={cn(sectionTitle, 'mb-0')}>{t('repallet.form.title')}</CardTitle>
+            <button type="button" className={pageInfoButton} title={nuevoRepalletInfo} aria-label={t('repallet.form.title')}>
               <Info className="h-4 w-4" />
             </button>
           </div>
@@ -407,13 +430,13 @@ export function RepalletPage() {
             <div className="min-w-0 space-y-5">
               <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
                 <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Formato (orígenes)</Label>
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.formatLabel')}</Label>
                   <select
                     className={filterSelectClass}
                     value={filterFormatId}
                     onChange={(e) => setFilterFormatId(Number(e.target.value))}
                   >
-                    <option value={0}>Todos los formatos</option>
+                    <option value={0}>{t('repallet.form.formatAll')}</option>
                     {formatOptions.map(([id, code]) => (
                       <option key={id} value={id}>
                         {code}
@@ -422,8 +445,7 @@ export function RepalletPage() {
                   </select>
                 </div>
                 <p className="max-w-md flex-1 text-[11px] leading-snug text-slate-500">
-                  Repaletizá dentro del mismo formato: al elegir uno, la lista y la tabla quedan alineadas. Los pallets con
-                  menos cajas que el tope del formato aparecen como parciales abajo.
+                  {t('repallet.form.formatHint')}
                 </p>
               </div>
           {sources.map((row, idx) => {
@@ -437,7 +459,7 @@ export function RepalletPage() {
                 className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end"
               >
                 <div className="grid min-w-0 flex-1 gap-2">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Pallet origen #{idx + 1}</Label>
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.sourceLabel', { n: idx + 1 })}</Label>
                   <select
                     className={filterSelectClass}
                     value={row.palletId || ''}
@@ -446,10 +468,10 @@ export function RepalletPage() {
                       setSources((prev) => prev.map((r) => (r.key === row.key ? { ...r, palletId: v } : r)));
                     }}
                   >
-                    <option value="">Seleccionar…</option>
+                    <option value="">{t('repallet.form.sourcePlaceholder')}</option>
                     {sortedOriginsForSelect.map((r) => {
                       const par = isPartialPallet(r);
-                      const label = `${par ? '◐ ' : ''}${palletDisplay(r)} · ${r.format_code ?? '—'} · ${r.boxes} cajas`;
+                      const label = `${par ? '◐ ' : ''}${palletDisplay(r)} · ${r.format_code ?? '—'} · ${r.boxes} ${t('repallet.form.boxesUnit')}`;
                       return (
                         <option key={r.id} value={r.id}>
                           {label}
@@ -465,14 +487,14 @@ export function RepalletPage() {
                       )}
                     >
                       {partial ? (
-                        <span title="Menos cajas que el tope del formato en maestro">Pallet parcial · </span>
+                        <span title={t('repallet.form.partialTitle')}>{t('repallet.form.partialBadge')} </span>
                       ) : null}
-                      Disponible: {meta.boxes} cajas · {meta.variedades_label}
+                      {t('repallet.form.available', { boxes: meta.boxes, varieties: meta.variedades_label })}
                     </p>
                   ) : null}
                 </div>
                 <div className="grid w-full gap-2 sm:w-40">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cajas a mover</Label>
+                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.boxesLabel')}</Label>
                   <Input
                     className={filterInputClass}
                     inputMode="numeric"
@@ -485,8 +507,8 @@ export function RepalletPage() {
                   />
                   {meta && row.boxes ? (
                     <p className="text-[11px] text-slate-500">
-                      Máx. sugerido: {max}
-                      {over ? <span className="text-destructive"> · supera disponible</span> : null}
+                      {t('repallet.form.maxSuggested', { max })}
+                      {over ? <span className="text-destructive"> {t('repallet.form.overAvailable')}</span> : null}
                     </p>
                   ) : null}
                 </div>
@@ -498,7 +520,7 @@ export function RepalletPage() {
                   disabled={sources.length <= 1}
                   onClick={() => setSources((prev) => prev.filter((r) => r.key !== row.key))}
                 >
-                  Quitar
+                  {t('repallet.form.removeButton')}
                 </Button>
               </div>
             );
@@ -511,16 +533,16 @@ export function RepalletPage() {
             className="h-9 rounded-xl"
             onClick={() => setSources((p) => [...p, newRow()])}
           >
-            Agregar origen
+            {t('repallet.form.addButton')}
           </Button>
 
           <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Notas</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.notesLabel')}</Label>
             <Input
               className={filterInputClass}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Referencia interna del movimiento"
+              placeholder={t('repallet.form.notesPlaceholder')}
             />
           </div>
 
@@ -532,7 +554,7 @@ export function RepalletPage() {
 
           <div className="flex flex-wrap gap-2 pt-1">
             <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
-              {mut.isPending ? 'Procesando…' : 'Crear pallet resultado'}
+              {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
             </Button>
           </div>
             </div>
@@ -546,7 +568,7 @@ export function RepalletPage() {
                   className={cn('h-4 w-4 shrink-0', totalCajasAMover > 0 ? 'text-[#1D9E75]' : 'text-muted-foreground')}
                   aria-hidden
                 />
-                <p className={kpiLabel}>Total cajas a mover</p>
+                <p className={kpiLabel}>{t('repallet.form.totalBoxes')}</p>
               </div>
               <p
                 className={cn(
@@ -556,7 +578,7 @@ export function RepalletPage() {
               >
                 {formatCount(totalCajasAMover)}
               </p>
-              <p className={cn(kpiFootnote, 'mt-1')}>Según filas de orígenes arriba</p>
+              <p className={cn(kpiFootnote, 'mt-1')}>{t('repallet.form.totalBoxesNote')}</p>
             </aside>
           </div>
         </CardContent>
@@ -564,7 +586,7 @@ export function RepalletPage() {
 
       <div className={filterPanel}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('repallet.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -576,13 +598,13 @@ export function RepalletPage() {
         </div>
         <div className="grid gap-3 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-xs text-slate-500">Especie</Label>
+            <Label className="text-xs text-slate-500">{t('repallet.filters.species')}</Label>
             <select
               className={filterSelectClass}
               value={filterSpeciesId}
               onChange={(e) => setFilterSpeciesId(Number(e.target.value))}
             >
-              <option value={0}>Todas</option>
+              <option value={0}>{t('repallet.filters.speciesAll')}</option>
               {speciesOptions.map(([id, nombre]) => (
                 <option key={id} value={id}>
                   {nombre}
@@ -591,13 +613,13 @@ export function RepalletPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Formato</Label>
+            <Label className="text-xs text-slate-500">{t('repallet.filters.format')}</Label>
             <select
               className={filterSelectClass}
               value={filterFormatId}
               onChange={(e) => setFilterFormatId(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('repallet.filters.formatAll')}</option>
               {formatOptions.map(([id, code]) => (
                 <option key={id} value={id}>
                   {code}
@@ -619,15 +641,15 @@ export function RepalletPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">Completitud</Label>
+            <Label className="text-xs text-slate-500">{t('repallet.filters.completeness')}</Label>
             <select
               className={filterSelectClass}
               value={filterPartialOnly}
               onChange={(e) => setFilterPartialOnly(e.target.value as 'all' | 'partial')}
               title="Solo pallets con cajas por debajo del tope del formato (si el maestro define tope)"
             >
-              <option value="all">Todos</option>
-              <option value="partial">Solo incompletos (vs tope)</option>
+              <option value="all">{t('repallet.filters.completenessAll')}</option>
+              <option value="partial">{t('repallet.filters.completenessPartial')}</option>
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-2">
@@ -646,47 +668,46 @@ export function RepalletPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="repallet-tabla" className={sectionTitle}>
-              Existencia en cámara (vista rápida)
+              {t('repallet.table.title')}
             </h2>
             <p className={sectionHint}>
-              {filteredRows.length} pallet(s) en tabla
+              {t('repallet.table.hint', { count: filteredRows.length })}
               {filterPartialOnly === 'partial' && filteredRowsBase.length > 0
-                ? ` (de ${filteredRowsBase.length} con filtros actuales)`
+                ? t('repallet.table.hintPartial', { total: filteredRowsBase.length })
                 : null}
               {filterPartialOnly === 'all' && partialCountInBase > 0
-                ? ` · ${partialCountInBase} incompletos vs tope`
+                ? t('repallet.table.hintIncomplete', { count: partialCountInBase })
                 : null}
-              {' · '}
-              mismo universo que los orígenes
+              {t('repallet.table.hintUniverse')}
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/inventario" className="gap-2">
               <ListOrdered className="h-4 w-4" />
-              Inventario cámara
+              {t('repallet.table.inventoryButton')}
             </Link>
           </Button>
         </div>
 
         {!rows?.length ? (
-          <p className={emptyStatePanel}>No hay pallets en depósito para repaletizar.</p>
+          <p className={emptyStatePanel}>{t('repallet.table.emptyAll')}</p>
         ) : !filteredRows.length ? (
           <p className={emptyStatePanel}>
             {filterPartialOnly === 'partial' && filteredRowsBase.length > 0
-              ? 'No hay pallets incompletos (vs tope de formato) con los filtros actuales.'
-              : 'Sin coincidencias con el filtro.'}
+              ? t('repallet.table.emptyPartial')
+              : t('repallet.table.emptyFilter')}
           </p>
         ) : (
           <div className={cn(tableShell, 'max-h-[min(52vh,520px)] overflow-auto')}>
             <Table className="min-w-[780px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[160px]">Código · estado</TableHead>
-                  <TableHead className="min-w-[72px]">Formato</TableHead>
-                  <TableHead className="min-w-[108px] text-right tabular-nums">Cajas / tope</TableHead>
-                  <TableHead className="min-w-[120px]">Cliente</TableHead>
-                  <TableHead className="min-w-[100px]">Marca</TableHead>
-                  <TableHead className="min-w-[100px]">BOL</TableHead>
+                  <TableHead className="min-w-[160px]">{t('repallet.table.colCode')}</TableHead>
+                  <TableHead className="min-w-[72px]">{t('repallet.table.colFormat')}</TableHead>
+                  <TableHead className="min-w-[108px] text-right tabular-nums">{t('repallet.table.colBoxes')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('repallet.table.colClient')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('repallet.table.colBrand')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('repallet.table.colBol')}</TableHead>
                   <TableHead className="w-[72px] text-right"> </TableHead>
                 </TableRow>
               </TableHeader>
@@ -699,8 +720,8 @@ export function RepalletPage() {
                     <TableCell className="max-w-[220px] py-2.5 align-middle">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="font-mono text-[12px] font-medium text-slate-900">{palletDisplay(r)}</span>
-                        <PalletStatusBadge status={r.status} />
-                        <RepalletRoleBadge r={r} />
+                        <PalletStatusBadge status={r.status} t={t} />
+                        <RepalletRoleBadge r={r} t={t} />
                       </div>
                     </TableCell>
                     <TableCell className="align-middle font-mono text-xs text-slate-800">
@@ -713,17 +734,17 @@ export function RepalletPage() {
                       )}
                       title={
                         r.max_boxes_per_pallet != null && r.max_boxes_per_pallet > 0
-                          ? 'Cajas actuales / tope del formato en maestro'
-                          : 'Sin tope definido para el formato'
+                          ? t('repallet.table.colBoxesTitle')
+                          : t('repallet.table.colBoxesNoLimit')
                       }
                     >
                       <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
                         {isPartialPallet(r) ? (
                           <span
                             className="inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-full border border-amber-200/90 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-950"
-                            title="Menos cajas que el tope del formato (pallet parcial)"
+                            title={t('repallet.table.partialBadgeTitle')}
                           >
-                            Parcial
+                            {t('repallet.table.partialBadge')}
                           </span>
                         ) : null}
                         <span className="font-mono text-[12px]">
@@ -751,7 +772,7 @@ export function RepalletPage() {
                     </TableCell>
                     <TableCell className="align-middle text-right">
                       <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-slate-700">
-                        <Link to={`/existencias-pt/detalle/${r.id}`}>Ver</Link>
+                        <Link to={`/existencias-pt/detalle/${r.id}`}>{t('repallet.table.actionView')}</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -764,7 +785,7 @@ export function RepalletPage() {
 
       {alertLines.length > 0 ? (
         <div className={signalsPanel}>
-          <p className={signalsTitle}>Señales operativas</p>
+          <p className={signalsTitle}>{t('repallet.alerts.title')}</p>
           <ul className="space-y-2">
             {alertLines.map((a) => (
               <li
@@ -785,29 +806,29 @@ export function RepalletPage() {
 
       <section aria-labelledby="repallet-kpis-resumen" className="space-y-3">
         <h2 id="repallet-kpis-resumen" className="sr-only">
-          Resumen
+          {t('repallet.kpis.srOnly')}
         </h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Pallets en vista</p>
+            <p className={kpiLabel}>{t('repallet.kpis.palletsInView')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.total)}</p>
             <p className={kpiFootnote}>
               {filterPartialOnly === 'partial'
-                ? 'Solo incompletos vs tope'
+                ? t('repallet.kpis.palletsNotePartial')
                 : partialCountInBase > 0
-                  ? `Filtros actuales · ${formatCount(partialCountInBase)} incompletos`
-                  : 'Filtros actuales'}
+                  ? t('repallet.kpis.palletsNoteIncomplete', { count: formatCount(partialCountInBase) })
+                  : t('repallet.kpis.palletsNoteAll')}
             </p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('repallet.kpis.totalBoxes')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('repallet.kpis.totalBoxesNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Peso (lb)</p>
+            <p className={kpiLabel}>{t('repallet.kpis.weight')}</p>
             <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('repallet.kpis.weightNote')}</p>
           </div>
           <div
             className={cn(
@@ -815,12 +836,15 @@ export function RepalletPage() {
               kpis.sinCajas > 0 ? 'border-amber-200/90 bg-amber-50/35' : '',
             )}
           >
-            <p className={kpiLabel}>Repallet / huecos</p>
+            <p className={kpiLabel}>{t('repallet.kpis.repalletTitle')}</p>
             <p className={cn(kpiValueMd, kpis.sinCajas > 0 ? 'text-amber-950' : '')}>
-              {formatCount(kpis.origen)} orig. · {formatCount(kpis.resultado)} res. ·{' '}
-              {formatCount(kpis.sinCajas)} sin cajas
+              {t('repallet.kpis.repalletValue', {
+                origins: formatCount(kpis.origen),
+                results: formatCount(kpis.resultado),
+                noBoxes: formatCount(kpis.sinCajas),
+              })}
             </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Trazas y anomalías</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('repallet.kpis.repalletNote')}</p>
           </div>
         </div>
       </section>
