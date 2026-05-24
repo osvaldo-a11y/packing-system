@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -78,6 +79,7 @@ function InlineCodigoNombreCatalogRow({
   activoPending: boolean;
   deletePending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const [codigo, setCodigo] = useState(row.codigo);
   const [nombre, setNombre] = useState(row.nombre);
   useEffect(() => {
@@ -89,7 +91,7 @@ function InlineCodigoNombreCatalogRow({
     const c = codigo.trim();
     const n = nombre.trim();
     if (!c || !n) {
-      toast.error('Código y nombre son obligatorios');
+      toast.error(t('masters.errCodeName'));
       setCodigo(row.codigo);
       setNombre(row.nombre);
       return;
@@ -212,6 +214,7 @@ function InlineProducerRow({
   activoPending: boolean;
   deletePending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const [codigo, setCodigo] = useState(row.codigo ?? '');
   const [nombre, setNombre] = useState(row.nombre);
   useEffect(() => {
@@ -223,7 +226,7 @@ function InlineProducerRow({
     const c = codigo.trim();
     const n = nombre.trim();
     if (!n) {
-      toast.error('El nombre es obligatorio');
+      toast.error(t('masters.errName'));
       setCodigo(row.codigo ?? '');
       setNombre(row.nombre);
       return;
@@ -558,24 +561,8 @@ type TabKey =
   | 'document_states'
   | 'containers';
 
-const MASTER_TAB_ITEMS: { key: TabKey; label: string }[] = [
-  { key: 'species', label: 'Especies' },
-  { key: 'producers', label: 'Productores' },
-  { key: 'varieties', label: 'Variedades' },
-  { key: 'quality', label: 'Calidades' },
-  { key: 'process_machines', label: 'Líneas de proceso' },
-  { key: 'process_results', label: 'Resultados proceso' },
-  { key: 'formats', label: 'Formatos N×Moz' },
-  { key: 'brands', label: 'Marcas' },
-  { key: 'clients', label: 'Clientes' },
-  { key: 'mercados', label: 'Mercados' },
-  { key: 'material_categories', label: 'Cat. materiales' },
-  { key: 'reception_types', label: 'Tipos recepción' },
-  { key: 'document_states', label: 'Estados doc.' },
-  { key: 'containers', label: 'Envases' },
-];
-
 export function MastersPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canWrite = role === 'admin' || role === 'supervisor';
   const queryClient = useQueryClient();
@@ -655,20 +642,37 @@ export function MastersPage() {
     queryFn: () => apiJson<BrandMasterRow[]>('/api/masters/brands?include_inactive=true'),
   });
 
+  const MASTER_TAB_ITEMS = [
+    { key: 'species' as const, label: t('masters.tabs.species') },
+    { key: 'producers' as const, label: t('masters.tabs.producers') },
+    { key: 'varieties' as const, label: t('masters.tabs.varieties') },
+    { key: 'quality' as const, label: t('masters.tabs.quality') },
+    { key: 'process_machines' as const, label: t('masters.tabs.process_machines') },
+    { key: 'process_results' as const, label: t('masters.tabs.process_results') },
+    { key: 'formats' as const, label: t('masters.tabs.formats') },
+    { key: 'brands' as const, label: t('masters.tabs.brands') },
+    { key: 'clients' as const, label: t('masters.tabs.clients') },
+    { key: 'mercados' as const, label: t('masters.tabs.mercados') },
+    { key: 'material_categories' as const, label: t('masters.tabs.material_categories') },
+    { key: 'reception_types' as const, label: t('masters.tabs.reception_types') },
+    { key: 'document_states' as const, label: t('masters.tabs.document_states') },
+    { key: 'containers' as const, label: t('masters.tabs.containers') },
+  ];
+
   return (
     <MastersRowFilterContext.Provider value={{ filter: rowFilter, setFilter: setRowFilter }}>
       <div className="space-y-4">
         <div>
-          <h1 className={pageTitle}>Mantenedores</h1>
-          <p className={pageSubtitle}>Catálogos de apoyo — alta y edición rápida.</p>
+          <h1 className={pageTitle}>{t('masters.pageTitle')}</h1>
+          <p className={pageSubtitle}>{t('masters.pageSubtitle')}</p>
         </div>
 
         {!canWrite && (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium">Solo lectura</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('masters.readOnly')}</CardTitle>
               <CardDescription className="text-xs">
-                Necesitás rol supervisor o admin para editar.{' '}
+                {t('masters.readOnlyDesc')}{' '}
                 <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
                   API
                 </a>
@@ -680,7 +684,7 @@ export function MastersPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           <div className="shrink-0 space-y-2 lg:w-52">
             <label htmlFor="masters-tab-select" className="sr-only">
-              Catálogo
+              {t('masters.catalogLabel')}
             </label>
             <select
               id="masters-tab-select"
@@ -697,7 +701,7 @@ export function MastersPage() {
                 </option>
               ))}
             </select>
-            <nav className="hidden max-h-[min(70vh,520px)] flex-col gap-0.5 overflow-y-auto pr-1 lg:flex" aria-label="Catálogos">
+            <nav className="hidden max-h-[min(70vh,520px)] flex-col gap-0.5 overflow-y-auto pr-1 lg:flex" aria-label={t('masters.catalogAriaLabel')}>
               {MASTER_TAB_ITEMS.map(({ key, label }) => (
                 <Button
                   key={key}
@@ -720,10 +724,10 @@ export function MastersPage() {
             <input
               type="search"
               className={filterInputClass}
-              placeholder="Filtrar filas del listado actual…"
+              placeholder={t('masters.filterPlaceholder')}
               value={rowFilter}
               onChange={(e) => setRowFilter(e.target.value)}
-              aria-label="Filtrar filas"
+              aria-label={t('masters.filterAriaLabel')}
             />
 
             {tab === 'species' && (
@@ -775,7 +779,7 @@ export function MastersPage() {
             )}
             {tab === 'mercados' && (
               <SimpleCatalogSection
-                title="Mercados"
+                title={t('masters.sections.mercados')}
                 list={mercadosList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
@@ -785,7 +789,7 @@ export function MastersPage() {
             )}
             {tab === 'material_categories' && (
               <SimpleCatalogSection
-                title="Categorías de materiales"
+                title={t('masters.sections.materialCategories')}
                 list={materialCategoriesList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
@@ -795,7 +799,7 @@ export function MastersPage() {
             )}
             {tab === 'reception_types' && (
               <SimpleCatalogSection
-                title="Tipos de recepción"
+                title={t('masters.sections.receptionTypes')}
                 list={receptionTypesList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
@@ -805,7 +809,7 @@ export function MastersPage() {
             )}
             {tab === 'document_states' && (
               <SimpleCatalogSection
-                title="Estados de documento"
+                title={t('masters.sections.documentStates')}
                 list={documentStatesList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
@@ -832,6 +836,7 @@ function ProcessMachinesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -861,7 +866,7 @@ function ProcessMachinesSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
-      toast.success('Línea de proceso creada');
+      toast.success(t('masters.toast.machineCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '', kind: 'single' });
     },
@@ -880,7 +885,7 @@ function ProcessMachinesSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
-      toast.success('Línea actualizada');
+      toast.success(t('masters.toast.machineUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -892,7 +897,7 @@ function ProcessMachinesSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -903,7 +908,7 @@ function ProcessMachinesSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-machines'] });
       setConfirmDeactivate(null);
-      toast.success('Línea borrada');
+      toast.success(t('masters.toast.machineDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -924,31 +929,31 @@ function ProcessMachinesSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Líneas de proceso</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.processMachines')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nueva línea
+                <Plus className="h-4 w-4" /> {t('masters.btn.newLine')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nueva línea</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newLine')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
-                    <Input placeholder="IQF-SINGLE" {...form.register('codigo')} autoComplete="off" />
+                    <Label>{t('masters.label.code')}</Label>
+                    <Input placeholder={t('masters.placeholder.codeIqf')} {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Tipo</Label>
+                  <Label>{t('masters.label.type')}</Label>
                   <select
                     className={filterSelectClass}
                     {...form.register('kind')}
@@ -971,10 +976,10 @@ function ProcessMachinesSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead className="w-24">Tipo</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead className="w-24">{t('masters.col.type')}</TableHead>
+              <TableHead className="w-20">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
@@ -1008,7 +1013,7 @@ function ProcessMachinesSection({
           <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Editar línea #{editing.id}</DialogTitle>
+                <DialogTitle>{t('masters.dialog.editLine', { id: editing.id })}</DialogTitle>
               </DialogHeader>
               <EditProcessMachineForm
                 row={editing}
@@ -1045,6 +1050,7 @@ function EditProcessMachineForm({
   onClose: () => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const f = useForm<z.infer<typeof editProcessMachineSchema>>({
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -1068,15 +1074,15 @@ function EditProcessMachineForm({
       className="grid gap-3"
     >
       <div className="grid gap-2">
-        <Label>Código</Label>
+        <Label>{t('masters.label.code')}</Label>
         <Input {...f.register('codigo')} />
       </div>
       <div className="grid gap-2">
-        <Label>Nombre</Label>
+        <Label>{t('masters.label.name')}</Label>
         <Input {...f.register('nombre')} />
       </div>
       <div className="grid gap-2">
-        <Label>Tipo</Label>
+        <Label>{t('masters.label.type')}</Label>
         <select className={filterSelectClass} {...f.register('kind')}>
           <option value="single">Single</option>
           <option value="double">Double</option>
@@ -1105,6 +1111,7 @@ function BrandsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -1137,7 +1144,7 @@ function BrandsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
-      toast.success('Marca creada');
+      toast.success(t('masters.toast.brandCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '', client_id: 0 });
     },
@@ -1162,7 +1169,7 @@ function BrandsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
-      toast.success('Marca actualizada');
+      toast.success(t('masters.toast.brandUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1174,7 +1181,7 @@ function BrandsSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1185,7 +1192,7 @@ function BrandsSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'brands'] });
       setConfirmDeactivate(null);
-      toast.success('Marca borrada');
+      toast.success(t('masters.toast.brandDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -1206,31 +1213,31 @@ function BrandsSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Marcas</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.brands')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nueva marca
+                <Plus className="h-4 w-4" /> {t('masters.btn.newBrand')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nueva marca</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newBrand')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
-                    <Input {...form.register('codigo')} placeholder="ALP-SP" autoComplete="off" />
+                    <Label>{t('masters.label.code')}</Label>
+                    <Input {...form.register('codigo')} placeholder={t('masters.placeholder.codeAlp')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Cliente (opc.)</Label>
+                  <Label>{t('masters.label.clientOpt')}</Label>
                   <select
                     className={filterSelectClass}
                     {...form.register('client_id', { valueAsNumber: true })}
@@ -1259,10 +1266,10 @@ function BrandsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="w-24">Estado</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead>{t('masters.col.client')}</TableHead>
+              <TableHead className="w-24">{t('masters.col.state')}</TableHead>
               {canWrite ? <TableHead className="w-[100px]" /> : null}
             </TableRow>
           </TableHeader>
@@ -1305,7 +1312,7 @@ function BrandsSection({
         <Dialog open={editId != null} onOpenChange={(o) => !o && setEditId(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Editar marca</DialogTitle>
+              <DialogTitle>{t('masters.dialog.editBrand')}</DialogTitle>
             </DialogHeader>
             <BrandEditForm
               row={editing}
@@ -1344,6 +1351,7 @@ function BrandEditForm({
   onSave: (body: { codigo: string; nombre: string; client_id: number | null }) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const f = useForm<z.infer<typeof editBrandSchema>>({
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -1367,15 +1375,15 @@ function BrandEditForm({
       className="grid gap-3"
     >
       <div className="grid gap-2">
-        <Label>Código</Label>
+        <Label>{t('masters.label.code')}</Label>
         <Input {...f.register('codigo')} />
       </div>
       <div className="grid gap-2">
-        <Label>Nombre</Label>
+        <Label>{t('masters.label.name')}</Label>
         <Input {...f.register('nombre')} />
       </div>
       <div className="grid gap-2">
-        <Label>Cliente</Label>
+        <Label>{t('masters.label.client')}</Label>
         <select
           className={filterSelectClass}
           {...f.register('client_id', { valueAsNumber: true })}
@@ -1411,6 +1419,7 @@ function ContainersSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -1440,7 +1449,7 @@ function ContainersSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
-      toast.success('Envase creado');
+      toast.success(t('masters.toast.containerCreated'));
       setOpen(false);
       form.reset({ tipo: '', capacidad: '', requiere_retorno: false });
     },
@@ -1461,7 +1470,7 @@ function ContainersSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
-      toast.success('Envase actualizado');
+      toast.success(t('masters.toast.containerUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1473,7 +1482,7 @@ function ContainersSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1484,7 +1493,7 @@ function ContainersSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'returnable-containers'] });
       setConfirmDeactivate(null);
-      toast.success('Envase borrado');
+      toast.success(t('masters.toast.containerDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -1505,32 +1514,32 @@ function ContainersSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Envases retornables</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.containers')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo envase
+                <Plus className="h-4 w-4" /> {t('masters.btn.newContainer')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nuevo envase</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newContainer')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Tipo</Label>
-                    <Input placeholder="Lug blue" {...form.register('tipo')} autoComplete="off" />
+                    <Label>{t('masters.label.type')}</Label>
+                    <Input placeholder={t('masters.placeholder.lugBlue')} {...form.register('tipo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Capacidad</Label>
-                    <Input placeholder="3,25 lb" {...form.register('capacidad')} autoComplete="off" />
+                    <Label>{t('masters.label.capacity')}</Label>
+                    <Input placeholder={t('masters.placeholder.capacity')} {...form.register('capacidad')} autoComplete="off" />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" {...form.register('requiere_retorno')} />
-                  Requiere retorno
+                  {t('masters.label.requiresReturn')}
                 </label>
                 <DialogFooter>
                   <Button type="submit" disabled={createMut.isPending}>
@@ -1546,10 +1555,10 @@ function ContainersSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Capacidad</TableHead>
-              <TableHead className="w-24">Retorno</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
+              <TableHead>{t('masters.col.type')}</TableHead>
+              <TableHead>{t('masters.col.capacity')}</TableHead>
+              <TableHead className="w-24">{t('masters.col.return')}</TableHead>
+              <TableHead className="w-20">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
@@ -1586,7 +1595,7 @@ function ContainersSection({
           <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Editar envase #{editing.id}</DialogTitle>
+                <DialogTitle>{t('masters.dialog.editContainer', { id: editing.id })}</DialogTitle>
               </DialogHeader>
               <EditContainerForm
                 key={editing.id}
@@ -1624,6 +1633,7 @@ function EditContainerForm({
   onCancel: () => void;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const form = useForm({
     defaultValues: {
       tipo: row.tipo,
@@ -1644,16 +1654,16 @@ function EditContainerForm({
       className="grid gap-3"
     >
       <div className="grid gap-2">
-        <Label>Tipo</Label>
+        <Label>{t('masters.label.type')}</Label>
         <Input {...form.register('tipo')} />
       </div>
       <div className="grid gap-2">
-        <Label>Capacidad</Label>
+        <Label>{t('masters.label.capacity')}</Label>
         <Input {...form.register('capacidad')} />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" {...form.register('requiere_retorno')} />
-        Requiere retorno
+        {t('masters.label.requiresReturn')}
       </label>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
@@ -1676,6 +1686,7 @@ function QualitySection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -1704,7 +1715,7 @@ function QualitySection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
-      toast.success('Calidad creada');
+      toast.success(t('masters.toast.qualityCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '', purpose: 'both' });
     },
@@ -1723,7 +1734,7 @@ function QualitySection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
-      toast.success('Calidad actualizada');
+      toast.success(t('masters.toast.qualityUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1734,7 +1745,7 @@ function QualitySection({
       apiJson(`/api/masters/quality-grades/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
       setConfirmDeactivate(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1746,7 +1757,7 @@ function QualitySection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'quality-grades'] });
       setConfirmDeactivate(null);
-      toast.success('Calidad borrada');
+      toast.success(t('masters.toast.qualityDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -1767,31 +1778,31 @@ function QualitySection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Calidades</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.quality')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nueva
+                <Plus className="h-4 w-4" /> {t('masters.btn.newF')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nueva calidad</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newQuality')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
+                    <Label>{t('masters.label.code')}</Label>
                     <Input {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Uso</Label>
+                  <Label>{t('masters.label.use')}</Label>
                   <select
                     className={filterSelectClass}
                     {...form.register('purpose')}
@@ -1815,10 +1826,10 @@ function QualitySection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Uso</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead>{t('masters.col.use')}</TableHead>
+              <TableHead className="w-20">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
@@ -1851,7 +1862,7 @@ function QualitySection({
           <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Editar calidad</DialogTitle>
+                <DialogTitle>{t('masters.dialog.editQuality')}</DialogTitle>
               </DialogHeader>
               <QualityEditForm
                 row={editing}
@@ -1888,6 +1899,7 @@ function QualityEditForm({
   onSave: (body: z.infer<typeof qualityEditSchema>) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const f = useForm<z.infer<typeof qualityEditSchema>>({
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -1910,15 +1922,15 @@ function QualityEditForm({
       className="grid gap-3"
     >
       <div className="grid gap-2">
-        <Label>Código</Label>
+        <Label>{t('masters.label.code')}</Label>
         <Input {...f.register('codigo')} />
       </div>
       <div className="grid gap-2">
-        <Label>Nombre</Label>
+        <Label>{t('masters.label.name')}</Label>
         <Input {...f.register('nombre')} />
       </div>
       <div className="grid gap-2">
-        <Label>Uso</Label>
+        <Label>{t('masters.label.use')}</Label>
         <select
           className={filterSelectClass}
           {...f.register('purpose')}
@@ -1949,6 +1961,7 @@ function SpeciesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -1969,7 +1982,7 @@ function SpeciesSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
-      toast.success('Especie creada');
+      toast.success(t('masters.toast.speciesCreated'));
       setOpen(false);
       form.reset();
     },
@@ -1984,7 +1997,7 @@ function SpeciesSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
-      toast.success('Especie actualizada');
+      toast.success(t('masters.toast.speciesUpdated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2001,7 +2014,7 @@ function SpeciesSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
-      toast.success('Especie duplicada');
+      toast.success(t('masters.toast.speciesDuplicated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2011,7 +2024,7 @@ function SpeciesSection({
       apiJson(`/api/masters/species/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2022,7 +2035,7 @@ function SpeciesSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species'] });
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
-      toast.success('Especie borrada');
+      toast.success(t('masters.toast.speciesDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -2041,27 +2054,27 @@ function SpeciesSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Especies</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.species')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> + Nuevo
+                <Plus className="h-4 w-4" /> {t('masters.btn.new')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Nueva especie</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newSpecies')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
-                    <Input placeholder="ARB" {...form.register('codigo')} autoComplete="off" />
+                    <Label>{t('masters.label.code')}</Label>
+                    <Input placeholder={t('masters.placeholder.codeArb')} {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
-                    <Input placeholder="Arándano" {...form.register('nombre')} autoComplete="off" />
+                    <Label>{t('masters.label.name')}</Label>
+                    <Input placeholder={t('masters.placeholder.nameArberry')} {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <DialogFooter>
@@ -2079,9 +2092,9 @@ function SpeciesSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                <TableHead>{t('masters.col.code')}</TableHead>
+                <TableHead>{t('masters.col.name')}</TableHead>
+                <TableHead className="w-[9.5rem]">{t('masters.col.state')}</TableHead>
                 {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
             </TableHeader>
@@ -2122,6 +2135,7 @@ function ProducersSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -2144,7 +2158,7 @@ function ProducersSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      toast.success('Productor creado');
+      toast.success(t('masters.toast.producerCreated'));
       setOpen(false);
       form.reset();
     },
@@ -2159,7 +2173,7 @@ function ProducersSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      toast.success('Productor actualizado');
+      toast.success(t('masters.toast.producerUpdated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2187,7 +2201,7 @@ function ProducersSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      toast.success('Productor duplicado');
+      toast.success(t('masters.toast.producerDuplicated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2197,7 +2211,7 @@ function ProducersSection({
       apiJson(`/api/masters/producers/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2207,7 +2221,7 @@ function ProducersSection({
       apiJson(buildMasterDeleteEndpoint('/api/masters/producers', id, force), { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'producers'] });
-      toast.success('Productor borrado');
+      toast.success(t('masters.toast.producerDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -2226,26 +2240,26 @@ function ProducersSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Productores</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.producers')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> + Nuevo
+                <Plus className="h-4 w-4" /> {t('masters.btn.new')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Nuevo productor</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newProducer')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
-                    <Input placeholder="Opcional" {...form.register('codigo')} autoComplete="off" />
+                    <Label>{t('masters.label.code')}</Label>
+                    <Input placeholder={t('masters.placeholder.optional')} {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
@@ -2264,9 +2278,9 @@ function ProducersSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                <TableHead>{t('masters.col.code')}</TableHead>
+                <TableHead>{t('masters.col.name')}</TableHead>
+                <TableHead className="w-[9.5rem]">{t('masters.col.state')}</TableHead>
                 {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
             </TableHeader>
@@ -2313,6 +2327,7 @@ function VarietiesSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -2354,7 +2369,7 @@ function VarietiesSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
-      toast.success('Variedad creada');
+      toast.success(t('masters.toast.varietyCreated'));
       setOpen(false);
       form.reset({ species_id: 0, codigo: '', nombre: '' });
     },
@@ -2373,7 +2388,7 @@ function VarietiesSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
-      toast.success('Variedad actualizada');
+      toast.success(t('masters.toast.varietyUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -2385,7 +2400,7 @@ function VarietiesSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2396,7 +2411,7 @@ function VarietiesSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
       setConfirmDeactivate(null);
-      toast.success('Variedad borrada');
+      toast.success(t('masters.toast.varietyDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -2417,21 +2432,21 @@ function VarietiesSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Variedades</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.varieties')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nueva
+                <Plus className="h-4 w-4" /> {t('masters.btn.newF')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nueva variedad</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newVariety')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2">
-                  <Label>Especie</Label>
+                  <Label>{t('masters.label.species')}</Label>
                   <select
                     className={filterSelectClass}
                     {...form.register('species_id', { valueAsNumber: true })}
@@ -2446,11 +2461,11 @@ function VarietiesSection({
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Código (opc.)</Label>
+                    <Label>{t('masters.label.codeOpt')}</Label>
                     <Input {...form.register('codigo')} autoComplete="off" />
                   </div>
                 </div>
@@ -2468,10 +2483,10 @@ function VarietiesSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Especie</TableHead>
-              <TableHead>Variedad</TableHead>
-              <TableHead>Código</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
+              <TableHead>{t('masters.col.species')}</TableHead>
+              <TableHead>{t('masters.col.variety')}</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead className="w-20">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
@@ -2504,7 +2519,7 @@ function VarietiesSection({
           <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Editar variedad</DialogTitle>
+                <DialogTitle>{t('masters.dialog.editVariety')}</DialogTitle>
               </DialogHeader>
               <VarietyEditForm
                 row={editing}
@@ -2547,6 +2562,7 @@ function VarietyEditForm({
   onSave: (body: z.infer<typeof varietySchema>) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const selectSpecies = (() => {
     const m = new Map(speciesOptions.map((s) => [s.id, s]));
     const need = allSpecies.find((s) => s.id === row.species_id);
@@ -2575,7 +2591,7 @@ function VarietyEditForm({
       className="grid gap-3"
     >
       <div className="grid gap-2">
-        <Label>Especie</Label>
+        <Label>{t('masters.label.species')}</Label>
         <select
           className={filterSelectClass}
           {...f.register('species_id', { valueAsNumber: true })}
@@ -2588,11 +2604,11 @@ function VarietyEditForm({
         </select>
       </div>
       <div className="grid gap-2">
-        <Label>Código (opcional)</Label>
+        <Label>{t('masters.label.codeOptFull')}</Label>
         <Input {...f.register('codigo')} />
       </div>
       <div className="grid gap-2">
-        <Label>Nombre</Label>
+        <Label>{t('masters.label.name')}</Label>
         <Input {...f.register('nombre')} />
       </div>
       <DialogFooter>
@@ -2646,6 +2662,7 @@ function FormatsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -2682,7 +2699,7 @@ function FormatsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
-      toast.success('Formato creado');
+      toast.success(t('masters.toast.formatCreated'));
       setOpen(false);
       form.reset();
     },
@@ -2697,7 +2714,7 @@ function FormatsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
-      toast.success('Formato actualizado');
+      toast.success(t('masters.toast.formatUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -2709,7 +2726,7 @@ function FormatsSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2720,7 +2737,7 @@ function FormatsSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'formats'] });
       setConfirmDeactivate(null);
-      toast.success('Formato borrado');
+      toast.success(t('masters.toast.formatDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -2741,25 +2758,25 @@ function FormatsSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Formatos N×Moz</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.formats')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo
+                <Plus className="h-4 w-4" /> {t('masters.btn.new')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nuevo formato</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newFormat')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => mut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2">
-                  <Label>Código (NxMoz)</Label>
-                  <Input placeholder="4x16oz" {...form.register('format_code')} autoComplete="off" />
+                  <Label>{t('masters.label.codeNxMoz')}</Label>
+                  <Input placeholder={t('masters.placeholder.format4x16')} {...form.register('format_code')} autoComplete="off" />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Especie (opcional)</Label>
+                  <Label>{t('masters.label.speciesOpt')}</Label>
                   <select
                     className={filterSelectClass}
                     {...form.register('species_id_str')}
@@ -2773,25 +2790,25 @@ function FormatsSection({
                   </select>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Peso neto por caja (lb)</Label>
+                  <Label>{t('masters.label.lbPerBox')}</Label>
                   <Input type="number" step="0.0001" min="0.0001" {...form.register('net_weight_lb_per_box', { valueAsNumber: true })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Descripción</Label>
+                  <Label>{t('masters.label.description')}</Label>
                   <Input {...form.register('descripcion')} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Tope cajas por pallet/unidad PT (opcional)</Label>
+                  <Label>{t('masters.label.maxBoxes')}</Label>
                   <Input
                     type="number"
                     min={1}
-                    placeholder="Ej. 100"
+                    placeholder={t('masters.placeholder.exampleHundred')}
                     {...form.register('max_boxes_per_pallet', { valueAsNumber: true })}
                   />
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1">
-                    <Label>Tipo de caja (empaque)</Label>
+                    <Label>{t('masters.label.boxType')}</Label>
                     <select
                       className={filterSelectClass}
                       {...form.register('box_kind')}
@@ -2802,7 +2819,7 @@ function FormatsSection({
                     </select>
                   </div>
                   <div className="grid gap-1">
-                    <Label>Etiqueta clamshell</Label>
+                    <Label>{t('masters.label.clamshellLabel')}</Label>
                     <select
                       className={filterSelectClass}
                       {...form.register('clamshell_label_kind')}
@@ -2827,14 +2844,14 @@ function FormatsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Especie</TableHead>
-              <TableHead>lb/caja</TableHead>
-              <TableHead>Máx/Pt</TableHead>
-              <TableHead>Caja</TableHead>
-              <TableHead>Clamshell</TableHead>
-              <TableHead className="max-w-[140px]">Nota</TableHead>
-              <TableHead className="w-20">Activo</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.species')}</TableHead>
+              <TableHead>{t('masters.col.lbPerBox')}</TableHead>
+              <TableHead>{t('masters.col.maxPt')}</TableHead>
+              <TableHead>{t('masters.col.box')}</TableHead>
+              <TableHead>{t('masters.col.clamshell')}</TableHead>
+              <TableHead className="max-w-[140px]">{t('masters.col.note')}</TableHead>
+              <TableHead className="w-20">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead className="w-[1%]" /> : null}
             </TableRow>
           </TableHeader>
@@ -2879,7 +2896,7 @@ function FormatsSection({
           <Dialog open onOpenChange={(o) => !o && setEditId(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Editar formato</DialogTitle>
+                <DialogTitle>{t('masters.dialog.editFormat')}</DialogTitle>
               </DialogHeader>
               <FormatEditForm
                 row={editing}
@@ -2922,6 +2939,7 @@ function FormatEditForm({
   speciesOptions: SpeciesRow[];
   allSpecies: SpeciesRow[];
 }) {
+  const { t } = useTranslation('common');
   const speciesSelect = (() => {
     const m = new Map(speciesOptions.map((s) => [s.id, s]));
     const need = row.species_id != null ? allSpecies.find((s) => s.id === row.species_id) : undefined;
@@ -2949,11 +2967,11 @@ function FormatEditForm({
   return (
     <form onSubmit={f.handleSubmit((v) => onSave(v))} className="grid gap-3">
       <div className="grid gap-2">
-        <Label>Código (NxMoz)</Label>
+        <Label>{t('masters.label.codeNxMoz')}</Label>
         <Input {...f.register('format_code')} autoComplete="off" />
       </div>
       <div className="grid gap-2">
-        <Label>Especie (opcional)</Label>
+        <Label>{t('masters.label.speciesOpt')}</Label>
         <select className={filterSelectClass} {...f.register('species_id_str')}>
           <option value="">Todas</option>
           {speciesSelect.map((s) => (
@@ -2964,25 +2982,25 @@ function FormatEditForm({
         </select>
       </div>
       <div className="grid gap-2">
-        <Label>Peso neto por caja (lb)</Label>
+        <Label>{t('masters.label.lbPerBox')}</Label>
         <Input type="number" step="0.0001" min="0.0001" {...f.register('net_weight_lb_per_box', { valueAsNumber: true })} />
       </div>
       <div className="grid gap-2">
-        <Label>Descripción</Label>
+        <Label>{t('masters.label.description')}</Label>
         <Input {...f.register('descripcion')} />
       </div>
       <div className="grid gap-2">
-        <Label>Tope cajas por pallet/unidad PT (opcional)</Label>
+        <Label>{t('masters.label.maxBoxes')}</Label>
         <Input
           type="number"
           min={1}
-          placeholder="Ej. 100"
+          placeholder={t('masters.placeholder.exampleHundred')}
           {...f.register('max_boxes_per_pallet', { valueAsNumber: true })}
         />
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="grid gap-1">
-          <Label>Tipo de caja (empaque)</Label>
+          <Label>{t('masters.label.boxType')}</Label>
           <select className={filterSelectClass} {...f.register('box_kind')}>
             <option value="">Sin definir</option>
             <option value="mano">Mano</option>
@@ -2990,7 +3008,7 @@ function FormatEditForm({
           </select>
         </div>
         <div className="grid gap-1">
-          <Label>Etiqueta clamshell</Label>
+          <Label>{t('masters.label.clamshellLabel')}</Label>
           <select
             className={filterSelectClass}
             {...f.register('clamshell_label_kind')}
@@ -3024,6 +3042,7 @@ function ProcessResultComponentsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -3064,7 +3083,7 @@ function ProcessResultComponentsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
-      toast.success('Componente creado');
+      toast.success(t('masters.toast.componentCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '', sort_order: 0 });
     },
@@ -3083,7 +3102,7 @@ function ProcessResultComponentsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
-      toast.success('Componente actualizado');
+      toast.success(t('masters.toast.componentUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -3095,7 +3114,7 @@ function ProcessResultComponentsSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3106,7 +3125,7 @@ function ProcessResultComponentsSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'process-result-components'] });
       setConfirmDeactivate(null);
-      toast.success('Componente borrado');
+      toast.success(t('masters.toast.componentDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -3130,7 +3149,7 @@ function ProcessResultComponentsSection({
       }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'species', vars.sid, 'process-result-components'] });
-      toast.success('Configuración por especie guardada');
+      toast.success(t('masters.toast.speciesConfigSaved'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3150,31 +3169,31 @@ function ProcessResultComponentsSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Resultados de proceso</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.processResults')}</CardTitle>
         {canWrite ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo componente
+                <Plus className="h-4 w-4" /> {t('masters.btn.newComponent')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nuevo componente</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newComponent')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
-                    <Input {...form.register('codigo')} placeholder="IQF" autoComplete="off" />
+                    <Label>{t('masters.label.code')}</Label>
+                    <Input {...form.register('codigo')} placeholder={t('masters.placeholder.codeIqfShort')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Orden</Label>
+                  <Label>{t('masters.label.order')}</Label>
                   <Input type="number" {...form.register('sort_order', { valueAsNumber: true })} />
                 </div>
                 <DialogFooter>
@@ -3191,11 +3210,11 @@ function ProcessResultComponentsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead className="w-16">Orden</TableHead>
-              <TableHead className="w-24">Estado</TableHead>
-              {canWrite ? <TableHead className="w-[1%]">Acción</TableHead> : null}
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead className="w-16">{t('masters.col.order')}</TableHead>
+              <TableHead className="w-24">{t('masters.col.state')}</TableHead>
+              {canWrite ? <TableHead className="w-[1%]">{t('masters.col.action')}</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -3227,7 +3246,7 @@ function ProcessResultComponentsSection({
         </Table>
 
         <div className="grid gap-2 sm:max-w-sm">
-          <Label>Configurar componentes por especie</Label>
+                  <Label>{t('masters.label.configBySpecies')}</Label>
           <select
             className={filterSelectClass}
             value={speciesCfgId ?? 0}
@@ -3311,6 +3330,7 @@ function EditProcessResultComponentDialog({
   onSave: (body: z.infer<typeof editProcessResultComponentSchema>) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const f = useForm<z.infer<typeof editProcessResultComponentSchema>>({
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -3325,7 +3345,7 @@ function EditProcessResultComponentDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Editar componente variable</DialogTitle>
+          <DialogTitle>{t('masters.dialog.editComponent')}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={f.handleSubmit((v) =>
@@ -3338,15 +3358,15 @@ function EditProcessResultComponentDialog({
           className="grid gap-3"
         >
           <div className="grid gap-2">
-            <Label>Código</Label>
+            <Label>{t('masters.label.code')}</Label>
             <Input {...f.register('codigo')} />
           </div>
           <div className="grid gap-2">
-            <Label>Nombre</Label>
+            <Label>{t('masters.label.name')}</Label>
             <Input {...f.register('nombre')} />
           </div>
           <div className="grid gap-2">
-            <Label>Orden</Label>
+            <Label>{t('masters.label.order')}</Label>
             <Input type="number" {...f.register('sort_order', { valueAsNumber: true })} />
           </div>
           <DialogFooter>
@@ -3390,6 +3410,7 @@ function ClientsSection({
   canWrite: boolean;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -3420,7 +3441,7 @@ function ClientsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
-      toast.success('Cliente creado');
+      toast.success(t('masters.toast.clientCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '', pais: '', mercado_id: 0 });
     },
@@ -3441,7 +3462,7 @@ function ClientsSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
-      toast.success('Cliente actualizado');
+      toast.success(t('masters.toast.clientUpdated'));
       setEditId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -3453,7 +3474,7 @@ function ClientsSection({
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
       setConfirmDeactivate(null);
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3464,7 +3485,7 @@ function ClientsSection({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'clients'] });
       setConfirmDeactivate(null);
-      toast.success('Cliente borrado');
+      toast.success(t('masters.toast.clientDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -3485,36 +3506,36 @@ function ClientsSection({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-3">
-        <CardTitle className="text-base">Clientes</CardTitle>
+        <CardTitle className="text-base">{t('masters.sections.clients')}</CardTitle>
         {canWrite && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Nuevo cliente
+                <Plus className="h-4 w-4" /> {t('masters.btn.newClient')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nuevo cliente</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newClient')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
+                    <Label>{t('masters.label.code')}</Label>
                     <Input {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>País (opc.)</Label>
-                    <Input {...form.register('pais')} placeholder="Chile" autoComplete="off" />
+                    <Label>{t('masters.label.countryOpt')}</Label>
+                    <Input {...form.register('pais')} placeholder={t('masters.placeholder.chile')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Mercado (opc.)</Label>
+                    <Label>{t('masters.label.marketOpt')}</Label>
                     <select
                       className={filterSelectClass}
                       {...form.register('mercado_id', { valueAsNumber: true })}
@@ -3547,11 +3568,11 @@ function ClientsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>País</TableHead>
-              <TableHead>Mercado</TableHead>
-              <TableHead className="w-24">Activo</TableHead>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead>{t('masters.col.country')}</TableHead>
+              <TableHead>{t('masters.col.market')}</TableHead>
+              <TableHead className="w-24">{t('masters.col.active')}</TableHead>
               {canWrite ? <TableHead /> : null}
             </TableRow>
           </TableHeader>
@@ -3620,6 +3641,7 @@ function EditClientDialog({
   onSave: (body: ClientUpdatePayload) => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation('common');
   const f = useForm<z.infer<typeof editClientMasterSchema>>({
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -3635,7 +3657,7 @@ function EditClientDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Editar cliente</DialogTitle>
+          <DialogTitle>{t('masters.dialog.editClient')}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={f.handleSubmit((v) =>
@@ -3649,19 +3671,19 @@ function EditClientDialog({
           className="grid gap-3"
         >
           <div className="grid gap-2">
-            <Label>Código</Label>
+            <Label>{t('masters.label.code')}</Label>
             <Input {...f.register('codigo')} />
           </div>
           <div className="grid gap-2">
-            <Label>Nombre</Label>
+            <Label>{t('masters.label.name')}</Label>
             <Input {...f.register('nombre')} />
           </div>
           <div className="grid gap-2">
-            <Label>País</Label>
+            <Label>{t('masters.label.country')}</Label>
             <Input {...f.register('pais')} />
           </div>
           <div className="grid gap-2">
-            <Label>Mercado</Label>
+            <Label>{t('masters.label.market')}</Label>
             <select
               className={filterSelectClass}
               {...f.register('mercado_id', { valueAsNumber: true })}
@@ -3712,6 +3734,7 @@ function SimpleCatalogSection({
   queryKey: string[];
   apiPath: string;
 }) {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canForceDelete = role === 'admin';
   const { filter } = useMastersRowFilter();
@@ -3735,7 +3758,7 @@ function SimpleCatalogSection({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success('Registro creado');
+      toast.success(t('masters.toast.recordCreated'));
       setOpen(false);
       form.reset({ codigo: '', nombre: '' });
     },
@@ -3747,7 +3770,7 @@ function SimpleCatalogSection({
       apiJson(`/api/masters/${apiPath}/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success('Actualizado');
+      toast.success(t('masters.toast.recordUpdated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3763,7 +3786,7 @@ function SimpleCatalogSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success('Duplicado');
+      toast.success(t('masters.toast.recordDuplicated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3773,7 +3796,7 @@ function SimpleCatalogSection({
       apiJson(`/api/masters/${apiPath}/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
     onSuccess: (_, v) => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success(v.activo ? 'Reactivado' : 'Desactivado');
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3783,7 +3806,7 @@ function SimpleCatalogSection({
       apiJson(buildMasterDeleteEndpoint(`/api/masters/${apiPath}`, id, force), { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success('Registro borrado');
+      toast.success(t('masters.toast.recordDeleted'));
     },
     onError: (e: Error, vars) => {
       if (
@@ -3810,21 +3833,21 @@ function SimpleCatalogSection({
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> + Nuevo
+                <Plus className="h-4 w-4" /> {t('masters.btn.new')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Nuevo — {title}</DialogTitle>
+                <DialogTitle>{t('masters.dialog.newRecord', { title })}</DialogTitle>
               </DialogHeader>
               <form onSubmit={form.handleSubmit((v) => createMut.mutate(v))} className="grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Código</Label>
+                    <Label>{t('masters.label.code')}</Label>
                     <Input {...form.register('codigo')} autoComplete="off" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label>{t('masters.label.name')}</Label>
                     <Input {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
@@ -3843,9 +3866,9 @@ function SimpleCatalogSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="w-[9.5rem]">Estado</TableHead>
+                <TableHead>{t('masters.col.code')}</TableHead>
+                <TableHead>{t('masters.col.name')}</TableHead>
+                <TableHead className="w-[9.5rem]">{t('masters.col.state')}</TableHead>
                 {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
             </TableHeader>
