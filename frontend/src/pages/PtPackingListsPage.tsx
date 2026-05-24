@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Info, ListOrdered, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery } from '@tanstack/react-query';
@@ -101,18 +102,17 @@ function summarizeFormatCodesFromPallets(pallets: { format_code: string | null }
   return `${codes[0]} · ${codes[1]} · +${codes.length - 2}`;
 }
 
-function plCompactRowTone(r: PtPackingListSummary): {
-  bar: string;
-  badgeClass: string;
-  shortLabel: string;
-} {
+function plCompactRowTone(
+  r: PtPackingListSummary,
+  t: (key: string) => string,
+): { bar: string; badgeClass: string; shortLabel: string } {
   const st = String(r.status || '').toLowerCase();
   const hasRev = !!r.reversed_at;
   if (st === 'anulado') {
     return {
       bar: 'bg-rose-500',
       badgeClass: 'border-rose-200 bg-rose-50 text-rose-900',
-      shortLabel: 'Anulado',
+      shortLabel: t('ptPackingLists.tone.voided'),
     };
   }
   if (st === 'confirmado') {
@@ -121,38 +121,46 @@ function plCompactRowTone(r: PtPackingListSummary): {
       return {
         bar: hasRev ? 'bg-violet-500' : 'bg-slate-400',
         badgeClass: 'border-slate-200 bg-slate-100 text-slate-800',
-        shortLabel: 'En despacho',
+        shortLabel: t('ptPackingLists.tone.inDispatch'),
       };
     }
     return {
       bar: hasRev ? 'bg-violet-500' : 'bg-emerald-500',
       badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-      shortLabel: 'Completo',
+      shortLabel: t('ptPackingLists.tone.complete'),
     };
   }
   if ((r.pallet_count ?? 0) === 0) {
     return {
       bar: hasRev ? 'bg-violet-500' : 'bg-slate-300',
       badgeClass: 'border-slate-200 bg-slate-100 text-slate-700',
-      shortLabel: 'Pendiente',
+      shortLabel: t('ptPackingLists.tone.pending'),
     };
   }
   return {
     bar: hasRev ? 'bg-violet-500' : 'bg-sky-500',
     badgeClass: 'border-sky-200 bg-sky-50 text-sky-900',
-    shortLabel: 'En proceso',
+    shortLabel: t('ptPackingLists.tone.inProgress'),
   };
 }
 
-function plCompletenessLabel(r: PtPackingListSummary): string {
+function plCompletenessLabel(
+  r: PtPackingListSummary,
+  t: (key: string) => string,
+): string {
   const st = String(r.status || '').toLowerCase();
-  const rev = r.reversed_at && st !== 'anulado' ? ' · Reversa' : '';
-  if (st === 'anulado') return 'Anulado';
+  const rev =
+    r.reversed_at && st !== 'anulado' ? t('ptPackingLists.completeness.reversalSuffix') : '';
+  if (st === 'anulado') return t('ptPackingLists.completeness.voided');
   if (st === 'confirmado') {
-    return (r.dispatch_id != null && Number(r.dispatch_id) > 0 ? 'Despachado' : 'Confirmado') + rev;
+    return (
+      (r.dispatch_id != null && Number(r.dispatch_id) > 0
+        ? t('ptPackingLists.completeness.dispatched')
+        : t('ptPackingLists.completeness.confirmed')) + rev
+    );
   }
-  if ((r.pallet_count ?? 0) === 0) return 'Vacío' + rev;
-  return 'En armado' + rev;
+  if ((r.pallet_count ?? 0) === 0) return t('ptPackingLists.completeness.empty') + rev;
+  return t('ptPackingLists.completeness.inProgress') + rev;
 }
 
 function formatListDate(isoOrYmd: string) {
@@ -165,16 +173,27 @@ function formatListDate(isoOrYmd: string) {
   }
 }
 
-function PlStatusBadge({ status }: { status: string }) {
+function PlStatusBadge({
+  status,
+  t,
+}: {
+  status: string;
+  t: (key: string) => string;
+}) {
   const s = String(status || '').toLowerCase();
   const map: Record<string, string> = {
     borrador: 'border-slate-200 bg-slate-100 text-slate-800',
     confirmado: 'border-emerald-200/90 bg-emerald-50 text-emerald-900',
     anulado: 'border-rose-200/90 bg-rose-50 text-rose-900',
   };
+  const labelMap: Record<string, string> = {
+    borrador: t('ptPackingLists.status.borrador'),
+    confirmado: t('ptPackingLists.status.confirmado'),
+    anulado: t('ptPackingLists.status.anulado'),
+  };
   return (
     <span className={cn(badgePill, map[s] ?? 'border-slate-200 bg-slate-50 text-slate-800')} title={status}>
-      {status}
+      {labelMap[s] ?? status}
     </span>
   );
 }
@@ -218,10 +237,12 @@ function CondicionCell({
   numeroBol,
   notes,
   dispatchId,
+  t,
 }: {
   numeroBol: string | null | undefined;
   notes: string | null;
   dispatchId: number | null | undefined;
+  t: (key: string) => string;
 }) {
   const np = notesPreview(notes);
   const bol = numeroBol?.trim();
@@ -229,22 +250,25 @@ function CondicionCell({
     <div className="max-w-[220px] space-y-1.5">
       {dispatchId != null && dispatchId > 0 ? (
         <span className="inline-flex rounded-full border border-sky-200/90 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900">
-          En despacho
+          {t('ptPackingLists.condicion.inDispatch')}
         </span>
       ) : null}
-      <div className="font-mono text-xs text-slate-800">{bol ? `BOL ${bol}` : 'Sin BOL'}</div>
+      <div className="font-mono text-xs text-slate-800">
+        {bol ? `${t('ptPackingLists.condicion.bolPrefix')}${bol}` : t('ptPackingLists.condicion.noBol')}
+      </div>
       {np.text ? (
         <p className="text-xs leading-snug text-slate-500" title={np.title}>
           {np.text}
         </p>
       ) : (
-        <p className="text-[11px] text-slate-400">Sin notas</p>
+        <p className="text-[11px] text-slate-400">{t('ptPackingLists.condicion.noNotes')}</p>
       )}
     </div>
   );
 }
 
 export function PtPackingListsPage() {
+  const { t } = useTranslation('common');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterClientId, setFilterClientId] = useState(0);
   const [search, setSearch] = useState('');
@@ -424,8 +448,7 @@ export function PtPackingListsPage() {
     [data],
   );
 
-  const helpTitle =
-    'Listados logísticos independientes del despacho y la factura. Crear desde inventario cámara (Existencias PT). Flujo: borrador → confirmado (descuenta stock PT). Reversa solo si ningún pallet está en despacho. Pedido y despacho se vinculan cuando el PL se incluye en un despacho.';
+  const helpTitle = t('ptPackingLists.helpTitle');
 
   if (isPending) {
     return (
@@ -453,10 +476,10 @@ export function PtPackingListsPage() {
     <div className="space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>Existencias PT · Packing Lists PT</h2>
+          <h2 className={pageTitle}>{t('ptPackingLists.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>Preparación comercial, BOL y stock PT antes del despacho.</p>
-            <button type="button" className={pageInfoButton} title={helpTitle} aria-label="Ayuda packing lists PT">
+            <p className={pageSubtitle}>{t('ptPackingLists.pageSubtitle')}</p>
+            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={t('ptPackingLists.pageTitle')}>
               <Info className="h-4 w-4" />
             </button>
           </div>
@@ -465,7 +488,7 @@ export function PtPackingListsPage() {
           <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
             <Link to="/existencias-pt/inventario" className="gap-2">
               <ListOrdered className="h-4 w-4" />
-              Inventario cámara
+              {t('ptPackingLists.inventoryButton')}
             </Link>
           </Button>
         </div>
@@ -473,23 +496,23 @@ export function PtPackingListsPage() {
 
       <section aria-labelledby="pl-kpis" className="space-y-4">
         <h2 id="pl-kpis" className="sr-only">
-          Indicadores
+          {t('ptPackingLists.srKpis')}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
-            <p className={kpiLabel}>Packing lists totales</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.total')}</p>
             <p className={kpiValueLg}>{formatCount(kpis.total)}</p>
-            <p className={kpiFootnote}>En vista actual</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Borradores</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.drafts')}</p>
             <p className={kpiValueLg}>{formatCount(kpis.borrador)}</p>
-            <p className={kpiFootnote}>Sin confirmar</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.draftsNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Confirmados</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.confirmed')}</p>
             <p className={kpiValueLg}>{formatCount(kpis.confirmado)}</p>
-            <p className={kpiFootnote}>Stock PT aplicado</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.confirmedNote')}</p>
           </div>
           <div
             className={cn(
@@ -497,31 +520,31 @@ export function PtPackingListsPage() {
               kpis.enDespacho > 0 ? 'border-sky-200/90 bg-sky-50/50' : '',
             )}
           >
-            <p className={kpiLabel}>En despacho</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.inDispatch')}</p>
             <p className={cn(kpiValueLg, kpis.enDespacho > 0 ? 'text-sky-950' : '')}>{formatCount(kpis.enDespacho)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Vinculados a un despacho</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.inDispatchNote')}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.totalBoxes')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalBoxesNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Peso total</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.totalWeight')}</p>
             <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalWeightNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Clientes (vista)</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.clients')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.clientesActivos)}</p>
-            <p className={kpiFootnote}>Con cliente asignado</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.clientsNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Pedidos vinculados</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.linkedOrders')}</p>
             <p className={kpiValueMd}>{formatCount(kpis.conPedido)}</p>
-            <p className={kpiFootnote}>Con orden en despacho</p>
+            <p className={kpiFootnote}>{t('ptPackingLists.kpi.linkedOrdersNote')}</p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -531,9 +554,9 @@ export function PtPackingListsPage() {
               kpis.anulado > 0 ? 'border-slate-200/90 bg-slate-50/50' : '',
             )}
           >
-            <p className={kpiLabel}>Anulados</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.voided')}</p>
             <p className={cn(kpiValueMd, 'text-slate-800')}>{formatCount(kpis.anulado)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Cerrados operativamente</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.voidedNote')}</p>
           </div>
           <div
             className={cn(
@@ -541,18 +564,18 @@ export function PtPackingListsPage() {
               kpis.conReversa > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
             )}
           >
-            <p className={kpiLabel}>Con reversa</p>
+            <p className={kpiLabel}>{t('ptPackingLists.kpi.withReversal')}</p>
             <p className={cn(kpiValueMd, kpis.conReversa > 0 ? 'text-violet-950' : 'text-slate-800')}>
               {formatCount(kpis.conReversa)}
             </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>Histórico registrado</p>
+            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.withReversalNote')}</p>
           </div>
         </div>
       </section>
 
       <div className={filterPanel}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('ptPackingLists.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -564,22 +587,22 @@ export function PtPackingListsPage() {
         </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.status')}</Label>
             <select className={filterSelectClass} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="borrador">Borrador</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="anulado">Anulado</option>
+              <option value="">{t('ptPackingLists.filters.statusAll')}</option>
+              <option value="borrador">{t('ptPackingLists.filters.statusDraft')}</option>
+              <option value="confirmado">{t('ptPackingLists.filters.statusConfirmed')}</option>
+              <option value="anulado">{t('ptPackingLists.filters.statusVoided')}</option>
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.client')}</Label>
             <select
               className={filterSelectClass}
               value={filterClientId}
               onChange={(e) => setFilterClientId(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('ptPackingLists.filters.clientAll')}</option>
               {clientOptions.map(([id, nombre]) => (
                 <option key={id} value={id}>
                   {nombre}
@@ -588,10 +611,10 @@ export function PtPackingListsPage() {
             </select>
           </div>
           <div className="grid gap-2 lg:col-span-5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Buscar</Label>
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.search')}</Label>
             <Input
               className={filterInputClass}
-              placeholder="Código, BOL, cliente, pedido, despacho…"
+              placeholder={t('ptPackingLists.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -603,11 +626,12 @@ export function PtPackingListsPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="pl-tabla" className={sectionTitle}>
-              Listado operativo
+              {t('ptPackingLists.table.title')}
             </h2>
             <p className={sectionHint}>
-              {filtered.length} registro(s)
-              {viewMode === 'detailed' ? ' · tabla completa con condición comercial' : ' · compacta por cliente y avance'}
+              {viewMode === 'detailed'
+                ? t('ptPackingLists.table.hintDetailed', { count: filtered.length })
+                : t('ptPackingLists.table.hintCompact', { count: filtered.length })}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -619,7 +643,7 @@ export function PtPackingListsPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('ptPackingLists.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -628,31 +652,37 @@ export function PtPackingListsPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('ptPackingLists.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                Ver criterios
+                {t('ptPackingLists.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
                 <p>
-                  <span className="font-semibold text-emerald-700">Completo:</span> Packing List confirmado / listo
+                  <span className="font-semibold text-emerald-700">{t('ptPackingLists.table.criteriaComplete')}</span>{' '}
+                  {t('ptPackingLists.table.criteriaCompleteDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-sky-700">En proceso:</span> Packing List en borrador o preparación
+                  <span className="font-semibold text-sky-700">{t('ptPackingLists.table.criteriaInProgress')}</span>{' '}
+                  {t('ptPackingLists.table.criteriaInProgressDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-rose-700">Anulado:</span> Packing List cancelado
+                  <span className="font-semibold text-rose-700">{t('ptPackingLists.table.criteriaVoided')}</span>{' '}
+                  {t('ptPackingLists.table.criteriaVoidedDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-800">Avance 100%:</span> confirmado
+                  <span className="font-semibold text-slate-800">{t('ptPackingLists.table.criteria100')}</span>{' '}
+                  {t('ptPackingLists.table.criteria100Desc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-800">Avance en progreso:</span> borrador
+                  <span className="font-semibold text-slate-800">{t('ptPackingLists.table.criteriaProgress')}</span>{' '}
+                  {t('ptPackingLists.table.criteriaProgressDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-800">Avance 0%:</span> anulado
+                  <span className="font-semibold text-slate-800">{t('ptPackingLists.table.criteria0')}</span>{' '}
+                  {t('ptPackingLists.table.criteria0Desc')}
                 </p>
               </div>
             </details>
@@ -667,20 +697,19 @@ export function PtPackingListsPage() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
             <div>
               <p className="text-sm font-medium text-amber-800">
-                {formatCount(kpis.confirmadosSinPallets)} packing list(s) sin pallets asignados
+                {t('ptPackingLists.table.warningNoPallets', { count: formatCount(kpis.confirmadosSinPallets) })}
               </p>
               <p className="mt-0.5 text-xs text-amber-700">
-                Fueron creados por carga masiva sin Unidades PT vinculadas. Ingresá al detalle de cada PL para asignar
-                los pallets correspondientes.
+                {t('ptPackingLists.table.warningNoPalletsDesc')}
               </p>
             </div>
           </div>
         ) : null}
 
         {!data?.length ? (
-          <p className={emptyStatePanel}>No hay packing lists. Creá uno desde inventario cámara.</p>
+          <p className={emptyStatePanel}>{t('ptPackingLists.table.emptyAll')}</p>
         ) : !filtered.length ? (
-          <p className={emptyStatePanel}>Sin coincidencias con el filtro.</p>
+          <p className={emptyStatePanel}>{t('ptPackingLists.table.emptyFilter')}</p>
         ) : viewMode === 'compact' ? (
           <div className="space-y-4">
             {groupedByClient.map((group) => (
@@ -688,43 +717,46 @@ export function PtPackingListsPage() {
                 <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
                   <p className="text-sm font-semibold text-slate-900">{group.clientLabel}</p>
                   <p className="text-xs text-slate-600">
-                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span>{' '}
+                    {t('ptPackingLists.table.groupBoxes')}
                   </p>
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-slate-900">{formatLb(group.totalLb, 2)}</span> lb
                   </p>
-                  <p className="text-xs text-slate-600">{formatCount(group.plCount)} packing lists</p>
+                  <p className="text-xs text-slate-600">
+                    {formatCount(group.plCount)} {t('ptPackingLists.table.groupPl')}
+                  </p>
                   {group.hasEmptyBorrador ? (
                     <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-900">
-                      Incompletos (vacíos)
+                      {t('ptPackingLists.table.groupIncomplete')}
                     </span>
                   ) : group.hasBorrador ? (
                     <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
-                      En proceso
+                      {t('ptPackingLists.table.groupInProgress')}
                     </span>
                   ) : null}
                   {group.hasReversa ? (
                     <span className="inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-900">
-                      Con reversa
+                      {t('ptPackingLists.table.groupWithReversal')}
                     </span>
                   ) : null}
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
-                      <TableHead className="w-[120px]">Estado</TableHead>
-                      <TableHead className="min-w-[140px]">PL / fecha</TableHead>
-                      <TableHead className="min-w-[120px]">Formatos</TableHead>
-                      <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                      <TableHead className="text-right tabular-nums">Lb</TableHead>
-                      <TableHead className="min-w-[120px]">Avance</TableHead>
-                      <TableHead className="w-[100px]">Cumpl.</TableHead>
-                      <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                      <TableHead className="w-[120px]">{t('ptPackingLists.table.colState')}</TableHead>
+                      <TableHead className="min-w-[140px]">{t('ptPackingLists.table.colPlDate')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('ptPackingLists.table.colFormats')}</TableHead>
+                      <TableHead className="text-right tabular-nums">{t('ptPackingLists.table.colBoxes')}</TableHead>
+                      <TableHead className="text-right tabular-nums">{t('ptPackingLists.table.colLb')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('ptPackingLists.table.colProgress')}</TableHead>
+                      <TableHead className="w-[100px]">{t('ptPackingLists.table.colFulfillment')}</TableHead>
+                      <TableHead className="w-[200px] text-right">{t('ptPackingLists.table.colActions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.rows.map((r) => {
-                      const tone = plCompactRowTone(r);
+                      const tone = plCompactRowTone(r, t);
                       const pct = packingListAdvancePct(r);
                       const detailUrl = `/existencias-pt/packing-lists/${r.id}`;
                       const st = String(r.status || '').toLowerCase();
@@ -754,7 +786,7 @@ export function PtPackingListsPage() {
                                   className="inline-flex w-fit rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900"
                                   title={new Date(r.reversed_at).toLocaleString('es')}
                                 >
-                                  Reversa
+                                  {t('ptPackingLists.table.reversalBadge')}
                                 </span>
                               ) : null}
                             </div>
@@ -772,7 +804,7 @@ export function PtPackingListsPage() {
                             {!prefetchIdSet.has(r.id) ? (
                               <span
                                 className="text-[11px] text-slate-400"
-                                title="Muchos resultados: usá filtros o abrí el detalle para ver formatos"
+                                title={t('ptPackingLists.table.manyResults')}
                               >
                                 —
                               </span>
@@ -794,22 +826,22 @@ export function PtPackingListsPage() {
                             <PlAdvanceBar pct={pct} hasReversal={!!r.reversed_at && st !== 'anulado'} />
                           </TableCell>
                           <TableCell className="py-2.5">
-                            <span className="text-[11px] font-medium text-slate-600">{plCompletenessLabel(r)}</span>
+                            <span className="text-[11px] font-medium text-slate-600">{plCompletenessLabel(r, t)}</span>
                           </TableCell>
                           <TableCell className="py-2.5 text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1">
                               <Button asChild type="button" size="sm" variant="default" className="h-7 rounded-md px-2 text-[11px]">
-                                <Link to={detailUrl}>Ver detalle</Link>
+                                <Link to={detailUrl}>{t('ptPackingLists.table.actionDetail')}</Link>
                               </Button>
                               {st === 'borrador' ? (
                                 <Button asChild type="button" size="sm" variant="outline" className="h-7 rounded-md px-2 text-[11px]">
-                                  <Link to={detailUrl}>Preparar</Link>
+                                  <Link to={detailUrl}>{t('ptPackingLists.table.actionPrepare')}</Link>
                                 </Button>
                               ) : null}
                               {r.dispatch_id != null && r.dispatch_id > 0 ? (
                                 <Button asChild type="button" size="sm" variant="outline" className="h-7 rounded-md px-2 text-[11px]">
                                   <Link to="/dispatches" title={`Despacho #${r.dispatch_id}`}>
-                                    Despacho
+                                    {t('ptPackingLists.table.actionDispatch')}
                                   </Link>
                                 </Button>
                               ) : null}
@@ -820,7 +852,7 @@ export function PtPackingListsPage() {
                                     size="icon"
                                     variant="ghost"
                                     className="h-7 w-7 shrink-0 rounded-md"
-                                    aria-label="Más acciones"
+                                    aria-label={t('ptPackingLists.table.actionMore')}
                                   >
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
@@ -828,16 +860,16 @@ export function PtPackingListsPage() {
                                 <DropdownMenuContent align="end" className="w-48">
                                   {r.orden_id != null && r.orden_id > 0 ? (
                                     <DropdownMenuItem asChild>
-                                      <Link to={`/sales-orders/${r.orden_id}/avance`}>Ver pedido</Link>
+                                      <Link to={`/sales-orders/${r.orden_id}/avance`}>{t('ptPackingLists.table.actionViewOrder')}</Link>
                                     </DropdownMenuItem>
                                   ) : null}
                                   <DropdownMenuItem asChild>
-                                    <Link to="/dispatches">Ir a Despachos</Link>
+                                    <Link to="/dispatches">{t('ptPackingLists.table.actionGoDispatches')}</Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {r.reversed_at ? (
                                     <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                                      Reversa: {new Date(r.reversed_at).toLocaleString('es')}
+                                      {t('ptPackingLists.table.reversalBadge')}: {new Date(r.reversed_at).toLocaleString('es')}
                                     </DropdownMenuItem>
                                   ) : null}
                                   <DropdownMenuItem
@@ -845,7 +877,7 @@ export function PtPackingListsPage() {
                                       void navigator.clipboard?.writeText(r.list_code);
                                     }}
                                   >
-                                    Copiar código PL
+                                    {t('ptPackingLists.table.actionCopyCode')}
                                   </DropdownMenuItem>
                                   {r.notes?.trim() ? (
                                     <DropdownMenuItem disabled className="line-clamp-3 text-xs text-muted-foreground">
@@ -869,17 +901,17 @@ export function PtPackingListsPage() {
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[200px]">Estado</TableHead>
-                  <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                  <TableHead className="min-w-[140px]">Cliente</TableHead>
-                  <TableHead className="min-w-[120px]">Pedido</TableHead>
-                  <TableHead className="min-w-[120px]">Código</TableHead>
-                  <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                  <TableHead className="text-right tabular-nums">Peso (lb)</TableHead>
-                  <TableHead className="min-w-[100px] text-right tabular-nums">Pallets</TableHead>
-                  <TableHead className="min-w-[220px]">Condición comercial</TableHead>
-                  <TableHead className="whitespace-nowrap">Despacho</TableHead>
-                  <TableHead className="w-[108px] text-right">Acciones</TableHead>
+                  <TableHead className="min-w-[200px]">{t('ptPackingLists.table.colState')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('ptPackingLists.table.colDate')}</TableHead>
+                  <TableHead className="min-w-[140px]">{t('ptPackingLists.table.colClient')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('ptPackingLists.table.colOrder')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('ptPackingLists.table.colCode')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('ptPackingLists.table.colBoxes')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('ptPackingLists.table.colWeight')}</TableHead>
+                  <TableHead className="min-w-[100px] text-right tabular-nums">{t('ptPackingLists.table.colPallets')}</TableHead>
+                  <TableHead className="min-w-[220px]">{t('ptPackingLists.table.colCondition')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('ptPackingLists.table.colDispatch')}</TableHead>
+                  <TableHead className="w-[108px] text-right">{t('ptPackingLists.table.colActions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -887,13 +919,13 @@ export function PtPackingListsPage() {
                   <TableRow key={r.id} className={tableBodyRow}>
                     <TableCell className="max-w-[220px] py-3.5 align-top">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <PlStatusBadge status={r.status} />
+                        <PlStatusBadge status={r.status} t={t} />
                         {r.reversed_at ? (
                           <span
                             className="inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900"
                             title={new Date(r.reversed_at).toLocaleString('es')}
                           >
-                            Reversa
+                            {t('ptPackingLists.table.reversalBadge')}
                           </span>
                         ) : null}
                       </div>
@@ -936,14 +968,14 @@ export function PtPackingListsPage() {
                       {formatCount(r.pallet_count)}
                     </TableCell>
                     <TableCell className="py-3.5 align-top">
-                      <CondicionCell numeroBol={r.numero_bol} notes={r.notes} dispatchId={r.dispatch_id} />
+                      <CondicionCell numeroBol={r.numero_bol} notes={r.notes} dispatchId={r.dispatch_id} t={t} />
                     </TableCell>
                     <TableCell className="py-3.5">
                       {r.dispatch_id != null && r.dispatch_id > 0 ? (
                         <Link
                           className="font-mono text-xs font-semibold text-slate-800 underline decoration-slate-200 underline-offset-2 hover:text-primary"
                           to="/dispatches"
-                          title={`Ver en módulo Despachos (despacho #${r.dispatch_id})`}
+                          title={t('ptPackingLists.table.dispatchTitle', { id: r.dispatch_id })}
                         >
                           #{r.dispatch_id}
                         </Link>
@@ -958,7 +990,7 @@ export function PtPackingListsPage() {
                         className="h-8 rounded-lg border-slate-200 text-xs font-medium"
                         asChild
                       >
-                        <Link to={`/existencias-pt/packing-lists/${r.id}`}>Abrir</Link>
+                        <Link to={`/existencias-pt/packing-lists/${r.id}`}>{t('ptPackingLists.table.actionOpen')}</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -974,18 +1006,16 @@ export function PtPackingListsPage() {
           {sinCliente > 0 ? (
             <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/40 px-4 py-3 text-sm text-amber-950">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-              <p>
-                <span className="font-semibold">{sinCliente}</span> PL sin cliente comercial (no anulados). Revisá en
-                detalle o inventario.
-              </p>
+              <p>{t('ptPackingLists.bottomAlerts.noClient', { count: sinCliente })}</p>
             </div>
           ) : null}
           {borradoresVacios > 0 ? (
             <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
               <p>
-                <span className="font-semibold">{borradoresVacios}</span> borrador{borradoresVacios === 1 ? '' : 'es'} sin
-                pallets — completá desde inventario o eliminá si no aplica.
+                {borradoresVacios === 1
+                  ? t('ptPackingLists.bottomAlerts.emptyDrafts', { count: borradoresVacios })
+                  : t('ptPackingLists.bottomAlerts.emptyDraftsPlural', { count: borradoresVacios })}
               </p>
             </div>
           ) : null}
