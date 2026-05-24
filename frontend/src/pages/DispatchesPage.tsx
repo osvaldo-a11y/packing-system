@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
@@ -333,8 +334,12 @@ function packingListSummary(d: DispatchApi): string {
   return '—';
 }
 
-function docTransporteLine(d: DispatchApi): string {
-  if (d.invoice?.invoice_number) return `Fact. ${d.invoice.invoice_number}`;
+function docTransporteLine(
+  d: DispatchApi,
+  t: (key: string) => string,
+): string {
+  if (d.invoice?.invoice_number)
+    return `${t('dispatch.table.invoicePrefix')} ${d.invoice.invoice_number}`;
   if (d.thermograph_serial?.trim()) return d.thermograph_serial.trim();
   return '—';
 }
@@ -345,7 +350,13 @@ function destinoDespachoDisplay(d: DispatchApi): { text: string; title?: string 
   return { text: '—' };
 }
 
-function DispatchKindBadge({ kind }: { kind?: DispatchApi['kind'] }) {
+function DispatchKindBadge({
+  kind,
+  t,
+}: {
+  kind?: DispatchApi['kind'];
+  t: (key: string) => string;
+}) {
   const pl = kind === 'packing_lists';
   return (
     <span
@@ -354,17 +365,28 @@ function DispatchKindBadge({ kind }: { kind?: DispatchApi['kind'] }) {
         pl ? 'border-sky-200/90 bg-sky-50 text-sky-900' : 'border-slate-200 bg-slate-100 text-slate-700',
       )}
     >
-      {pl ? 'PL' : 'Legacy'}
+      {pl ? t('dispatch.kindBadge.pl') : t('dispatch.kindBadge.legacy')}
     </span>
   );
 }
 
-function DispatchFlowStatusBadge({ status }: { status?: string }) {
+function DispatchFlowStatusBadge({
+  status,
+  t,
+}: {
+  status?: string;
+  t: (key: string) => string;
+}) {
   const s = String(status ?? 'borrador').toLowerCase();
   const map: Record<string, string> = {
     borrador: 'border-slate-200 bg-slate-100 text-slate-800',
     confirmado: 'border-emerald-200/90 bg-emerald-50 text-emerald-900',
     despachado: 'border-violet-200/85 bg-violet-50 text-violet-900',
+  };
+  const labelMap: Record<string, string> = {
+    borrador: t('dispatch.table.flowStatus.borrador'),
+    confirmado: t('dispatch.table.flowStatus.confirmado'),
+    despachado: t('dispatch.table.flowStatus.despachado'),
   };
   return (
     <span
@@ -374,7 +396,7 @@ function DispatchFlowStatusBadge({ status }: { status?: string }) {
       )}
       title={s}
     >
-      {s}
+      {labelMap[s] ?? s}
     </span>
   );
 }
@@ -415,34 +437,21 @@ function summarizeDispatchFormatCodes(d: DispatchApi): string {
   return `${sorted[0]} · ${sorted[1]} · +${sorted.length - 2}`;
 }
 
-function dispatchCompactRowTone(d: DispatchApi): { bar: string; badgeClass: string; shortLabel: string } {
+function dispatchCompactRowTone(
+  d: DispatchApi,
+  t: (key: string) => string,
+): { bar: string; badgeClass: string; shortLabel: string } {
   const s = String(d.status ?? 'borrador').toLowerCase();
   if (s === 'anulado' || s === 'cancelado') {
-    return {
-      bar: 'bg-rose-500',
-      badgeClass: 'border-rose-200 bg-rose-50 text-rose-900',
-      shortLabel: 'Anulado',
-    };
+    return { bar: 'bg-rose-500', badgeClass: 'border-rose-200 bg-rose-50 text-rose-900', shortLabel: t('dispatch.tone.voided') };
   }
   if (s === 'despachado') {
-    return {
-      bar: 'bg-emerald-500',
-      badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-      shortLabel: 'Ejecutado',
-    };
+    return { bar: 'bg-emerald-500', badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-900', shortLabel: t('dispatch.tone.executed') };
   }
   if (s === 'confirmado') {
-    return {
-      bar: 'bg-sky-500',
-      badgeClass: 'border-sky-200 bg-sky-50 text-sky-900',
-      shortLabel: 'Confirmado',
-    };
+    return { bar: 'bg-sky-500', badgeClass: 'border-sky-200 bg-sky-50 text-sky-900', shortLabel: t('dispatch.tone.confirmed') };
   }
-  return {
-    bar: 'bg-amber-400',
-    badgeClass: 'border-amber-200 bg-amber-50 text-amber-950',
-    shortLabel: 'Borrador',
-  };
+  return { bar: 'bg-amber-400', badgeClass: 'border-amber-200 bg-amber-50 text-amber-950', shortLabel: t('dispatch.tone.draft') };
 }
 
 function dispatchDocCodeLine(d: DispatchApi): string {
@@ -464,6 +473,7 @@ type LinkablePtPl = {
 };
 
 export function DispatchesPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canRevertSalida = role === 'admin' || role === 'supervisor' || role === 'operator';
   const queryClient = useQueryClient();
@@ -737,7 +747,7 @@ export function DispatchesPage() {
       queryClient.invalidateQueries({ queryKey: ['dispatches', 'linkable-pt-packing-lists'] });
       queryClient.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       queryClient.invalidateQueries({ queryKey: ['sales-orders', 'for-dispatch'] });
-      toast.success('Despacho creado');
+      toast.success(t('dispatch.toast.created'));
       setDispatchOpen(false);
       setSelectedPlIds([]);
     },
@@ -762,7 +772,7 @@ export function DispatchesPage() {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
       queryClient.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       queryClient.invalidateQueries({ queryKey: ['pt-packing-list'] });
-      toast.success('BOL actualizado');
+      toast.success(t('dispatch.toast.bolUpdated'));
       setBolDialogDispatchId(null);
       setBolApplyToPls(false);
     },
@@ -794,7 +804,7 @@ export function DispatchesPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Datos operativos del despacho actualizados');
+      toast.success(t('dispatch.toast.operativeUpdated'));
       setMetaDialogDispatchId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -822,7 +832,7 @@ export function DispatchesPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Pedido del despacho corregido');
+      toast.success(t('dispatch.toast.orderFixed'));
       setOrderLinkDialogDispatchId(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -834,7 +844,7 @@ export function DispatchesPage() {
     onSuccess: (data) => {
       setConfirmDispatchId(null);
       queryClient.setQueryData(['dispatches'], data.dispatches);
-      toast.success('Listo: el despacho pasó a «confirmado»', {
+      toast.success(t('dispatch.toast.confirmed'), {
         description: data.confirmation.messages.map((m) => `• ${m}`).join('\n'),
         duration: 18_000,
       });
@@ -847,7 +857,7 @@ export function DispatchesPage() {
       apiJson<DispatchDespacharResponse>('/api/dispatches/' + id + '/despachar', { method: 'POST' }),
     onSuccess: (data) => {
       queryClient.setQueryData(['dispatches'], data.dispatches);
-      toast.success('Listo: el despacho pasó a «despachado» (salida física)', {
+      toast.success(t('dispatch.toast.dispatched'), {
         description: data.transition.messages.map((m) => `• ${m}`).join('\n'),
         duration: 16_000,
       });
@@ -860,7 +870,7 @@ export function DispatchesPage() {
       apiJson<DispatchRevertDespachadoResponse>('/api/dispatches/' + id + '/revert-despachado', { method: 'POST' }),
     onSuccess: (data) => {
       queryClient.setQueryData(['dispatches'], data.dispatches);
-      toast.success('Salida física deshecha — el despacho volvió a «confirmado»', {
+      toast.success(t('dispatch.toast.reverted'), {
         description: data.reversion.messages.map((m) => `• ${m}`).join('\n'),
         duration: 16_000,
       });
@@ -895,7 +905,7 @@ export function DispatchesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
       queryClient.invalidateQueries({ queryKey: ['final-pallets'] });
-      toast.success('Unidades PT vinculadas al despacho');
+      toast.success(t('dispatch.toast.ptLinked'));
       setAttachFpDispatchId(null);
       setFpSelect({});
       setFpAttachUnitPrices({});
@@ -911,7 +921,7 @@ export function DispatchesPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('① Precios guardados. Ejecutá ② Factura y luego ③ PDF si aún no lo hiciste.');
+      toast.success(t('dispatch.toast.pricesSaved'));
       setInvoicePricesDispatchId(null);
       setDispatchInvoiceUnitPrices({});
     },
@@ -928,7 +938,7 @@ export function DispatchesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Precios guardados y ② Factura generada. Descargá con ③ PDF.');
+      toast.success(t('dispatch.toast.pricesAndInvoice'));
       setInvoicePricesDispatchId(null);
       setDispatchInvoiceUnitPrices({});
     },
@@ -940,7 +950,7 @@ export function DispatchesPage() {
       apiJson(`/api/dispatches/${dispatchId}/tags`, { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Unidad PT agregada al despacho');
+      toast.success(t('dispatch.toast.ptAdded'));
       setAddTagDispatchId(null);
       tagForm.reset({
         tarja_id: 0,
@@ -957,7 +967,7 @@ export function DispatchesPage() {
     mutationFn: (id: number) => apiJson(`/api/dispatches/${id}/packing-list/generate`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Packing list generada / actualizada');
+      toast.success(t('dispatch.toast.plGenerated'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -966,7 +976,7 @@ export function DispatchesPage() {
     mutationFn: (id: number) => apiJson(`/api/dispatches/${id}/invoice/generate`, { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('② Factura lista. Podés descargar el PDF con ③ PDF.');
+      toast.success(t('dispatch.toast.invoiceReady'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -983,7 +993,7 @@ export function DispatchesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Ajuste manual agregado');
+      toast.success(t('dispatch.toast.adjustmentAdded'));
       setInvoiceLineDispatchId(null);
       manualInvForm.reset({
         descripcion: '',
@@ -1000,7 +1010,7 @@ export function DispatchesPage() {
       apiJson(`/api/dispatches/${dispatchId}/invoice/lines/${lineId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dispatches'] });
-      toast.success('Línea eliminada');
+      toast.success(t('dispatch.toast.lineDeleted'));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1205,8 +1215,7 @@ export function DispatchesPage() {
     setCollapsed((p) => ({ ...p, [id]: !((p[id] ?? true)) }));
   }
 
-  const helpDespachosTitle =
-    'Cierre del flujo: Proceso → Unidad PT → Existencias PT → Despacho. Vista logística y documental. Si Cajas muestra "—", el origen no aporta cajas en ítems. Estados: borrador → confirmado → despachado. Stock PT se mueve al confirmar packing lists en Existencias PT, no al confirmar el despacho. Factura: ① Precios → ② Factura → ③ PDF.';
+  const helpDespachosTitle = t('dispatch.helpTitle');
 
   function openDispatchDetailView(dispatchId: number) {
     setViewMode('detailed');
@@ -1239,16 +1248,14 @@ export function DispatchesPage() {
     <div className="font-inter space-y-8">
       <div className={pageHeaderRow}>
         <div className="min-w-0 space-y-1.5">
-          <h1 className={pageTitle}>Despachos</h1>
+          <h1 className={pageTitle}>{t('dispatch.pageTitle')}</h1>
           <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>
-              Salidas, BOL, packing list y factura — seguimiento por estado y cliente.
-            </p>
+            <p className={pageSubtitle}>{t('dispatch.pageSubtitle')}</p>
             <button
               type="button"
               className={pageInfoButton}
               title={helpDespachosTitle}
-              aria-label="Ayuda módulo despachos"
+              aria-label={t('dispatch.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
@@ -1267,7 +1274,7 @@ export function DispatchesPage() {
           <DialogTrigger asChild>
             <Button className="h-10 shrink-0 gap-2 rounded-xl px-4 shadow-sm" disabled={!salesOrders?.length}>
               <Plus className="h-4 w-4" />
-              Nuevo despacho
+              {t('dispatch.newButton')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl [&>button]:hidden">
@@ -1275,13 +1282,13 @@ export function DispatchesPage() {
               <div className="flex items-center justify-between">
                 <DialogTitle className="flex items-center gap-2">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  Nuevo despacho
+                  {t('dispatch.dialog.title')}
                 </DialogTitle>
                 <button
                   type="button"
                   onClick={() => setDispatchOpen(false)}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                  aria-label="Cerrar"
+                  aria-label={t('dispatch.dialog.closeAriaLabel')}
                 >
                   <X size={16} />
                 </button>
@@ -1290,42 +1297,36 @@ export function DispatchesPage() {
             <form
               onSubmit={dispatchForm.handleSubmit((v) => {
                 if (selectedPlIds.length === 0) {
-                  toast.error('Seleccioná al menos un packing list PT confirmado.');
+                  toast.error(t('dispatch.toast.errNoPl'));
                   return;
                 }
                 if (plCommercialPreview.conflict) {
-                  toast.error(
-                    'Los packing lists tienen cliente comercial distinto. Unificá clientes en los PL (Existencias PT) o ajustá la selección.',
-                  );
+                  toast.error(t('dispatch.toast.errPlConflict'));
                   return;
                 }
                 if (dispatchPedidoClienteId == null) {
-                  toast.error(
-                    'Los packing lists seleccionados no tienen cliente comercial cargado. Asignalo en Existencias PT para listar pedidos pendientes de ese cliente.',
-                  );
+                  toast.error(t('dispatch.toast.errNoClient'));
                   return;
                 }
                 if (salesOrdersForDispatchFetching) {
-                  toast.error('Cargando pedidos… esperá un momento e intentá de nuevo.');
+                  toast.error(t('dispatch.toast.errOrderLoading'));
                   return;
                 }
                 if (pedidoOptions.length === 0) {
-                  toast.error('No hay pedidos pendientes de despacho para el cliente de estos packing lists.');
+                  toast.error(t('dispatch.toast.errNoOrders'));
                   return;
                 }
                 if (!pedidoOptions.some((o) => o.id === v.orden_id)) {
-                  toast.error('Elegí un pedido válido de la lista.');
+                  toast.error(t('dispatch.toast.errInvalidOrder'));
                   return;
                 }
                 if (inheritedBolPreview.conflict) {
-                  toast.error(
-                    'Los packing lists seleccionados tienen BOL distintos. Unificá el BOL en cada PL (Existencias PT) o ajustá la selección.',
-                  );
+                  toast.error(t('dispatch.toast.errBolConflict'));
                   return;
                 }
                 const hasBol = v.numero_bol?.trim() || inheritedBolPreview.value;
                 if (!hasBol) {
-                  toast.error('Indicá número BOL o definilo antes en los packing lists PT.');
+                  toast.error(t('dispatch.toast.errNoBol'));
                   return;
                 }
                 createDispatchMut.mutate({ ...v, pt_packing_list_ids: selectedPlIds });
@@ -1335,10 +1336,10 @@ export function DispatchesPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-3">
               <div className="grid gap-2">
-                    <Label>Packing lists PT</Label>
+                    <Label>{t('dispatch.dialog.plLabel')}</Label>
                     <div className="max-h-[180px] space-y-2 overflow-y-auto rounded-md border border-border p-2 text-sm">
                       {(linkablePtPl ?? []).length === 0 ? (
-                        <p className="text-muted-foreground">No hay packing lists confirmados libres. Confirmalos en Existencias PT (packing lists) primero.</p>
+                        <p className="text-muted-foreground">{t('dispatch.dialog.plEmpty')}</p>
                       ) : (
                         (linkablePtPl ?? []).map((pl) => (
                           <label key={pl.id} className="flex cursor-pointer items-start gap-2">
@@ -1365,7 +1366,7 @@ export function DispatchesPage() {
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Pedido</Label>
+                    <Label>{t('dispatch.dialog.orderLabel')}</Label>
                 <select
                       className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                       disabled={
@@ -1376,11 +1377,11 @@ export function DispatchesPage() {
                   {...dispatchForm.register('orden_id', { valueAsNumber: true })}
                 >
                       {dispatchPedidoClienteId == null ? (
-                        <option value="">Seleccioná packing lists con el mismo cliente</option>
+                        <option value="">{t('dispatch.dialog.orderSelectPl')}</option>
                       ) : salesOrdersForDispatchFetching ? (
-                        <option value="">Cargando pedidos…</option>
+                        <option value="">{t('dispatch.dialog.orderLoading')}</option>
                       ) : pedidoOptions.length === 0 ? (
-                        <option value="">Sin pedidos pendientes para este cliente</option>
+                        <option value="">{t('dispatch.dialog.orderNone')}</option>
                       ) : (
                         pedidoOptions.map((o) => (
                     <option key={o.id} value={o.id}>
@@ -1393,73 +1394,64 @@ export function DispatchesPage() {
                       )}
                 </select>
                     {dispatchPedidoClienteId != null ? (
-                      <p className="text-[11px] leading-snug text-muted-foreground">
-                        Solo pedidos <strong>pendientes</strong> de este cliente (cajas por despachar), ordenados por nº de pedido.
-                      </p>
+                      <p className="text-[11px] leading-snug text-muted-foreground">{t('dispatch.dialog.orderHint')}</p>
                     ) : selectedPlIds.length > 0 ? (
                       <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                        Los PL deben tener el mismo <strong>cliente comercial</strong> cargado en Existencias PT para filtrar pedidos.
+                        {t('dispatch.dialog.orderWarnClient')}
                       </p>
                     ) : (
-                      <p className="text-[11px] leading-snug text-muted-foreground">Elegí primero uno o más packing lists PT.</p>
+                      <p className="text-[11px] leading-snug text-muted-foreground">{t('dispatch.dialog.orderChoosePl')}</p>
                     )}
               </div>
                   <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-                    Cliente: {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
+                    {t('dispatch.dialog.clientPreview')}{' '}
+                    {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
                     <span className="font-mono text-xs">#{selectedSalesOrder?.id ?? '—'}</span>
               </div>
                 </div>
                 <div className="space-y-3">
               <div className="grid gap-2">
-                <Label>Fecha despacho</Label>
+                <Label>{t('dispatch.dialog.dateLabel')}</Label>
                 <Input type="datetime-local" {...dispatchForm.register('fecha_despacho')} />
               </div>
               <div className="grid gap-2">
-                <Label>Número BOL</Label>
-                <Input placeholder="Único en sistema" {...dispatchForm.register('numero_bol')} />
+                <Label>{t('dispatch.dialog.bolLabel')}</Label>
+                <Input placeholder={t('dispatch.dialog.bolPlaceholder')} {...dispatchForm.register('numero_bol')} />
                     {inheritedBolPreview.conflict ? (
-                      <p className="text-xs text-destructive">
-                        Los PL seleccionados tienen BOL distintos. Unificá en cada packing list o elegí PL con el mismo BOL.
-                      </p>
+                      <p className="text-xs text-destructive">{t('dispatch.dialog.bolConflict')}</p>
                     ) : inheritedBolPreview.value ? (
                       <p className="text-xs text-muted-foreground">
-                        Se usará <span className="font-mono">{inheritedBolPreview.value}</span> desde el packing list si dejás el campo
-                        vacío o igual. Si cambiás el valor, quedará solo en el despacho (no modifica los PL).
+                        {t('dispatch.dialog.bolInherited', { bol: inheritedBolPreview.value })}
                       </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Ningún PL seleccionado tiene BOL cargado; ingresalo aquí.</p>
+                      <p className="text-xs text-muted-foreground">{t('dispatch.dialog.bolNone')}</p>
                     )}
               </div>
               <div className="grid gap-2">
-                <Label>Temperatura (°F)</Label>
+                <Label>{t('dispatch.dialog.tempLabel')}</Label>
                 <Input type="number" step="0.01" {...dispatchForm.register('temperatura_f')} />
               </div>
                   <div className="grid gap-2">
-                    <Label>Termógrafo (n° serie / ID)</Label>
-                    <Input placeholder="Opcional" {...dispatchForm.register('thermograph_serial')} />
+                    <Label>{t('dispatch.dialog.thermographLabel')}</Label>
+                    <Input placeholder={t('dispatch.dialog.thermographPlaceholder')} {...dispatchForm.register('thermograph_serial')} />
                   </div>
                 </div>
               </div>
               <input type="hidden" {...dispatchForm.register('cliente_id', { valueAsNumber: true })} />
               {plCommercialPreview.conflict && selectedPlIds.length > 0 ? (
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Los packing lists seleccionados tienen <strong>cliente comercial</strong> distinto en inventario (Existencias PT). En opciones avanzadas
-                  podés fijar uno o dejar sin fijar (según unidad PT).
-                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">{t('dispatch.dialog.clientConflictWarn')}</p>
               ) : null}
               <details className="rounded-md border border-border text-sm">
                 <summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground hover:text-foreground">
-                  Opciones avanzadas: cliente comercial (stock PT)
+                  {t('dispatch.dialog.advancedTitle')}
                 </summary>
                 <div className="space-y-2 border-t border-border px-3 py-3">
-                  <Label className="text-xs font-normal text-muted-foreground">
-                    Solo si necesitás alinear facturación/stock PT con un cliente del maestro distinto del flujo automático.
-                  </Label>
+                  <Label className="text-xs font-normal text-muted-foreground">{t('dispatch.dialog.advancedHint')}</Label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     {...dispatchForm.register('client_id', { valueAsNumber: true })}
                   >
-                    <option value={0}>Según unidad PT / sin fijar</option>
+                    <option value={0}>{t('dispatch.dialog.advancedDefault')}</option>
                     {(commercialClients ?? []).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.codigo} — {c.nombre}
@@ -1467,18 +1459,16 @@ export function DispatchesPage() {
                     ))}
                   </select>
                   {plCommercialPreview.unified != null && !plCommercialPreview.conflict && selectedPlIds.length > 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Valor sugerido desde los packing lists seleccionados (mismo cliente en todos los PL).
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t('dispatch.dialog.advancedSuggested')}</p>
                   ) : null}
                 </div>
               </details>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setDispatchOpen(false)}>
-                  Cancelar
+                  {t('dispatch.dialog.cancelButton')}
                 </Button>
                 <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={createDispatchMut.isPending}>
-                  {createDispatchMut.isPending ? 'Creando…' : 'Registrar despacho'}
+                  {createDispatchMut.isPending ? t('dispatch.dialog.creatingButton') : t('dispatch.dialog.createButton')}
                 </Button>
               </DialogFooter>
             </form>
@@ -1488,52 +1478,52 @@ export function DispatchesPage() {
 
       <section aria-labelledby="dp-kpis" className="space-y-4">
         <h2 id="dp-kpis" className="sr-only">
-          Indicadores de despachos
+          {t('dispatch.srKpis')}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={kpiCard}>
-            <p className={kpiLabel}>Despachos (vista)</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.total')}</p>
             <p className={kpiValueLg}>{formatCount(dispatchKpis.totalDespachos)}</p>
-            <p className={kpiFootnote}>Total en filtro</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.totalNote')}</p>
           </div>
           <div className={cn(kpiCard, dispatchKpis.pendientes > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Pendientes</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.pending')}</p>
             <p className={cn(kpiValueLg, dispatchKpis.pendientes > 0 ? 'text-amber-700' : 'text-green-700')}>
               {formatCount(dispatchKpis.pendientes)}
             </p>
-            <p className={kpiFootnote}>Borrador</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.pendingNote')}</p>
           </div>
           <div className={kpiCard}>
-            <p className={kpiLabel}>Confirmados</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.confirmed')}</p>
             <p className={kpiValueLg}>{formatCount(dispatchKpis.confirmados)}</p>
-            <p className={kpiFootnote}>Cerrados operativamente</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.confirmedNote')}</p>
           </div>
           <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Despachados</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.dispatched')}</p>
             <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(dispatchKpis.despachados)}</p>
-            <p className={kpiFootnote}>Salida física registrada</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.dispatchedNote')}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(kpiCardSm, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>Cajas totales</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.totalBoxes')}</p>
             <p className={cn(kpiValueMd, 'text-blue-700')}>{formatCount(dispatchKpis.totalCajas)}</p>
-            <p className={kpiFootnote}>Suma en vista</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.totalBoxesNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Peso total (lb)</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.totalLb')}</p>
             <p className={kpiValueMd}>{dispatchKpis.totalLb != null ? formatLb(dispatchKpis.totalLb, 2) : '—'}</p>
-            <p className={kpiFootnote}>Desde PT vinculadas</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.totalLbNote')}</p>
           </div>
           <div className={cn(kpiCardSm, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>Ventas ($)</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.sales')}</p>
             <p className={cn(kpiValueMd, 'text-green-700')}>{dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—'}</p>
-            <p className={kpiFootnote}>Facturas con total</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.salesNote')}</p>
           </div>
           <div className={kpiCardSm}>
-            <p className={kpiLabel}>Precio / lb</p>
+            <p className={kpiLabel}>{t('dispatch.kpi.pricePerLb')}</p>
             <p className={kpiValueMd}>{dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)} / lb` : '—'}</p>
-            <p className={kpiFootnote}>Promedio ponderado</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.pricePerLbNote')}</p>
           </div>
         </div>
         <div
@@ -1550,7 +1540,7 @@ export function DispatchesPage() {
                 : 'border-slate-100/90 bg-slate-50/40',
             )}
           >
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Cargas con señales</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{t('dispatch.kpi.withAlerts')}</p>
             <p
               className={cn(
                 'mt-2 text-xl font-semibold tabular-nums',
@@ -1559,13 +1549,13 @@ export function DispatchesPage() {
             >
               {formatCount(dispatchKpis.conAlertas)}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">Cliente, BOL o pallets — expandir fila</p>
+            <p className="mt-1 text-[11px] text-slate-500">{t('dispatch.kpi.withAlertsNote')}</p>
           </div>
           <div className={cn(contentCard, 'px-4 py-4')}>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Top volumen (cajas)</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dispatch.kpi.topVolume')}</p>
             <ol className="mt-2 list-none space-y-1.5 text-sm text-slate-700">
               {dispatchKpis.topClientesCajas.length === 0 ? (
-                <li className="text-slate-400">Sin datos.</li>
+                <li className="text-slate-400">{t('dispatch.kpi.noData')}</li>
               ) : (
                 dispatchKpis.topClientesCajas.map(([name, cajas], i) => (
                   <li key={name} className="flex justify-between gap-2 border-b border-slate-100/90 pb-1.5 last:border-0 last:pb-0">
@@ -1579,10 +1569,10 @@ export function DispatchesPage() {
             </ol>
           </div>
           <div className={cn(contentCard, 'px-4 py-4')}>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Top valor ($)</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dispatch.kpi.topValue')}</p>
             <ol className="mt-2 list-none space-y-1.5 text-sm text-slate-700">
               {dispatchKpis.topClientesValor.length === 0 ? (
-                <li className="text-slate-400">Sin datos.</li>
+                <li className="text-slate-400">{t('dispatch.kpi.noData')}</li>
               ) : (
                 dispatchKpis.topClientesValor.map(([name, val], i) => (
                   <li key={name} className="flex justify-between gap-2 border-b border-slate-100/90 pb-1.5 last:border-0 last:pb-0">
@@ -1600,7 +1590,7 @@ export function DispatchesPage() {
 
       <div className={filterPanel}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>Filtros</span>
+          <span className={signalsTitle}>{t('dispatch.filters.title')}</span>
           <button
             type="button"
             className={pageInfoButton}
@@ -1612,13 +1602,13 @@ export function DispatchesPage() {
         </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-xs text-slate-500">Cliente (comercial)</Label>
+            <Label className="text-xs text-slate-500">{t('dispatch.filters.client')}</Label>
             <select
               className={cn(filterSelectClass, 'w-full max-w-none')}
               value={filterClienteComercial}
               onChange={(e) => setFilterClienteComercial(Number(e.target.value))}
             >
-              <option value={0}>Todos</option>
+              <option value={0}>{t('dispatch.filters.clientAll')}</option>
               {(commercialClients ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.codigo} — {c.nombre}
@@ -1628,7 +1618,7 @@ export function DispatchesPage() {
           </div>
           <div className="flex flex-wrap items-end gap-2 lg:col-span-5">
             <div className="grid min-w-0 flex-1 gap-2 sm:max-w-[200px]">
-              <Label className="text-xs text-slate-500">Desde</Label>
+              <Label className="text-xs text-slate-500">{t('dispatch.filters.from')}</Label>
               <Input
                 type="date"
                 className={filterInputClass}
@@ -1637,7 +1627,7 @@ export function DispatchesPage() {
               />
             </div>
             <div className="grid min-w-0 flex-1 gap-2 sm:max-w-[200px]">
-              <Label className="text-xs text-slate-500">Hasta</Label>
+              <Label className="text-xs text-slate-500">{t('dispatch.filters.to')}</Label>
               <Input
                 type="date"
                 className={filterInputClass}
@@ -1647,10 +1637,10 @@ export function DispatchesPage() {
             </div>
           </div>
           <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">Buscar</Label>
+            <Label className="text-xs text-slate-500">{t('dispatch.filters.search')}</Label>
             <Input
               className={filterInputClass}
-              placeholder="BOL, id, cliente, orden…"
+              placeholder={t('dispatch.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1662,8 +1652,10 @@ export function DispatchesPage() {
         <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/40 px-4 py-3 text-sm text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
           <p>
-            <span className="font-semibold">{dispatchKpis.conAlertas}</span> despacho
-            {dispatchKpis.conAlertas === 1 ? '' : 's'} con advertencias en esta vista. Revisá la columna de estado o expandí el detalle.
+            {t('dispatch.alertBanner', {
+              count: dispatchKpis.conAlertas,
+              suffix: dispatchKpis.conAlertas === 1 ? '' : t('dispatch.alertSuffix'),
+            })}
           </p>
         </div>
       ) : null}
@@ -1672,15 +1664,20 @@ export function DispatchesPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="dp-listado" className={sectionTitle}>
-              Listado operativo
+              {t('dispatch.table.title')}
             </h2>
             <p className={sectionHint}>
-              {filtered.length} registro(s)
               {viewMode === 'detailed'
-                ? ' · expandí una fila para documentos y líneas'
-                : ` · hoy: ${formatCount(dispatchMetricsHoy.count)} despachos · ${formatCount(dispatchMetricsHoy.cajas)} cajas${
-                    dispatchMetricsHoy.lb != null ? ` · ${formatLb(dispatchMetricsHoy.lb, 2)} lb` : ''
-                  }`}
+                ? t('dispatch.table.hintDetailed', { count: filtered.length })
+                : t('dispatch.table.hintCompact', {
+                    count: filtered.length,
+                    todayCount: formatCount(dispatchMetricsHoy.count),
+                    todayBoxes: formatCount(dispatchMetricsHoy.cajas),
+                    todayLb:
+                      dispatchMetricsHoy.lb != null
+                        ? t('dispatch.table.hintCompactLb', { lb: formatLb(dispatchMetricsHoy.lb, 2) })
+                        : '',
+                  })}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1692,7 +1689,7 @@ export function DispatchesPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('compact')}
               >
-                Compacta
+                {t('dispatch.table.viewCompact')}
               </Button>
               <Button
                 type="button"
@@ -1701,31 +1698,33 @@ export function DispatchesPage() {
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
               >
-                Detallada
+                {t('dispatch.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                Ver criterios
+                {t('dispatch.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
                 <p>
-                  <span className="font-semibold text-emerald-700">Ejecutado / confirmado / despachado:</span> salida ya
-                  realizada
+                  <span className="font-semibold text-emerald-700">{t('dispatch.table.criteriaExecuted')}</span>{' '}
+                  {t('dispatch.table.criteriaExecutedDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-amber-800">En preparación:</span> despacho pendiente o en proceso
+                  <span className="font-semibold text-amber-800">{t('dispatch.table.criteriaInPrep')}</span>{' '}
+                  {t('dispatch.table.criteriaInPrepDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-rose-700">Anulado:</span> despacho cancelado
+                  <span className="font-semibold text-rose-700">{t('dispatch.table.criteriaVoided')}</span>{' '}
+                  {t('dispatch.table.criteriaVoidedDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-800">BOL / documento:</span> referencia comercial/logística del
-                  despacho
+                  <span className="font-semibold text-slate-800">{t('dispatch.table.criteriaBol')}</span>{' '}
+                  {t('dispatch.table.criteriaBolDesc')}
                 </p>
                 <p>
-                  <span className="font-semibold text-sky-800">Packing List asociado:</span> preparación que originó el
-                  despacho
+                  <span className="font-semibold text-sky-800">{t('dispatch.table.criteriaPlLinked')}</span>{' '}
+                  {t('dispatch.table.criteriaPlLinkedDesc')}
                 </p>
               </div>
             </details>
@@ -1734,9 +1733,7 @@ export function DispatchesPage() {
 
       {filtered.length === 0 ? (
           <p className={emptyStatePanel}>
-            {dispatches?.length === 0
-              ? 'No hay despachos. Creá pedidos y luego un despacho.'
-              : 'Sin coincidencias con el filtro.'}
+            {dispatches?.length === 0 ? t('dispatch.table.emptyAll') : t('dispatch.table.emptyFilter')}
           </p>
         ) : viewMode === 'compact' ? (
         <div className="space-y-4">
@@ -1745,7 +1742,8 @@ export function DispatchesPage() {
                 <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
                   <p className="text-sm font-semibold text-slate-900">{group.label}</p>
                   <p className="text-xs text-slate-600">
-                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span> cajas
+                    <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span>{' '}
+                    {t('dispatch.table.groupBoxes')}
                   </p>
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-slate-900">
@@ -1753,41 +1751,43 @@ export function DispatchesPage() {
                     </span>{' '}
                     lb
                   </p>
-                  <p className="text-xs text-slate-600">{formatCount(group.count)} despachos</p>
                   <p className="text-xs text-slate-600">
-                    Último:{' '}
+                    {formatCount(group.count)} {t('dispatch.table.groupDispatches')}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {t('dispatch.table.groupLast')}{' '}
                     <span className="font-medium text-slate-800">
                       {group.lastFechaMs > 0 ? formatDispatchFechaCell(new Date(group.lastFechaMs).toISOString()) : '—'}
                         </span>
                   </p>
                   {group.hasPending ? (
                     <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
-                      Pendientes
+                      {t('dispatch.table.groupPending')}
                         </span>
                   ) : null}
                   {group.hasAnulado ? (
                     <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-900">
-                      Anulados
+                      {t('dispatch.table.groupVoided')}
                     </span>
                   ) : null}
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
-                      <TableHead className="w-[120px]">Estado</TableHead>
-                      <TableHead className="min-w-[120px]">Despacho / doc</TableHead>
-                      <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                      <TableHead className="min-w-[100px]">PL</TableHead>
-                      <TableHead className="min-w-[100px]">Formatos</TableHead>
-                      <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                      <TableHead className="text-right tabular-nums">Lb</TableHead>
-                      <TableHead className="min-w-[120px]">Transporte</TableHead>
-                      <TableHead className="w-[220px] text-right">Acciones</TableHead>
+                      <TableHead className="w-[120px]">{t('dispatch.table.colState')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('dispatch.table.colDispatchDoc')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('dispatch.table.colDate')}</TableHead>
+                      <TableHead className="min-w-[100px]">{t('dispatch.table.colPl')}</TableHead>
+                      <TableHead className="min-w-[100px]">{t('dispatch.table.colFormats')}</TableHead>
+                      <TableHead className="text-right tabular-nums">{t('dispatch.table.colBoxes')}</TableHead>
+                      <TableHead className="text-right tabular-nums">{t('dispatch.table.colLb')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('dispatch.table.colTransport')}</TableHead>
+                      <TableHead className="w-[220px] text-right">{t('dispatch.table.colActions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.rows.map((d) => {
-                      const tone = dispatchCompactRowTone(d);
+                      const tone = dispatchCompactRowTone(d, t);
                       const destinoD = destinoDespachoDisplay(d);
                       const cajasList = dispatchCajasListDisplay(d);
                       const totalLb = dispatchTotalLb(d);
@@ -1816,13 +1816,13 @@ export function DispatchesPage() {
                               >
                                 {tone.shortLabel}
                               </span>
-                              <DispatchKindBadge kind={d.kind} />
+                              <DispatchKindBadge kind={d.kind} t={t} />
                               {dispatchHasAnyOperationalAlert(opRisk) ? (
                                 <span
                                   className="inline-flex w-fit rounded-full border border-amber-200/90 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950"
-                                  title="Ver detalle en tabla expandida"
+                                  title={t('dispatch.table.alertBadgeTitle')}
                                 >
-                                  Alerta
+                                  {t('dispatch.table.alertBadge')}
                                 </span>
                               ) : null}
                     </div>
@@ -1833,7 +1833,7 @@ export function DispatchesPage() {
                               {dispatchDocCodeLine(d)}
                             </p>
                             <p className="mt-0.5 truncate font-mono text-[10px] text-slate-400" title={d.numero_bol}>
-                              BOL {d.numero_bol?.trim() || '—'}
+                              {t('dispatch.table.bolPrefix')} {d.numero_bol?.trim() || '—'}
                             </p>
                           </TableCell>
                           <TableCell className="whitespace-nowrap py-2.5 text-[11px] tabular-nums text-slate-600">
@@ -1859,8 +1859,8 @@ export function DispatchesPage() {
                             <p className="truncate text-[11px] text-slate-600" title={destinoD.title}>
                               {destinoD.text}
                             </p>
-                            <p className="truncate font-mono text-[10px] text-slate-400" title={docTransporteLine(d)}>
-                              {docTransporteLine(d)}
+                            <p className="truncate font-mono text-[10px] text-slate-400" title={docTransporteLine(d, t)}>
+                              {docTransporteLine(d, t)}
                             </p>
                           </TableCell>
                           <TableCell className="py-2.5 text-right">
@@ -1872,7 +1872,7 @@ export function DispatchesPage() {
                                 className="h-7 rounded-md px-2 text-[11px]"
                                 onClick={() => openDispatchDetailView(d.id)}
                               >
-                                Ver detalle
+                                {t('dispatch.table.actionDetail')}
                     </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1888,25 +1888,25 @@ export function DispatchesPage() {
                                           `/api/documents/dispatches/${d.id}/packing-list/pdf`,
                                           `packing-list-${d.id}.pdf`,
                                         );
-                                        toast.success('PDF packing list');
+                                        toast.success(t('dispatch.toast.pdfPl'));
                                       } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                        toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
                                       }
                                     }}
                                   >
-                                    PDF packing list
+                                    {t('dispatch.toast.pdfPl')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       try {
                                         await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
-                                        toast.success('PDF factura');
+                                        toast.success(t('dispatch.toast.pdfInvoice'));
                                       } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                        toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
                                       }
                                     }}
                                   >
-                                    PDF factura
+                                    {t('dispatch.toast.pdfInvoice')}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1923,7 +1923,7 @@ export function DispatchesPage() {
                                   setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
                                 }}
                               >
-                                Editar
+                                {t('dispatch.table.actionEdit')}
                     </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1951,23 +1951,25 @@ export function DispatchesPage() {
                                         else confirmDispatchMut.mutate(d.id);
                                       }}
                                     >
-                                      Confirmar despacho
+                                      {t('dispatch.table.actionConfirm')}
                                     </DropdownMenuItem>
                                   ) : null}
                                   {d.kind === 'packing_lists' && d.status === 'confirmado' ? (
                                     <DropdownMenuItem disabled={despacharMut.isPending} onClick={() => despacharMut.mutate(d.id)}>
-                                      Registrar salida física
+                                      {t('dispatch.table.actionRegisterExit')}
                                     </DropdownMenuItem>
                                   ) : null}
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>Ver detalle</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>
+                                    {t('dispatch.table.actionDetail')}
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       try {
                                         await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
-                                        toast.success('PDF factura');
+                                        toast.success(t('dispatch.toast.pdfInvoice'));
                                       } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                        toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
                                       }
                                     }}
                                   >
@@ -1982,17 +1984,19 @@ export function DispatchesPage() {
                                       setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
                                     }}
                                   >
-                                    Editar datos despacho
+                                    {t('dispatch.table.actionEditData')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
                                     <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                    Packing list
+                                    {t('dispatch.table.actionPackingList')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
                                     <FileText className="mr-2 h-4 w-4" />
-                                    Generar factura
+                                    {t('dispatch.table.actionGenerateInvoice')}
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>
+                                    {t('dispatch.table.actionManualAdjust')}
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       const so = salesOrders?.find((s) => s.id === d.orden_id);
@@ -2002,7 +2006,7 @@ export function DispatchesPage() {
                                       setOrderLinkCommercialClientId(d.client_id ?? 0);
                                     }}
                                   >
-                                    Corregir pedido vinculado
+                                    {t('dispatch.table.actionFixOrder')}
                                   </DropdownMenuItem>
                                   {d.kind !== 'packing_lists' ? (
                                     <DropdownMenuItem
@@ -2022,7 +2026,7 @@ export function DispatchesPage() {
                                       }}
                                     >
                                       <Package className="mr-2 h-4 w-4" />
-                                      Unidad PT (legacy)
+                                      {t('dispatch.table.actionLegacyPt')}
                                     </DropdownMenuItem>
                                   ) : null}
                                   {d.status === 'despachado' && canRevertSalida ? (
@@ -2030,16 +2034,14 @@ export function DispatchesPage() {
                                       disabled={revertDespachadoMut.isPending}
                                       onClick={() => {
                                         if (
-                                          !window.confirm(
-                                            '¿Deshacer el registro de salida física? El despacho volverá a «confirmado». No se modifica el stock PT.',
-                                          )
+                                          !window.confirm(t('dispatch.toast.confirmRevertSalida'))
                                         ) {
                                           return;
                                         }
                                         revertDespachadoMut.mutate(d.id);
                                       }}
                                     >
-                                      Deshacer salida
+                                      {t('dispatch.table.actionUndoExit')}
                                     </DropdownMenuItem>
                                   ) : null}
                                 </DropdownMenuContent>
@@ -2059,17 +2061,17 @@ export function DispatchesPage() {
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[200px]">Estado</TableHead>
-                  <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                  <TableHead className="min-w-[120px]">Cliente</TableHead>
-                  <TableHead className="whitespace-nowrap">Pedido</TableHead>
-                  <TableHead className="min-w-[140px]">PL / carga</TableHead>
-                  <TableHead className="text-right tabular-nums">Cajas</TableHead>
-                  <TableHead className="text-right tabular-nums">Peso (lb)</TableHead>
-                  <TableHead className="min-w-[100px]">Destino</TableHead>
-                  <TableHead className="min-w-[100px]">BOL</TableHead>
-                  <TableHead className="min-w-[120px]">Documento</TableHead>
-                  <TableHead className="w-[120px] text-right">Acciones</TableHead>
+                  <TableHead className="min-w-[200px]">{t('dispatch.table.colState')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('dispatch.table.colDate')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('dispatch.table.colClient')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('dispatch.table.colOrder')}</TableHead>
+                  <TableHead className="min-w-[140px]">{t('dispatch.table.colPlLoad')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('dispatch.table.colBoxes')}</TableHead>
+                  <TableHead className="text-right tabular-nums">{t('dispatch.table.colWeight')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('dispatch.table.colDest')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('dispatch.table.colBol')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('dispatch.table.colDoc')}</TableHead>
+                  <TableHead className="w-[120px] text-right">{t('dispatch.table.colActions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2094,14 +2096,14 @@ export function DispatchesPage() {
                 <TableRow className={tableBodyRow}>
                   <TableCell className="max-w-[220px] py-3.5 align-top">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <DispatchKindBadge kind={d.kind} />
-                      <DispatchFlowStatusBadge status={d.status} />
+                      <DispatchKindBadge kind={d.kind} t={t} />
+                      <DispatchFlowStatusBadge status={d.status} t={t} />
                       {dispatchHasAnyOperationalAlert(opRisk) ? (
                         <span
                           className="inline-flex max-w-[100px] truncate rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-950"
-                          title="Cliente/BOL o riesgos en pallets; detalle al expandir."
+                          title={t('dispatch.table.alertBadgeTitle')}
                         >
-                          Alerta
+                          {t('dispatch.table.alertBadge')}
                         </span>
                       ) : null}
                     </div>
@@ -2126,14 +2128,14 @@ export function DispatchesPage() {
                     {destinoD.text}
                   </TableCell>
                   <TableCell className="py-3.5 font-mono text-xs text-slate-800">{d.numero_bol?.trim() || '—'}</TableCell>
-                  <TableCell className="max-w-[130px] py-3.5 text-xs text-slate-600">{docTransporteLine(d)}</TableCell>
+                  <TableCell className="max-w-[130px] py-3.5 text-xs text-slate-600">{docTransporteLine(d, t)}</TableCell>
                   <TableCell className="py-3.5 text-right">
                     <div className="flex shrink-0 items-center justify-end gap-1">
                       <span className="hidden font-mono text-xs text-muted-foreground sm:inline">#{d.id}</span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-slate-200 text-xs font-medium">
-                            Acciones
+                            {t('dispatch.table.actionMenu')}
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[min(100vw-2rem,18rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
@@ -2156,12 +2158,12 @@ export function DispatchesPage() {
                                 else confirmDispatchMut.mutate(d.id);
                               }}
                             >
-                              Confirmar despacho
+                              {t('dispatch.table.actionConfirm')}
                             </DropdownMenuItem>
                           ) : null}
                           {d.kind === 'packing_lists' && d.status === 'confirmado' ? (
                             <DropdownMenuItem disabled={despacharMut.isPending} onClick={() => despacharMut.mutate(d.id)}>
-                              Registrar salida física
+                              {t('dispatch.table.actionRegisterExit')}
                             </DropdownMenuItem>
                           ) : null}
                           {d.status === 'despachado' && canRevertSalida ? (
@@ -2169,27 +2171,27 @@ export function DispatchesPage() {
                               disabled={revertDespachadoMut.isPending}
                               onClick={() => {
                                 if (
-                                  !window.confirm(
-                                    '¿Deshacer el registro de salida física? El despacho volverá a «confirmado». No se modifica el stock PT.',
-                                  )
+                                  !window.confirm(t('dispatch.toast.confirmRevertSalida'))
                                 ) {
                                   return;
                                 }
                                 revertDespachadoMut.mutate(d.id);
                               }}
                             >
-                              Deshacer salida
+                              {t('dispatch.table.actionUndoExit')}
                             </DropdownMenuItem>
                           ) : null}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>Ver detalle</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>
+                            {t('dispatch.table.actionDetail')}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={async () => {
                               try {
                                 await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
-                                toast.success('PDF factura');
+                                toast.success(t('dispatch.toast.pdfInvoice'));
                               } catch (e) {
-                                toast.error(e instanceof Error ? e.message : 'Error PDF');
+                                toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
                               }
                             }}
                           >
@@ -2204,17 +2206,19 @@ export function DispatchesPage() {
                               setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
                             }}
                           >
-                            Editar datos despacho
+                            {t('dispatch.table.actionEditData')}
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled={packingMut.isPending} onClick={() => packingMut.mutate(d.id)}>
                             <FileSpreadsheet className="mr-2 h-4 w-4" />
-                            Packing list
+                            {t('dispatch.table.actionPackingList')}
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled={invoiceMut.isPending} onClick={() => invoiceMut.mutate(d.id)}>
                             <FileText className="mr-2 h-4 w-4" />
-                            Generar factura
+                            {t('dispatch.table.actionGenerateInvoice')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>Ajuste manual en factura</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setInvoiceLineDispatchId(d.id)}>
+                            {t('dispatch.table.actionManualAdjust')}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
                               const so = salesOrders?.find((s) => s.id === d.orden_id);
@@ -2224,7 +2228,7 @@ export function DispatchesPage() {
                               setOrderLinkCommercialClientId(d.client_id ?? 0);
                             }}
                           >
-                            Corregir pedido vinculado
+                            {t('dispatch.table.actionFixOrder')}
                           </DropdownMenuItem>
                           {d.kind !== 'packing_lists' ? (
                             <DropdownMenuItem
@@ -2244,7 +2248,7 @@ export function DispatchesPage() {
                               }}
                             >
                               <Package className="mr-2 h-4 w-4" />
-                              Unidad PT (legacy)
+                              {t('dispatch.table.actionLegacyPt')}
                             </DropdownMenuItem>
                           ) : null}
                           {d.status === 'despachado' && canRevertSalida ? (
@@ -2252,16 +2256,14 @@ export function DispatchesPage() {
                               disabled={revertDespachadoMut.isPending}
                               onClick={() => {
                                 if (
-                                  !window.confirm(
-                                    '¿Deshacer el registro de salida física? El despacho volverá a «confirmado». No se modifica el stock PT.',
-                                  )
+                                  !window.confirm(t('dispatch.toast.confirmRevertSalida'))
                                 ) {
                                   return;
                                 }
                                 revertDespachadoMut.mutate(d.id);
                               }}
                             >
-                              Deshacer salida
+                              {t('dispatch.table.actionUndoExit')}
                             </DropdownMenuItem>
                           ) : null}
                         </DropdownMenuContent>
@@ -2277,12 +2279,12 @@ export function DispatchesPage() {
                     <TableCell colSpan={11} className="bg-slate-50/30 p-0">
                       <div className="space-y-6 p-4 sm:p-5">
                     <section className="space-y-3">
-                      <h3 className="text-sm font-semibold text-foreground">Resumen</h3>
+                      <h3 className="text-sm font-semibold text-foreground">{t('dispatch.table.sectionSummary')}</h3>
                       {d.kind === 'packing_lists' && dispatchHasAnyOperationalAlert(opRisk) ? (
                         <div className="rounded-lg border border-amber-500/40 bg-amber-500/[0.06] p-3 dark:border-amber-800/45 dark:bg-amber-950/20">
                           <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-foreground">
                             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-                            Advertencias operativas
+                            {t('dispatch.table.operativeWarnings')}
                           </div>
                           <div className="space-y-2.5">
                             {opRisk.clienteDespachoVsPallet ? (
@@ -2334,14 +2336,17 @@ export function DispatchesPage() {
                       ) : null}
                       {d.kind === 'packing_lists' && d.status === 'borrador' ? (
                         <div className="rounded-lg border border-dashed border-amber-500/45 bg-amber-500/[0.08] px-3 py-2 text-xs leading-relaxed text-amber-950 shadow-sm dark:text-amber-100/95">
-                          <span className="font-semibold">Borrador:</span> podés editar BOL y datos; la acción principal es{' '}
-                          <strong>Confirmar despacho</strong>. No cambia stock PT.
+                          <span className="font-semibold">{t('dispatch.table.draftNotice')}</span>
+                          {' '}
+                          {t('dispatch.table.draftNoticeDesc')}{' '}
+                          <strong>{t('dispatch.table.draftNoticeAction')}</strong>
+                          {t('dispatch.table.draftNoticeEnd')}
                         </div>
                       ) : null}
                       {d.kind === 'packing_lists' && d.status === 'confirmado' ? (
                         <details className="rounded-lg border border-emerald-500/40 bg-emerald-500/[0.09] px-3 py-2 text-xs shadow-sm dark:bg-emerald-950/35">
                           <summary className="cursor-pointer font-semibold text-emerald-900 dark:text-emerald-100">
-                            Confirmado: documento cerrado; siguiente paso «Registrar salida física»
+                            {t('dispatch.table.confirmedNotice')}
                           </summary>
                           <ul className="mt-2 grid list-disc gap-x-6 gap-y-1.5 pl-4 text-muted-foreground md:grid-cols-2 dark:text-emerald-100/85">
                             <li className="md:col-span-2">
@@ -2364,7 +2369,7 @@ export function DispatchesPage() {
                         <details className="relative overflow-hidden rounded-lg border border-sky-500/35 bg-gradient-to-br from-sky-500/[0.07] to-muted/40 px-3 py-2 text-xs leading-relaxed shadow-sm dark:border-sky-500/30 dark:from-sky-950/40 dark:to-muted/20">
                           <summary className="flex cursor-pointer items-center gap-2 font-semibold text-foreground">
                             <Truck className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden />
-                            Despachado: salida física registrada
+                            {t('dispatch.table.dispatchedNotice')}
                           </summary>
                           <ul className="mt-2 grid list-disc gap-x-6 gap-y-1.5 pl-4 text-muted-foreground md:grid-cols-2">
                             <li className="md:col-span-2">
@@ -2388,9 +2393,9 @@ export function DispatchesPage() {
                     </section>
 
                     <section className="space-y-2">
-                      <h3 className="text-sm font-semibold text-foreground">Unidades PT incluidas</h3>
+                      <h3 className="text-sm font-semibold text-foreground">{t('dispatch.table.sectionPtUnits')}</h3>
                       {d.kind === 'packing_lists' && !(d.final_pallets?.length) ? (
-                        <p className="text-sm text-muted-foreground">Sin unidades en los packing lists vinculados.</p>
+                        <p className="text-sm text-muted-foreground">{t('dispatch.table.noPtInPl')}</p>
                       ) : d.final_pallets && d.final_pallets.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {d.final_pallets.map((fp) => (
@@ -2410,7 +2415,7 @@ export function DispatchesPage() {
                     </section>
 
                     <section className="space-y-2">
-                      <h3 className="text-sm font-semibold text-foreground">Unidades PT (trazabilidad)</h3>
+                      <h3 className="text-sm font-semibold text-foreground">{t('dispatch.table.sectionPtTrace')}</h3>
                       {d.items.length === 0 && !(d.final_pallets?.length) && d.kind !== 'packing_lists' ? (
                         <p className="text-sm text-muted-foreground">
                           Agregá al menos una unidad PT o existencias PT al despacho antes de generar packing/factura.
@@ -2443,31 +2448,37 @@ export function DispatchesPage() {
                         </TableBody>
                       </Table>
                       ) : (
-                        <p className="text-sm text-muted-foreground">Sin líneas de unidad PT en este despacho.</p>
+                        <p className="text-sm text-muted-foreground">{t('dispatch.table.noTagLines')}</p>
                       )}
                     </section>
 
                     <section className="space-y-3">
-                      <h3 className="text-sm font-semibold text-foreground">Documentos</h3>
+                      <h3 className="text-sm font-semibold text-foreground">{t('dispatch.table.sectionDocs')}</h3>
                       <div className="flex flex-wrap gap-2 text-xs">
                         {d.packing_list ? (
                           <span className="rounded-md bg-primary/15 px-2.5 py-1 font-mono text-primary">
                             {d.packing_list.packing_number}
                           </span>
                         ) : (
-                          <span className="rounded-md border border-dashed border-border px-2.5 py-1 text-muted-foreground">Sin packing list</span>
+                          <span className="rounded-md border border-dashed border-border px-2.5 py-1 text-muted-foreground">
+                            {t('dispatch.table.noPackingList')}
+                          </span>
                         )}
                         {d.invoice ? (
                           <span className="rounded-md bg-muted px-2.5 py-1 font-mono">
                             {d.invoice.invoice_number} · total {d.invoice.total}
                           </span>
                         ) : (
-                          <span className="rounded-md border border-dashed border-border px-2.5 py-1 text-muted-foreground">Sin factura</span>
+                          <span className="rounded-md border border-dashed border-border px-2.5 py-1 text-muted-foreground">
+                            {t('dispatch.table.noInvoice')}
+                          </span>
                         )}
                       </div>
                       {d.invoice && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-sm font-semibold">Líneas de factura {d.invoice.invoice_number}</h4>
+                        <h4 className="text-sm font-semibold">
+                          {t('dispatch.table.invoiceLinesTitle', { number: d.invoice.invoice_number })}
+                        </h4>
                         {(d.invoice.lines ?? []).some(
                           (ln) => !ln.is_manual && ln.traceability_ok === false,
                         ) ? (
@@ -2486,11 +2497,11 @@ export function DispatchesPage() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>#</TableHead>
-                                <TableHead>Detalle</TableHead>
-                                <TableHead>Cant.</TableHead>
-                                <TableHead>Origen</TableHead>
-                                <TableHead>P.unit</TableHead>
-                                <TableHead>Subt.</TableHead>
+                                <TableHead>{t('dispatch.table.invoiceColDetail')}</TableHead>
+                                <TableHead>{t('dispatch.table.invoiceColQty')}</TableHead>
+                                <TableHead>{t('dispatch.table.invoiceColOrigin')}</TableHead>
+                                <TableHead>{t('dispatch.table.invoiceColUnitPrice')}</TableHead>
+                                <TableHead>{t('dispatch.table.invoiceColSubtotal')}</TableHead>
                                 <TableHead />
                               </TableRow>
                             </TableHeader>
@@ -2503,7 +2514,7 @@ export function DispatchesPage() {
                                       <span className="flex flex-wrap items-center gap-1">
                                         {ln.manual_line_kind === 'descuento' ? (
                                           <Badge variant="secondary" className="text-[10px]">
-                                            Descuento
+                                            {t('dispatch.table.badgeDiscount')}
                                           </Badge>
                                         ) : null}
                                         <span>
@@ -2525,7 +2536,7 @@ export function DispatchesPage() {
                                   <TableCell className="font-mono text-xs">
                                     {ln.is_manual ? (
                                       <Badge variant="outline" className="text-[10px]">
-                                        Ajuste
+                                        {t('dispatch.table.badgeAdjust')}
                                       </Badge>
                                     ) : ln.tarja_id != null ? (
                                       <span title={`id tarja ${ln.tarja_id}`}>
@@ -2561,12 +2572,12 @@ export function DispatchesPage() {
                                       <span className="flex flex-col items-end gap-0.5">
                                         <Badge variant="outline" className="text-[10px]">
                                           {ln.tarja_id != null
-                                            ? 'unidad PT'
+                                            ? t('dispatch.table.badgePtUnit')
                                             : ln.fruit_process_id != null
-                                              ? 'proceso'
+                                              ? t('dispatch.table.badgeProcess')
                                               : ln.final_pallet_id != null
-                                                ? 'existencia PT'
-                                                : 'sin traz.'}
+                                                ? t('dispatch.table.badgePtStock')
+                                                : t('dispatch.table.badgeNoTrace')}
                                         </Badge>
                                         {ln.traceability_note ? (
                                           <span className="max-w-[140px] text-[10px] text-muted-foreground" title={ln.traceability_note}>
@@ -2613,26 +2624,23 @@ export function DispatchesPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Unidades PT en despacho #{attachFpDispatchId ?? '—'}
+                {t('dispatch.table.attachPtTitle', { id: attachFpDispatchId ?? '—' })}
               </DialogTitle>
               <button
                 type="button"
                 onClick={() => setAttachFpDispatchId(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('dispatch.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
             </div>
           </DialogHeader>
           <div className="grid gap-3 py-2 text-sm">
-            <p className="text-muted-foreground text-xs">
-              Solo unidades en estado <strong>definitivo</strong> y sin otro despacho. Se actualiza el packing list. La factura comercial usa
-              precio por <strong>caja</strong> por formato de presentación (indicá abajo los que correspondan a existencias marcadas).
-            </p>
+            <p className="text-muted-foreground text-xs">{t('dispatch.table.attachPtHint')}</p>
             <div className="space-y-2 max-h-56 overflow-y-auto rounded-md border border-border p-2">
               {availableFinalPallets.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No hay existencias PT disponibles.</p>
+                <p className="text-xs text-muted-foreground">{t('dispatch.table.noPtAvailable')}</p>
               ) : (
                 availableFinalPallets.map((p) => (
                   <label key={p.id} className="flex cursor-pointer items-start gap-2 text-xs">
@@ -2653,10 +2661,10 @@ export function DispatchesPage() {
               )}
             </div>
             {attachDialogFormats.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Marcá pallets con formato para cargar precios por caja.</p>
+              <p className="text-xs text-muted-foreground">{t('dispatch.table.markPalletsHint')}</p>
             ) : (
               <div className="grid gap-2">
-                <Label className="text-xs">Precio por caja por formato</Label>
+                <Label className="text-xs">{t('dispatch.table.priceByFormat')}</Label>
                 <div className="grid gap-2 rounded-md border border-border p-2">
                   {attachDialogFormats.map((f) => (
                     <div key={f.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
@@ -2679,14 +2687,14 @@ export function DispatchesPage() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setAttachFpDispatchId(null)}>
-              Cancelar
+              {t('dispatch.dialog.cancelButton')}
             </Button>
             <Button
               type="button"
               disabled={attachFpMut.isPending || attachFpDispatchId == null}
               onClick={() => attachFpDispatchId != null && attachFpMut.mutate(attachFpDispatchId)}
             >
-              {attachFpMut.isPending ? 'Guardando…' : 'Vincular y actualizar PL'}
+              {attachFpMut.isPending ? t('dispatch.table.attachSaving') : t('dispatch.table.attachButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2700,14 +2708,11 @@ export function DispatchesPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Se detectaron inconsistencias</DialogTitle>
+            <DialogTitle>{t('dispatch.table.confirmWarningTitle')}</DialogTitle>
           </DialogHeader>
           {pendingConfirmSummary ? (
             <div className="space-y-3 py-1 text-sm">
-              <p className="text-muted-foreground">
-                Revisá pallets y datos comerciales antes de cerrar. Si el embarque es correcto aun con estas señales, podés confirmar
-                igualmente.
-              </p>
+              <p className="text-muted-foreground">{t('dispatch.table.confirmWarningDesc')}</p>
               <ul className="list-disc space-y-1.5 pl-4">
                 {pendingConfirmSummary.palletsSinDestino > 0 ? (
                   <li>
@@ -2736,11 +2741,11 @@ export function DispatchesPage() {
               </ul>
             </div>
           ) : (
-            <p className="py-2 text-sm text-muted-foreground">Cargando datos…</p>
+            <p className="py-2 text-sm text-muted-foreground">{t('dispatch.table.loadingData')}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setConfirmDispatchId(null)}>
-              Volver a corregir
+              {t('dispatch.table.backToFix')}
             </Button>
             <Button
               type="button"
@@ -2750,7 +2755,7 @@ export function DispatchesPage() {
                 confirmDispatchMut.mutate(confirmDispatchId);
               }}
             >
-              {confirmDispatchMut.isPending ? 'Confirmando…' : 'Confirmar igualmente'}
+              {confirmDispatchMut.isPending ? t('dispatch.table.confirmingButton') : t('dispatch.table.confirmAnywayButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2767,11 +2772,16 @@ export function DispatchesPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cambiar BOL — despacho #{bolDialogDispatchId ?? '—'}</DialogTitle>
+            <DialogTitle>{t('dispatch.table.bolDialogTitle', { id: bolDialogDispatchId ?? '—' })}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-2 py-2">
-            <Label htmlFor="bol-edit">Número BOL</Label>
-            <Input id="bol-edit" value={bolEditValue} onChange={(e) => setBolEditValue(e.target.value)} placeholder="Único en sistema" />
+            <Label htmlFor="bol-edit">{t('dispatch.dialog.bolLabel')}</Label>
+            <Input
+              id="bol-edit"
+              value={bolEditValue}
+              onChange={(e) => setBolEditValue(e.target.value)}
+              placeholder={t('dispatch.dialog.bolPlaceholder')}
+            />
             <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -2779,15 +2789,13 @@ export function DispatchesPage() {
                 checked={bolApplyToPls}
                 onChange={(e) => setBolApplyToPls(e.target.checked)}
               />
-              <span>También actualizar el BOL en los packing lists PT vinculados a este despacho</span>
+              <span>{t('dispatch.table.bolApplyToPl')}</span>
             </label>
-            <p className="text-xs text-muted-foreground">
-              Si no marcás la opción, el cambio aplica solo al despacho; los packing lists conservan el BOL que tenían (solo despacho).
-            </p>
+            <p className="text-xs text-muted-foreground">{t('dispatch.table.bolOnlyDispatch')}</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setBolDialogDispatchId(null)}>
-              Cancelar
+              {t('dispatch.dialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2801,7 +2809,7 @@ export function DispatchesPage() {
                 });
               }}
             >
-              {updateDispatchBolMut.isPending ? 'Guardando…' : 'Guardar'}
+              {updateDispatchBolMut.isPending ? t('dispatch.table.savingButton') : t('dispatch.table.saveButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2818,13 +2826,13 @@ export function DispatchesPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Editar datos de despacho #{metaDialogDispatchId ?? '—'}
+                {t('dispatch.table.metaDialogTitle', { id: metaDialogDispatchId ?? '—' })}
               </DialogTitle>
               <button
                 type="button"
                 onClick={() => setMetaDialogDispatchId(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('dispatch.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -2832,12 +2840,12 @@ export function DispatchesPage() {
           </DialogHeader>
           {dispatches?.find((x) => x.id === metaDialogDispatchId)?.status === 'despachado' ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-              Ajuste post-salida: se guarda una traza automática en notas del termógrafo.
+              {t('dispatch.table.metaPostDispatch')}
             </p>
           ) : null}
           <div className="grid gap-3 py-1">
             <div className="grid gap-1.5">
-              <Label htmlFor="dispatch-meta-fecha">Fecha despacho</Label>
+              <Label htmlFor="dispatch-meta-fecha">{t('dispatch.dialog.dateLabel')}</Label>
               <Input
                 id="dispatch-meta-fecha"
                 type="datetime-local"
@@ -2846,7 +2854,7 @@ export function DispatchesPage() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="dispatch-meta-temp">Temperatura (F)</Label>
+              <Label htmlFor="dispatch-meta-temp">{t('dispatch.table.tempFLabel')}</Label>
               <Input
                 id="dispatch-meta-temp"
                 type="number"
@@ -2856,27 +2864,27 @@ export function DispatchesPage() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="dispatch-meta-serial">N° termógrafo</Label>
+              <Label htmlFor="dispatch-meta-serial">{t('dispatch.table.thermographSerialLabel')}</Label>
               <Input
                 id="dispatch-meta-serial"
                 value={metaThermographSerial}
                 onChange={(e) => setMetaThermographSerial(e.target.value)}
-                placeholder="Serie / identificador"
+                placeholder={t('dispatch.table.thermographSerialPlaceholder')}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="dispatch-meta-notes">Observaciones termógrafo / destino</Label>
+              <Label htmlFor="dispatch-meta-notes">{t('dispatch.table.thermographNotesLabel')}</Label>
               <Input
                 id="dispatch-meta-notes"
                 value={metaThermographNotes}
                 onChange={(e) => setMetaThermographNotes(e.target.value)}
-                placeholder="Notas operativas"
+                placeholder={t('dispatch.table.thermographNotesPlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMetaDialogDispatchId(null)}>
-              Cancelar
+              {t('dispatch.dialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2885,7 +2893,7 @@ export function DispatchesPage() {
                 if (metaDialogDispatchId == null) return;
                 const temp = Number(metaTemperaturaF);
                 if (!Number.isFinite(temp)) {
-                  toast.error('Temperatura inválida');
+                  toast.error(t('dispatch.toast.tempInvalid'));
                   return;
                 }
                 const iso = new Date(metaFechaDespacho).toISOString();
@@ -2898,7 +2906,7 @@ export function DispatchesPage() {
                 });
               }}
             >
-              {updateDispatchMetaMut.isPending ? 'Guardando…' : 'Guardar'}
+              {updateDispatchMetaMut.isPending ? t('dispatch.table.savingButton') : t('dispatch.table.saveButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2915,13 +2923,13 @@ export function DispatchesPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Corregir pedido vinculado — despacho #{orderLinkDialogDispatchId ?? '—'}
+                {t('dispatch.table.orderLinkTitle', { id: orderLinkDialogDispatchId ?? '—' })}
               </DialogTitle>
               <button
                 type="button"
                 onClick={() => setOrderLinkDialogDispatchId(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('dispatch.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -2929,12 +2937,12 @@ export function DispatchesPage() {
           </DialogHeader>
           {orderLinkDispatch?.status === 'despachado' ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-              Corrección post-salida: se mantiene traza automática en notas operativas.
+              {t('dispatch.table.orderLinkPostDispatch')}
             </p>
           ) : null}
           <div className="grid gap-3 py-1">
             <div className="grid gap-1.5">
-              <Label htmlFor="order-link-order">Pedido</Label>
+              <Label htmlFor="order-link-order">{t('dispatch.dialog.orderLabel')}</Label>
               <select
                 id="order-link-order"
                 className={filterSelectClass}
@@ -2954,18 +2962,18 @@ export function DispatchesPage() {
               </select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="order-link-client">Cliente pedido</Label>
+              <Label htmlFor="order-link-client">{t('dispatch.table.orderClientLabel')}</Label>
               <Input id="order-link-client" value={orderLinkClientLabel} readOnly />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="order-link-commercial">Cliente comercial (opcional)</Label>
+              <Label htmlFor="order-link-commercial">{t('dispatch.table.commercialClientLabel')}</Label>
               <select
                 id="order-link-commercial"
                 className={filterSelectClass}
                 value={String(orderLinkCommercialClientId)}
                 onChange={(e) => setOrderLinkCommercialClientId(Number(e.target.value))}
               >
-                <option value={0}>Sin cliente comercial</option>
+                <option value={0}>{t('dispatch.table.noCommercialClient')}</option>
                 {(commercialClients ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombre}
@@ -2976,7 +2984,7 @@ export function DispatchesPage() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOrderLinkDialogDispatchId(null)}>
-              Cancelar
+              {t('dispatch.dialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2991,7 +2999,7 @@ export function DispatchesPage() {
                 });
               }}
             >
-              {updateDispatchOrderLinkMut.isPending ? 'Guardando…' : 'Guardar'}
+              {updateDispatchOrderLinkMut.isPending ? t('dispatch.table.savingButton') : t('dispatch.table.saveButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3008,20 +3016,21 @@ export function DispatchesPage() {
       >
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>① Precios — factura comercial</DialogTitle>
+            <DialogTitle>{t('dispatch.table.pricesTitle')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Despacho #{invoicePricesDispatchId ?? '—'}. Precios por caja: se rellenan desde el <strong>pedido #{invoicePricesDispatch?.orden_id ?? '—'}</strong>{' '}
-            si aún no guardaste valores en el despacho; podés corregirlos. Luego <strong>② Factura</strong> y <strong>③ PDF</strong>. Vacío se guarda
-            como 0; no modifica stock PT.
+            {t('dispatch.table.pricesDesc', {
+              id: invoicePricesDispatchId ?? '—',
+              orderId: invoicePricesDispatch?.orden_id ?? '—',
+            })}
           </p>
           {invoicePricesLocked ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
-              Este despacho está <strong>despachado</strong> (salida física registrada). Los precios de factura no se pueden editar.
+              {t('dispatch.table.pricesLocked')}
             </p>
           ) : null}
           {invoiceModalFormats.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay formatos con ID en los pallets de este despacho.</p>
+            <p className="text-sm text-muted-foreground">{t('dispatch.table.noFormats')}</p>
           ) : (
             <div className="grid gap-3">
               {invoiceModalFormats.map((f) => (
@@ -3054,7 +3063,7 @@ export function DispatchesPage() {
                 setDispatchInvoiceUnitPrices({});
               }}
             >
-              Cancelar
+              {t('dispatch.dialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -3076,7 +3085,7 @@ export function DispatchesPage() {
                 updateDispatchUnitPricesMut.mutate({ dispatchId: invoicePricesDispatchId, unit_price_by_format_id });
               }}
             >
-              {updateDispatchUnitPricesMut.isPending ? '…' : 'Solo guardar ①'}
+              {updateDispatchUnitPricesMut.isPending ? '…' : t('dispatch.table.savePricesOnly')}
             </Button>
             <Button
               type="button"
@@ -3098,7 +3107,7 @@ export function DispatchesPage() {
                 savePricesAndInvoiceMut.mutate({ dispatchId: invoicePricesDispatchId, unit_price_by_format_id });
               }}
             >
-              {savePricesAndInvoiceMut.isPending ? '…' : '① + ② Guardar y facturar'}
+              {savePricesAndInvoiceMut.isPending ? '…' : t('dispatch.table.savePricesAndInvoice')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3110,13 +3119,13 @@ export function DispatchesPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Línea de despacho (unidad PT)
+                {t('dispatch.table.addTagTitle')}
               </DialogTitle>
               <button
                 type="button"
                 onClick={() => setAddTagDispatchId(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('dispatch.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -3130,15 +3139,15 @@ export function DispatchesPage() {
               className="grid gap-3 py-2"
             >
               <div className="grid gap-2">
-                <Label>Unidad PT</Label>
+                <Label>{t('dispatch.table.ptUnitLabel')}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   {...tagForm.register('tarja_id', { valueAsNumber: true })}
                 >
-                  <option value={0}>Elegir…</option>
-                  {sortedTags.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.tag_code} · {t.format_code}
+                  <option value={0}>{t('dispatch.table.choosePlaceholder')}</option>
+                  {sortedTags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>
+                      {tag.tag_code} · {tag.format_code}
                     </option>
                   ))}
                 </select>
@@ -3148,30 +3157,30 @@ export function DispatchesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2">
-                  <Label>Cajas</Label>
+                  <Label>{t('dispatch.table.colBoxes')}</Label>
                   <Input type="number" min={1} {...tagForm.register('cajas_despachadas')} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Pallets</Label>
+                  <Label>{t('dispatch.table.palletsLabel')}</Label>
                   <Input type="number" min={1} {...tagForm.register('pallets_despachados')} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2">
-                  <Label>Precio unitario</Label>
+                  <Label>{t('dispatch.table.unitPriceLabel')}</Label>
                   <Input type="number" step="0.0001" min={0} {...tagForm.register('unit_price')} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Costo pallet</Label>
+                  <Label>{t('dispatch.table.palletCostLabel')}</Label>
                   <Input type="number" step="0.0001" min={0} {...tagForm.register('pallet_cost')} />
                 </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setAddTagDispatchId(null)}>
-                  Cancelar
+                  {t('dispatch.dialog.cancelButton')}
                 </Button>
                 <Button type="submit" disabled={addTagMut.isPending}>
-                  {addTagMut.isPending ? 'Guardando…' : 'Agregar'}
+                  {addTagMut.isPending ? t('dispatch.table.addingButton') : t('dispatch.table.addButton')}
                 </Button>
               </DialogFooter>
             </form>
@@ -3185,13 +3194,13 @@ export function DispatchesPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                Ajuste manual de factura
+                {t('dispatch.table.manualInvTitle')}
               </DialogTitle>
               <button
                 type="button"
                 onClick={() => setInvoiceLineDispatchId(null)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
-                aria-label="Cerrar"
+                aria-label={t('dispatch.dialog.closeAriaLabel')}
               >
                 <X size={16} />
               </button>
@@ -3204,42 +3213,40 @@ export function DispatchesPage() {
               )}
               className="grid gap-3 py-2"
             >
-              <p className="text-xs text-muted-foreground">
-                Solo para excepciones. El detalle comercial principal sigue saliendo de ① precios por formato y ② generar factura.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('dispatch.table.manualInvHint')}</p>
               <div className="grid gap-2">
-                <Label>Descripción</Label>
-                <Input {...manualInvForm.register('descripcion')} placeholder="Ej. flete, bonificación acordada…" />
+                <Label>{t('dispatch.table.descLabel')}</Label>
+                <Input {...manualInvForm.register('descripcion')} placeholder={t('dispatch.table.descPlaceholder')} />
                 {manualInvForm.formState.errors.descripcion && (
                   <p className="text-sm text-destructive">{manualInvForm.formState.errors.descripcion.message}</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2">
-                  <Label>Cantidad</Label>
+                  <Label>{t('dispatch.table.qtyLabel')}</Label>
                   <Input type="number" min={1} {...manualInvForm.register('cantidad', { valueAsNumber: true })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Precio unitario</Label>
+                  <Label>{t('dispatch.table.unitPriceLabel')}</Label>
                   <Input type="number" step="0.0001" min={0} {...manualInvForm.register('unit_price', { valueAsNumber: true })} />
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label>Tipo</Label>
+                <Label>{t('dispatch.table.typeLabel')}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
                   {...manualInvForm.register('tipo')}
                 >
-                  <option value="cargo">Cargo (suma al total)</option>
-                  <option value="descuento">Descuento (resta del total)</option>
+                  <option value="cargo">{t('dispatch.table.typeCargo')}</option>
+                  <option value="descuento">{t('dispatch.table.typeDescuento')}</option>
                 </select>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setInvoiceLineDispatchId(null)}>
-                  Cancelar
+                  {t('dispatch.dialog.cancelButton')}
                 </Button>
                 <Button type="submit" disabled={addInvoiceLineMut.isPending}>
-                  {addInvoiceLineMut.isPending ? 'Guardando…' : 'Agregar ajuste'}
+                  {addInvoiceLineMut.isPending ? t('dispatch.table.addingButton') : t('dispatch.table.addAdjustButton')}
                 </Button>
               </DialogFooter>
             </form>
