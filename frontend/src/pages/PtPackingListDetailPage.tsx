@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, Box } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson, downloadPdf, downloadPdfPost } from '@/api';
@@ -55,6 +56,7 @@ type PtPlDetail = {
 };
 
 export function PtPackingListDetailPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canReverseMaster = role === 'admin' || role === 'supervisor';
   const { id: idParam } = useParams<{ id: string }>();
@@ -100,7 +102,7 @@ export function PtPackingListDetailPage() {
         body: JSON.stringify({ client_id: clientDraft }),
       }),
     onSuccess: () => {
-      toast.success('Cliente actualizado en el packing list y sus pallets.');
+      toast.success(t('ptPackingListDetail.toast.clientUpdated'));
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['existencias-pt'] });
@@ -117,7 +119,7 @@ export function PtPackingListDetailPage() {
         body: JSON.stringify({ numero_bol: bolDraft }),
       }),
     onSuccess: () => {
-      toast.success('BOL actualizado');
+      toast.success(t('ptPackingListDetail.toast.bolUpdated'));
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['dispatches', 'linkable-pt-packing-lists'] });
@@ -128,7 +130,7 @@ export function PtPackingListDetailPage() {
   const confirmMut = useMutation({
     mutationFn: () => apiJson<PtPlDetail>(`/api/pt-packing-lists/${id}/confirm`, { method: 'POST' }),
     onSuccess: () => {
-      toast.success('Packing list confirmado: stock PT descontado y pallets en “asignado_pl”.');
+      toast.success(t('ptPackingListDetail.toast.confirmed'));
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['existencias-pt'] });
@@ -139,7 +141,7 @@ export function PtPackingListDetailPage() {
   const deleteDraftMut = useMutation({
     mutationFn: () => apiJson<void>(`/api/pt-packing-lists/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('Borrador eliminado.');
+      toast.success(t('ptPackingListDetail.toast.draftDeleted'));
       qc.invalidateQueries({ queryKey: ['pt-packing-lists'] });
       qc.invalidateQueries({ queryKey: ['existencias-pt'] });
       navigate('/existencias-pt/packing-lists');
@@ -155,7 +157,7 @@ export function PtPackingListDetailPage() {
         body: JSON.stringify({ notes: notes?.trim() ? notes.trim() : undefined }),
       }),
     onSuccess: () => {
-      toast.success('Reversa aplicada: pallets en definitivo y stock PT repuesto.');
+      toast.success(t('ptPackingListDetail.toast.reversed'));
       setReverseOpen(false);
       setReverseNotes('');
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
@@ -173,7 +175,7 @@ export function PtPackingListDetailPage() {
         body: JSON.stringify({ notes: notes?.trim() ? notes.trim() : undefined }),
       }),
     onSuccess: () => {
-      toast.success('Reversa aplicada: despacho desvinculado o eliminado, pallets en definitivo y stock PT repuesto.');
+      toast.success(t('ptPackingListDetail.toast.reversedMaster'));
       setReverseOpen(false);
       setReverseNotes('');
       qc.invalidateQueries({ queryKey: ['pt-packing-list', id] });
@@ -225,7 +227,7 @@ export function PtPackingListDetailPage() {
         <Button variant="ghost" size="sm" className="gap-1" asChild>
           <Link to="/existencias-pt/packing-lists">
             <ArrowLeft className="h-4 w-4" />
-            Packing lists
+            {t('ptPackingListDetail.backButton')}
           </Link>
         </Button>
       </div>
@@ -239,25 +241,26 @@ export function PtPackingListDetailPage() {
       ) : data ? (
         <>
           <div>
-            <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Detalle Packing List PT</p>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Detalle Packing List PT</h2>
-            <p className="text-sm text-slate-500">Seguimiento comercial y logístico del listado seleccionado.</p>
+            <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingListDetail.sectionLabel')}</p>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">{t('ptPackingListDetail.sectionTitle')}</h2>
+            <p className="text-sm text-slate-500">{t('ptPackingListDetail.sectionSubtitle')}</p>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold font-mono tracking-tight">{data.list_code}</h1>
               <p className="text-muted-foreground">
-                Cliente: {data.client_nombre ?? '—'} · Fecha: {data.list_date}
+                {t('ptPackingListDetail.clientPrefix')} {data.client_nombre ?? '—'} · {t('ptPackingListDetail.datePrefix')}{' '}
+                {data.list_date}
               </p>
               {data.notes ? <p className="mt-1 text-sm">{data.notes}</p> : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {data.status === 'borrador' ? (
-                <Badge variant="outline">borrador</Badge>
+                <Badge variant="outline">{t('ptPackingListDetail.statusDraft')}</Badge>
               ) : data.status === 'confirmado' ? (
-                <Badge>confirmado</Badge>
+                <Badge>{t('ptPackingListDetail.statusConfirmed')}</Badge>
               ) : (
-                <Badge variant="secondary">anulado</Badge>
+                <Badge variant="secondary">{t('ptPackingListDetail.statusVoided')}</Badge>
               )}
               <Button
                 size="sm"
@@ -270,7 +273,7 @@ export function PtPackingListDetailPage() {
                   }
                 }}
               >
-                PDF logístico
+                {t('ptPackingListDetail.pdfButton')}
               </Button>
               <Button
                 size="sm"
@@ -295,23 +298,19 @@ export function PtPackingListDetailPage() {
                   setInvoiceOpen(true);
                 }}
               >
-                Factura PDF
+                {t('ptPackingListDetail.invoiceButton')}
               </Button>
               {data.status === 'borrador' ? (
                 <Button
                   size="sm"
                   disabled={confirmMut.isPending}
                   onClick={() => {
-                    if (
-                      window.confirm(
-                        '¿Confirmar packing list? Se descontará stock PT y los pallets pasarán a estado asignado a packing list.',
-                      )
-                    ) {
+                    if (window.confirm(t('ptPackingListDetail.confirmDialog'))) {
                       confirmMut.mutate();
                     }
                   }}
                 >
-                  {confirmMut.isPending ? '…' : 'Confirmar'}
+                  {confirmMut.isPending ? '…' : t('ptPackingListDetail.confirmButton')}
                 </Button>
               ) : null}
               {data.status === 'borrador' ? (
@@ -321,12 +320,12 @@ export function PtPackingListDetailPage() {
                   disabled={deleteDraftMut.isPending}
                   onClick={() => deleteDraftMut.mutate()}
                 >
-                  {deleteDraftMut.isPending ? '…' : 'Eliminar borrador'}
+                  {deleteDraftMut.isPending ? '…' : t('ptPackingListDetail.deleteDraftButton')}
                 </Button>
               ) : null}
               {data.status === 'confirmado' ? (
                 <Button size="sm" variant="destructive" disabled={reverseMut.isPending} onClick={() => setReverseOpen(true)}>
-                  Revertir
+                  {t('ptPackingListDetail.revertButton')}
                 </Button>
               ) : null}
             </div>
@@ -338,31 +337,22 @@ export function PtPackingListDetailPage() {
               className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
             >
               <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" aria-hidden />
-              <p className="text-sm font-medium text-amber-800">
-                Este packing list no tiene Unidades PT asignadas. Las cajas aparecen en 0 porque fue creado por carga
-                masiva.
-              </p>
+              <p className="text-sm font-medium text-amber-800">{t('ptPackingListDetail.noPalletsWarning')}</p>
             </div>
           ) : null}
 
           <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Factura comercial — precios por formato</DialogTitle>
+                <DialogTitle>{t('ptPackingListDetail.invoice.title')}</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Precio por caja por formato. Sugerencia desde pedido{' '}
-                {priceSourceOrder ? (
-                  <span className="font-mono">#{priceSourceOrder.id}</span>
-                ) : (
-                  '—'
-                )}{' '}
-                (mismo cliente comercial o pedido del despacho vinculado). Vacío o inválido = 0. No modifica stock.
+                {t('ptPackingListDetail.invoice.desc', {
+                  order: priceSourceOrder ? `#${priceSourceOrder.id}` : t('ptPackingListDetail.invoice.descNoOrder'),
+                })}
               </p>
               {formatsForInvoice.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No hay formatos con ID en los pallets de este listado; la factura usará montos en 0 salvo datos cargados por API.
-                </p>
+                <p className="text-sm text-muted-foreground">{t('ptPackingListDetail.invoice.noFormats')}</p>
               ) : (
                 <div className="grid gap-3">
                   {formatsForInvoice.map((f) => (
@@ -387,7 +377,7 @@ export function PtPackingListDetailPage() {
               )}
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setInvoiceOpen(false)}>
-                  Cancelar
+                  {t('ptPackingListDetail.invoice.cancelButton')}
                 </Button>
                 <Button
                   type="button"
@@ -403,13 +393,13 @@ export function PtPackingListDetailPage() {
                         unit_prices_by_format_id,
                       });
                       setInvoiceOpen(false);
-                      toast.success('Factura descargada.');
+                      toast.success(t('ptPackingListDetail.toast.invoiceDownloaded'));
                     } catch (e) {
                       toast.error((e as Error).message);
                     }
                   }}
                 >
-                  Descargar PDF
+                  {t('ptPackingListDetail.invoice.downloadButton')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -418,46 +408,37 @@ export function PtPackingListDetailPage() {
           <Dialog open={reverseOpen} onOpenChange={setReverseOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Revertir packing list</DialogTitle>
+                <DialogTitle>{t('ptPackingListDetail.reverse.title')}</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Los pallets vuelven a estado definitivo en depósito y se repone el stock PT.
+                {t('ptPackingListDetail.reverse.desc')}
                 {data.linked_dispatch_id != null ? (
                   <>
                     {' '}
-                    Este listado está vinculado al despacho <span className="font-mono">#{data.linked_dispatch_id}</span>.
+                    {t('ptPackingListDetail.reverse.linkedDispatch', { id: data.linked_dispatch_id })}
                     {canReverseMaster ? (
-                      <>
-                        {' '}
-                        Como supervisor o administrador podés usar la reversión maestra: desvincula el despacho (y lo elimina si era el único
-                        packing list) y luego aplica la reversa. Si el despacho está «despachado», primero deshacé la salida en
-                        Despachos.
-                      </>
+                      <> {' '} {t('ptPackingListDetail.reverse.adminCanReverse')} </>
                     ) : (
-                      <>
-                        {' '}
-                        Pedí a un supervisor o administrador que use «Revertir (admin)» aquí, o desvinculá manualmente desde
-                        Despachos antes de revertir.
-                      </>
+                      <> {' '} {t('ptPackingListDetail.reverse.needAdmin')} </>
                     )}
                   </>
                 ) : (
-                  <> No se puede revertir si algún pallet ya tiene otro despacho asignado por otro camino.</>
+                  <> {t('ptPackingListDetail.reverse.noDispatch')} </>
                 )}
               </p>
               <div className="grid gap-2">
-                <Label htmlFor="reverse-notes">Notas (opcional)</Label>
+                <Label htmlFor="reverse-notes">{t('ptPackingListDetail.reverse.notesLabel')}</Label>
                 <textarea
                   id="reverse-notes"
                   className="min-h-[80px] rounded-md border border-input bg-muted/30 px-2 py-1.5 text-sm"
                   value={reverseNotes}
                   onChange={(e) => setReverseNotes(e.target.value)}
-                  placeholder="Motivo u observación de la reversa"
+                  placeholder={t('ptPackingListDetail.reverse.notesPlaceholder')}
                 />
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={() => setReverseOpen(false)}>
-                  Cancelar
+                  {t('ptPackingListDetail.reverse.cancelButton')}
                 </Button>
                 {data.linked_dispatch_id != null && canReverseMaster ? (
                   <Button
@@ -465,25 +446,26 @@ export function PtPackingListDetailPage() {
                     variant="destructive"
                     disabled={reverseMasterMut.isPending}
                     onClick={() => {
-                      if (
-                        !window.confirm(
-                          '¿Revertir con desvinculo de despacho? Se eliminará el vínculo al despacho (y el despacho si quedara vacío). Los pallets volverán a depósito.',
-                        )
-                      ) {
+                      if (!window.confirm(t('ptPackingListDetail.reverse.adminConfirm'))) {
                         return;
                       }
                       reverseMasterMut.mutate(reverseNotes);
                     }}
                   >
-                    {reverseMasterMut.isPending ? '…' : 'Revertir (admin — desvincula despacho)'}
+                    {reverseMasterMut.isPending ? '…' : t('ptPackingListDetail.reverse.adminButton')}
                   </Button>
                 ) : data.linked_dispatch_id != null && !canReverseMaster ? (
-                  <Button type="button" variant="secondary" disabled title="Solo un administrador puede revertir con despacho vinculado">
-                    Revertir no disponible
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled
+                    title={t('ptPackingListDetail.reverse.notAvailableTitle')}
+                  >
+                    {t('ptPackingListDetail.reverse.notAvailable')}
                   </Button>
                 ) : (
                   <Button type="button" variant="destructive" disabled={reverseMut.isPending} onClick={() => reverseMut.mutate(reverseNotes)}>
-                    {reverseMut.isPending ? '…' : 'Revertir'}
+                    {reverseMut.isPending ? '…' : t('ptPackingListDetail.reverse.revertButton')}
                   </Button>
                 )}
               </DialogFooter>
@@ -493,7 +475,7 @@ export function PtPackingListDetailPage() {
           {data.reversal ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Trazabilidad reversa</CardTitle>
+                <CardTitle className="text-base">{t('ptPackingListDetail.reversalCard.title')}</CardTitle>
                 <CardDescription>
                   {new Date(data.reversal.reversed_at).toLocaleString()} · {data.reversal.reversed_by_username}
                 </CardDescription>
@@ -506,27 +488,27 @@ export function PtPackingListDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Cliente comercial</CardTitle>
+              <CardTitle className="text-base">{t('ptPackingListDetail.client.title')}</CardTitle>
               <CardDescription>
                 {data.status === 'anulado'
-                  ? 'Packing list anulado; no se edita el cliente.'
+                  ? t('ptPackingListDetail.client.descVoided')
                   : data.linked_dispatch_id != null
-                    ? 'Al guardar se actualiza el PL, todos los pallets del listado y el cliente del despacho vinculado (si no está despachado).'
-                    : 'Reasigná el comprador cuando la fruta se redestina (p. ej. rechazo por calidad y venta a otro cliente).'}
+                    ? t('ptPackingListDetail.client.descLinked')
+                    : t('ptPackingListDetail.client.descFree')}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
               {data.status !== 'anulado' ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="grid min-w-[220px] flex-1 gap-1">
-                    <Label htmlFor="pl-client">Cliente</Label>
+                    <Label htmlFor="pl-client">{t('ptPackingListDetail.client.label')}</Label>
                     <select
                       id="pl-client"
                       className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                       value={clientDraft > 0 ? String(clientDraft) : ''}
                       onChange={(e) => setClientDraft(Number(e.target.value) || 0)}
                     >
-                      <option value="">— Elegir —</option>
+                      <option value="">{t('ptPackingListDetail.client.choosePlaceholder')}</option>
                       {(clients ?? [])
                         .filter((c) => c.activo)
                         .map((c) => (
@@ -546,17 +528,13 @@ export function PtPackingListDetailPage() {
                       clientDraft === (data.client_id ?? 0)
                     }
                     onClick={() => {
-                      if (
-                        !window.confirm(
-                          '¿Cambiar el cliente de este packing list y de todos sus pallets? El stock PT se recalcula por cliente.',
-                        )
-                      ) {
+                      if (!window.confirm(t('ptPackingListDetail.client.confirmChange'))) {
                         return;
                       }
                       saveClientMut.mutate();
                     }}
                   >
-                    {saveClientMut.isPending ? '…' : 'Guardar cliente'}
+                    {saveClientMut.isPending ? '…' : t('ptPackingListDetail.client.saveButton')}
                   </Button>
                 </div>
               ) : (
@@ -567,20 +545,29 @@ export function PtPackingListDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">BOL (documento)</CardTitle>
+              <CardTitle className="text-base">{t('ptPackingListDetail.bol.title')}</CardTitle>
               <CardDescription>
                 {data.linked_dispatch_id != null ? (
-                  <>
-                    Gestionado desde el despacho #{data.linked_dispatch_id}. Cambiá el BOL en{' '}
-                    <Link className="text-primary underline-offset-4 hover:underline" to="/dispatches">
-                      Despachos
-                    </Link>{' '}
-                    (botón BOL: solo despacho o también en PL).
-                  </>
+                  (() => {
+                    const bolLinkedDesc = t('ptPackingListDetail.bol.descLinked', {
+                      id: data.linked_dispatch_id,
+                    });
+                    const bolLinkLabel = t('ptPackingListDetail.bol.descLinkedLink');
+                    const [beforeLink, afterLink] = bolLinkedDesc.split(bolLinkLabel);
+                    return (
+                      <>
+                        {beforeLink}
+                        <Link className="text-primary underline-offset-4 hover:underline" to="/dispatches">
+                          {bolLinkLabel}
+                        </Link>
+                        {afterLink}
+                      </>
+                    );
+                  })()
                 ) : data.status === 'anulado' ? (
-                  'Packing list anulado; no se edita BOL.'
+                  t('ptPackingListDetail.bol.descVoided')
                 ) : (
-                  'Definí el BOL antes de crear el despacho para heredarlo automáticamente.'
+                  t('ptPackingListDetail.bol.descFree')
                 )}
               </CardDescription>
             </CardHeader>
@@ -588,8 +575,13 @@ export function PtPackingListDetailPage() {
               {data.linked_dispatch_id == null && data.status !== 'anulado' ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="grid gap-1 flex-1 min-w-[200px]">
-                    <Label htmlFor="pl-bol">Número BOL</Label>
-                    <Input id="pl-bol" value={bolDraft} onChange={(e) => setBolDraft(e.target.value)} placeholder="Opcional" />
+                    <Label htmlFor="pl-bol">{t('ptPackingListDetail.bol.label')}</Label>
+                    <Input
+                      id="pl-bol"
+                      value={bolDraft}
+                      onChange={(e) => setBolDraft(e.target.value)}
+                      placeholder={t('ptPackingListDetail.bol.placeholder')}
+                    />
                   </div>
                   <Button
                     type="button"
@@ -597,51 +589,52 @@ export function PtPackingListDetailPage() {
                     disabled={saveBolMut.isPending || bolDraft === (data.numero_bol ?? '')}
                     onClick={() => saveBolMut.mutate()}
                   >
-                    {saveBolMut.isPending ? '…' : 'Guardar BOL'}
+                    {saveBolMut.isPending ? '…' : t('ptPackingListDetail.bol.saveButton')}
                   </Button>
                 </div>
               ) : data.numero_bol ? (
                 <p className="font-mono text-sm">{data.numero_bol}</p>
               ) : (
-                <p className="text-sm text-muted-foreground">Sin BOL</p>
+                <p className="text-sm text-muted-foreground">{t('ptPackingListDetail.bol.noBol')}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Totales</CardTitle>
+              <CardTitle className="text-base">{t('ptPackingListDetail.totals.title')}</CardTitle>
               <CardDescription>
-                {data.total_boxes} cajas · {formatLb(data.total_pounds, 2)} lb
+                {t('ptPackingListDetail.totals.desc', {
+                  boxes: data.total_boxes,
+                  lb: formatLb(data.total_pounds, 2),
+                })}
               </CardDescription>
             </CardHeader>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Pallets</CardTitle>
+              <CardTitle className="text-base">{t('ptPackingListDetail.pallets.title')}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 overflow-x-auto">
               {data.pallets.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 px-6 py-10 text-center">
                   <Box className="h-12 w-12 opacity-30" aria-hidden />
-                  <p className="text-sm font-medium text-slate-800">Sin pallets asignados</p>
-                  <p className="text-xs text-slate-500">
-                    Este PL fue creado por carga masiva sin Unidades PT vinculadas.
-                  </p>
+                  <p className="text-sm font-medium text-slate-800">{t('ptPackingListDetail.pallets.empty')}</p>
+                  <p className="text-xs text-slate-500">{t('ptPackingListDetail.pallets.emptyDesc')}</p>
                   <Button type="button" size="sm" variant="outline" onClick={() => navigate('/existencias-pt')}>
-                    Ir a Inventario cámara
+                    {t('ptPackingListDetail.pallets.goInventory')}
                   </Button>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Código Unidad PT</TableHead>
-                      <TableHead>Formato</TableHead>
-                      <TableHead className="text-right">Cajas</TableHead>
-                      <TableHead className="text-right">Lb</TableHead>
-                      <TableHead>Estado</TableHead>
+                      <TableHead>{t('ptPackingListDetail.pallets.colCode')}</TableHead>
+                      <TableHead>{t('ptPackingListDetail.pallets.colFormat')}</TableHead>
+                      <TableHead className="text-right">{t('ptPackingListDetail.pallets.colBoxes')}</TableHead>
+                      <TableHead className="text-right">{t('ptPackingListDetail.pallets.colLb')}</TableHead>
+                      <TableHead>{t('ptPackingListDetail.pallets.colState')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

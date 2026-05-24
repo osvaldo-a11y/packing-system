@@ -1,25 +1,27 @@
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-const tabs: Array<{ to: string; label: string; end?: boolean }> = [
-  { to: '/existencias-pt/inventario', label: 'Inventario cámara', end: true },
-  { to: '/existencias-pt/repaletizar', label: 'Repaletizaje' },
-  { to: '/existencias-pt/packing-lists', label: 'Packing lists PT' },
-];
-
 /** Stock en cámara, repalet, packing lists — el alta del pallet es solo en Unidad PT. */
 export function ExistenciasPtLayout() {
+  const { t } = useTranslation('common');
   const { pathname } = useLocation();
   const detalleOpen = pathname.startsWith('/existencias-pt/detalle/');
+
+  const tabs = [
+    { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true },
+    { to: '/existencias-pt/repaletizar', label: t('existenciasPt.layout.tabRepallet') },
+    { to: '/existencias-pt/packing-lists', label: t('existenciasPt.layout.tabPackingLists') },
+  ];
 
   return (
     <div className="font-inter w-full min-w-0 flex-1 pb-6 pt-1 md:pt-0">
       <div className="mb-6 space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">Módulo</p>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Existencias PT</h1>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">{t('existenciasPt.layout.moduleLabel')}</p>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{t('existenciasPt.layout.title')}</h1>
         <nav
           className="flex flex-wrap gap-1 rounded-2xl border border-slate-100 bg-white/90 p-1 shadow-sm"
-          aria-label="Secciones existencias PT"
+          aria-label={t('existenciasPt.layout.navAriaLabel')}
         >
           {tabs.map(({ to, label, end = false }) => (
             <NavLink

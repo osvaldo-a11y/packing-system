@@ -1040,6 +1040,14 @@
     }
   },
   "existenciasPt": {
+    "layout": {
+      "moduleLabel": "Módulo",
+      "title": "Existencias PT",
+      "navAriaLabel": "Secciones existencias PT",
+      "tabInventory": "Inventario cámara",
+      "tabRepallet": "Repaletizaje",
+      "tabPackingLists": "Packing lists PT"
+    },
     "pageTitle": "Existencias PT · Inventario cámara",
     "pageSubtitle": "Stock PT en cámara, BOL, despacho y packing lists.",
     "repalletButton": "Repaletizaje",
@@ -1437,6 +1445,98 @@
       "noClient": "{{count}} PL sin cliente comercial (no anulados). Revisá en detalle o inventario.",
       "emptyDrafts": "{{count}} borrador sin pallets — completá desde inventario o eliminá si no aplica.",
       "emptyDraftsPlural": "{{count}} borradores sin pallets — completá desde inventario o eliminá si no aplica."
+    }
+  },
+  "ptPackingListDetail": {
+    "backButton": "Packing lists",
+    "sectionLabel": "Detalle Packing List PT",
+    "sectionTitle": "Detalle Packing List PT",
+    "sectionSubtitle": "Seguimiento comercial y logístico del listado seleccionado.",
+    "clientPrefix": "Cliente:",
+    "datePrefix": "Fecha:",
+    "statusDraft": "borrador",
+    "statusConfirmed": "confirmado",
+    "statusVoided": "anulado",
+    "pdfButton": "PDF logístico",
+    "invoiceButton": "Factura PDF",
+    "confirmButton": "Confirmar",
+    "deleteDraftButton": "Eliminar borrador",
+    "revertButton": "Revertir",
+    "confirmDialog": "¿Confirmar packing list? Se descontará stock PT y los pallets pasarán a estado asignado a packing list.",
+    "noPalletsWarning": "Este packing list no tiene Unidades PT asignadas. Las cajas aparecen en 0 porque fue creado por carga masiva.",
+    "invoice": {
+      "title": "Factura comercial — precios por formato",
+      "desc": "Precio por caja por formato. Sugerencia desde pedido {{order}} (mismo cliente comercial o pedido del despacho vinculado). Vacío o inválido = 0. No modifica stock.",
+      "descNoOrder": "—",
+      "noFormats": "No hay formatos con ID en los pallets de este listado; la factura usará montos en 0 salvo datos cargados por API.",
+      "cancelButton": "Cancelar",
+      "downloadButton": "Descargar PDF"
+    },
+    "reverse": {
+      "title": "Revertir packing list",
+      "desc": "Los pallets vuelven a estado definitivo en depósito y se repone el stock PT.",
+      "linkedDispatch": "Este listado está vinculado al despacho #{{id}}.",
+      "adminCanReverse": "Como supervisor o administrador podés usar la reversión maestra: desvincula el despacho (y lo elimina si quedara vacío) y luego aplica la reversa. Si el despacho está «despachado», primero deshacé la salida en Despachos.",
+      "needAdmin": "Pedí a un supervisor o administrador que use «Revertir (admin)» aquí, o desvinculá manualmente desde Despachos antes de revertir.",
+      "noDispatch": "No se puede revertir si algún pallet ya tiene otro despacho asignado por otro camino.",
+      "notesLabel": "Notas (opcional)",
+      "notesPlaceholder": "Motivo u observación de la reversa",
+      "cancelButton": "Cancelar",
+      "adminConfirm": "¿Revertir con desvinculo de despacho? Se eliminará el vínculo al despacho (y el despacho si quedara vacío). Los pallets volverán a depósito.",
+      "adminButton": "Revertir (admin — desvincula despacho)",
+      "notAvailable": "Revertir no disponible",
+      "notAvailableTitle": "Solo un administrador puede revertir con despacho vinculado",
+      "revertButton": "Revertir"
+    },
+    "reversalCard": {
+      "title": "Trazabilidad reversa"
+    },
+    "client": {
+      "title": "Cliente comercial",
+      "descVoided": "Packing list anulado; no se edita el cliente.",
+      "descLinked": "Al guardar se actualiza el PL, todos los pallets del listado y el cliente del despacho vinculado (si no está despachado).",
+      "descFree": "Reasigná el comprador cuando la fruta se redestina (p. ej. rechazo por calidad y venta a otro cliente).",
+      "label": "Cliente",
+      "choosePlaceholder": "— Elegir —",
+      "saveButton": "Guardar cliente",
+      "savingButton": "…",
+      "confirmChange": "¿Cambiar el cliente de este packing list y de todos sus pallets? El stock PT se recalcula por cliente."
+    },
+    "bol": {
+      "title": "BOL (documento)",
+      "descLinked": "Gestionado desde el despacho #{{id}}. Cambiá el BOL en Despachos (botón BOL: solo despacho o también en PL).",
+      "descLinkedLink": "Despachos",
+      "descVoided": "Packing list anulado; no se edita BOL.",
+      "descFree": "Definí el BOL antes de crear el despacho para heredarlo automáticamente.",
+      "label": "Número BOL",
+      "placeholder": "Opcional",
+      "saveButton": "Guardar BOL",
+      "savingButton": "…",
+      "noBol": "Sin BOL"
+    },
+    "totals": {
+      "title": "Totales",
+      "desc": "{{boxes}} cajas · {{lb}} lb"
+    },
+    "pallets": {
+      "title": "Pallets",
+      "empty": "Sin pallets asignados",
+      "emptyDesc": "Este PL fue creado por carga masiva sin Unidades PT vinculadas.",
+      "goInventory": "Ir a Inventario cámara",
+      "colCode": "Código Unidad PT",
+      "colFormat": "Formato",
+      "colBoxes": "Cajas",
+      "colLb": "Lb",
+      "colState": "Estado"
+    },
+    "toast": {
+      "clientUpdated": "Cliente actualizado en el packing list y sus pallets.",
+      "bolUpdated": "BOL actualizado",
+      "confirmed": "Packing list confirmado: stock PT descontado y pallets en \"asignado_pl\".",
+      "draftDeleted": "Borrador eliminado.",
+      "reversed": "Reversa aplicada: pallets en definitivo y stock PT repuesto.",
+      "reversedMaster": "Reversa aplicada: despacho desvinculado o eliminado, pallets en definitivo y stock PT repuesto.",
+      "invoiceDownloaded": "Factura descargada."
     }
   },
   "existenciaDetail": {

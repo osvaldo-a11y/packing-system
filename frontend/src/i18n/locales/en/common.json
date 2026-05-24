@@ -1040,6 +1040,14 @@
     }
   },
   "existenciasPt": {
+    "layout": {
+      "moduleLabel": "Module",
+      "title": "PT Stock",
+      "navAriaLabel": "PT Stock sections",
+      "tabInventory": "Camera inventory",
+      "tabRepallet": "Repallet",
+      "tabPackingLists": "PT Packing lists"
+    },
     "pageTitle": "PT Stock · Camera inventory",
     "pageSubtitle": "PT stock in camera, BOL, dispatch and packing lists.",
     "repalletButton": "Repallet",
@@ -1437,6 +1445,98 @@
       "noClient": "{{count}} PL without commercial client (not voided). Check in detail or inventory.",
       "emptyDrafts": "{{count}} draft without pallets — complete from inventory or delete if not applicable.",
       "emptyDraftsPlural": "{{count}} drafts without pallets — complete from inventory or delete if not applicable."
+    }
+  },
+  "ptPackingListDetail": {
+    "backButton": "Packing lists",
+    "sectionLabel": "PT Packing List Detail",
+    "sectionTitle": "PT Packing List Detail",
+    "sectionSubtitle": "Commercial and logistics tracking of the selected list.",
+    "clientPrefix": "Client:",
+    "datePrefix": "Date:",
+    "statusDraft": "draft",
+    "statusConfirmed": "confirmed",
+    "statusVoided": "voided",
+    "pdfButton": "Logistics PDF",
+    "invoiceButton": "Invoice PDF",
+    "confirmButton": "Confirm",
+    "deleteDraftButton": "Delete draft",
+    "revertButton": "Revert",
+    "confirmDialog": "Confirm packing list? PT stock will be deducted and pallets will be set to assigned to packing list.",
+    "noPalletsWarning": "This packing list has no PT Units assigned. Boxes show 0 because it was created by bulk import.",
+    "invoice": {
+      "title": "Commercial invoice — prices by format",
+      "desc": "Price per box by format. Suggested from order {{order}} (same commercial client or order from linked dispatch). Empty or invalid = 0. Does not modify stock.",
+      "descNoOrder": "—",
+      "noFormats": "No formats with ID in this list's pallets; the invoice will use 0 amounts unless data is loaded via API.",
+      "cancelButton": "Cancel",
+      "downloadButton": "Download PDF"
+    },
+    "reverse": {
+      "title": "Revert packing list",
+      "desc": "Pallets return to definitive state in depot and PT stock is restored.",
+      "linkedDispatch": "This list is linked to dispatch #{{id}}.",
+      "adminCanReverse": "As supervisor or administrator you can use the master revert: unlinks the dispatch (and deletes it if it was the only packing list) and then applies the reversal. If the dispatch is «dispatched», first undo the exit in Dispatches.",
+      "needAdmin": "Ask a supervisor or administrator to use «Revert (admin)» here, or manually unlink from Dispatches before reverting.",
+      "noDispatch": "Cannot revert if any pallet already has another dispatch assigned by another path.",
+      "notesLabel": "Notes (optional)",
+      "notesPlaceholder": "Reason or observation for the reversal",
+      "cancelButton": "Cancel",
+      "adminConfirm": "Revert with dispatch unlink? The dispatch link will be removed (and the dispatch deleted if it was empty). Pallets will return to depot.",
+      "adminButton": "Revert (admin — unlink dispatch)",
+      "notAvailable": "Revert not available",
+      "notAvailableTitle": "Only an administrator can revert with a linked dispatch",
+      "revertButton": "Revert"
+    },
+    "reversalCard": {
+      "title": "Reversal traceability"
+    },
+    "client": {
+      "title": "Commercial client",
+      "descVoided": "Packing list voided; client cannot be edited.",
+      "descLinked": "Saving updates the PL, all list pallets and the linked dispatch client (if not dispatched).",
+      "descFree": "Reassign the buyer when the fruit is redirected (e.g. quality rejection and sale to another client).",
+      "label": "Client",
+      "choosePlaceholder": "— Choose —",
+      "saveButton": "Save client",
+      "savingButton": "…",
+      "confirmChange": "Change the client of this packing list and all its pallets? PT stock is recalculated by client."
+    },
+    "bol": {
+      "title": "BOL (document)",
+      "descLinked": "Managed from dispatch #{{id}}. Change the BOL in Dispatches (BOL button: dispatch only or also in PL).",
+      "descLinkedLink": "Dispatches",
+      "descVoided": "Packing list voided; BOL cannot be edited.",
+      "descFree": "Set the BOL before creating the dispatch to inherit it automatically.",
+      "label": "BOL number",
+      "placeholder": "Optional",
+      "saveButton": "Save BOL",
+      "savingButton": "…",
+      "noBol": "No BOL"
+    },
+    "totals": {
+      "title": "Totals",
+      "desc": "{{boxes}} boxes · {{lb}} lb"
+    },
+    "pallets": {
+      "title": "Pallets",
+      "empty": "No pallets assigned",
+      "emptyDesc": "This PL was created by bulk import without linked PT Units.",
+      "goInventory": "Go to Camera inventory",
+      "colCode": "PT Unit code",
+      "colFormat": "Format",
+      "colBoxes": "Boxes",
+      "colLb": "Lb",
+      "colState": "State"
+    },
+    "toast": {
+      "clientUpdated": "Client updated in the packing list and its pallets.",
+      "bolUpdated": "BOL updated",
+      "confirmed": "Packing list confirmed: PT stock deducted and pallets set to \"assigned_pl\".",
+      "draftDeleted": "Draft deleted.",
+      "reversed": "Reversal applied: pallets set to definitive and PT stock restored.",
+      "reversedMaster": "Reversal applied: dispatch unlinked or deleted, pallets set to definitive and PT stock restored.",
+      "invoiceDownloaded": "Invoice downloaded."
     }
   },
   "existenciaDetail": {
