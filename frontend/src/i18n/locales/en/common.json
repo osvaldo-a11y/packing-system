@@ -458,6 +458,9 @@
       "cardBalanced": "Balanced",
       "cardAdjust": "Adjust",
       "cardDraftNote": "lb (draft)",
+      "cardComponentes": "Components",
+      "cardPendiente": "Pending",
+      "cardDraftLb": "lb (draft)",
       "correctEntradaTitle": "Correct input lb (MP allocation)",
       "entradaEditTitle": "Correct input (MP)",
       "entradaEditHint": "Use decimal point (e.g. 5.868). The cap includes what is already allocated to this process.",
@@ -538,6 +541,41 @@
       "linkablePt": "Linkable to PT only",
       "allFormats": "All PT formats",
       "allClients": "All clients (PT)"
+    },
+    "columns": {
+      "lbEntrada": "Input lb",
+      "lbPackout": "Packout lb",
+      "rend": "Yield",
+      "rendimiento": "Yield",
+      "merma": "Waste",
+      "componentesMerma": "Components / waste",
+      "estado": "State",
+      "productor": "Producer",
+      "fecha": "Date",
+      "variedad": "Variety",
+      "acciones": "Actions",
+      "idProceso": "Process ID"
+    },
+    "compactGroup": {
+      "procesos": "processes",
+      "lbEntrada": "input lb",
+      "rend": "Yield",
+      "rendOk": "Yield OK"
+    },
+    "statusBadge": {
+      "borrador": "draft",
+      "confirmado": "confirmed",
+      "cerrado": "closed"
+    },
+    "mermaCell": {
+      "merma": "Waste",
+      "comp": "comp."
+    },
+    "editSubtitle": {
+      "entrada": "Input:"
+    },
+    "search": {
+      "placeholder": "Search by producer, variety, lot or ID (also ID filter above)"
     },
     "table": {
       "title": "Processes",
@@ -1171,6 +1209,80 @@
     "toast": {
       "bolAssigned": "BOL assigned to {{count}} PT Unit record(s).",
       "plCreated": "Draft packing list created."
+    }
+  },
+  "existenciaDetail": {
+    "backButton": "Camera inventory",
+    "confirmRevert": "Revert this repallet? The preparation will be set to reverted state and origins will recover their boxes. This action is logged.",
+    "revertingButton": "Reverting…",
+    "revertButton": "Revert repallet",
+    "pdfButton": "PT Unit label PDF",
+    "loadError": "Could not load the detail.",
+    "sectionLabel": "PT stock detail",
+    "logisticId": "Logistics identifier",
+    "noTar": ": no PT unit (TAR) resolvable from the lines in the current database.",
+    "multipleTar": "· Multiple TARs in this preparation:",
+    "repalletLabel": "Repallet (closings / counts)",
+    "repalletResult": "Yes — result (active stock in this preparation)",
+    "repalletOrigin": "Yes — origin consumed (do not duplicate lb/boxes)",
+    "repalletNo": "No",
+    "readOnly": "Read only",
+    "header": {
+      "title": "Header (PT Unit)",
+      "codeLabel": "PT Unit code (main)",
+      "noTar": "No TAR linked",
+      "statusLabel": "Status",
+      "dispatchSuffix": "Dispatch #{{id}}",
+      "speciesLabel": "Species",
+      "formatLabel": "Format",
+      "clientLabel": "Client",
+      "noClient": "No client",
+      "brandLabel": "Brand",
+      "totalsLabel": "Totals",
+      "totalsValue": "{{boxes}} boxes · {{lb}} lb",
+      "plannedOrderLabel": "Planned order",
+      "noOrder": "No order",
+      "bolLabel": "BOL / reference (optional)",
+      "clamshellLabel": "Clamshell"
+    },
+    "repallet": {
+      "title": "Repallet",
+      "description": "Links between stocks when this preparation comes from a repallet or contributed boxes to another destination.",
+      "isResult": "This stock is the result of a repallet",
+      "eventPrefix": "Event #{{id}} ·",
+      "reversedAt": "Reverted on {{date}}",
+      "reverseNote": "Revert note:",
+      "isSource": "This stock contributed boxes to other preparations",
+      "sourcePrefix": "Event #{{id}} · {{date}} →",
+      "unknownDest": "unknown destination",
+      "originPrefix": "Origin",
+      "boxesLb": "{{boxes}} boxes · {{lb}} lb"
+    },
+    "receptions": {
+      "title": "Associated receptions",
+      "docSuffix": "· Doc. {{doc}}",
+      "ingressSuffix": "· Intake:"
+    },
+    "lines": {
+      "title": "Lines and chain reception → process → PT Unit",
+      "colNum": "#",
+      "colChain": "Chain",
+      "colSpeciesVariety": "Species / Variety",
+      "colBoxes": "Boxes",
+      "colLb": "Lb",
+      "colLineRef": "Line ref.",
+      "receptionLabel": "Reception",
+      "noReception": "No linked reception",
+      "producerLabel": "Producer:",
+      "processLabel": "Process",
+      "noProcessData": "Process #{{id}} (no data)",
+      "noProcess": "No process in line",
+      "existenceRef": "→ Stock {{code}} (this line)"
+    },
+    "toast": {
+      "reverted": "Repallet reverted.",
+      "pdfReady": "PT Unit label PDF",
+      "pdfError": "Error downloading PDF"
     }
   }
 }

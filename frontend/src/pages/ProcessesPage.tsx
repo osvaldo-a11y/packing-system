@@ -282,13 +282,24 @@ function formatProcessDateShort(iso: string) {
   }
 }
 
-function ProcessStatusBadge({ status }: { status?: string }) {
+function ProcessStatusBadge({
+  status,
+  t,
+}: {
+  status?: string;
+  t: (key: string) => string;
+}) {
   const s = (status ?? 'borrador') as 'borrador' | 'confirmado' | 'cerrado';
   const map = {
     borrador: 'border-slate-200/90 bg-slate-100 text-slate-700',
     confirmado: 'border-sky-200/70 bg-sky-50 text-sky-900',
     cerrado: 'border-emerald-200/70 bg-emerald-50 text-emerald-900',
   } as const;
+  const labelMap = {
+    borrador: t('process.statusBadge.borrador'),
+    confirmado: t('process.statusBadge.confirmado'),
+    cerrado: t('process.statusBadge.cerrado'),
+  };
   return (
     <span
       className={cn(
@@ -296,7 +307,7 @@ function ProcessStatusBadge({ status }: { status?: string }) {
         map[s] ?? map.borrador,
       )}
     >
-      {s}
+      {labelMap[s] ?? s}
     </span>
   );
 }
@@ -1132,38 +1143,38 @@ export function ProcessesPage() {
     () => [
       {
         id: 'estado',
-        header: 'Estado',
-        cell: ({ row }) => <ProcessStatusBadge status={row.original.process_status} />,
+        header: t('process.columns.estado'),
+        cell: ({ row }) => <ProcessStatusBadge status={row.original.process_status} t={t} />,
       },
       {
         id: 'productor',
-        header: 'Productor',
+        header: t('process.columns.productor'),
         cell: ({ row }) => (
           <span className="font-medium text-slate-900">{row.original.productor_nombre ?? row.original.productor_id}</span>
         ),
       },
       {
         id: 'variedad',
-        header: 'Variedad',
+        header: t('process.columns.variedad'),
         cell: ({ row }) => (
           <span className="text-slate-800">{row.original.variedad_nombre ?? row.original.variedad_id}</span>
         ),
       },
       {
         accessorKey: 'fecha_proceso',
-        header: 'Fecha',
+        header: t('process.columns.fecha'),
         cell: ({ getValue }) => (
           <span className="text-xs text-slate-600">{formatProcessDateShort(getValue() as string)}</span>
         ),
       },
       {
         id: 'lb_in',
-        header: 'Lb entrada',
+        header: t('process.columns.lbEntrada'),
         cell: ({ row }) => <span className="tabular-nums text-slate-800">{fmtLb2(row.original.lb_entrada)}</span>,
       },
       {
         id: 'lb_pack',
-        header: 'Lb packout',
+        header: t('process.columns.lbPackout'),
         cell: ({ row }) => {
           const fa = fmtLb2(row.original.lb_packout_asociado);
           const fb = fmtLb2(row.original.lb_packout_restante);
@@ -1183,7 +1194,7 @@ export function ProcessesPage() {
       },
       {
         accessorKey: 'porcentaje_procesado',
-        header: 'Rend.',
+        header: t('process.columns.rend'),
         cell: ({ row }) => {
           const rend = parseRendimientoPct(row.original);
           const rt = rendimientoVisualTone(rend);
@@ -1196,7 +1207,7 @@ export function ProcessesPage() {
       },
       {
         id: 'lb_merma',
-        header: 'Merma',
+        header: t('process.columns.merma'),
         cell: ({ row }) => {
           const m = mermaRegistradaLb(row.original);
           if (!Number.isFinite(m) || Math.abs(m) < 0.001) {
@@ -1211,7 +1222,7 @@ export function ProcessesPage() {
       },
       {
         id: 'process_ids',
-        header: 'ID proceso',
+        header: t('process.columns.idProceso'),
         cell: ({ row }) => {
           const r = row.original;
           const ref = r.csv_process_ref;
@@ -1229,7 +1240,7 @@ export function ProcessesPage() {
       },
       {
         id: 'acciones',
-        header: () => <span className="text-right">Acciones</span>,
+        header: () => <span className="text-right">{t('process.columns.acciones')}</span>,
         cell: ({ row }) => {
           const cerrado = row.original.process_status === 'cerrado';
           const adminEdit = cerrado && isAdmin;
@@ -1821,7 +1832,7 @@ export function ProcessesPage() {
             </div>
             <DialogDescription className="text-[11px] text-muted-foreground">
               {(weightsRow?.productor_nombre ?? '—')} · {(weightsRow?.variedad_nombre ?? '—')} ·{' '}
-              {weightsRow?.fecha_proceso ? formatProcessDateShort(weightsRow.fecha_proceso) : '—'} · Entrada:{' '}
+              {weightsRow?.fecha_proceso ? formatProcessDateShort(weightsRow.fecha_proceso) : '—'} · {t('process.editSubtitle.entrada')}{' '}
               {weightsRow?.lb_entrada != null ? `${fmtLb2(weightsRow.lb_entrada)} lb` : '—'}
             </DialogDescription>
           </DialogHeader>
@@ -1879,16 +1890,16 @@ export function ProcessesPage() {
                     </div>
                     <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
                       <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                        Componentes
+                        {t('process.editDialog.cardComponentes')}
                       </p>
                       <p className="mt-0.5 text-base font-bold tabular-nums leading-none">
                         {fmtLb2(processEditModalSnapshot.components)}
                       </p>
-                      <p className="text-[9px] text-muted-foreground">lb (borrador)</p>
+                      <p className="text-[9px] text-muted-foreground">{t('process.editDialog.cardDraftLb')}</p>
                     </div>
                     <div className="min-w-[9.75rem] max-w-full flex-1 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
                       <p className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-                        Pendiente
+                        {t('process.editDialog.cardPendiente')}
                       </p>
                       <p
                         className={cn(
@@ -1907,7 +1918,7 @@ export function ProcessesPage() {
                         {t('process.editDialog.cardStatus')}
                       </p>
                       <div className="mt-1">
-                        <ProcessStatusBadge status={weightsRow.process_status} />
+                        <ProcessStatusBadge status={weightsRow.process_status} t={t} />
                       </div>
                     </div>
                     {entradaMpEditOpen && entradaLockedByMp && weightsModalCanEditWeights ? (
@@ -2543,11 +2554,13 @@ export function ProcessesPage() {
                         />
                         <span className="font-semibold">{group.producerName}</span>
                         <span className="mx-2 text-slate-400">·</span>
-                        <span>{formatCount(group.count)} procesos</span>
+                        <span>{`${formatCount(group.count)} ${t('process.compactGroup.procesos')}`}</span>
                         <span className="mx-2 text-slate-400">·</span>
-                        <span>{fmtLb2(group.lbEntrada)} lb entrada</span>
+                        <span>{`${fmtLb2(group.lbEntrada)} ${t('process.compactGroup.lbEntrada')}`}</span>
                         <span className="mx-2 text-slate-400">·</span>
-                        <span>Rend. {group.weightedRend != null ? `${formatPercent(group.weightedRend, 1)}%` : '—'}</span>
+                        <span>
+                          {`${t('process.compactGroup.rend')} ${group.weightedRend != null ? `${formatPercent(group.weightedRend, 1)}%` : '—'}`}
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {group.weightedRend != null && group.weightedRend < 75 ? (
@@ -2557,7 +2570,7 @@ export function ProcessesPage() {
                         ) : null}
                         {group.weightedRend != null && group.weightedRend >= 90 ? (
                           <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                            Rend. OK
+                            {t('process.compactGroup.rendOk')}
                           </span>
                         ) : null}
                       </div>
@@ -2566,14 +2579,14 @@ export function ProcessesPage() {
                       <Table className="min-w-[980px]">
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
-                            <TableHead>Estado</TableHead>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Variedad</TableHead>
-                            <TableHead className="text-right">Lb entrada</TableHead>
-                            <TableHead className="text-right">Lb packout</TableHead>
-                            <TableHead>Rendimiento</TableHead>
-                            <TableHead>Componentes / merma</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
+                            <TableHead>{t('process.columns.estado')}</TableHead>
+                            <TableHead>{t('process.columns.fecha')}</TableHead>
+                            <TableHead>{t('process.columns.variedad')}</TableHead>
+                            <TableHead className="text-right">{t('process.columns.lbEntrada')}</TableHead>
+                            <TableHead className="text-right">{t('process.columns.lbPackout')}</TableHead>
+                            <TableHead>{t('process.columns.rendimiento')}</TableHead>
+                            <TableHead>{t('process.columns.componentesMerma')}</TableHead>
+                            <TableHead className="text-right">{t('process.columns.acciones')}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -2592,7 +2605,7 @@ export function ProcessesPage() {
                                 <TableCell className="py-2.5">
                                   <div className="flex items-center gap-2">
                                     <span className={cn('h-5 w-1.5 rounded-full', rt.bar)} />
-                                    <ProcessStatusBadge status={r.process_status} />
+                                    <ProcessStatusBadge status={r.process_status} t={t} />
                                   </div>
                                 </TableCell>
                                 <TableCell className="py-2.5 text-xs text-slate-700">{formatProcessDateShort(r.fecha_proceso)}</TableCell>
@@ -2606,9 +2619,12 @@ export function ProcessesPage() {
                                 </TableCell>
                                 <TableCell className="py-2.5 text-xs">
                                   <span className={cn('font-medium', highMerma ? 'text-rose-700' : 'text-slate-700')}>
-                                    Merma {fmtLb2(mermaLb)} lb
+                                    {t('process.mermaCell.merma')} {fmtLb2(mermaLb)} lb
                                   </span>
-                                  <span className="text-slate-500"> · {compsCount} comp.</span>
+                                  <span className="text-slate-500">
+                                    {' '}
+                                    · {compsCount} {t('process.mermaCell.comp')}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="py-2.5">
                                   <div className="flex items-center justify-end gap-1.5">
@@ -2671,7 +2687,7 @@ export function ProcessesPage() {
             <DataTable
               columns={columns}
               data={sortedFilteredProcesses}
-              searchPlaceholder="Buscar por productor, variedad, lote o ID (también filtro ID arriba)"
+              searchPlaceholder={t('process.search.placeholder')}
               customGlobalFilter={(row, s) => processRowMatchesGlobalSearch(row, s)}
               initialPageSize={25}
               scrollToRowId={focusPid}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ExternalLink, FileDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson, downloadPdf } from '@/api';
@@ -116,6 +117,7 @@ function fmtDate(iso: string | null | undefined) {
 }
 
 export function ExistenciaPtDetailPage() {
+  const { t } = useTranslation('common');
   const { id: idParam } = useParams<{ id: string }>();
   const palletId = Number(idParam);
   const qc = useQueryClient();
@@ -134,7 +136,7 @@ export function ExistenciaPtDetailPage() {
         body: JSON.stringify({}),
       }),
     onSuccess: () => {
-      toast.success('Repaletizaje revertido.');
+      toast.success(t('existenciaDetail.toast.reverted'));
       qc.invalidateQueries({ queryKey: ['final-pallet-traceability', palletId] });
       qc.invalidateQueries({ queryKey: ['existencias-pt'] });
     },
@@ -160,7 +162,7 @@ export function ExistenciaPtDetailPage() {
         <Button variant="ghost" size="sm" className="gap-1" asChild>
           <Link to="/existencias-pt/inventario">
             <ArrowLeft className="h-4 w-4" />
-            Inventario cámara
+            {t('existenciaDetail.backButton')}
           </Link>
         </Button>
         {data?.repallet?.reverse?.can_reverse ? (
@@ -169,17 +171,13 @@ export function ExistenciaPtDetailPage() {
             size="sm"
             disabled={reverseMut.isPending}
             onClick={() => {
-              if (
-                !window.confirm(
-                  '¿Revertir este repaletizaje? La preparación pasará a estado revertido y los orígenes recuperarán las cajas. Esta acción queda registrada.',
-                )
-              ) {
+              if (!window.confirm(t('existenciaDetail.confirmRevert'))) {
                 return;
               }
               reverseMut.mutate();
             }}
           >
-            {reverseMut.isPending ? 'Revirtiendo…' : 'Revertir repaletizaje'}
+            {reverseMut.isPending ? t('existenciaDetail.revertingButton') : t('existenciaDetail.revertButton')}
           </Button>
         ) : null}
         {Number.isFinite(palletId) && palletId > 0 ? (
@@ -194,14 +192,14 @@ export function ExistenciaPtDetailPage() {
                   `/api/documents/final-pallets/${palletId}/pdf?variant=etiqueta`,
                   `pallet-pt-${palletId}-etiqueta.pdf`,
                 );
-                toast.success('PDF etiqueta Unidad PT');
+                toast.success(t('existenciaDetail.toast.pdfReady'));
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Error al descargar PDF');
+                toast.error(e instanceof Error ? e.message : t('existenciaDetail.toast.pdfError'));
               }
             }}
           >
             <FileDown className="h-4 w-4" />
-            PDF etiqueta Unidad PT
+            {t('existenciaDetail.pdfButton')}
           </Button>
         ) : null}
       </div>
@@ -213,12 +211,12 @@ export function ExistenciaPtDetailPage() {
         </div>
       ) : isError ? (
         <div role="alert" className={errorStatePanel}>
-          {(error as Error)?.message ?? 'No se pudo cargar el detalle.'}
+          {(error as Error)?.message ?? t('existenciaDetail.loadError')}
         </div>
       ) : data ? (
         <>
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Detalle existencia PT</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('existenciaDetail.sectionLabel')}</h2>
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl font-mono">
@@ -235,108 +233,116 @@ export function ExistenciaPtDetailPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {data.pallet.trazabilidad_pt === 'sin_trazabilidad' ? (
                 <>
-                  Identificador logístico{' '}
+                  {t('existenciaDetail.logisticId')}{' '}
                   <span className="font-mono font-medium text-foreground">
                     {(data.pallet.codigo_logistico ?? data.pallet.corner_board_code) || `PF-${data.pallet.id}`}
                   </span>
-                  : no hay unidad PT (TAR) resoluble desde las líneas en la base actual.
+                  {t('existenciaDetail.noTar')}
                 </>
               ) : (
                 <>
                   {data.pallet.unidad_pt_codigos && data.pallet.unidad_pt_codigos.length > 1 ? (
-                    <> · Varias TAR en esta preparación: {data.pallet.unidad_pt_codigos.join(', ')}</>
+                    <>
+                      {' '}
+                      {t('existenciaDetail.multipleTar')} {data.pallet.unidad_pt_codigos.join(', ')}
+                    </>
                   ) : null}
                 </>
               )}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">Repaletizaje (cierres / conteos)</span>
+              <span className="text-sm text-muted-foreground">{t('existenciaDetail.repalletLabel')}</span>
               {data.pallet.repalletizaje === 'resultado' ? (
-                <Badge variant="secondary">Sí — resultado (stock vigente en esta preparación)</Badge>
+                <Badge variant="secondary">{t('existenciaDetail.repalletResult')}</Badge>
               ) : data.pallet.repalletizaje === 'origen' ? (
                 <Badge variant="outline" className="border-amber-500/60">
-                  Sí — origen consumido (no duplicar lb/cajas)
+                  {t('existenciaDetail.repalletOrigin')}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="font-normal">
-                  No
+                  {t('existenciaDetail.repalletNo')}
                 </Badge>
               )}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Solo lectura</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('existenciaDetail.readOnly')}</p>
           </div>
 
           <section className="bg-background border border-border rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Cabecera (Unidad PT)</h3>
+              <h3 className="text-sm font-semibold">{t('existenciaDetail.header.title')}</h3>
             </div>
             <div className="grid gap-2 p-4 text-sm sm:grid-cols-2">
               <div>
-                <span className="text-muted-foreground">Código Unidad PT (principal)</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.codeLabel')}</span>
                 <p className="font-mono font-medium">
                   {data.pallet.trazabilidad_pt === 'sin_trazabilidad' ? (
-                    <span className="text-muted-foreground italic">Sin TAR vinculada</span>
+                    <span className="text-muted-foreground italic">{t('existenciaDetail.header.noTar')}</span>
                   ) : (
                     data.pallet.unidad_pt_codigos?.join(', ') || data.pallet.tag_code || '—'
                   )}
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Estado</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.statusLabel')}</span>
                 <div>
                   <Badge variant={data.pallet.status === 'definitivo' ? 'default' : 'secondary'}>
                     {data.pallet.status}
                   </Badge>
                   {data.pallet.dispatch_id != null ? (
-                    <span className="ml-2 text-muted-foreground">Despacho #{data.pallet.dispatch_id}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {t('existenciaDetail.header.dispatchSuffix', { id: data.pallet.dispatch_id })}
+                    </span>
                   ) : null}
                 </div>
               </div>
               <div>
-                <span className="text-muted-foreground">Especie</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.speciesLabel')}</span>
                 <p className="font-medium">{data.pallet.species_nombre ?? '—'}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Formato</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.formatLabel')}</span>
                 <p className="font-mono font-medium">{data.pallet.format_code ?? '—'}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Cliente</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.clientLabel')}</span>
                 <p className="font-medium">
                   {data.pallet.client_id != null && data.pallet.client_id > 0 && data.pallet.client_nombre?.trim() ? (
                     data.pallet.client_nombre
                   ) : (
-                    <span className="text-muted-foreground italic">Sin cliente</span>
+                    <span className="text-muted-foreground italic">{t('existenciaDetail.header.noClient')}</span>
                   )}
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Marca</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.brandLabel')}</span>
                 <p>{data.pallet.brand_nombre ?? '—'}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Totales</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.totalsLabel')}</span>
                 <p className="font-medium tabular-nums">
-                  {data.pallet.totals.amount} cajas · {fmtLb(data.pallet.totals.pounds)} lb
+                  {t('existenciaDetail.header.totalsValue', {
+                    boxes: data.pallet.totals.amount,
+                    lb: fmtLb(data.pallet.totals.pounds),
+                  })}
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Pedido previsto</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.plannedOrderLabel')}</span>
                 <p className="font-medium">
                   {data.pallet.planned_order_number?.trim() ? (
                     data.pallet.planned_order_number
                   ) : (
-                    <span className="text-muted-foreground italic">Sin pedido</span>
+                    <span className="text-muted-foreground italic">{t('existenciaDetail.header.noOrder')}</span>
                   )}
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <span className="text-muted-foreground">BOL / referencia (opcional)</span>
+                <span className="text-muted-foreground">{t('existenciaDetail.header.bolLabel')}</span>
                 <p>{data.pallet.bol?.trim() ? data.pallet.bol : '—'}</p>
               </div>
               {data.pallet.clamshell_label ? (
                 <div className="sm:col-span-2">
-                  <span className="text-muted-foreground">Clamshell</span>
+                  <span className="text-muted-foreground">{t('existenciaDetail.header.clamshellLabel')}</span>
                   <p>{data.pallet.clamshell_label}</p>
                 </div>
               ) : null}
@@ -348,21 +354,20 @@ export function ExistenciaPtDetailPage() {
             (data.repallet.as_source && data.repallet.as_source.length > 0)) ? (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Repaletizaje</CardTitle>
-                <CardDescription>
-                  Enlaces entre existencias cuando esta preparación proviene de un repaletizaje o aportó cajas a otro destino.
-                </CardDescription>
+                <CardTitle className="text-base">{t('existenciaDetail.repallet.title')}</CardTitle>
+                <CardDescription>{t('existenciaDetail.repallet.description')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {data.repallet.as_result ? (
                   <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                    <p className="font-medium">Esta existencia es resultado de repaletizaje</p>
+                    <p className="font-medium">{t('existenciaDetail.repallet.isResult')}</p>
                     <p className="text-muted-foreground text-xs">
-                      Evento #{data.repallet.as_result.event_id} · {fmtDate(data.repallet.as_result.created_at)}
+                      {t('existenciaDetail.repallet.eventPrefix', { id: data.repallet.as_result.event_id })}{' '}
+                      {fmtDate(data.repallet.as_result.created_at)}
                     </p>
                     {data.repallet.reverse?.reversed_at ? (
                       <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                        Revertido el {fmtDate(data.repallet.reverse.reversed_at)}
+                        {t('existenciaDetail.repallet.reversedAt', { date: fmtDate(data.repallet.reverse.reversed_at) })}
                         {data.repallet.reverse.reversal?.reversed_by_username
                           ? ` · ${data.repallet.reverse.reversal.reversed_by_username}`
                           : ''}
@@ -370,7 +375,7 @@ export function ExistenciaPtDetailPage() {
                     ) : null}
                     {data.repallet.reverse?.reversal?.notes ? (
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Nota reversa: {data.repallet.reverse.reversal.notes}
+                        {t('existenciaDetail.repallet.reverseNote')} {data.repallet.reverse.reversal.notes}
                       </p>
                     ) : null}
                     {data.repallet.as_result.notes ? (
@@ -379,12 +384,16 @@ export function ExistenciaPtDetailPage() {
                     <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
                       {data.repallet.as_result.sources.map((s) => (
                         <li key={s.source_final_pallet_id}>
-                          Origen{' '}
+                          {t('existenciaDetail.repallet.originPrefix')}{' '}
                           <Link className="font-mono text-primary hover:underline" to={`/existencias-pt/detalle/${s.source_final_pallet_id}`}>
                             {s.codigo_unidad_pt_display?.trim() || `PF #${s.source_final_pallet_id}`}
                           </Link>
                           <span className="text-muted-foreground"> · id {s.source_final_pallet_id}</span>
-                          : {s.boxes_removed} cajas · {fmtLb(s.pounds_removed)} lb
+                          :{' '}
+                          {t('existenciaDetail.repallet.boxesLb', {
+                            boxes: s.boxes_removed,
+                            lb: fmtLb(s.pounds_removed),
+                          })}
                         </li>
                       ))}
                     </ul>
@@ -392,11 +401,14 @@ export function ExistenciaPtDetailPage() {
                 ) : null}
                 {data.repallet.as_source?.length ? (
                   <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                    <p className="font-medium">Esta existencia aportó cajas a otras preparaciones</p>
+                    <p className="font-medium">{t('existenciaDetail.repallet.isSource')}</p>
                     <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
                       {data.repallet.as_source.map((s) => (
                         <li key={`${s.event_id}-${s.result_final_pallet_id}`}>
-                          Evento #{s.event_id} · {fmtDate(s.created_at)} →{' '}
+                          {t('existenciaDetail.repallet.sourcePrefix', {
+                            id: s.event_id,
+                            date: fmtDate(s.created_at),
+                          })}{' '}
                           {s.result_final_pallet_id != null ? (
                             <Link
                               className="font-mono text-primary hover:underline"
@@ -405,12 +417,16 @@ export function ExistenciaPtDetailPage() {
                               {s.result_codigo_unidad_pt_display?.trim() || `PF #${s.result_final_pallet_id}`}
                             </Link>
                           ) : (
-                            'destino desconocido'
+                            t('existenciaDetail.repallet.unknownDest')
                           )}
                           {s.result_final_pallet_id != null ? (
                             <span className="text-muted-foreground"> · id {s.result_final_pallet_id}</span>
                           ) : null}
-                          : {s.boxes_removed} cajas · {fmtLb(s.pounds_removed)} lb
+                          :{' '}
+                          {t('existenciaDetail.repallet.boxesLb', {
+                            boxes: s.boxes_removed,
+                            lb: fmtLb(s.pounds_removed),
+                          })}
                         </li>
                       ))}
                     </ul>
@@ -423,7 +439,7 @@ export function ExistenciaPtDetailPage() {
           {data.recepciones.length > 0 ? (
             <section className="bg-background border border-border rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">Recepciones asociadas</h3>
+                <h3 className="text-sm font-semibold">{t('existenciaDetail.receptions.title')}</h3>
               </div>
               <div className="p-4">
                 <ul className="space-y-2 text-sm">
@@ -431,9 +447,13 @@ export function ExistenciaPtDetailPage() {
                     <li key={r.id} className="rounded-md border border-border bg-muted/20 px-3 py-2">
                       <span className="font-mono font-medium">{r.ref_display ?? `Recepción #${r.id}`}</span>
                       {r.document_number ? (
-                        <span className="text-muted-foreground"> · Doc. {r.document_number}</span>
+                        <span className="text-muted-foreground">
+                          {t('existenciaDetail.receptions.docSuffix', { doc: r.document_number })}
+                        </span>
                       ) : null}
-                      <span className="text-muted-foreground"> · Ingreso: {fmtDate(r.received_at)}</span>
+                      <span className="text-muted-foreground">
+                        {t('existenciaDetail.receptions.ingressSuffix')} {fmtDate(r.received_at)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -443,18 +463,18 @@ export function ExistenciaPtDetailPage() {
 
           <section className="bg-background border border-border rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Líneas y cadena recepción → proceso → Unidad PT</h3>
+              <h3 className="text-sm font-semibold">{t('existenciaDetail.lines.title')}</h3>
             </div>
             <div className="overflow-x-auto p-4 pt-3">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Cadena</TableHead>
-                    <TableHead>Especie / Variedad</TableHead>
-                    <TableHead className="text-right">Cajas</TableHead>
-                    <TableHead className="text-right">Lb</TableHead>
-                    <TableHead>Ref. línea</TableHead>
+                    <TableHead>{t('existenciaDetail.lines.colNum')}</TableHead>
+                    <TableHead>{t('existenciaDetail.lines.colChain')}</TableHead>
+                    <TableHead>{t('existenciaDetail.lines.colSpeciesVariety')}</TableHead>
+                    <TableHead className="text-right">{t('existenciaDetail.lines.colBoxes')}</TableHead>
+                    <TableHead className="text-right">{t('existenciaDetail.lines.colLb')}</TableHead>
+                    <TableHead>{t('existenciaDetail.lines.colLineRef')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -465,22 +485,22 @@ export function ExistenciaPtDetailPage() {
                         <div className="space-y-1">
                           {ln.recepcion ? (
                             <div className="flex flex-wrap items-center gap-1">
-                              <span className="text-muted-foreground">Recepción</span>
+                              <span className="text-muted-foreground">{t('existenciaDetail.lines.receptionLabel')}</span>
                               <span className="font-mono">{ln.recepcion.ref_display ?? `#${ln.recepcion.id}`}</span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground">Sin recepción vinculada</span>
+                            <span className="text-muted-foreground">{t('existenciaDetail.lines.noReception')}</span>
                           )}
                           {ln.productor?.nombre || ln.productor?.codigo ? (
                             <div>
-                              <span className="text-muted-foreground">Productor: </span>
+                              <span className="text-muted-foreground">{t('existenciaDetail.lines.producerLabel')} </span>
                               {ln.productor.nombre ?? ln.productor.codigo}
                               {ln.productor.codigo && ln.productor.nombre ? ` (${ln.productor.codigo})` : null}
                             </div>
                           ) : null}
                           {ln.proceso ? (
                             <div className="flex flex-wrap items-center gap-1">
-                              <span className="text-muted-foreground">Proceso</span>
+                              <span className="text-muted-foreground">{t('existenciaDetail.lines.processLabel')}</span>
                               <Link
                                 className="inline-flex items-center gap-0.5 font-mono text-primary hover:underline"
                                 to={`/processes?processId=${ln.proceso.id}`}
@@ -494,16 +514,19 @@ export function ExistenciaPtDetailPage() {
                               <span className="text-muted-foreground">{fmtDate(ln.proceso.fecha_proceso)}</span>
                             </div>
                           ) : ln.fruit_process_id ? (
-                            <span className="text-muted-foreground">Proceso #{ln.fruit_process_id} (sin datos)</span>
+                            <span className="text-muted-foreground">
+                              {t('existenciaDetail.lines.noProcessData', { id: ln.fruit_process_id })}
+                            </span>
                           ) : (
-                            <span className="text-muted-foreground">Sin proceso en línea</span>
+                            <span className="text-muted-foreground">{t('existenciaDetail.lines.noProcess')}</span>
                           )}
                           <div className="text-[11px] text-muted-foreground border-t border-border pt-1 mt-1">
-                            → Existencia{' '}
-                            {data.pallet.codigo_unidad_pt_display ||
-                              data.pallet.corner_board_code ||
-                              `PF-${data.pallet.id}`}{' '}
-                            (esta línea)
+                            {t('existenciaDetail.lines.existenceRef', {
+                              code:
+                                data.pallet.codigo_unidad_pt_display ||
+                                data.pallet.corner_board_code ||
+                                `PF-${data.pallet.id}`,
+                            })}
                           </div>
                         </div>
                       </TableCell>

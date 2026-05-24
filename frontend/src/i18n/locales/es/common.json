@@ -458,6 +458,9 @@
       "cardBalanced": "Cuadrado",
       "cardAdjust": "Ajustar",
       "cardDraftNote": "lb (borrador)",
+      "cardComponentes": "Componentes",
+      "cardPendiente": "Pendiente",
+      "cardDraftLb": "lb (borrador)",
       "correctEntradaTitle": "Corregir lb de entrada (reparto MP)",
       "entradaEditTitle": "Corregir entrada (MP)",
       "entradaEditHint": "Usá punto decimal (ej. 5.868). El tope incluye lo ya asignado a este proceso.",
@@ -538,6 +541,41 @@
       "linkablePt": "Solo vinculables a PT",
       "allFormats": "Todos los formatos PT",
       "allClients": "Todos los clientes (PT)"
+    },
+    "columns": {
+      "lbEntrada": "Lb entrada",
+      "lbPackout": "Lb packout",
+      "rend": "Rend.",
+      "rendimiento": "Rendimiento",
+      "merma": "Merma",
+      "componentesMerma": "Componentes / merma",
+      "estado": "Estado",
+      "productor": "Productor",
+      "fecha": "Fecha",
+      "variedad": "Variedad",
+      "acciones": "Acciones",
+      "idProceso": "ID proceso"
+    },
+    "compactGroup": {
+      "procesos": "procesos",
+      "lbEntrada": "lb entrada",
+      "rend": "Rend.",
+      "rendOk": "Rend. OK"
+    },
+    "statusBadge": {
+      "borrador": "borrador",
+      "confirmado": "confirmado",
+      "cerrado": "cerrado"
+    },
+    "mermaCell": {
+      "merma": "Merma",
+      "comp": "comp."
+    },
+    "editSubtitle": {
+      "entrada": "Entrada:"
+    },
+    "search": {
+      "placeholder": "Buscar por productor, variedad, lote o ID (también filtro ID arriba)"
     },
     "table": {
       "title": "Procesos",
@@ -1171,6 +1209,80 @@
     "toast": {
       "bolAssigned": "BOL asignado a {{count}} registro(s) de Unidad PT.",
       "plCreated": "Packing list borrador creado."
+    }
+  },
+  "existenciaDetail": {
+    "backButton": "Inventario cámara",
+    "confirmRevert": "¿Revertir este repaletizaje? La preparación pasará a estado revertido y los orígenes recuperarán las cajas. Esta acción queda registrada.",
+    "revertingButton": "Revirtiendo…",
+    "revertButton": "Revertir repaletizaje",
+    "pdfButton": "PDF etiqueta Unidad PT",
+    "loadError": "No se pudo cargar el detalle.",
+    "sectionLabel": "Detalle existencia PT",
+    "logisticId": "Identificador logístico",
+    "noTar": ": no hay unidad PT (TAR) resoluble desde las líneas en la base actual.",
+    "multipleTar": "· Varias TAR en esta preparación:",
+    "repalletLabel": "Repaletizaje (cierres / conteos)",
+    "repalletResult": "Sí — resultado (stock vigente en esta preparación)",
+    "repalletOrigin": "Sí — origen consumido (no duplicar lb/cajas)",
+    "repalletNo": "No",
+    "readOnly": "Solo lectura",
+    "header": {
+      "title": "Cabecera (Unidad PT)",
+      "codeLabel": "Código Unidad PT (principal)",
+      "noTar": "Sin TAR vinculada",
+      "statusLabel": "Estado",
+      "dispatchSuffix": "Despacho #{{id}}",
+      "speciesLabel": "Especie",
+      "formatLabel": "Formato",
+      "clientLabel": "Cliente",
+      "noClient": "Sin cliente",
+      "brandLabel": "Marca",
+      "totalsLabel": "Totales",
+      "totalsValue": "{{boxes}} cajas · {{lb}} lb",
+      "plannedOrderLabel": "Pedido previsto",
+      "noOrder": "Sin pedido",
+      "bolLabel": "BOL / referencia (opcional)",
+      "clamshellLabel": "Clamshell"
+    },
+    "repallet": {
+      "title": "Repaletizaje",
+      "description": "Enlaces entre existencias cuando esta preparación proviene de un repaletizaje o aportó cajas a otro destino.",
+      "isResult": "Esta existencia es resultado de repaletizaje",
+      "eventPrefix": "Evento #{{id}} ·",
+      "reversedAt": "Revertido el {{date}}",
+      "reverseNote": "Nota reversa:",
+      "isSource": "Esta existencia aportó cajas a otras preparaciones",
+      "sourcePrefix": "Evento #{{id}} · {{date}} →",
+      "unknownDest": "destino desconocido",
+      "originPrefix": "Origen",
+      "boxesLb": "{{boxes}} cajas · {{lb}} lb"
+    },
+    "receptions": {
+      "title": "Recepciones asociadas",
+      "docSuffix": "· Doc. {{doc}}",
+      "ingressSuffix": "· Ingreso:"
+    },
+    "lines": {
+      "title": "Líneas y cadena recepción → proceso → Unidad PT",
+      "colNum": "#",
+      "colChain": "Cadena",
+      "colSpeciesVariety": "Especie / Variedad",
+      "colBoxes": "Cajas",
+      "colLb": "Lb",
+      "colLineRef": "Ref. línea",
+      "receptionLabel": "Recepción",
+      "noReception": "Sin recepción vinculada",
+      "producerLabel": "Productor:",
+      "processLabel": "Proceso",
+      "noProcessData": "Proceso #{{id}} (sin datos)",
+      "noProcess": "Sin proceso en línea",
+      "existenceRef": "→ Existencia {{code}} (esta línea)"
+    },
+    "toast": {
+      "reverted": "Repaletizaje revertido.",
+      "pdfReady": "PDF etiqueta Unidad PT",
+      "pdfError": "Error al descargar PDF"
     }
   }
 }
