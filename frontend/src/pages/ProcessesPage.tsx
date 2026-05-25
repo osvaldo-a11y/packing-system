@@ -841,9 +841,72 @@ export function ProcessesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  type PtRecoveryHint = {
+    source: 'final_pallet_line' | 'pt_tag_same_producer';
+    tarja_id: number;
+    tag_code: string;
+    format_code: string;
+    suggested_cajas: number;
+    suggested_lb: number | null;
+    fecha: string | null;
+    note: string;
+    already_linked: boolean;
+  };
+
+  type PtRecoveryResponse = {
+    process_id: number;
+    productor_id: number;
+    fecha_proceso: string;
+    hint: string;
+    suggestions: PtRecoveryHint[];
+  };
+
+  const recoveryQueryEnabled = Boolean(isAdmin && weightsOpen && weightsRow && linkedPtRowsForModal.length === 0);
+
+  const { data: recoveryData, isFetching: recoveryLoading, refetch: refetchRecovery } = useQuery({
+    queryKey: ['processes', 'pt-recovery', weightsRow?.id],
+    queryFn: () => apiJson<PtRecoveryResponse>(`/api/processes/${weightsRow!.id}/pt-recovery-hints`),
+    enabled: recoveryQueryEnabled,
+  });
+
+  const [recoveryPick, setRecoveryPick] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    setRecoveryPick({});
+  }, [weightsRow?.id]);
+
+  const restorePtMut = useMutation({
+    mutationFn: (payload: { processId: number; links: { tarja_id: number; cajas_generadas: number }[] }) =>
+      apiJson(`/api/processes/${payload.processId}/pt-recovery-restore`, {
+        method: 'POST',
+        body: JSON.stringify({ links: payload.links }),
+      }),
+    onSuccess: async (_data, variables) => {
+      toast.success(t('process.editDialog.recoveryRestoreOk'));
+      await queryClient.invalidateQueries({ queryKey: ['processes'] });
+      await queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
+      await refetchRecovery();
+      const list = await queryClient.fetchQuery({ queryKey: ['processes'], queryFn: fetchProcesses });
+      const row = list.find((r) => r.id === variables.processId);
+      if (row) setWeightsRow(row);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const adminEstadoMut = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: ProcessStatusUi }) =>
-      apiJson(`/api/processes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    mutationFn: ({
+      id,
+      status,
+      unlinkPt,
+    }: {
+      id: number;
+      status: ProcessStatusUi;
+      unlinkPt?: boolean;
+    }) =>
+      apiJson(`/api/processes/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, ...(unlinkPt ? { unlinkPt: true } : {}) }),
+      }),
     onSuccess: async (_data, variables) => {
       toast.success(t('process.toast.statusUpdated'));
       await queryClient.invalidateQueries({ queryKey: ['processes'] });
@@ -2012,7 +2075,17 @@ export function ProcessesPage() {
                           disabled={adminEstadoMut.isPending}
                           onClick={() => {
                             if (!weightsRow) return;
-                            adminEstadoMut.mutate({ id: weightsRow.id, status: 'borrador' });
+                            const n = linkedPtRowsForModal.length;
+                            const boxes = linkedPtModalStats.cajas;
+                            if (
+                              n > 0 &&
+                              !window.confirm(
+                                t('process.editDialog.statusUnlinkConfirm', { count: n, boxes: formatCount(boxes) }),
+                              )
+                            ) {
+                              return;
+                            }
+                            adminEstadoMut.mutate({ id: weightsRow.id, status: 'borrador', unlinkPt: true });
                           }}
                         >
                           <Link2Off className="h-3.5 w-3.5" />
@@ -2021,7 +2094,167 @@ export function ProcessesPage() {
                       ) : null}
                     </div>
                     {linkedPtRowsForModal.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('process.editDialog.noPt')}</p>
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">{t('process.editDialog.noPt')}</p>
+                        {isAdmin && weightsRow ? (
+                          <div className="rounded-lg border border-amber-200/90 bg-amber-50/60 p-3">
+                            <p className="text-xs font-semibold text-amber-950">{t('process.editDialog.recoveryTitle')}</p>
+                            <p className="mt-1 text-[11px] leading-snug text-amber-900/90">
+                              {t('process.editDialog.recoveryIntro')}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                onClick={() => {
+                                  const q = new URLSearchParams();
+                                  if (weightsRow.productor_id) q.set('producerId', String(weightsRow.productor_id));
+                                  navigate(`/pt-tags?${q.toString()}`);
+                                }}
+                              >
+                                {t('process.editDialog.recoveryOpenPtTags')}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs"
+                                onClick={() => void refetchRecovery()}
+                              >
+                                {t('actions.refresh')}
+                              </Button>
+                            </div>
+                            {recoveryLoading ? (
+                              <p className="mt-2 text-[11px] text-muted-foreground">{t('process.editDialog.recoveryLoading')}</p>
+                            ) : null}
+                            {recoveryData?.hint ? (
+                              <p className="mt-2 text-[11px] text-slate-700">
+                                <span className="font-medium">{t('process.editDialog.recoveryHint')}:</span> {recoveryData.hint}
+                              </p>
+                            ) : null}
+                            {!recoveryLoading && (recoveryData?.suggestions?.length ?? 0) === 0 ? (
+                              <p className="mt-2 text-[11px] text-muted-foreground">{t('process.editDialog.recoveryEmpty')}</p>
+                            ) : null}
+                            {(recoveryData?.suggestions?.length ?? 0) > 0 ? (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-8 text-xs"
+                                    onClick={() => {
+                                      const next: Record<number, number> = {};
+                                      for (const s of recoveryData!.suggestions) {
+                                        if (s.already_linked || s.source !== 'final_pallet_line') continue;
+                                        next[s.tarja_id] = s.suggested_cajas;
+                                      }
+                                      setRecoveryPick(next);
+                                    }}
+                                  >
+                                    {t('process.editDialog.recoverySelectAll')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    disabled={
+                                      restorePtMut.isPending ||
+                                      Object.keys(recoveryPick).length === 0
+                                    }
+                                    onClick={() => {
+                                      const links = Object.entries(recoveryPick).map(([tid, cajas]) => ({
+                                        tarja_id: Number(tid),
+                                        cajas_generadas: Math.max(1, Math.round(Number(cajas))),
+                                      }));
+                                      if (!links.length || !weightsRow) return;
+                                      if (
+                                        !window.confirm(
+                                          `Restaurar ${links.length} vínculo(s) con el proceso #${weightsRow.id}?`,
+                                        )
+                                      ) {
+                                        return;
+                                      }
+                                      restorePtMut.mutate({ processId: weightsRow.id, links });
+                                    }}
+                                  >
+                                    {restorePtMut.isPending
+                                      ? t('process.editDialog.recoveryRestoring')
+                                      : t('process.editDialog.recoveryRestore')}
+                                  </Button>
+                                </div>
+                                <div className="max-h-48 overflow-auto rounded border border-amber-200/70 bg-white">
+                                  <Table className="min-w-[520px] text-xs">
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="w-10">{t('process.editDialog.recoveryColSelect')}</TableHead>
+                                        <TableHead>{t('process.editDialog.colPtUnit')}</TableHead>
+                                        <TableHead>{t('process.editDialog.colFormat')}</TableHead>
+                                        <TableHead className="text-right">{t('process.editDialog.recoveryColCajas')}</TableHead>
+                                        <TableHead>Origen</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {recoveryData!.suggestions.map((s) => (
+                                        <TableRow key={s.tarja_id}>
+                                          <TableCell>
+                                            <input
+                                              type="checkbox"
+                                              className="h-4 w-4"
+                                              disabled={s.already_linked}
+                                              checked={recoveryPick[s.tarja_id] != null}
+                                              onChange={(e) => {
+                                                setRecoveryPick((prev) => {
+                                                  const next = { ...prev };
+                                                  if (e.target.checked) next[s.tarja_id] = s.suggested_cajas;
+                                                  else delete next[s.tarja_id];
+                                                  return next;
+                                                });
+                                              }}
+                                            />
+                                          </TableCell>
+                                          <TableCell className="font-mono font-semibold">
+                                            <button
+                                              type="button"
+                                              className="text-primary underline-offset-2 hover:underline"
+                                              onClick={() => navigate(`/pt-tags?open=${s.tarja_id}`)}
+                                            >
+                                              {s.tag_code}
+                                            </button>
+                                          </TableCell>
+                                          <TableCell>{s.format_code}</TableCell>
+                                          <TableCell className="text-right tabular-nums">
+                                            <Input
+                                              className="ml-auto h-7 w-20 text-right text-xs"
+                                              type="number"
+                                              min={1}
+                                              disabled={s.already_linked || recoveryPick[s.tarja_id] == null}
+                                              value={recoveryPick[s.tarja_id] ?? s.suggested_cajas}
+                                              onChange={(e) => {
+                                                const v = Number(e.target.value);
+                                                if (!Number.isFinite(v) || v < 1) return;
+                                                setRecoveryPick((prev) => ({ ...prev, [s.tarja_id]: v }));
+                                              }}
+                                            />
+                                          </TableCell>
+                                          <TableCell className="text-[10px] text-muted-foreground">
+                                            {s.source === 'final_pallet_line'
+                                              ? t('process.editDialog.recoverySourcePallet')
+                                              : t('process.editDialog.recoverySourceTag')}
+                                            {s.already_linked ? ' · ya vinculada' : ''}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : (
                       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded-md border border-border/80">
                         <Table className="min-w-[680px] text-xs [&_td]:py-1.5 [&_th]:h-8 [&_th]:py-1.5 [&_th]:text-[10px]">
@@ -2079,7 +2312,21 @@ export function ProcessesPage() {
                                         disabled={adminEstadoMut.isPending}
                                         onClick={() => {
                                           if (!weightsRow) return;
-                                          adminEstadoMut.mutate({ id: weightsRow.id, status: 'borrador' });
+                                          if (
+                                            !window.confirm(
+                                              t('process.editDialog.statusUnlinkConfirm', {
+                                                count: 1,
+                                                boxes: formatCount(item.cajas_generadas),
+                                              }),
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          adminEstadoMut.mutate({
+                                            id: weightsRow.id,
+                                            status: 'borrador',
+                                            unlinkPt: true,
+                                          });
                                         }}
                                       >
                                         <Link2Off className="h-3 w-3" />
@@ -2163,9 +2410,19 @@ export function ProcessesPage() {
                           {adminEstadoMut.isPending ? t('process.editDialog.statusApplying') : t('process.editDialog.statusApply')}
                         </Button>
                       </div>
-                      {weightsRow.tarja_id != null && (weightsRow.process_status ?? 'borrador') === 'borrador' ? (
+                      {adminStatusDraft === 'borrador' &&
+                      linkedPtRowsForModal.length > 0 &&
+                      (weightsRow.process_status ?? 'borrador') !== 'borrador' ? (
+                        <p className="mt-2 text-[11px] leading-snug text-emerald-800 dark:text-emerald-200">
+                          {t('process.editDialog.statusReopenKeepsPt', {
+                            count: linkedPtRowsForModal.length,
+                            boxes: formatCount(linkedPtModalStats.cajas),
+                          })}
+                        </p>
+                      ) : null}
+                      {linkedPtRowsForModal.length > 0 ? (
                         <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                          {t('process.editDialog.statusBorradorWarning', { id: weightsRow.tarja_id })}
+                          {t('process.editDialog.statusUnlinkHint')}
                         </p>
                       ) : null}
                       <details className="group mt-2 rounded-md border border-border/60 bg-background/50 [&_summary::-webkit-details-marker]:hidden">

@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -70,10 +71,34 @@ export class UpdateProcessWeightsDto {
   @IsOptional() @IsString() @MaxLength(2000) nota?: string;
 }
 
+export class RestoreProcessPtLinkRowDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  tarja_id: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cajas_generadas: number;
+}
+
+/** Restaurar vínculos proceso ↔ unidad PT (admin, tras desvincular por error). */
+export class RestoreProcessPtLinksDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RestoreProcessPtLinkRowDto)
+  links: RestoreProcessPtLinkRowDto[];
+}
+
 /** Cerrar (confirmado→cerrado) o, como admin, cualquier transición vía `adminSetProcessStatus`. */
 export class SetProcessStatusDto {
   @IsIn(['borrador', 'confirmado', 'cerrado'])
   status: 'borrador' | 'confirmado' | 'cerrado';
+  /** Si true al pasar a borrador, elimina ítems PT del proceso (botón «Desvincular»). Por defecto no desvincula. */
+  @IsOptional()
+  @IsBoolean()
+  unlinkPt?: boolean;
 }
 
 export class CloseProcessBalanceDto {

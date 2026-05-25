@@ -738,6 +738,13 @@ export function PtTagsPage() {
   const openTagIdFromUrl = Number(searchParams.get('open') || '') || null;
 
   useEffect(() => {
+    const prod = Number(searchParams.get('producerId') || '');
+    if (prod > 0) setFilterProducer(prod);
+    const procHint = Number(searchParams.get('processId') || '');
+    if (procHint > 0) setSearch(String(procHint));
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!openTagIdFromUrl || !tags?.length) return;
     const t = tags.find((x) => x.id === openTagIdFromUrl);
     if (!t) return;

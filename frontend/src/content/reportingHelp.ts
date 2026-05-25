@@ -13,7 +13,8 @@ export type ReportHelpId =
   | 'costo-formato-facturado'
   | 'ventas-despacho'
   | 'margen-cliente'
-  | 'documentos';
+  | 'documentos'
+  | 'fin-del-dia';
 
 /** Una línea corta para badges “Fuente de verdad”. */
 export const REPORT_SOURCE_TRUTH: Record<ReportHelpId, string> = {
@@ -31,6 +32,7 @@ export const REPORT_SOURCE_TRUTH: Record<ReportHelpId, string> = {
   'margen-cliente':
     'líneas de factura por cliente + prorrateo de costo por formato del período (sin reparto por productor)',
   documentos: 'PDF liquidación (mismos filtros que Generar); factura/PL en módulo Despachos',
+  'fin-del-dia': 'pt_tags del día + despachos marcados despachados + existencias en cámara (fecha operativa)',
 };
 
 export type GlossaryEntry = {
@@ -48,6 +50,14 @@ export function getReportGlossaryEntry(id: ReportHelpId): GlossaryEntry | undefi
 
 export const REPORT_GLOSSARY: GlossaryEntry[] = [
   {
+    id: 'fin-del-dia',
+    name: 'Fin del día (Reportes → Operación)',
+    meaning: 'Resumen del día operativo por cliente y formato: empacado, cámara y despachado.',
+    source: 'Unidades PT con fecha del día, despachos que cuentan como enviados ese día, stock en depósito.',
+    includes: 'Copiar informe por cliente; KPIs de planificación diaria y MP disponible en proceso.',
+    excludes: 'No usa filtros de liquidación (fechas desde/hasta del cierre); no reemplaza liquidación por productor.',
+  },
+  {
     id: 'cajas-pt',
     name: 'Cajas PT por productor (unidades PT)',
     meaning: 'Cajas producidas en planta según líneas PT del proceso, agrupadas por productor.',
@@ -60,7 +70,7 @@ export const REPORT_GLOSSARY: GlossaryEntry[] = [
     name: 'Cajas despachadas por productor (facturación)',
     meaning: 'Cajas facturadas en despachos del período, con productor resuelto como en liquidación.',
     source: 'Líneas de factura en despachos (logístico-comercial).',
-    includes: 'Misma resolución de productor que liquidación (unidad PT, proceso, pallet, repallet cuando aplica).',
+    includes: 'Misma resolución de productor que liquidación (unidad PT, proceso, pallet, repalet cuando aplica).',
     excludes: 'No es “cajas PT en unidad” en sentido de producción; puede diferir de producción si el flujo comercial desfasó fechas o mezcló orígenes.',
   },
   {
@@ -100,23 +110,23 @@ export const REPORT_GLOSSARY: GlossaryEntry[] = [
     name: 'Liquidación por productor (interna)',
     meaning: 'Cajas, lb, ventas y costos prorrateados por productor según facturación del período.',
     source: 'Líneas de factura + trazabilidad hasta productor.',
-    includes: 'Resumen y detalle por despacho/formato; PDF interno.',
-    excludes: 'No es el PDF simplificado para entregar al productor (otro flujo en Documentos).',
+    includes: 'Resumen expandible por productor, detalle por despacho/formato, auditor previo a exportar.',
+    excludes: 'No es el PDF simplificado para entregar al productor (ver Documentos / vista Por productor).',
   },
   {
     id: 'costo-formato-facturado',
     name: 'Costo por formato facturado',
     meaning: 'Costo de materiales + packing por formato según volumen facturado en el período.',
-    source: 'Facturación del período + recetas + tabla packing por especie o precio manual.',
-    includes: 'Desglose por receta cuando aplica.',
+    source: 'Facturación del período + recetas + tabla packing por especie o precio manual en filtros.',
+    includes: 'Tabla resumen operativa y desglose agrupado por receta en Cierre → Análisis por formato.',
     excludes: 'No es costo de stock físico ni de planta fuera del período facturado.',
   },
   {
     id: 'ventas-despacho',
     name: 'Ventas por despacho',
-    meaning: 'Totales de venta y costos asociados por despacho para análisis de margen operativo del envío.',
+    meaning: 'Totales de venta y costos asociados por despacho para análisis del envío.',
     source: 'Agregación por despacho desde facturación del período.',
-    includes: 'Comparar despachos entre sí en el rango de fechas.',
+    includes: 'Comparar despachos entre sí en el rango de fechas (tabla densa en Cierre).',
     excludes: 'No desglosa por productor (eso es liquidación).',
   },
   {
@@ -124,17 +134,284 @@ export const REPORT_GLOSSARY: GlossaryEntry[] = [
     name: 'Margen por cliente',
     meaning: 'Ventas menos costos totales por cliente del despacho, con detalle opcional por formato.',
     source: 'Líneas de factura por cliente + mismos costos por formato que liquidación (prorrateo por cajas de cliente en formato).',
-    includes: 'Resumen y detalle por packaging_code.',
+    includes: 'Resumen y detalle por packaging_code en Cierre → Análisis por cliente.',
     excludes: 'No reparte por productor; uso interno, no documento para terceros.',
   },
   {
     id: 'documentos',
     name: 'Liquidación (entrega) y documentos',
-    meaning: 'PDF para productor y enlaces a factura/packing list por despacho.',
-    source: 'Mismos filtros que Generar; PDFs de despacho generados en módulo Despachos.',
-    includes: 'Descarga de liquidación productor; acceso a despachos.',
-    excludes: 'Tablas numéricas detalladas están en Financiero → liquidación interna.',
+    meaning: 'Exportaciones del período generado y PDF de liquidación para productor.',
+    source: 'Mismos filtros que «Actualizar cierre» / Generar; PDFs de despacho en módulo Despachos.',
+    includes: 'Excel completo, CSV, PDF interno/resumen, PDF liquidación productor, reportes guardados.',
+    excludes: 'Las tablas interactivas detalladas están en Cierre; Operación no usa el período de liquidación.',
   },
+];
+
+/** Mapa de navegación de la aplicación (menú lateral). */
+export type AppNavItem = {
+  label: string;
+  path: string;
+  purpose: string;
+  notes?: string;
+};
+
+export type AppNavGroup = {
+  id: string;
+  label: string;
+  items: AppNavItem[];
+};
+
+export const APP_NAV_GROUPS: AppNavGroup[] = [
+  {
+    id: 'principal',
+    label: 'Principal',
+    items: [
+      {
+        label: 'Inicio',
+        path: '/',
+        purpose: 'Panel con KPIs del día/semana, alertas de stock, pedidos y accesos rápidos a módulos críticos.',
+      },
+    ],
+  },
+  {
+    id: 'config',
+    label: 'Configuración',
+    items: [
+      {
+        label: 'Planta',
+        path: '/plant',
+        purpose: 'Umbrales de rendimiento y merma que alimentan alertas en reportes de proceso.',
+        notes: 'Edición: rol admin.',
+      },
+      {
+        label: 'Mantenedores',
+        path: '/masters',
+        purpose: 'Catálogos: productores, clientes, especies, variedades, formatos de presentación, calidades.',
+        notes: 'Base para filtros de reportes, recetas y trazabilidad en liquidación.',
+      },
+    ],
+  },
+  {
+    id: 'packaging',
+    label: 'Empaque',
+    items: [
+      {
+        label: 'Materiales',
+        path: '/packaging/materials',
+        purpose: 'Catálogo de insumos de empaque y stock disponible.',
+      },
+      {
+        label: 'Kardex',
+        path: '/packaging/kardex',
+        purpose: 'Movimientos de entrada/salida de materiales.',
+      },
+      {
+        label: 'Recetas',
+        path: '/packaging/recipes',
+        purpose: 'Receta de consumo por formato; alimenta costo de materiales en Cierre.',
+      },
+      {
+        label: 'Consumos',
+        path: '/packaging/consumptions',
+        purpose: 'Registro operativo de consumo por formato/proceso.',
+        notes: 'Relacionado con «Empaque por formato» en export Excel (no es liquidación).',
+      },
+    ],
+  },
+  {
+    id: 'operacion',
+    label: 'Operación',
+    items: [
+      {
+        label: 'Recepciones',
+        path: '/receptions',
+        purpose: 'Ingreso de fruta a planta; origen de procesos posteriores.',
+      },
+      {
+        label: 'Procesos',
+        path: '/processes',
+        purpose: 'Transformación (packout, merma registrada, destinos PT); genera unidades PT.',
+      },
+      {
+        label: 'Unidad PT',
+        path: '/pt-tags',
+        purpose: 'Alta y edición de unidades PT (tarjas): cajas por formato, cliente, proceso.',
+        notes: 'Ancla fuerte para producción y trazabilidad hacia factura.',
+      },
+      {
+        label: 'Existencias PT',
+        path: '/existencias-pt/inventario',
+        purpose: 'Inventario en cámara, repaletizado y packing lists PT antes del despacho comercial.',
+        notes: 'Subrutas: inventario, repaletizar, packing-lists, detalle por folio.',
+      },
+    ],
+  },
+  {
+    id: 'comercial',
+    label: 'Comercial',
+    items: [
+      {
+        label: 'Pedidos',
+        path: '/sales-orders',
+        purpose: 'Pedidos comerciales: cajas pedidas vs producidas, reservadas y despachadas.',
+        notes: 'Avance por pedido en /sales-orders/:id/avance.',
+      },
+      {
+        label: 'Despachos',
+        path: '/dispatches',
+        purpose: 'Despacho, factura, packing list comercial; fecha de despacho define el período financiero.',
+        notes: 'PDF de factura y packing list se generan aquí, no en Reportes.',
+      },
+    ],
+  },
+  {
+    id: 'analisis',
+    label: 'Análisis',
+    items: [
+      {
+        label: 'Reportes',
+        path: '/reporting',
+        purpose: 'Cuatro pestañas: Operación, Decisión, Cierre y Documentos (ver guía de pestañas).',
+      },
+    ],
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    items: [
+      {
+        label: 'Guía del sistema',
+        path: '/guide/sistema',
+        purpose: 'Este documento: flujo de datos, módulos y validación.',
+      },
+      {
+        label: 'Acerca de',
+        path: '/about',
+        purpose: 'Versión y créditos de la aplicación.',
+      },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Administración (solo admin)',
+    items: [
+      {
+        label: 'Carga masiva',
+        path: '/bulk-import',
+        purpose: 'Importación CSV de recepciones, procesos, unidades PT, existencias, pedidos y despachos.',
+        notes: 'Aparece al final del menú lateral y en el menú móvil; plantilla descargable por entidad.',
+      },
+    ],
+  },
+];
+
+/** Pestañas del módulo Reportes (estado actual de la UI). */
+export type ReportingTabGuide = {
+  id: 'operacion' | 'decision' | 'cierre' | 'documentos';
+  label: string;
+  answers: string;
+  dateBasis: string;
+  sections: string[];
+  exports?: string;
+};
+
+export const REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
+  {
+    id: 'operacion',
+    label: 'Operación',
+    answers: '¿Qué pasó hoy en planta y qué salió despachado?',
+    dateBasis: 'Fecha operativa del día (selector en fin del día), no el período desde/hasta del cierre.',
+    sections: [
+      'Fin del día: tabla por cliente con empacado, cámara y despachado; copiar informe.',
+      'Planificación diaria: KPIs packed / cámara / shipped y MP disponible en proceso.',
+      'Orden sugerido: fin del día primero, luego KPIs del turno.',
+    ],
+    exports: 'Libro Excel completo del período de liquidación: pestaña Documentos (mismos filtros que Cierre).',
+  },
+  {
+    id: 'decision',
+    label: 'Decisión',
+    answers: '¿Qué conviene producir u ofertar con el MP y formatos actuales?',
+    dateBasis: 'Calculadora de oferta comercial y contexto de MP; sin filtros económicos del cierre.',
+    sections: [
+      'Simulación / oferta comercial (bloque de calculadora).',
+      'No incluye liquidación ni tablas financieras del período — eso está en Cierre.',
+    ],
+    exports: 'Igual que Operación: exportaciones masivas en Documentos.',
+  },
+  {
+    id: 'cierre',
+    label: 'Cierre',
+    answers: '¿Cuánto ganó cada productor y cómo cerró el período?',
+    dateBasis: 'Período de liquidación: fecha desde/hasta, paginación y filtros opcionales (productor, cliente, formato, precio packing manual).',
+    sections: [
+      'Tarifas de packing por especie (USD/lb) y período con «Actualizar cierre».',
+      'Estado del cierre + auditor de liquidación (packing, materiales, trazabilidad).',
+      'Vista global: liquidación expandible, exportaciones, análisis por cliente/formato/despacho.',
+      'Vista por productor: selector, PDF/Excel del informe y liquidación filtrada a un productor.',
+      'Diagnóstico técnico (solo admin): trazabilidad y JSON de depuración del backend.',
+    ],
+    exports: 'Bloque Exportaciones en vista global; también Documentos para Excel/PDF masivos.',
+  },
+  {
+    id: 'documentos',
+    label: 'Documentos',
+    answers: '¿Cómo exporto y guardo el trabajo del período?',
+    dateBasis: 'Refleja el último «Actualizar cierre» / generado en memoria con los filtros activos.',
+    sections: [
+      'Vista del período: KPIs PT vs despachado, muestra de cajas PT, dataset técnico normalizado.',
+      'Exportar TODO (Excel), CSV, PDF interno, PDF resumen, PDF liquidación productor.',
+      'Reportes guardados: cargar, renombrar (supervisor/admin), eliminar (admin).',
+    ],
+    exports: 'Todos los formatos listados arriba; factura y packing list comercial siguen en Despachos.',
+  },
+];
+
+/** Pasos recomendados dentro del tab Cierre. */
+export const CIERRE_WORKFLOW_STEPS: { step: number; title: string; detail: string }[] = [
+  {
+    step: 1,
+    title: 'Configurar tarifas de packing',
+    detail:
+      'En la tarjeta «Tarifas de packing», revisá USD/lb por especie y temporada. Si usás precio manual en filtros, ese valor tiene prioridad sobre la tabla.',
+  },
+  {
+    step: 2,
+    title: 'Definir período y filtros',
+    detail:
+      'Fechas desde/hasta, página y límite en «Período de liquidación». Filtros opcionales: productor, cliente, formato, calidad, precio packing manual.',
+  },
+  {
+    step: 3,
+    title: 'Actualizar cierre',
+    detail: 'Pulsá «Actualizar cierre» para regenerar liquidación, costos por formato y márgenes con esos filtros.',
+  },
+  {
+    step: 4,
+    title: 'Revisar auditor',
+    detail:
+      'El auditor resume problemas de packing, materiales y trazabilidad antes de exportar. Corregí datos en Despachos / Unidad PT / Existencias según el tipo de hallazgo.',
+  },
+  {
+    step: 5,
+    title: 'Elegir vista global o por productor',
+    detail:
+      'Global: totales, tabla expandible, análisis por cliente/formato/despacho y exportaciones del período. Por productor: informe individual y PDF/Excel del productor elegido.',
+  },
+  {
+    step: 6,
+    title: 'Exportar o guardar',
+    detail:
+      'Exportaciones en Cierre (global) o en Documentos (libro completo y PDFs). Guardar vista: supervisor/admin. Sincronizar guardado antiguo tras regenerar.',
+  },
+];
+
+/** Resolución de productor en liquidación (referencia para usuarios admin). */
+export const TRACEABILITY_RESOLUTION_RULES: { code: string; when: string }[] = [
+  { code: 'pt_tag_items / tarja', when: 'La línea de factura referencia unidad PT: productor desde ítems PT de esa tarja.' },
+  { code: 'fruit_process_direct', when: 'La línea declara proceso: productor del proceso de fruta.' },
+  { code: 'final_pallet / repallet_multi_producer', when: 'Pallet o repalet con mezcla: montos pueden prorratearse por cajas de procedencia.' },
+  { code: 'sin_tarja / sin asignar', when: 'Sin vínculo claro: ventas y costos en fila «sin unidad PT / sin asignar» en liquidación.' },
 ];
 
 export type FlowStage = {
@@ -148,73 +425,65 @@ export type FlowStage = {
 export const SYSTEM_FLOW_STAGES: FlowStage[] = [
   {
     title: 'Recepción',
-    summary: 'Ingreso de fruta a planta y vínculo con origen (lote, productor implícito o explícito según configuración).',
-    born: ['Peso/volumen de entrada', 'Calidad declarada', 'Identificación de lote o recepción'],
-    carries: ['Lo que alimenta procesos posteriores como “entrada” trazable'],
-    reports: ['Trazabilidad hacia proceso (indirecto en reportes de proceso/rendimiento si aplica)'],
+    summary: 'Ingreso de fruta a planta; documento y líneas que alimentan procesos.',
+    born: ['Peso/volumen de entrada', 'Calidad declarada', 'Referencia de recepción'],
+    carries: ['Entrada trazable hacia fruit_processes'],
+    reports: ['Indirecto en rendimiento/merma si el proceso enlaza la recepción'],
   },
   {
     title: 'Proceso (fruit_processes)',
-    summary: 'Transformación de entrada en destinos (PT, subproductos); es donde se mide rendimiento packout y se registra merma explícita.',
+    summary: 'Transformación de entrada en destinos (PT, subproductos); rendimiento packout y merma solo si se registran.',
     born: ['Peso procesado', 'Rendimiento packout %', 'Merma en lb (si se carga)', 'Variedad/calidad del proceso'],
     carries: ['Vínculo a unidades PT generadas en ese proceso'],
-    reports: ['Rendimiento y merma registrada', 'Empaque por formato (consumo operativo asociado al flujo)'],
+    reports: ['Rendimiento y merma (export Excel)', 'Empaque por formato (consumo operativo)'],
   },
   {
     title: 'Unidad PT',
-    summary: 'Unidad de identificación de cajas PT producidas; ancla operativa fuerte para “cajas por productor” en planta.',
-    born: ['Líneas pt_tag_items (cajas por formato en la unidad)', 'Relación unidad PT ↔ proceso'],
-    carries: ['Hacia existencia PT y hacia despacho cuando la factura referencia unidad PT/proceso/pallet'],
-    reports: ['Cajas PT por productor', 'Detalle cajas PT por operación'],
+    summary: 'Tarja de producto terminado: cajas por formato, cliente y proceso; alta en /pt-tags.',
+    born: ['Líneas pt_tag_items', 'Relación unidad PT ↔ proceso', 'Flag excluida_suma_packout si aplica'],
+    carries: ['Hacia existencias en cámara y hacia factura cuando la línea referencia tarja/proceso'],
+    reports: ['Cajas PT por productor', 'Detalle cajas PT', 'Fin del día (empacado del día)'],
   },
   {
-    title: 'Unidad PT (folio) / repalet',
-    summary: 'Agrupación logística de cajas; el repalet puede reconstruir procedencia cuando hay mezcla.',
-    born: ['Pallet como unidad de depósito/salida', 'Líneas de procedencia en repalet si aplica'],
-    carries: ['Puente hacia packing list y despacho; resolución de productor en facturación si la línea lleva final_pallet_id'],
-    reports: ['Cajas despachadas / liquidación / margen (cuando la línea de factura resuelve por pallet o repalet)'],
+    title: 'Existencias PT (cámara y repalet)',
+    summary: 'Stock en depósito, repaletizado y packing lists antes del despacho comercial.',
+    born: ['Pallets en inventario', 'Líneas de procedencia en repalet', 'Packing list PT'],
+    carries: ['Puente logístico hacia despacho; resolución por final_pallet_id en facturación'],
+    reports: ['Fin del día (cámara)', 'Liquidación cuando la línea resuelve por pallet/repalet'],
   },
   {
-    title: 'Packing list PT',
-    summary: 'Documento de carga de lo que sale hacia cliente vinculado a pallets/cajas.',
-    born: ['Listado de ítems PT en el envío'],
-    carries: ['Coherencia con despacho y factura comercial'],
-    reports: ['Indirecto: validación en Despachos; no es una tabla separada en Reportes con el mismo nombre'],
+    title: 'Pedidos comerciales',
+    summary: 'Compromiso de cajas por cliente; seguimiento de avance vs producción y despacho.',
+    born: ['Cajas pedidas', 'Estado comercial del pedido'],
+    carries: ['Referencia operativa; no reemplaza facturación del despacho'],
+    reports: ['Avance en /sales-orders/:id/avance', 'KPIs en Inicio'],
   },
   {
-    title: 'Despacho',
-    summary: 'Envío comercial; fecha de despacho y cliente anclan la facturación del período.',
-    born: ['Cabecera de despacho', 'Cliente', 'Fecha', 'Vínculo a ítems facturables'],
-    carries: ['Pallets/unidades PT/procesos referenciados en líneas'],
-    reports: ['Cajas despachadas por productor', 'Ventas por despacho', 'Costo pallet/unidad PT (logístico)'],
+    title: 'Despacho y factura',
+    summary: 'Envío comercial con fecha de despacho; líneas de factura con packaging_code y precios.',
+    born: ['Cabecera de despacho', 'Cliente', 'Ventas monetarias', 'Cajas y lb facturados'],
+    carries: ['Base del período financiero en Reportes → Cierre'],
+    reports: [
+      'Cajas despachadas por productor',
+      'Ventas por despacho',
+      'Costo por formato facturado',
+      'Liquidación por productor',
+      'Margen por cliente',
+    ],
   },
   {
-    title: 'Factura (invoice lines)',
-    summary: 'Líneas con cajas, precio, packaging_code; base del período financiero.',
-    born: ['Ventas monetarias', 'Cajas y lb facturados', 'Referencias unidad PT/proceso/pallet en línea'],
-    carries: ['Entrada a costo por formato, liquidación y margen por cliente'],
-    reports: ['Costo por formato facturado', 'Liquidación por productor', 'Margen por cliente', 'Ventas por despacho'],
-  },
-  {
-    title: 'Reportes (módulo)',
-    summary: 'Vista unificada por período/filtros: operativo vs financiero vs documentos; siempre interpretar la “fuente de verdad” del informe.',
-    born: ['Ningún dato nuevo: agrega y etiqueta lo ya existente'],
+    title: 'Reportes — módulo',
+    summary:
+      'Cuatro pestañas con distintas preguntas: Operación (día), Decisión (oferta/MP), Cierre (período financiero), Documentos (exportar). Siempre distinguir fuente operativa vs facturación.',
+    born: ['Ningún dato nuevo: agrega, etiqueta y exporta lo existente'],
     carries: ['—'],
-    reports: ['Todos los listados bajo Generar; export CSV/Excel/PDF'],
-  },
-  {
-    title: 'Liquidación por productor',
-    summary: 'Asignación de ventas y costos a productor según trazabilidad de líneas de factura.',
-    born: ['Neto por productor en el período (según reglas de prorrateo)'],
-    carries: ['Desde factura + resolución unidad PT/proceso/pallet/repalet'],
-    reports: ['Liquidación interna (tablas + PDF interno)', 'PDF productor en Documentos'],
-  },
-  {
-    title: 'Margen por cliente',
-    summary: 'Mismo motor de costo por formato que liquidación, agrupado por cliente del despacho.',
-    born: ['Margen y costos por cliente (y por formato en detalle)'],
-    carries: ['Desde facturación + costos prorrateados por formato'],
-    reports: ['Margen por cliente — resumen y detalle'],
+    reports: [
+      'Operación: fin del día y KPIs diarios',
+      'Decisión: calculadora comercial',
+      'Cierre: liquidación, auditor, márgenes y costos',
+      'Documentos: Excel/CSV/PDF y guardados',
+      'Glosario y fuente de verdad en pantalla y en esta guía',
+    ],
   },
 ];
 
@@ -239,24 +508,67 @@ export const VALIDATION_SCENARIOS: ValidationScenario[] = [
     expectDispatches: 'En Despachos: el envío aparece con cliente y fecha; ítems con cajas alineadas a lo producido.',
     expectInvoices: 'Líneas con packaging_code y cajas que alimentan facturación del período.',
     expectFormatCost:
-      'En Reportes → Costo por formato facturado: formatos con cajas > 0 en el período; costo coherente con recetas y packing por especie.',
+      'Reportes → Cierre → Análisis por formato: formatos con cajas > 0; costo coherente con recetas y packing por especie.',
     expectLiquidacion:
-      'Liquidación interna: productores con cajas/ventas si la trazabilidad de línea resuelve productor; PDF interno/ productor alineados al mismo filtro.',
+      'Cierre → vista global: productores con cajas/ventas si la trazabilidad resuelve; auditor sin críticos; PDF desde Documentos o exportaciones del cierre.',
     expectMargen:
-      'Margen por cliente: el cliente del despacho con ventas y margen; detalle por formato coincide con líneas facturadas.',
+      'Cierre → Análisis por cliente: cliente del despacho con ventas y margen; detalle por formato con nota de prorrateo si aplica.',
   },
   {
     id: 'B',
     title: 'Mezcla o repalet: varios orígenes en un mismo pallet/despacho',
     setup:
-      'Pallet o despacho con líneas que requieren repallet o prorrateo entre productores o formatos.',
+      'Pallet o despacho con líneas que requieren repalet o prorrateo entre productores o formatos.',
     expectDispatches: 'Despacho único con varias líneas o pallets; totales de cajas cuadran con factura.',
     expectInvoices: 'Líneas con distintos packaging_code o referencias a pallet/unidad PT; facturación del período correcta.',
     expectFormatCost:
-      'Costo por formato: prorrateo por volumen facturado del formato en el período; revisar notas de prorrateo en margen detalle si aplica.',
+      'Costo por formato: prorrateo por volumen facturado; revisar notas en margen detalle y filas del auditor de materiales/packing.',
     expectLiquidacion:
-      'Liquidación: filas por productor pueden ser fracción si hubo mezcla; neto debe ser interpretable con el detalle por despacho/formato.',
+      'Liquidación: filas fraccionadas por productor; expandir fila y revisar detalle operativo + desglose por formato; vista por productor para un solo productor.',
     expectMargen:
-      'Margen por cliente: agregado por cliente; el detalle por formato explica el reparto sin duplicar lógica de liquidación por productor.',
+      'Margen por cliente: agregado por cliente; detalle por formato sin duplicar lógica de liquidación por productor.',
+  },
+  {
+    id: 'C',
+    title: 'Cierre del día operativo vs cierre financiero del período',
+    setup:
+      'Producción y despachos en fechas distintas dentro de la misma semana calendario.',
+    expectDispatches: 'Despachos con fecha_despacho dentro del período de liquidación elegido.',
+    expectInvoices: 'Solo líneas de despachos del período entran en Cierre; pueden no coincidir con un solo día operativo.',
+    expectFormatCost: 'Costos por formato solo sobre volumen facturado en el período, no sobre todo lo empacado en planta.',
+    expectLiquidacion:
+      'Operación → fin del día: cuadra empacado/despachado de UN día. Cierre: liquidación del rango desde/hasta. Comparar KPI «Cajas PT − despachadas» en Documentos.',
+    expectMargen:
+      'No mezclar margen de Cierre con totales del fin del día; son cortes temporales distintos.',
+  },
+];
+
+export const ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
+  {
+    role: 'operator',
+    canDo: [
+      'Leer reportes y exportar',
+      'Operar recepciones, procesos, PT, despachos según permisos de pantalla',
+      'No guardar reportes ni editar tarifas de packing en Cierre',
+    ],
+  },
+  {
+    role: 'supervisor',
+    canDo: [
+      'Todo lo de operator',
+      'Editar tarjas y pedidos',
+      'Guardar y renombrar reportes',
+      'Configurar tarifas de packing en Cierre (si la UI lo permite con su sesión)',
+    ],
+  },
+  {
+    role: 'admin',
+    canDo: [
+      'Todo lo de supervisor',
+      'Parámetros de planta',
+      'Eliminar reportes guardados',
+      'Carga masiva CSV',
+      'Diagnóstico técnico de liquidación en Cierre',
+    ],
   },
 ];

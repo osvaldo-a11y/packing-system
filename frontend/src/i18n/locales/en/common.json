@@ -33,6 +33,27 @@
     "submit": "Sign in",
     "toastSuccess": "Session started"
   },
+  "about": {
+    "pageTitle": "About the system",
+    "pageSubtitle": "Pinebloom Packing — operational panel for plant, packaging, process, dispatch and reports.",
+    "version": {
+      "title": "Version",
+      "description": "Web interface (Vite build)",
+      "value": "Web UI v{{version}}"
+    },
+    "status": {
+      "title": "Status and documentation",
+      "healthCheck": "Health check (JSON)",
+      "swagger": "Swagger / OpenAPI"
+    },
+    "practices": {
+      "title": "Best practices",
+      "tip1": "Use appropriate roles (operator, supervisor, admin) and do not share credentials.",
+      "tip2": "In production: bcrypt hashed passwords, strong JWT and HTTPS.",
+      "tip3": "Login has a per-minute attempt limit to reduce abuse."
+    },
+    "backHome": "← Back to home"
+  },
   "nav": {
     "groups": {
       "principal": "Main",
@@ -485,6 +506,20 @@
       "openPt": "Open",
       "multiUnlinkHint": "Multiple tags: how to unlink",
       "multiUnlinkDesc": "Use Unlink / Open per row or Unlink all above (goes through draft on server).",
+      "recoveryTitle": "Recover PT units (admin)",
+      "recoveryIntro": "If you unlinked by mistake, the system searches final pallets and tags from the same producer (±21 days).",
+      "recoveryLoading": "Searching hints…",
+      "recoveryEmpty": "No automatic hints. Try PT Unit filtered by producer and process date, or a Railway backup.",
+      "recoveryHint": "Server hint",
+      "recoverySourcePallet": "Final pallet",
+      "recoverySourceTag": "Same producer",
+      "recoveryRestore": "Restore selected",
+      "recoveryRestoring": "Restoring…",
+      "recoverySelectAll": "Select pallet hints",
+      "recoveryOpenPtTags": "Open PT Unit (producer filter)",
+      "recoveryColSelect": "Restore",
+      "recoveryColCajas": "Suggested boxes",
+      "recoveryRestoreOk": "Links restored",
       "statusTitle": "Process status",
       "statusAdmin": "Administration",
       "statusSupervisor": "Supervisor",
@@ -492,8 +527,11 @@
       "statusApplying": "Applying…",
       "statusApply": "Apply status",
       "statusBorradorWarning": "Draft with PT #{{id}} still linked: Apply status unlinks on server.",
+      "statusReopenKeepsPt": "Applying «draft» reopens the process for editing and keeps {{count}} PT unit(s) ({{boxes}} boxes).",
+      "statusUnlinkHint": "To remove PT links use «Unlink» (not «Apply status» to draft).",
+      "statusUnlinkConfirm": "This will remove links between this process and {{count}} PT unit(s) ({{boxes}} boxes). PT units may remain in inventory but will no longer count toward this process. Continue?",
       "statusHelpTitle": "Status and balance help",
-      "statusHelpDesc": "Setting to confirmed requires balance (input = packout + components). Reopening to draft or closing are administrative actions by role.",
+      "statusHelpDesc": "Confirmed requires balance (input = packout + components). Reopening to draft only changes status (does not unlink PT). Unlink removes PT items from the process.",
       "adminEditWarning": "Admin: editing with closed process; balance of lb still applies.",
       "fieldEntradaManual": "Input lb (balance)",
       "fieldEntradaManualHint": "No reception lines linked; edit input manually if applicable.",

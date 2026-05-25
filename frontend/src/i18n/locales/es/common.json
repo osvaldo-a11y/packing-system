@@ -33,6 +33,27 @@
     "submit": "Entrar",
     "toastSuccess": "Sesión iniciada"
   },
+  "about": {
+    "pageTitle": "Acerca del sistema",
+    "pageSubtitle": "Pinebloom Packing — panel operativo para planta, empaque, proceso, despacho y reportes.",
+    "version": {
+      "title": "Versión",
+      "description": "Interfaz web (build Vite)",
+      "value": "Web UI v{{version}}"
+    },
+    "status": {
+      "title": "Estado y documentación",
+      "healthCheck": "Health check (JSON)",
+      "swagger": "Swagger / OpenAPI"
+    },
+    "practices": {
+      "title": "Buenas prácticas",
+      "tip1": "Usá roles adecuados (operador, supervisor, admin) y no compartas credenciales.",
+      "tip2": "En producción: contraseñas con hash bcrypt, JWT fuerte y HTTPS.",
+      "tip3": "El login tiene límite de intentos por minuto para reducir abuso."
+    },
+    "backHome": "← Volver al inicio"
+  },
   "nav": {
     "groups": {
       "principal": "Principal",
@@ -485,6 +506,20 @@
       "openPt": "Abrir",
       "multiUnlinkHint": "Varias tarjas: cómo desligar",
       "multiUnlinkDesc": "Usá Desligar / Abrir por fila o Desvincular todas arriba (pasa por borrador en servidor).",
+      "recoveryTitle": "Recuperar unidades PT (admin)",
+      "recoveryIntro": "Si desvinculaste por error, el sistema busca pistas en pallets finales y tarjas del mismo productor (±21 días).",
+      "recoveryLoading": "Buscando pistas…",
+      "recoveryEmpty": "Sin pistas automáticas. Probá Unidad PT filtrando por productor y fecha del proceso, o backup de Railway.",
+      "recoveryHint": "Pista del servidor",
+      "recoverySourcePallet": "Pallet final",
+      "recoverySourceTag": "Mismo productor",
+      "recoveryRestore": "Restaurar seleccionadas",
+      "recoveryRestoring": "Restaurando…",
+      "recoverySelectAll": "Seleccionar con pista de pallet",
+      "recoveryOpenPtTags": "Abrir Unidad PT (filtro productor)",
+      "recoveryColSelect": "Restaurar",
+      "recoveryColCajas": "Cajas sugeridas",
+      "recoveryRestoreOk": "Vínculos restaurados",
       "statusTitle": "Estado del proceso",
       "statusAdmin": "Administración",
       "statusSupervisor": "Supervisor",
@@ -492,8 +527,11 @@
       "statusApplying": "Aplicando…",
       "statusApply": "Aplicar estado",
       "statusBorradorWarning": "Borrador con PT #{{id}} aún enlazada: Aplicar estado desvincula en servidor.",
+      "statusReopenKeepsPt": "Aplicar «borrador» reabre el proceso para editar y conserva {{count}} unidad(es) PT ({{boxes}} cajas).",
+      "statusUnlinkHint": "Para quitar vínculos con unidades PT usá «Desvincular» (no «Aplicar estado» a borrador).",
+      "statusUnlinkConfirm": "Se quitarán los vínculos de este proceso con {{count}} unidad(es) PT ({{boxes}} cajas). Las unidades PT pueden seguir en inventario pero dejarán de sumar a este proceso. ¿Continuar?",
       "statusHelpTitle": "Ayuda estados y cuadre",
-      "statusHelpDesc": "Pasar a confirmado exige cuadre (entrada = packout + componentes). Reabrir a borrador o cerrar son acciones administrativas según rol.",
+      "statusHelpDesc": "Confirmado exige cuadre (entrada = packout + componentes). Reabrir a borrador solo cambia el estado (no desvincula PT). Desvincular elimina ítems PT del proceso.",
       "adminEditWarning": "Admin: edición con proceso cerrado; sigue el cuadre de lb.",
       "fieldEntradaManual": "Lb entrada (cuadre)",
       "fieldEntradaManualHint": "Sin líneas de recepción vinculadas; editá la entrada manualmente si aplica.",

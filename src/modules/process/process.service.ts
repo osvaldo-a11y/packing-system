@@ -24,6 +24,7 @@ import {
   MergeTagsDto,
   SetProcessStatusDto,
   SplitTagDto,
+  RestoreProcessPtLinksDto,
   UpdateProcessWeightsDto,
   UpdatePtTagDto,
 } from './process.dto';
@@ -2270,8 +2271,9 @@ export class ProcessService {
     if (!proc) throw new NotFoundException('Proceso no encontrado');
     const cur = proc.process_status ?? 'borrador';
     const next = dto.status;
+    const unlinkPt = dto.unlinkPt === true;
     if (cur === next) {
-      if (next === 'borrador' && proc.tarja_id != null) {
+      if (next === 'borrador' && unlinkPt) {
         await this.detachProcessFromPtWhenReopeningToBorrador(processId);
         const after = await this.processRepo.findOne({ where: { id: processId } });
         return after ?? proc;
@@ -2286,7 +2288,7 @@ export class ProcessService {
       return this.setProcessStatus(processId, { status: 'cerrado' });
     }
 
-    if (next === 'borrador') {
+    if (next === 'borrador' && unlinkPt) {
       await this.detachProcessFromPtWhenReopeningToBorrador(processId);
     }
 
@@ -2294,6 +2296,141 @@ export class ProcessService {
     if (!fresh) throw new NotFoundException('Proceso no encontrado');
     fresh.process_status = next;
     return this.processRepo.save(fresh);
+  }
+
+  /**
+   * Pistas para re-vincular unidades PT tras desvincular por error (p. ej. pasar a borrador con unlinkPt).
+   * Usa líneas de pallet final con fruit_process_id y tarjas del mismo productor en ventana de fechas.
+   */
+  async getProcessPtRecoveryHints(processId: number) {
+    const proc = await this.processRepo.findOne({ where: { id: processId } });
+    if (!proc) throw new NotFoundException('Proceso no encontrado');
+
+    const producerId = Number(proc.productor_id);
+    const fecha = proc.fecha_proceso instanceof Date ? proc.fecha_proceso : new Date(proc.fecha_proceso);
+    const windowDays = 21;
+    const from = new Date(fecha);
+    from.setDate(from.getDate() - windowDays);
+    const to = new Date(fecha);
+    to.setDate(to.getDate() + windowDays);
+
+    const linkedItems = await this.tagItemRepo.find({ where: { process_id: processId } });
+    const linkedTagIds = new Set(linkedItems.map((i) => Number(i.tarja_id)));
+
+    const palletAgg = await this.finalPalletLineRepo
+      .createQueryBuilder('l')
+      .innerJoin(FinalPallet, 'fp', 'fp.id = l.final_pallet_id')
+      .where('l.fruit_process_id = :pid', { pid: processId })
+      .andWhere("fp.status != 'anulado'")
+      .andWhere('fp.tarja_id IS NOT NULL')
+      .select('fp.tarja_id', 'tarja_id')
+      .addSelect('COALESCE(SUM(l.amount), 0)', 'cajas')
+      .addSelect('COALESCE(SUM(CAST(l.pounds AS DECIMAL)), 0)', 'lb')
+      .groupBy('fp.tarja_id')
+      .getRawMany<{ tarja_id: string; cajas: string; lb: string }>();
+
+    type Hint = {
+      source: 'final_pallet_line' | 'pt_tag_same_producer';
+      tarja_id: number;
+      tag_code: string;
+      format_code: string;
+      suggested_cajas: number;
+      suggested_lb: number | null;
+      fecha: string | null;
+      note: string;
+      already_linked: boolean;
+    };
+
+    const byTag = new Map<number, Hint>();
+
+    for (const row of palletAgg) {
+      const tid = Number(row.tarja_id);
+      if (!Number.isFinite(tid) || tid < 1) continue;
+      const tag = await this.tagRepo.findOne({ where: { id: tid } });
+      const cajas = Math.max(0, Math.round(Number(row.cajas ?? 0)));
+      if (cajas <= 0) continue;
+      byTag.set(tid, {
+        source: 'final_pallet_line',
+        tarja_id: tid,
+        tag_code: tag?.tag_code ?? `PT-${tid}`,
+        format_code: tag?.format_code ?? '',
+        suggested_cajas: cajas,
+        suggested_lb: Number(row.lb ?? 0) > 0 ? Number(row.lb) : null,
+        fecha: tag?.fecha instanceof Date ? tag.fecha.toISOString().slice(0, 10) : null,
+        note: 'Encontrada en pallets finales con este proceso',
+        already_linked: linkedTagIds.has(tid),
+      });
+    }
+
+    const tagRows = await this.tagRepo
+      .createQueryBuilder('t')
+      .innerJoin(PtTagItem, 'io', 'io.tarja_id = t.id AND io.productor_id = :prod', { prod: producerId })
+      .leftJoin(PtTagItem, 'ip', 'ip.tarja_id = t.id AND ip.process_id = :pid', { pid: processId })
+      .where('ip.id IS NULL')
+      .andWhere('t.fecha >= :from AND t.fecha <= :to', { from, to })
+      .select('t.id', 'id')
+      .addSelect('SUM(io.cajas_generadas)', 'cajas')
+      .groupBy('t.id')
+      .getRawMany<{ id: string; cajas: string }>();
+
+    for (const row of tagRows) {
+      const tid = Number(row.id);
+      if (!Number.isFinite(tid) || tid < 1 || byTag.has(tid)) continue;
+      const tag = await this.tagRepo.findOne({ where: { id: tid } });
+      if (!tag) continue;
+      const cajas = Math.max(0, Math.round(Number(row.cajas ?? tag.total_cajas ?? 0)));
+      if (cajas <= 0 && (tag.total_cajas ?? 0) <= 0) continue;
+      byTag.set(tid, {
+        source: 'pt_tag_same_producer',
+        tarja_id: tid,
+        tag_code: tag.tag_code,
+        format_code: tag.format_code,
+        suggested_cajas: cajas > 0 ? cajas : tag.total_cajas,
+        suggested_lb: null,
+        fecha: tag.fecha instanceof Date ? tag.fecha.toISOString().slice(0, 10) : null,
+        note: 'Unidad PT del mismo productor en fechas cercanas (sin vínculo a este proceso)',
+        already_linked: false,
+      });
+    }
+
+    const suggestions = [...byTag.values()].sort((a, b) => {
+      if (a.source === 'final_pallet_line' && b.source !== 'final_pallet_line') return -1;
+      if (b.source === 'final_pallet_line' && a.source !== 'final_pallet_line') return 1;
+      return a.tag_code.localeCompare(b.tag_code);
+    });
+
+    return {
+      process_id: processId,
+      productor_id: producerId,
+      fecha_proceso: fecha.toISOString().slice(0, 10),
+      window_days: windowDays,
+      linked_count: linkedItems.length,
+      suggestions,
+      hint:
+        suggestions.length === 0
+          ? 'No hay pistas automáticas. Revisá Existencias PT / Unidad PT por fecha y productor, o restaurá backup de Railway.'
+          : 'Restaurar crea de nuevo pt_tag_items. Revisá cajas sugeridas antes de aplicar.',
+    };
+  }
+
+  /** Restaura vínculos proceso ↔ unidad PT (admin). */
+  async restoreProcessPtLinks(processId: number, dto: RestoreProcessPtLinksDto) {
+    const proc = await this.processRepo.findOne({ where: { id: processId } });
+    if (!proc) throw new NotFoundException('Proceso no encontrado');
+    if (!dto.links?.length) {
+      throw new BadRequestException('Indicá al menos un vínculo (tarja_id + cajas)');
+    }
+    const restored: number[] = [];
+    for (const link of dto.links) {
+      await this.addProcessToTag(link.tarja_id, {
+        process_id: processId,
+        cajas_generadas: link.cajas_generadas,
+      });
+      restored.push(link.tarja_id);
+    }
+    const rows = await this.listProcesses();
+    const row = rows.find((r) => r.id === processId);
+    return { restored_tarja_ids: restored, process: row ?? null };
   }
 
   /** Importación masiva / ajuste admin: recalcular stock PT luego de tocar `pt_tags`. */

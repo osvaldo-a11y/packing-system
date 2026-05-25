@@ -28,6 +28,7 @@ import {
   SplitTagDto,
   UpdatePtTagDto,
   UpdateProcessWeightsDto,
+  RestoreProcessPtLinksDto,
   SetProcessStatusDto,
 } from './process.dto';
 import { ProcessService } from './process.service';
@@ -94,6 +95,18 @@ export class ProcessController {
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   editableMpLines(@Param('id', ParseIntPipe) id: number) {
     return this.service.listEditableMpLinesForProcess(id);
+  }
+
+  @Get('processes/:id/pt-recovery-hints')
+  @Roles(ROLES.ADMIN)
+  ptRecoveryHints(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getProcessPtRecoveryHints(id);
+  }
+
+  @Post('processes/:id/pt-recovery-restore')
+  @Roles(ROLES.ADMIN)
+  ptRecoveryRestore(@Param('id', ParseIntPipe) id: number, @Body() dto: RestoreProcessPtLinksDto) {
+    return this.service.restoreProcessPtLinks(id, dto);
   }
 
   @Patch('processes/:id/weights')
