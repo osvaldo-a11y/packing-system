@@ -425,6 +425,58 @@ export function EodPlanningSection({
     return { htmlDoc, plain, htmlFragment };
   }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm, eodLabels]);
 
+  const eodClientPayloads = useMemo(() => {
+    return endOfDayByClient.map((r) => {
+      const pM = breakdownRowsToNormQty(r.packed);
+      const cM = breakdownRowsToNormQty(r.cooler);
+      const sM = breakdownRowsToNormQty(r.shipped);
+      const norms = [...new Set<string>([...pM.keys(), ...cM.keys(), ...sM.keys()])].sort((a, b) => a.localeCompare(b));
+      const nums = new Map<string, { packed: number; camara: number; shipped: number }>();
+      for (const nk of norms) {
+        nums.set(nk, {
+          packed: pM.get(nk) ?? 0,
+          camara: cM.get(nk) ?? 0,
+          shipped: sM.get(nk) ?? 0,
+        });
+      }
+      const block: EodReportClientBlock = {
+        label: r.label,
+        norms,
+        nums,
+        formatLabel: (nk: string) =>
+          stripParenthesesText(nk === '—' ? '—' : (formatCanonicalByNorm.get(nk) ?? titleCaseFormatFallback(nk))),
+      };
+      const mpLine =
+        mpDisponibleProceso != null && mpDisponibleProceso.totalLb > 0
+          ? `${formatLb(mpDisponibleProceso.totalLb, 2)} lb`
+          : t('eod.email.mpNone');
+      const fechaHeaderEs = formatDayKeySpanishLong(opsDayKey, eodLabels);
+      const htmlFragment = buildEodReportHtml({ fechaHeaderEs, mpLine, blocks: [block], labels: eodLabels });
+      const plain = buildEodReportPlain({ fechaHeaderEs, mpLine, blocks: [block], labels: eodLabels });
+      const htmlDoc = wrapHtmlFragmentForClipboard(htmlFragment, eodLabels.pageTitle);
+      return { label: r.label, htmlDoc, plain };
+    });
+  }, [endOfDayByClient, mpDisponibleProceso, opsDayKey, formatCanonicalByNorm, eodLabels, t]);
+
+  const copyToClipboard = async (htmlDoc: string, plain: string) => {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([htmlDoc], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+        }),
+      ]);
+      toast.success(t('eod.toastSuccess'));
+    } catch {
+      try {
+        await navigator.clipboard.writeText(plain);
+        toast.success(t('eod.toastSuccessPlain'));
+      } catch {
+        toast.error(t('eod.toastError'));
+      }
+    }
+  };
+
   const finDelDiaBlock = (
     <details
       id={finDelDiaDomId}
@@ -443,25 +495,7 @@ export function EodPlanningSection({
           onMouseDown={(e) => e.preventDefault()}
           onClick={(e) => {
             e.preventDefault();
-            const { htmlDoc, plain } = eodClipboardPayload;
-            void (async () => {
-              try {
-                await navigator.clipboard.write([
-                  new ClipboardItem({
-                    'text/html': new Blob([htmlDoc], { type: 'text/html' }),
-                    'text/plain': new Blob([plain], { type: 'text/plain' }),
-                  }),
-                ]);
-                toast.success(t('eod.toastSuccess'));
-              } catch {
-                try {
-                  await navigator.clipboard.writeText(plain);
-                  toast.success(t('eod.toastSuccessPlain'));
-                } catch {
-                  toast.error(t('eod.toastError'));
-                }
-              }
-            })();
+            void copyToClipboard(eodClipboardPayload.htmlDoc, eodClipboardPayload.plain);
           }}
         >
           <Copy className="h-3 w-3" aria-hidden />
@@ -469,6 +503,25 @@ export function EodPlanningSection({
         </button>
       </summary>
       <div className="border-t border-slate-100 px-4 pb-4 pt-2 sm:px-5">
+        {eodClientPayloads.length > 1 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {eodClientPayloads.map((cp) => (
+              <button
+                key={cp.label}
+                type="button"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-[#1D9E75]/30 bg-[#1D9E75]/8 px-2.5 text-[11px] font-medium text-[#1D9E75] hover:bg-[#1D9E75]/15"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void copyToClipboard(cp.htmlDoc, cp.plain);
+                }}
+              >
+                <Copy className="h-3 w-3" aria-hidden />
+                {cp.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div
           className="eod-report-preview max-h-[min(48vh,360px)] overflow-auto rounded-lg border border-slate-200/80 bg-white p-3 text-[12px] leading-normal text-slate-800 sm:p-4"
           dangerouslySetInnerHTML={{ __html: eodClipboardPayload.htmlFragment }}

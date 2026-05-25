@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  BarChart3,
+  ArrowLeftRight,
+  BarChart2,
   CheckCircle2,
   Circle,
   Download,
   FileDown,
+  FileText,
   FolderOpen,
   Info,
+  Layers,
   Pencil,
   Printer,
   RefreshCw,
@@ -29,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatReportCell } from '@/lib/format-report-cell';
-import { formatLb, formatMoney, formatTechnical } from '@/lib/number-format';
+import { formatBoxes, formatLb, formatMoney, formatTechnical } from '@/lib/number-format';
 import {
   btnToolbarPrimary,
   contentCard,
@@ -44,7 +47,6 @@ import {
   kpiLabel,
   kpiValueMd,
   pageHeaderRow,
-  pageInfoButton,
   pageStack,
   pageSubtitle,
   pageTitle,
@@ -126,22 +128,6 @@ async function downloadProducerSettlementPdf(
     const msg = e instanceof Error ? e.message : String(e);
     toast.error(msg.slice(0, 220) || 'No se pudo generar el PDF');
   }
-}
-
-/** Misma agregación que planificación EOD — comparte caché de React Query con `EodPlanningSection`. */
-async function fetchMpDisponibleProcesoResumenForReports(): Promise<{
-  totalLb: number;
-  lineCount: number;
-  producerCount: number;
-}> {
-  const r = await apiJson<{ total_lb: number; line_count: number; producer_count: number }>(
-    '/api/processes/mp-disponible-resumen',
-  );
-  return {
-    totalLb: Number(r.total_lb) || 0,
-    lineCount: Number(r.line_count) || 0,
-    producerCount: Number(r.producer_count) || 0,
-  };
 }
 
 type PaginatedSection = { rows: Record<string, unknown>[]; total: number; page: number; limit: number };
@@ -529,12 +515,20 @@ function reportPaginationNote(section: PaginatedSection | undefined): {
 
 function fmtMoney(v: unknown): string {
   const n = toNum(v);
-  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function fmtQty(v: unknown, frac: number): string {
   const n = toNum(v);
-  return n.toLocaleString('es-AR', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', {
+    minimumFractionDigits: frac,
+    maximumFractionDigits: frac,
+  });
 }
 
 /** Tabla fija para margen por cliente (resumen): lectura cómoda para gestión. */
@@ -580,74 +574,53 @@ function ClientMarginSummaryTable({
   }
 
   return (
-    <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Margen por cliente — resumen</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Totales por cliente: margen = ventas − costo total; últimas columnas son margen por caja y por lb.
+    <Card id={id} className="scroll-mt-20 overflow-hidden border-slate-200/90 bg-white shadow-sm">
+      <CardHeader className="border-b border-slate-100 bg-slate-50/60 pb-3">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">Margen por cliente</CardTitle>
+        <CardDescription className="mt-0.5 text-xs text-slate-500">
+          Ventas − costo total = margen neto. Columnas finales: margen por caja y por lb.
         </CardDescription>
-        <CardDescription>
-          {pageInfo}
-          {truncated ? (
-            <span className="mt-1 block text-amber-800">
-              Mostrás {section.rows.length} de {section.total}. Para ver más en una sola respuesta, poné Página 1 y Límite
-              100 en filtros, y volvé a generar.
-            </span>
-          ) : null}
-        </CardDescription>
+        <p className="text-[11px] text-muted-foreground">{pageInfo}{truncated ? ` · Mostrás ${section.rows.length} de ${section.total}` : ''}</p>
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
-        <div className="max-h-[min(80vh,920px)] overflow-auto rounded-md border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky top-0 z-[1] min-w-[140px] bg-card text-xs shadow-sm">Cliente</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-xs shadow-sm">ID</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Cajas</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Lb</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Ventas</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo mat.</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo pack.</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo total</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen / caja</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen / lb</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((raw, i) => {
-                const r = raw as Record<string, unknown>;
-                const margen = toNum(r.margen);
-                return (
-                  <TableRow key={`cms-${i}`}>
-                    <TableCell className="max-w-[200px] text-sm font-medium">{toStr(r.cliente_nombre)}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{toStr(r.cliente_id)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{formatLb(toNum(r.total_cajas), 2)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">{formatLb(toNum(r.total_lb), 2)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{fmtMoney(r.total_ventas)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{fmtMoney(r.costo_materiales)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{fmtMoney(r.costo_packing)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{fmtMoney(r.costo_total)}</TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono text-xs tabular-nums',
-                        margen < 0 ? 'text-destructive' : margen > 0 ? 'text-emerald-600' : '',
-                      )}
-                    >
-                      {fmtMoney(r.margen)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">
-                      {formatTechnical(toNum(r.margen_por_caja), 4)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs tabular-nums">
-                      {formatTechnical(toNum(r.margen_por_lb), 4)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+      <CardContent className="overflow-x-auto p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+              <TableHead className="sticky top-0 z-[1] min-w-[140px] border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cliente</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cajas</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lb</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ventas</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo mat.</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo pack.</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo total</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margen</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/caja</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/lb</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((raw, i) => {
+              const r = raw as Record<string, unknown>;
+              const margen = toNum(r.margen);
+              return (
+                <TableRow key={`cms-${i}`} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                  <TableCell className="py-3 text-sm font-semibold text-slate-900">{toStr(r.cliente_nombre)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm tabular-nums text-slate-700">{formatBoxes(toNum(r.total_cajas))}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm tabular-nums text-slate-700">{formatLb(toNum(r.total_lb), 2)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">{fmtMoney(r.total_ventas)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{fmtMoney(r.costo_materiales)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{fmtMoney(r.costo_packing)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm tabular-nums text-slate-700">{fmtMoney(r.costo_total)}</TableCell>
+                  <TableCell className={cn('py-3 text-right font-mono text-sm font-bold tabular-nums', margen < 0 ? 'text-rose-600' : 'text-emerald-600')}>
+                    {fmtMoney(r.margen)}
+                  </TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{formatTechnical(toNum(r.margen_por_caja), 2)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{formatTechnical(toNum(r.margen_por_lb), 4)}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
@@ -2277,7 +2250,7 @@ function LiquidacionFinalModule({
                   value={fmtMoney(kpis.ventas)}
                   valueClassName={kpis.ventas > 0 ? 'text-[#1D9E75]' : undefined}
                 />
-                <KpiTile label="Cajas totales" value={fmtQty(kpis.cajas, 2)} />
+                <KpiTile label="Cajas totales" value={formatBoxes(kpis.cajas)} />
                 <KpiTile label="LB totales" value={fmtQty(kpis.lb, 2)} />
                 <KpiTile
                   label="Costo materiales"
@@ -2397,7 +2370,7 @@ function LiquidacionFinalModule({
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <p className="text-muted-foreground">Cajas</p>
-                              <p className="font-medium">{fmtQty(r.cajas, 0)}</p>
+                              <p className="font-medium">{formatBoxes(toNum(r.cajas))}</p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">LB</p>
@@ -2510,7 +2483,7 @@ function LiquidacionFinalModule({
                                     />
                                   </div>
                                 </TableCell>
-                                <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtQty(r.cajas, 2)}</TableCell>
+                                <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{formatBoxes(toNum(r.cajas))}</TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtQty(r.lb, 2)}</TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle text-sm tabular-nums text-slate-800">{fmtMoney(r.ventas)}</TableCell>
                                 <TableCell className="px-2 py-2.5 text-right align-middle">
@@ -3036,31 +3009,26 @@ function FormatCostOperational({
     );
   }
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Costo por formato — tabla resumen</CardTitle>
-        <CardDescription>
-          Financiero: volumen y costos por código de formato según <strong>facturación del período</strong>, recetas de
-          empaque y <strong>precio packing por lb</strong> por especie (tabla de abajo o filtro manual). No es costo de
-          planta física ni stock.
+    <Card className="overflow-hidden border-slate-200/90 bg-white shadow-sm">
+      <CardHeader className="border-b border-slate-100 bg-slate-50/60 pb-3">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">Costo por formato</CardTitle>
+        <CardDescription className="mt-0.5 text-xs text-slate-500">
+          Volumen y costos según facturación del período · recetas de empaque · precio packing/lb por especie.
         </CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
+      <CardContent className="overflow-x-auto p-0">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Formato</TableHead>
-              <TableHead>Cajas</TableHead>
-              <TableHead>Lb</TableHead>
-              <TableHead>Costo materiales</TableHead>
-              <TableHead>Costo packing</TableHead>
-              <TableHead>Costo total</TableHead>
-              <TableHead>Material/caja</TableHead>
-              <TableHead>Packing/caja</TableHead>
-              <TableHead>Total/caja</TableHead>
-              <TableHead>Material/lb</TableHead>
-              <TableHead>Packing/lb</TableHead>
-              <TableHead>Total/lb</TableHead>
+            <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cajas</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lb</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mat. total</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pack. total</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo total</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mat./caja</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pack./caja</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500 font-bold">Total/caja</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -3073,23 +3041,17 @@ function FormatCostOperational({
               const materialPerBox = cajas > 0 ? costoMateriales / cajas : null;
               const packingPerBox = cajas > 0 ? costoPacking / cajas : null;
               const totalPerBox = cajas > 0 ? costoTotal / cajas : null;
-              const materialPerLb = lb > 0 ? costoMateriales / lb : null;
-              const packingPerLb = lb > 0 ? costoPacking / lb : null;
-              const totalPerLb = lb > 0 ? costoTotal / lb : null;
               return (
-                <TableRow key={`ops-${i}`}>
-                  <TableCell className="font-medium">{toStr(r.format_code)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{formatLb(cajas, 2)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{formatLb(lb, 2)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{formatMoney(costoMateriales)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{formatMoney(costoPacking)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{formatMoney(costoTotal)}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{materialPerBox != null ? formatTechnical(materialPerBox, 4) : '—'}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{packingPerBox != null ? formatTechnical(packingPerBox, 4) : '—'}</TableCell>
-                  <TableCell className="font-mono tabular-nums font-semibold">{totalPerBox != null ? formatTechnical(totalPerBox, 4) : '—'}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{materialPerLb != null ? formatTechnical(materialPerLb, 6) : '—'}</TableCell>
-                  <TableCell className="font-mono tabular-nums">{packingPerLb != null ? formatTechnical(packingPerLb, 6) : '—'}</TableCell>
-                  <TableCell className="font-mono tabular-nums font-semibold">{totalPerLb != null ? formatTechnical(totalPerLb, 6) : '—'}</TableCell>
+                <TableRow key={`ops-${i}`} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                  <TableCell className="py-3 text-sm font-semibold text-slate-900">{toStr(r.format_code)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm tabular-nums text-slate-700">{formatBoxes(cajas)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm tabular-nums text-slate-700">{formatLb(lb, 2)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{formatMoney(costoMateriales)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-600">{formatMoney(costoPacking)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">{formatMoney(costoTotal)}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-500">{materialPerBox != null ? formatTechnical(materialPerBox, 2) : '—'}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-xs tabular-nums text-slate-500">{packingPerBox != null ? formatTechnical(packingPerBox, 2) : '—'}</TableCell>
+                  <TableCell className="py-3 text-right font-mono text-sm font-bold tabular-nums text-slate-900">{totalPerBox != null ? formatTechnical(totalPerBox, 2) : '—'}</TableCell>
                 </TableRow>
               );
             })}
@@ -3260,13 +3222,6 @@ export function ReportingPage() {
   const { data: packingCosts, isPending: packingCostsLoading } = useQuery({
     queryKey: ['reporting', 'packing-costs'],
     queryFn: () => apiJson<PackingCostRow[]>('/api/reporting/packing-costs'),
-  });
-
-  const { data: mpContextDecision, isPending: mpContextDecisionPending } = useQuery({
-    queryKey: ['processes', 'mp-disponible-eod-resumen', 'planning-eod'],
-    queryFn: fetchMpDisponibleProcesoResumenForReports,
-    staleTime: 120_000,
-    enabled: reportTab === 'decision',
   });
 
   const formatCostSummaryForDisplay = useMemo(() => {
@@ -3499,15 +3454,6 @@ export function ReportingPage() {
     setFilters(next);
     setDraft({});
     generateMut.mutate(next);
-  }
-
-  /** Tabs Operación / Decisión no usan el generado — el panel de período está en Cierre / Documentos. */
-  function goToCierrePeriodPanel() {
-    setReportTab('cierre');
-    setFiltersOpen(true);
-    window.setTimeout(() => {
-      document.getElementById('rep-filtros-globales')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
   }
 
   function loadSavedReport(r: SavedReportRow) {
@@ -3775,102 +3721,63 @@ export function ReportingPage() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className={pageTitle}>Reportes</h1>
-            <button
-              type="button"
-              className={pageInfoButton}
-              title="Un generado alimenta todas las tablas. Elegí categoría y exportá. Más: Guía del sistema."
-              aria-label="Información sobre reportes"
-            >
-              <Info className="h-4 w-4" aria-hidden />
-            </button>
           </div>
           <p className={cn(pageSubtitle, 'mt-1')}>
-            Flujo recomendado: Operación → Decisión → Cierre → Documentos. Operación y Decisión no usan el período liquidación; para eso
-            generá en <strong>Cierre</strong> (Actualizar cierre) y exportá en <strong>Documentos</strong>.
+            Operación y Decisión usan la fecha operativa — Cierre y Documentos usan el período de liquidación.
           </p>
-          <Link
-            to="/guide/sistema"
-            className="mt-2 inline-block text-[13px] text-slate-600 underline-offset-2 hover:underline"
-          >
-            Guía del sistema
-          </Link>
+        </div>
+        <Link
+          to="/guide/sistema"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 shadow-sm hover:bg-slate-50"
+        >
+          <Info className="h-3.5 w-3.5" aria-hidden />
+          Guía del sistema
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-slate-100 bg-white/90 p-1.5 shadow-sm">
+        {REPORT_MODULE_TABS.map((tab) => {
+          const active = reportTab === tab.id;
+          const icons: Record<string, ReactNode> = {
+            operacion: <BarChart2 className="h-3.5 w-3.5" aria-hidden />,
+            decision: <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />,
+            cierre: <Layers className="h-3.5 w-3.5" aria-hidden />,
+            documentos: <FileText className="h-3.5 w-3.5" aria-hidden />,
+          };
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setReportTab(tab.id)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-medium transition-colors duration-150',
+                active
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+              )}
+            >
+              {icons[tab.id]}
+              {tab.label}
+            </button>
+          );
+        })}
+        <div className="ml-auto flex items-center pr-1">
+          <p className="text-[12px] text-slate-400">
+            {REPORT_MODULE_TABS.find((tab) => tab.id === reportTab)?.subtitle ?? ''}
+          </p>
         </div>
       </div>
 
-      <div className={cn(contentCard, 'p-4 sm:p-5')}>
-        <div className="flex flex-wrap items-center gap-2">
-          {REPORT_MODULE_TABS.map((t) => {
-            const active = reportTab === t.id;
-            return (
-              <Button
-                key={t.id}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                className={cn('h-8 rounded-lg text-xs', active && 'shadow-sm')}
-                onClick={() => setReportTab(t.id)}
-              >
-                {t.label}
-              </Button>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-[13px] leading-snug text-muted-foreground">
-          {REPORT_MODULE_TABS.find((t) => t.id === reportTab)?.subtitle ?? ''}
-        </p>
-      </div>
-
-      {reportTab === 'operacion' || reportTab === 'decision' ? (
-        <div className={cn(contentCard, 'space-y-3 p-4 sm:p-5')}>
-          {reportTab === 'operacion' ? (
-            <p className="text-sm leading-relaxed text-slate-700">
-              En <span className="font-semibold text-slate-900">Operación</span> los totales, el fin del día y los KPIs siguen la{' '}
-              <span className="font-semibold text-slate-900">fecha operativa</span> del bloque de planificación (abajo). Los filtros del
-              reporte de liquidación no aplican acá — usá <strong>Cierre</strong> cuando necesites período, productor o cliente para el
-              generado.
-            </p>
-          ) : (
-            <p className="text-sm leading-relaxed text-slate-700">
-              En <span className="font-semibold text-slate-900">Decisión</span> MP y la calculadora comercial trabajan sobre recepciones
-              actuales, <span className="font-semibold text-slate-900">no</span> sobre el período de liquidación. Para aplicar filtros de
-              fechas o catálogo al reporte económico, pasá por <strong>Cierre</strong>.
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={goToCierrePeriodPanel}>
-              Ir a Cierre · filtros y generar liquidación
-            </Button>
-          </div>
-        </div>
-      ) : reportTab === 'cierre' ? (
+      {reportTab === 'cierre' ? (
         <div className="space-y-3">
-        <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Liquidación · período y límites activos:</span>{' '}
-            {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
-          </p>
-          <details
-            id="rep-filtros-globales"
-            className="group rounded-lg border border-slate-200 bg-slate-50/40 open:border-slate-300 open:bg-white"
-            open={filtersOpen}
-            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
-          >
-            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-              <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
-              Filtros del período (fechas, paginación, productor, cliente, formato…)
-            </summary>
-            <div className="space-y-3 border-t border-slate-200 px-3 py-3">
-              <p className={sectionHint}>
-                Ajustá fechas, paginación y filtros; al terminar pulsá <strong>Actualizar cierre</strong> debajo para regenerar la
-                liquidación.
-              </p>
-              {periodFilterFieldsGrid}
-              <p className="text-[11px] text-muted-foreground">
-                Tras cambiar valores, pulsá <strong>Actualizar cierre</strong> debajo.
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Período de liquidación</p>
+              <p className="text-xs text-slate-500">
+                {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
               </p>
             </div>
-          </details>
-          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               type="button"
               className={cn(btnToolbarPrimary, 'gap-2')}
@@ -3881,6 +3788,20 @@ export function ReportingPage() {
               {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
             </Button>
           </div>
+          <details
+            id="rep-filtros-globales"
+            className="group"
+            open={filtersOpen}
+            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-slate-600 marker:content-none hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
+              Filtros del período (fechas, paginación, productor, cliente, formato…)
+            </summary>
+            <div className="space-y-3 border-t border-slate-100 px-5 py-4">
+              {periodFilterFieldsGrid}
+            </div>
+          </details>
         </div>
 
         <details
@@ -4032,46 +3953,7 @@ export function ReportingPage() {
           </div>
         </details>
         </div>
-      ) : (
-        <div className={cn(contentCard, 'space-y-3 p-3 sm:p-4')}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Datos del reporte:</span>{' '}
-              {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
-            </div>
-            <Button
-              type="button"
-              className={cn(btnToolbarPrimary, 'gap-2')}
-              onClick={runMergedGenerate}
-              disabled={generateMut.isPending}
-            >
-              <BarChart3 className="h-4 w-4" />
-              {generateMut.isPending ? 'Generando…' : 'Actualizar datos'}
-            </Button>
-          </div>
-
-          <details
-            id="rep-filtros-globales"
-            className="group rounded-lg border border-slate-200 bg-slate-50/40 open:border-slate-300 open:bg-white shadow-sm"
-            open={filtersOpen}
-            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
-          >
-            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-              <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
-              Filtros del período (fechas, paginación, productor, cliente, formato…)
-            </summary>
-            <div className="space-y-3 border-t border-slate-200 px-3 py-3">
-              <p className={sectionHint}>
-                Definí el período y los límites; luego pulsá Actualizar datos y exportá con los mismos filtros.
-              </p>
-              {periodFilterFieldsGrid}
-              <p className="text-[11px] text-muted-foreground">
-                Tras cambiar valores, pulsá <strong>Actualizar datos</strong> arriba.
-              </p>
-            </div>
-          </details>
-        </div>
-      )}
+      ) : null}
 
       {activeSavedId != null && canSave && (
         <Card className="border-primary/40 bg-primary/5">
@@ -4122,141 +4004,27 @@ export function ReportingPage() {
         <div className="space-y-4">
           {reportTab === 'operacion' ? (
             <>
-              <Card className="border-slate-200/90 bg-white shadow-sm">
-                <CardHeader className="pb-2">
-                  <ReportCategoryBadge kind="operativo" />
-                  <CardTitle className="text-base text-slate-900">Operación</CardTitle>
-                  <CardDescription>
-                    ¿Qué pasó hoy? Primero el fin del día; KPIs del turno; después el período generado si ya corriste liquidación desde{' '}
-                    <strong>Cierre</strong>.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
               <EodPlanningSection
                 showCommercialOffer={false}
                 showDailyPlanningKpis
                 showFinDelDia
-                finFirst
+                finFirst={false}
                 finOpenByDefault
                 planningDomId="rep-operacion-diaria"
                 finDelDiaDomId="rep-operacion-fin-dia"
                 planningHint="KPIs del día (packed, cámara, shipped y MP proceso) justo debajo del fin del día de la fecha operativa."
               />
-              <details className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 open:bg-white">
-                <summary className="cursor-pointer list-none py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="mr-1 text-slate-400">▸</span> Período generado: PT vs despacho y muestra rápida (opcional)
-                </summary>
-                <div className="border-t border-slate-200 pt-4 space-y-4">
-                  {reportData && executiveKpis ? (
-                    <>
-                      <Card className="border-slate-200/90 bg-white shadow-sm">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-semibold text-slate-900">Producción vs despacho</CardTitle>
-                          <CardDescription className="text-xs">
-                            Misma ventana de fechas que usaste al generar en <strong>Cierre</strong> o{' '}
-                            <strong>Documentos</strong> (no es el día operativo de arriba).
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className={kpiGrid3}>
-                          <KpiTile label="Cajas PT período" value={fmtQty(executiveKpis.cajasPtTotal, 0)} />
-                          <KpiTile label="Cajas despachadas (fact.)" value={fmtQty(executiveKpis.cajasDespachadasTotal, 2)} />
-                          <KpiTile
-                            label="Diferencia (PT − despacho)"
-                            value={fmtQty(executiveKpis.cajasPtTotal - executiveKpis.cajasDespachadasTotal, 2)}
-                          />
-                        </CardContent>
-                      </Card>
-                      <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3">
-                        <p className={sectionHint}>Muestra de cajas PT del generado (control de período).</p>
-                        <ReportPreviewStrip data={reportData} />
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Para esta vista opcional generá el reporte en <strong>Cierre</strong> (panel de filtros +{' '}
-                      <strong>Actualizar cierre</strong>) o en <strong>Documentos</strong> (<strong>Actualizar datos</strong>). El{' '}
-                      <strong>Fin del día</strong> y los KPIs de arriba no lo requieren.
-                    </p>
-                  )}
-                </div>
-              </details>
             </>
           ) : null}
 
           {reportTab === 'decision' ? (
-            <>
-              <Card className="border-slate-200/90 bg-white shadow-sm">
-                <CardHeader className="pb-2">
-                  <ReportCategoryBadge kind="decision" />
-                  <CardTitle className="text-base text-slate-900">Decisión</CardTitle>
-                  <CardDescription>¿Qué debo producir? Revisá MP y líneas aptas; después simulá pallets y formato con el balance.</CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-violet-200/70 bg-gradient-to-br from-violet-50/90 to-white shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-violet-950">Contexto · MP para proceso (recepciones)</CardTitle>
-                  <CardDescription className="text-xs text-violet-900/80">
-                    Misma lectura que usa la calculadora: fruta disponible para reparto hacia proceso.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className={kpiGrid3}>
-                    <KpiTile
-                      label="MP disponible (lb)"
-                      value={
-                        mpContextDecisionPending
-                          ? '…'
-                          : mpContextDecision != null && mpContextDecision.totalLb > 0
-                            ? `${formatLb(mpContextDecision.totalLb, 2)} lb`
-                            : '—'
-                      }
-                    />
-                    <KpiTile
-                      label="Líneas activas"
-                      value={
-                        mpContextDecisionPending
-                          ? '…'
-                          : mpContextDecision != null && mpContextDecision.totalLb > 0
-                            ? String(mpContextDecision.lineCount)
-                            : '0'
-                      }
-                    />
-                    <KpiTile
-                      label="Productores con líneas"
-                      value={mpContextDecisionPending ? '…' : String(mpContextDecision?.producerCount ?? 0)}
-                    />
-                  </div>
-                  <p className="rounded-md border border-violet-100 bg-white/80 px-3 py-2 text-xs text-slate-700">
-                    <span className="font-semibold text-slate-900">Período configurado para liquidación (Cierre):</span>{' '}
-                    {(filters.fecha_desde ?? '—') + ' → ' + (filters.fecha_hasta ?? '—')}
-                    {reportData ? (
-                      <> · último generado alineado a esas fechas.</>
-                    ) : (
-                      <>
-                        {' '}
-                        · todavía sin generado; en <strong>Cierre</strong> abrí filtros y pulsá <strong>Actualizar cierre</strong>.
-                      </>
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-              <EodPlanningSection showCommercialOffer showDailyPlanningKpis={false} showFinDelDia={false} />
-            </>
+            <EodPlanningSection showCommercialOffer showDailyPlanningKpis={false} showFinDelDia={false} />
           ) : null}
 
           {reportTab === 'cierre' && reportData ? (
-            <div className="space-y-4">
-              <Card className="border-slate-200/90 bg-white shadow-sm">
-                <CardHeader className="pb-3">
-                  <ReportCategoryBadge kind="financiero" />
-                  <CardTitle className="text-base text-slate-900">Cierre / liquidación final</CardTitle>
-                  <CardDescription className="max-w-[52rem] text-sm">
-                    Liquidación según el último período que generaste. Para cambiar fechas, límites o filtros — y volver a generar —
-                    usá el panel superior <strong>Filtros del período</strong> y <strong>Actualizar cierre</strong>.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
+            <div className="space-y-5">
 
+              {/* ── 1. ESTADO DEL CIERRE ── */}
               <CierreEstadoDelCierreStrip
                 packingManual={!!cierrePackingManualMode}
                 missingTariffLabels={cierreMissingTariffSpecies}
@@ -4272,6 +4040,7 @@ export function ReportingPage() {
                 <LiquidacionAuditorBlock audit={liquidacionAudit} packingManual={!!cierrePackingManualMode} />
               ) : null}
 
+              {/* ── 2. LIQUIDACIÓN FINAL ── */}
               <LiquidacionFinalModule
                 reportData={reportData}
                 summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
@@ -4281,12 +4050,12 @@ export function ReportingPage() {
                 liquidacionAudit={liquidacionAudit}
               />
 
+              {/* ── 3. INFORME POR PRODUCTOR ── */}
               <Card className="border-slate-200/90 bg-white shadow-sm" id="rep-cierre-informe-productor">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base text-slate-900">Informe por productor</CardTitle>
                   <CardDescription className="max-w-[48rem] text-sm">
-                    Solo productores presentes en esta liquidación (sin «sin asignar»). El PDF de liquidación respeta{' '}
-                    <span className="font-mono text-[11px]">productor_id</span> en el query string del backend.
+                    Generá PDF o Excel individual para cada productor del período.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 border-t border-slate-100 pt-3">
@@ -4349,18 +4118,12 @@ export function ReportingPage() {
                     <Button
                       type="button"
                       size="sm"
-                      variant="secondary"
+                      variant="default"
                       className="gap-1.5"
                       disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
-                      title={cierreInformeProducerId == null ? 'Elegí un productor' : undefined}
                       onClick={() => {
-                        if (!reportFiltersForPdf || cierreInformeProducerId == null) {
-                          toast.error('Elegí un productor.');
-                          return;
-                        }
-                        void downloadProducerSettlementPdf('producer', reportFiltersForPdf, {
-                          productor_id: cierreInformeProducerId,
-                        });
+                        if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
+                        void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId });
                       }}
                     >
                       <FileDown className="h-3.5 w-3.5" />
@@ -4372,36 +4135,18 @@ export function ReportingPage() {
                       variant="outline"
                       className="gap-1.5"
                       disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
-                      title={cierreInformeProducerId == null ? 'Elegí un productor' : undefined}
                       onClick={async () => {
-                        if (!reportFiltersForPdf || cierreInformeProducerId == null) {
-                          toast.error('Elegí un productor.');
-                          return;
-                        }
+                        if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
                         if (!reportData) return;
                         const summaryRows = (reportData.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[];
-                        const sr = summaryRows.find(
-                          (raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId,
-                        ) as Record<string, unknown> | undefined;
-                        if (!sr) {
-                          toast.error('No hay fila de resumen para este productor en la página cargada.');
-                          return;
-                        }
+                        const sr = summaryRows.find((raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId) as Record<string, unknown> | undefined;
+                        if (!sr) { toast.error('No hay fila de resumen para este productor en la página cargada.'); return; }
                         const name = String(sr.productor_nombre ?? `Productor ${cierreInformeProducerId}`);
                         const base = `cierre-${reportFiltersForPdf.fecha_desde ?? 'ini'}-${reportFiltersForPdf.fecha_hasta ?? 'fin'}`;
                         try {
-                          await downloadProducerSettlementExcelClient({
-                            fileBase: base,
-                            producerId: cierreInformeProducerId,
-                            producerName: name,
-                            summaryRow: sr,
-                            detailRows: (reportData.producerSettlementDetail?.rows ?? []) as Record<string, unknown>[],
-                            formatCostSummaryRows: (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[],
-                          });
+                          await downloadProducerSettlementExcelClient({ fileBase: base, producerId: cierreInformeProducerId, producerName: name, summaryRow: sr, detailRows: (reportData.producerSettlementDetail?.rows ?? []) as Record<string, unknown>[], formatCostSummaryRows: (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[] });
                           toast.success('Excel productor generado (3 hojas: resumen, despacho, formato).');
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : 'Error al generar Excel');
-                        }
+                        } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
                       }}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -4413,56 +4158,35 @@ export function ReportingPage() {
                       variant="outline"
                       disabled={cierreInformeProducerId == null}
                       onClick={() => {
-                        if (cierreInformeProducerId == null) {
-                          toast.error('Elegí un productor.');
-                          return;
-                        }
+                        if (cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
                         setProducerRowExpandRequest(cierreInformeProducerId);
                       }}
                     >
-                      Ver detalle productor
+                      Ver detalle en tabla
                     </Button>
                   </div>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Excel productor: archivo de 3 hojas generado en el navegador (resumen, detalle por despacho, desglose por formato) con
-                    los mismos datos que ves en la liquidación. El export «Excel completo» del final sigue siendo el dataset global del
-                    servidor.
-                  </p>
                 </CardContent>
               </Card>
 
+              {/* ── 4. EXPORTACIONES GENERALES ── */}
               <Card className="border-slate-200/90 bg-white shadow-sm" id="rep-cierre-exportaciones">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-slate-900">Exportaciones generales</CardTitle>
+                  <CardTitle className="text-base text-slate-900">Exportaciones</CardTitle>
                   <CardDescription className="max-w-[42rem] text-sm">
-                    Dataset completo del período generado. Los PDF de liquidación acá omiten el filtro por productor del informe individual.
+                    Dataset completo del período. Los PDF de liquidación omiten el filtro por productor individual.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="gap-1.5"
-                    disabled={!reportData}
-                    onClick={() => void downloadExport('xlsx')}
-                  >
+                  <Button type="button" size="sm" variant="default" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('xlsx')}>
                     <Download className="h-3.5 w-3.5" />
                     Excel completo
                   </Button>
                   <Button type="button" size="sm" variant="outline" disabled={!reportData} onClick={() => void downloadExport('csv')}>
                     CSV
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    disabled={!reportData}
-                    onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}
-                  >
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
                     <FileDown className="h-3.5 w-3.5" />
-                    PDF interno (operativo)
+                    PDF interno
                   </Button>
                   <Button
                     type="button"
@@ -4470,11 +4194,7 @@ export function ReportingPage() {
                     variant="outline"
                     className="gap-1.5"
                     disabled={!reportFiltersForPdf}
-                    onClick={() => {
-                      if (!reportFiltersForPdf) return;
-                      const f: ReportFilters = { ...reportFiltersForPdf, productor_id: undefined };
-                      void downloadProducerSettlementPdf('producer', f);
-                    }}
+                    onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('producer', { ...reportFiltersForPdf, productor_id: undefined }); }}
                   >
                     <FileDown className="h-3.5 w-3.5" />
                     PDF liquidación (todos)
@@ -4485,11 +4205,7 @@ export function ReportingPage() {
                     variant="outline"
                     className="gap-1.5"
                     disabled={!reportFiltersForPdf}
-                    onClick={() => {
-                      if (!reportFiltersForPdf) return;
-                      const f: ReportFilters = { ...reportFiltersForPdf, productor_id: undefined };
-                      void downloadProducerSettlementPdf('internal', f);
-                    }}
+                    onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('internal', { ...reportFiltersForPdf, productor_id: undefined }); }}
                   >
                     <FileDown className="h-3.5 w-3.5" />
                     PDF liquidación interno
@@ -4497,89 +4213,106 @@ export function ReportingPage() {
                 </CardContent>
               </Card>
 
-              <details className="scroll-mt-24 rounded-lg border border-slate-200 bg-muted/20">
-                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="mr-2 text-slate-400">▸</span>
-                  Diagnóstico técnico (admin / uso interno)
-                </summary>
-                <div id="rep-cierre-diagnostico" className="space-y-4 border-t border-slate-200 px-2 py-4 sm:px-4">
-                  <DiagnosticoTrazabilidadGuiaCard />
-                  {isAdmin ? <ProducerSettlementDiagnosticPanel data={reportData.producerSettlementDiagnostic} /> : null}
-                  {!isAdmin ? (
-                    <p className="text-sm text-muted-foreground">
-                      Las tablas técnicas de depuración están restringidas a administradores.
-                    </p>
-                  ) : null}
-
-                  <div id="rep-cierre-margen" className="scroll-mt-24 space-y-4 border-t border-slate-200 pt-4">
-                    <Card className="border-slate-200/90 bg-slate-50/50 shadow-sm">
-                      <CardHeader className="pb-2">
-                        <ReportCategoryBadge kind="financiero" />
-                        <CardTitle className="text-base text-slate-900">Margen por cliente</CardTitle>
-                        <CardDescription className="max-w-[48rem] text-sm">
-                          Ventas y costos prorrateados por cliente sin reparto por productor (misma lógica que el detalle de liquidación sobre
-                          formatos).
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                    <ClientMarginSummaryTable section={reportData.clientMarginSummary} />
-                    <ClientMarginDetailTable section={reportData.clientMarginDetail} />
-                  </div>
-
-                  <div id="rep-cierre-costos" className="scroll-mt-24 space-y-4 border-t border-slate-200 pt-4">
-                    {reportData.formatCostConfig?.packing_source ? (
-                      <Card className={cn(contentCard, 'border-dashed border-slate-200/90 bg-slate-50/50')}>
-                        <CardContent className="py-3 text-sm text-slate-600">
-                          Fuente costo packing (financiero):{' '}
-                          <strong>
-                            {reportData.formatCostConfig.packing_source === 'manual_filter'
-                              ? 'filtro manual (precio packing por lb)'
-                              : 'tabla packing_costs por especie'}
-                          </strong>
-                        </CardContent>
-                      </Card>
-                    ) : null}
-                    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <label className="flex cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-input"
-                          checked={showAllFormatCostRows}
-                          onChange={(e) => setShowAllFormatCostRows(e.target.checked)}
-                        />
-                        <span>Incluir formatos con cajas = 0 facturadas en el período</span>
-                      </label>
+              {/* ── 5. ANÁLISIS POR CLIENTE ── */}
+              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
+                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400">▸</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Análisis por cliente</p>
+                      <p className="text-xs text-slate-500">Margen y ventas prorrateadas por cliente comercial</p>
                     </div>
-                    {hasFormatCostOnlyZeros ? (
-                      <Card className={cn(contentCard, 'border-dashed border-amber-200/90 bg-amber-50/80')}>
-                        <CardContent className="py-4 text-sm text-amber-950">
-                          Todas las filas tienen cajas = 0 con estos filtros. Activá la opción de arriba para ver líneas sin volumen facturado.
-                        </CardContent>
-                      </Card>
-                    ) : null}
-                    <FormatCostOperational summary={formatCostSummaryForDisplay} />
-                    {reportData.formatCostSummary && formatCostSummaryForDisplay && !showAllFormatCostRows
-                      ? (() => {
-                          const hidden = reportData.formatCostSummary!.rows.length - formatCostSummaryForDisplay.rows.length;
-                          if (hidden <= 0) return null;
-                          return (
-                            <p className="text-xs text-muted-foreground">
-                              Mostrando {formatCostSummaryForDisplay.rows.length} formato(s) con cajas facturadas &gt; 0; {hidden} oculto(s) con
-                              cajas = 0.
-                            </p>
-                          );
-                        })()
-                      : null}
-                    <FormatCostGrouped summary={formatCostSummaryForDisplay} lines={reportData.formatCostLines} />
-                    <SectionTable
-                      title="Ventas y márgenes por despacho"
-                      section={reportData.salesAndCostsByDispatch}
-                      dense
-                      subtitle="Cruce por despacho con el mismo período filtrado."
-                    />
                   </div>
+                </summary>
+                <div id="rep-cierre-margen" className="space-y-4 border-t border-slate-200 px-5 py-4">
+                  <ClientMarginSummaryTable section={reportData.clientMarginSummary} />
+                  <ClientMarginDetailTable section={reportData.clientMarginDetail} />
                 </div>
               </details>
+
+              {/* ── 6. ANÁLISIS POR FORMATO ── */}
+              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
+                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400">▸</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Análisis por formato</p>
+                      <p className="text-xs text-slate-500">Costo de materiales y packing por código de formato</p>
+                    </div>
+                  </div>
+                </summary>
+                <div id="rep-cierre-costos" className="space-y-4 border-t border-slate-200 px-5 py-4">
+                  {reportData.formatCostConfig?.packing_source ? (
+                    <p className="text-xs text-slate-500">
+                      Fuente costo packing:{' '}
+                      <strong className="text-slate-700">
+                        {reportData.formatCostConfig.packing_source === 'manual_filter'
+                          ? 'filtro manual (precio packing por lb)'
+                          : 'tabla packing_costs por especie'}
+                      </strong>
+                    </p>
+                  ) : null}
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-input"
+                        checked={showAllFormatCostRows}
+                        onChange={(e) => setShowAllFormatCostRows(e.target.checked)}
+                      />
+                      <span className="text-slate-700">Incluir formatos con cajas = 0 facturadas en el período</span>
+                    </label>
+                  </div>
+                  {hasFormatCostOnlyZeros ? (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                      Todas las filas tienen cajas = 0. Activá la opción de arriba para ver líneas sin volumen facturado.
+                    </p>
+                  ) : null}
+                  <FormatCostOperational summary={formatCostSummaryForDisplay} />
+                  <FormatCostGrouped summary={formatCostSummaryForDisplay} lines={reportData.formatCostLines} />
+                </div>
+              </details>
+
+              {/* ── 7. VENTAS POR DESPACHO ── */}
+              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
+                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400">▸</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Ventas por despacho</p>
+                      <p className="text-xs text-slate-500">Cruce de ventas y costos por despacho en el período</p>
+                    </div>
+                  </div>
+                </summary>
+                <div className="border-t border-slate-200 px-5 py-4">
+                  <SectionTable
+                    title="Ventas y márgenes por despacho"
+                    section={reportData.salesAndCostsByDispatch}
+                    dense
+                    subtitle="Cruce por despacho con el mismo período filtrado."
+                  />
+                </div>
+              </details>
+
+              {/* ── 8. DIAGNÓSTICO TÉCNICO (solo admin) ── */}
+              {isAdmin ? (
+                <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-slate-50/50">
+                  <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-400">▸</span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-600">Diagnóstico técnico</p>
+                        <p className="text-xs text-slate-400">Admin / uso interno</p>
+                      </div>
+                    </div>
+                  </summary>
+                  <div id="rep-cierre-diagnostico" className="space-y-4 border-t border-slate-200 px-5 py-4">
+                    <DiagnosticoTrazabilidadGuiaCard />
+                    <ProducerSettlementDiagnosticPanel data={reportData.producerSettlementDiagnostic} />
+                  </div>
+                </details>
+              ) : null}
+
             </div>
           ) : null}
 

@@ -11,13 +11,18 @@ export function formatCount(value: number): string {
   return Math.round(value).toLocaleString(LOCALE, { maximumFractionDigits: 0 });
 }
 
+/** Cajas: entero con separador de miles, sin decimales. */
+export function formatBoxes(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return Math.round(value).toLocaleString(LOCALE, { maximumFractionDigits: 0 });
+}
+
 /** Peso lb (y similares): 1–2 decimales, sin ruido 0.000000. */
 export function formatLb(value: number, maxDecimals: 1 | 2 = 2): string {
   if (!Number.isFinite(value)) return '—';
   const rounded = maxDecimals === 1 ? Math.round(value * 10) / 10 : Math.round(value * 100) / 100;
-  if (Math.abs(rounded) < 1e-8 && value !== 0) return '0';
   return rounded.toLocaleString(LOCALE, {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: maxDecimals,
     maximumFractionDigits: maxDecimals,
   });
 }
@@ -25,7 +30,10 @@ export function formatLb(value: number, maxDecimals: 1 | 2 = 2): string {
 /** Dinero: siempre 2 decimales. */
 export function formatMoney(value: number): string {
   if (!Number.isFinite(value)) return '—';
-  return value.toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return value.toLocaleString(LOCALE, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /** Porcentajes (0–100 o fracción según contexto): 1–2 decimales. */
@@ -40,11 +48,11 @@ export function formatPercent(value: number, maxDecimals: 1 | 2 = 2): string {
 /** Detalle técnico (factores, ratios): hasta N decimales sin ceros innecesarios al final. */
 export function formatTechnical(value: number, maxDecimals: number): string {
   if (!Number.isFinite(value)) return '—';
-  const s = value.toLocaleString(LOCALE, {
-    minimumFractionDigits: 0,
+  const minDec = Math.min(2, maxDecimals);
+  return value.toLocaleString(LOCALE, {
+    minimumFractionDigits: minDec,
     maximumFractionDigits: maxDecimals,
   });
-  return s;
 }
 
 /** Inventario: alias semántico para cantidades de materiales (sin decimales). */
