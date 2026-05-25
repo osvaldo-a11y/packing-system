@@ -472,7 +472,9 @@ export class ProcessService {
     const net = Number(line.net_lb) || 0;
     const consumed = await this.sumConsumedLbOnLine(receptionLineId);
     const current = Math.max(0, Number(currentLbOnThisProcess) || 0);
-    return Math.max(0, net - consumed + current);
+    const headroom = Math.max(0, net - consumed + current);
+    /** Si la recepción se ajustó después, igual se puede conservar lo ya asignado a este proceso. */
+    return Math.max(current, headroom);
   }
 
   /**

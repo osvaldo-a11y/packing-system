@@ -2464,8 +2464,11 @@ export function ProcessesPage() {
                           }
                           if (n <= ALLOC_EPS) continue;
                           const ln = lineById.get(Number(lineId));
-                          if (ln && n > ln.available_lb + ALLOC_EPS) {
-                            toast.error(t('process.toast.lineMaxLb', { id: ln.reception_id, lb: fmtLb2(ln.available_lb) }));
+                          const allocCap = ln
+                            ? Math.max(ln.available_lb, Number(ln.lb_allocated_current ?? 0))
+                            : 0;
+                          if (ln && n > allocCap + ALLOC_EPS) {
+                            toast.error(t('process.toast.lineMaxLb', { id: ln.reception_id, lb: fmtLb2(allocCap) }));
                             return;
                           }
                           allocations.push({ reception_line_id: Number(lineId), lb_allocated: n });
