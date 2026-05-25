@@ -325,7 +325,7 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
             <p className="text-sm text-muted-foreground">Ninguno. Revisá fechas o que existan despachos facturados.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     {dispCols.map((c) => (
@@ -359,8 +359,8 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
               Sin líneas: la liquidación queda vacía porque no hay ítems de factura en despachos del período.
             </p>
           ) : (
-            <div className="max-h-[min(85vh,1400px)] overflow-auto rounded-md border border-border">
-              <Table>
+            <div className="max-h-[min(85vh,1400px)] overflow-x-auto rounded-md border border-border">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     {lineCols.map((c) => (
@@ -460,8 +460,8 @@ function SectionTable({
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto pt-0">
-        <div className={dense ? 'max-h-[min(80vh,1000px)] overflow-auto rounded-md border border-border' : ''}>
-          <Table>
+        <div className={dense ? 'max-h-[min(80vh,1000px)] overflow-x-auto rounded-md border border-border' : ''}>
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 {cols.map((c, i) => (
@@ -585,8 +585,9 @@ function ClientMarginSummaryTable({
         </CardDescription>
         <p className="text-[11px] text-muted-foreground">{pageInfo}{truncated ? ` · Mostrás ${section.rows.length} de ${section.total}` : ''}</p>
       </CardHeader>
-      <CardContent className="overflow-x-auto p-0">
-        <Table>
+      <CardContent className="p-0">
+        <div className="max-h-[min(80vh,920px)] overflow-x-auto rounded-md border border-border">
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
               <TableHead className="sticky top-0 z-[1] min-w-[140px] border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cliente</TableHead>
@@ -624,6 +625,7 @@ function ClientMarginSummaryTable({
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -691,8 +693,8 @@ function ClientMarginDetailTable({
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto pt-0">
-        <div className="max-h-[min(85vh,1200px)] overflow-auto rounded-md border border-border">
-          <Table>
+        <div className="max-h-[min(85vh,1200px)] overflow-x-auto rounded-md border border-border">
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="sticky top-0 z-[1] min-w-[120px] bg-card text-xs shadow-sm">Cliente</TableHead>
@@ -1524,7 +1526,7 @@ function LiquidacionAuditorBlock({
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de packing</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
-                  <Table>
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
                         <TableHead className="text-xs">Productor</TableHead>
@@ -1559,7 +1561,7 @@ function LiquidacionAuditorBlock({
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de materiales</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
-                  <Table>
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
                         <TableHead className="text-xs">Productor</TableHead>
@@ -1592,7 +1594,7 @@ function LiquidacionAuditorBlock({
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de trazabilidad</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
-                  <Table>
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
                         <TableHead className="text-xs">Productor / Sin asignar</TableHead>
@@ -1677,7 +1679,7 @@ function SettlementDetailByProducerTable({
   return (
     <div className="border-t border-slate-200 bg-slate-50/70">
       <div className="overflow-x-auto px-2 py-2">
-        <Table>
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className={tableHeaderRow}>
               <TableHead className="text-xs">Despacho</TableHead>
@@ -2088,7 +2090,7 @@ function ProducerLiquidacionFormatBreakdownTable({
   return (
     <div className="space-y-2">
       <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <Table>
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className={tableHeaderRow}>
               <TableHead className="text-xs">Formato</TableHead>
@@ -2247,7 +2249,7 @@ function LiquidacionFinalModule({
             </p>
           ) : (
             <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiTile
                   label="Ventas totales"
                   value={fmtMoney(kpis.ventas)}
@@ -2396,8 +2398,8 @@ function LiquidacionFinalModule({
                   </div>
                 ) : null}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="max-w-full overflow-x-auto md:overflow-x-visible">
-                    <Table className="table-fixed md:min-w-0 [&_tbody_tr:last-child_td]:border-0">
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[900px] [&_tbody_tr:last-child_td]:border-0">
                       <TableHeader>
                         <TableRow className={tableHeaderRow}>
                           <TableHead className="min-w-0 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 md:w-[18%]">
@@ -2956,7 +2958,8 @@ function FormatCostGrouped({
               {detail.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sin líneas de receta para este formato.</p>
               ) : (
-                <Table>
+                <div className="overflow-x-auto">
+                <Table className="min-w-[700px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Material</TableHead>
@@ -2987,6 +2990,7 @@ function FormatCostGrouped({
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -3020,7 +3024,7 @@ function FormatCostOperational({
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
-        <Table>
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
               <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
@@ -3856,8 +3860,8 @@ export function ReportingPage() {
               {packingCostsLoading ? (
                 <Skeleton className="h-24 w-full" />
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <Table>
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <Table className="min-w-[500px]">
                     <TableHeader>
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
                         <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Especie</TableHead>
@@ -4131,7 +4135,7 @@ export function ReportingPage() {
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
                     </summary>
-                    <div id="rep-cierre-margen" className="space-y-4 border-t border-slate-100 px-5 py-5">
+                    <div id="rep-cierre-margen" className="space-y-4 overflow-x-auto border-t border-slate-100 px-5 py-5">
                       <ClientMarginSummaryTable section={reportData.clientMarginSummary} />
                       <ClientMarginDetailTable section={reportData.clientMarginDetail} />
                     </div>
@@ -4151,7 +4155,7 @@ export function ReportingPage() {
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
                     </summary>
-                    <div id="rep-cierre-costos" className="space-y-4 border-t border-slate-100 px-5 py-5">
+                    <div id="rep-cierre-costos" className="space-y-4 overflow-x-auto border-t border-slate-100 px-5 py-5">
                       {reportData.formatCostConfig?.packing_source ? (
                         <p className="text-xs text-slate-500">
                           Fuente costo packing: <strong className="text-slate-700">
@@ -4189,7 +4193,7 @@ export function ReportingPage() {
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
                     </summary>
-                    <div className="border-t border-slate-100 px-5 py-5">
+                    <div className="overflow-x-auto border-t border-slate-100 px-5 py-5">
                       <SectionTable title="Ventas y márgenes por despacho" section={reportData.salesAndCostsByDispatch} dense subtitle="Cruce por despacho con el mismo período filtrado." />
                     </div>
                   </details>
@@ -4300,7 +4304,18 @@ export function ReportingPage() {
                   {/* Tabla filtrada por productor */}
                   {cierreInformeProducerId != null ? (
                     <LiquidacionFinalModule
-                      reportData={reportData}
+                      reportData={{
+                        ...reportData,
+                        producerSettlementSummary: reportData.producerSettlementSummary
+                          ? {
+                              ...reportData.producerSettlementSummary,
+                              rows: (reportData.producerSettlementSummary.rows ?? []).filter(
+                                (raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId
+                              ),
+                              total: 1,
+                            }
+                          : reportData.producerSettlementSummary,
+                      }}
                       summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
                       expandProducerIdRequest={cierreInformeProducerId}
                       onExpandProducerHandled={() => {}}
