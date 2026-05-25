@@ -4,7 +4,9 @@ import {
   ArrowLeftRight,
   BarChart2,
   CheckCircle2,
+  ChevronDown,
   Circle,
+  DollarSign,
   Download,
   FileDown,
   FileText,
@@ -16,6 +18,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Users,
   XCircle,
 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -3154,6 +3157,7 @@ export function ReportingPage() {
   /** Productor elegido solo para informe PDF/Excel por productor en Cierre (no altera el generado global). */
   const [cierreInformeProducerId, setCierreInformeProducerId] = useState<number | null>(null);
   const [producerRowExpandRequest, setProducerRowExpandRequest] = useState<number | null>(null);
+  const [cierreView, setCierreView] = useState<'global' | 'productor'>('global');
 
   useEffect(() => {
     setFiltersOpen(reportTab === 'documentos');
@@ -3770,188 +3774,179 @@ export function ReportingPage() {
 
       {reportTab === 'cierre' ? (
         <div className="space-y-3">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Período de liquidación</p>
-              <p className="text-xs text-slate-500">
-                {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
-              </p>
-            </div>
-            <Button
-              type="button"
-              className={cn(btnToolbarPrimary, 'gap-2')}
-              onClick={runMergedGenerate}
-              disabled={generateMut.isPending}
-            >
-              <RefreshCw className="h-4 w-4" />
-              {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
-            </Button>
-          </div>
-          <details
-            id="rep-filtros-globales"
-            className="group"
-            open={filtersOpen}
-            onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
-          >
-            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-slate-600 marker:content-none hover:text-slate-900 [&::-webkit-details-marker]:hidden">
-              <span className="mr-2 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
-              Filtros del período (fechas, paginación, productor, cliente, formato…)
-            </summary>
-            <div className="space-y-3 border-t border-slate-100 px-5 py-4">
-              {periodFilterFieldsGrid}
-            </div>
-          </details>
-        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
 
-        <details
-          id="rep-cierre-config"
-          className="scroll-mt-24 rounded-lg border border-slate-200 bg-muted/30 open:bg-white"
-          open={packingTariffsSectionOpen}
-          onToggle={(e) => setPackingTariffsSectionOpen((e.target as HTMLDetailsElement).open)}
-        >
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="mr-2 text-slate-400">▸</span>
-            Tarifas packing por especie (global, antes del cierre)
-          </summary>
-          <div className="border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
-            Maestro <strong>por especie</strong>, independiente del productor: precio USD/lb de servicio de packing que usará la liquidación
-            (lb del período × tarifa). Podés configurarlo <strong>antes</strong> de pulsar «Actualizar cierre». Si en filtros cargás{' '}
-            <strong>Precio packing / lb (manual)</strong>, ese valor reemplaza a estas tarifas para ese reporte.
-          </div>
-          <div className="bg-white px-2 pb-4 sm:px-4">
-            <div className="flex flex-wrap items-center gap-4 py-3 text-sm">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input"
-                  checked={showInactivePackingCosts}
-                  onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
-                />
-                <span>Mostrar especies inactivas</span>
-              </label>
-              {hiddenPackingSpeciesIds.size > 0 ? (
-                <Button type="button" variant="link" className="h-auto p-0 text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
-                  Restaurar especies ocultas ({hiddenPackingSpeciesIds.size})
-                </Button>
-              ) : null}
-            </div>
-            {canManagePackingCosts ? (
-              <div className="mb-4 grid gap-3 rounded-md border border-border p-3 md:grid-cols-4">
-                <div className="grid gap-2">
-                  <Label>Especie</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                    value={packingSpeciesId}
-                    onChange={(e) => setPackingSpeciesId(Number(e.target.value))}
-                  >
-                    <option value={0}>Elegir…</option>
-                    {(species ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
-                      </option>
-                    ))}
-                  </select>
+          {/* Tarjeta TARIFAS */}
+          <details
+            id="rep-cierre-config"
+            className="group scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+            open={packingTariffsSectionOpen}
+            onToggle={(e) => setPackingTariffsSectionOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className="cursor-pointer list-none marker:content-none [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center gap-4 px-5 py-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <DollarSign className="h-5 w-5" aria-hidden />
                 </div>
-                <div className="grid gap-2">
-                  <Label>Temporada (opcional)</Label>
-                  <Input value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900">Tarifas de packing</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Precio USD/lb por especie · configurar antes del cierre</p>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Precio por lb</Label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    min={0}
-                    value={packingPrice}
-                    onChange={(e) => setPackingPrice(e.target.value)}
-                    placeholder="0.120000"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Activo</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                    value={packingActive ? '1' : '0'}
-                    onChange={(e) => setPackingActive(e.target.value === '1')}
-                  >
-                    <option value="1">Sí</option>
-                    <option value="0">No</option>
-                  </select>
-                </div>
-                <div className="md:col-span-4">
-                  <Button
-                    type="button"
-                    disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''}
-                    onClick={() => upsertPackingCostMut.mutate()}
-                  >
-                    {upsertPackingCostMut.isPending ? 'Guardando…' : 'Guardar tarifa'}
-                  </Button>
-                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
               </div>
-            ) : null}
-            {packingCostsLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Especie</TableHead>
-                      <TableHead>Temporada</TableHead>
-                      <TableHead>Precio/lb</TableHead>
-                      <TableHead>Activo</TableHead>
-                      <TableHead className="min-w-[11rem]">Estado (cierre)</TableHead>
-                      <TableHead className="w-[120px]">Vista</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visiblePackingCosts.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
-                          {packingCosts?.length ? 'Ninguna fila visible (ocultas o inactivas).' : 'Sin configuración.'}
-                        </TableCell>
+            </summary>
+            <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
+              <p className="text-xs leading-relaxed text-slate-500">
+                Precio de servicio de packing en USD/lb por especie. Se aplica sobre el volumen del período.
+                Si usás <strong className="text-slate-700">Precio packing manual</strong> en filtros, ese valor tiene prioridad.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <label className="flex cursor-pointer items-center gap-2 text-slate-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input"
+                    checked={showInactivePackingCosts}
+                    onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
+                  />
+                  Mostrar inactivas
+                </label>
+                {hiddenPackingSpeciesIds.size > 0 ? (
+                  <Button type="button" variant="link" className="h-auto p-0 text-xs text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
+                    Restaurar ocultas ({hiddenPackingSpeciesIds.size})
+                  </Button>
+                ) : null}
+              </div>
+              {canManagePackingCosts ? (
+                <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-slate-500">Especie</Label>
+                    <select
+                      className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                      value={packingSpeciesId}
+                      onChange={(e) => setPackingSpeciesId(Number(e.target.value))}
+                    >
+                      <option value={0}>Elegir…</option>
+                      {(species ?? []).map((s) => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                    <Input className="h-9" value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-slate-500">Precio / lb</Label>
+                    <Input className="h-9 font-mono" type="number" step="0.000001" min={0} value={packingPrice} onChange={(e) => setPackingPrice(e.target.value)} placeholder="0.1200" />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs text-slate-500">Activo</Label>
+                    <select className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" value={packingActive ? '1' : '0'} onChange={(e) => setPackingActive(e.target.value === '1')}>
+                      <option value="1">Sí</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-4">
+                    <Button type="button" size="sm" disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''} onClick={() => upsertPackingCostMut.mutate()}>
+                      {upsertPackingCostMut.isPending ? 'Guardando…' : 'Guardar tarifa'}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              {packingCostsLoading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Especie</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/lb</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 w-[80px]" />
                       </TableRow>
-                    ) : (
-                      visiblePackingCosts.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell>{r.species_name ?? `#${r.species_id}`}</TableCell>
-                          <TableCell>{r.season ?? '—'}</TableCell>
-                          <TableCell className="font-mono tabular-nums">{formatMoney(Number(r.price_per_lb))}</TableCell>
-                          <TableCell>{r.active ? 'Sí' : 'No'}</TableCell>
-                          <TableCell className="max-w-[14rem] text-xs leading-snug">
-                            {cierrePackingManualMode ? (
-                              <span className="text-muted-foreground">Neutro: período con precio packing manual.</span>
-                            ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
-                              <span className="font-medium text-red-700">
-                                Falta tarifa activa para esta especie (packing no incluido en liquidación para ese volumen).
-                              </span>
-                            ) : r.active && Number(r.price_per_lb) > 0 ? (
-                              <span className="text-emerald-800">Tarifa activa en maestro.</span>
-                            ) : (
-                              <span className="text-amber-800">Sin tarifa efectiva (&gt;0) o fila inactiva.</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}
-                            >
-                              Ocultar
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {visiblePackingCosts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-400">
+                            {packingCosts?.length ? 'Sin filas visibles.' : 'Sin configuración.'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        visiblePackingCosts.map((r, i) => (
+                          <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                            <TableCell className="py-2.5 text-sm font-medium text-slate-900">{r.species_name ?? `#${r.species_id}`}</TableCell>
+                            <TableCell className="py-2.5 text-sm text-slate-600">{r.season ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">{formatMoney(Number(r.price_per_lb))}</TableCell>
+                            <TableCell className="py-2.5 text-xs leading-snug">
+                              {cierrePackingManualMode ? (
+                                <span className="text-slate-400">Modo manual activo</span>
+                              ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
+                                <span className="font-medium text-rose-600">Falta tarifa activa</span>
+                              ) : r.active && Number(r.price_per_lb) > 0 ? (
+                                <span className="font-medium text-emerald-600">✓ Activa</span>
+                              ) : (
+                                <span className="text-amber-600">Sin tarifa efectiva</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-slate-400 hover:text-slate-700" onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}>
+                                Ocultar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </details>
+
+          {/* Tarjeta PERÍODO */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-4 border-b border-slate-100 px-5 py-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <RefreshCw className="h-5 w-5" aria-hidden />
               </div>
-            )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-900">Período de liquidación</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
+                </p>
+              </div>
+              <Button
+                type="button"
+                className={cn(btnToolbarPrimary, 'gap-2 shrink-0')}
+                onClick={runMergedGenerate}
+                disabled={generateMut.isPending}
+              >
+                <RefreshCw className="h-4 w-4" />
+                {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
+              </Button>
+            </div>
+            <details
+              id="rep-filtros-globales"
+              className="group"
+              open={filtersOpen}
+              onToggle={(e) => setFiltersOpen((e.target as HTMLDetailsElement).open)}
+            >
+              <summary className="cursor-pointer list-none px-5 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                <div className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  Filtros del período (fechas, paginación, productor, cliente, formato…)
+                </div>
+              </summary>
+              <div className="space-y-3 border-t border-slate-100 px-5 py-4">
+                {periodFilterFieldsGrid}
+              </div>
+            </details>
           </div>
-        </details>
+
+        </div>
         </div>
       ) : null}
 
@@ -4024,7 +4019,7 @@ export function ReportingPage() {
           {reportTab === 'cierre' && reportData ? (
             <div className="space-y-5">
 
-              {/* ── 1. ESTADO DEL CIERRE ── */}
+              {/* ── ESTADO + AUDITOR ── */}
               <CierreEstadoDelCierreStrip
                 packingManual={!!cierrePackingManualMode}
                 missingTariffLabels={cierreMissingTariffSpecies}
@@ -4035,282 +4030,286 @@ export function ReportingPage() {
                 zeroCostLines={cierreZeroCostLines}
                 kpisPackingZeroNoManual={cierreKpisPackingZeroNoManual}
               />
-
               {liquidacionAudit ? (
                 <LiquidacionAuditorBlock audit={liquidacionAudit} packingManual={!!cierrePackingManualMode} />
               ) : null}
 
-              {/* ── 2. LIQUIDACIÓN FINAL ── */}
-              <LiquidacionFinalModule
-                reportData={reportData}
-                summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
-                expandProducerIdRequest={producerRowExpandRequest}
-                onExpandProducerHandled={() => setProducerRowExpandRequest(null)}
-                packingTariffsManualMode={!!cierrePackingManualMode}
-                liquidacionAudit={liquidacionAudit}
-              />
+              {/* ── SELECTOR DE VISTA ── */}
+              <div className="grid gap-4 sm:grid-cols-2">
 
-              {/* ── 3. INFORME POR PRODUCTOR ── */}
-              <Card className="border-slate-200/90 bg-white shadow-sm" id="rep-cierre-informe-productor">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-slate-900">Informe por productor</CardTitle>
-                  <CardDescription className="max-w-[48rem] text-sm">
-                    Generá PDF o Excel individual para cada productor del período.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 border-t border-slate-100 pt-3">
-                  <div className="grid gap-2 sm:max-w-md">
-                    <Label htmlFor="cierre-prod-informe">Productor</Label>
-                    <select
-                      id="cierre-prod-informe"
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm"
-                      value={cierreInformeProducerId ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setCierreInformeProducerId(v === '' ? null : Number(v));
-                      }}
-                    >
-                      <option value="">{cierreProducerOptions.length ? 'Elegí un productor…' : 'Sin productores con id en esta liquidación'}</option>
-                      {cierreProducerOptions.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {cierreInformeProducerId == null ? (
-                    <p className="text-xs text-muted-foreground">Elegí un productor para emitir informe individual.</p>
-                  ) : informeExportVisual.tier === 'ok' ? (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-800">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
-                      {informeExportVisual.title} — PDF y Excel reflejan el mismo detalle que la tabla.
-                    </p>
-                  ) : informeExportVisual.tier === 'warn' ? (
-                    <div className="space-y-1 rounded-md border border-amber-300/80 bg-amber-50 px-2 py-2 text-xs text-amber-950">
-                      <p className="flex items-start gap-1.5 font-semibold">
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
-                        {informeExportVisual.title}
-                      </p>
-                      <ul className="list-disc space-y-0.5 pl-4 font-normal">
-                        {informeExportVisual.detailLines.map((line, i) => (
-                          <li key={i}>{line}</li>
-                        ))}
-                      </ul>
-                      <p className="text-[11px] font-normal text-amber-900/90">Podés exportar igual; conviene revisar el desglose con el productor.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 rounded-md border border-red-300/80 bg-red-50 px-2 py-2 text-xs text-red-950">
-                      <p className="flex items-start gap-1.5 font-semibold">
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" aria-hidden />
-                        {informeExportVisual.title}
-                      </p>
-                      <ul className="list-disc space-y-0.5 pl-4 font-normal">
-                        {informeExportVisual.detailLines.map((line, i) => (
-                          <li key={i}>{line}</li>
-                        ))}
-                      </ul>
-                      <p className="text-[11px] font-normal text-red-900/90">
-                        Los botones siguen habilitados; revisá la liquidación antes de enviar el archivo.
-                      </p>
-                    </div>
+                {/* Liquidación global */}
+                <button
+                  type="button"
+                  onClick={() => setCierreView('global')}
+                  className={cn(
+                    'group flex items-start gap-4 overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition-all',
+                    cierreView === 'global'
+                      ? 'border-blue-300 bg-blue-50/60 ring-2 ring-blue-200'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md',
                   )}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      className="gap-1.5"
-                      disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
-                      onClick={() => {
-                        if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
-                        void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId });
-                      }}
-                    >
-                      <FileDown className="h-3.5 w-3.5" />
-                      PDF productor
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
-                      onClick={async () => {
-                        if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
-                        if (!reportData) return;
-                        const summaryRows = (reportData.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[];
-                        const sr = summaryRows.find((raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId) as Record<string, unknown> | undefined;
-                        if (!sr) { toast.error('No hay fila de resumen para este productor en la página cargada.'); return; }
-                        const name = String(sr.productor_nombre ?? `Productor ${cierreInformeProducerId}`);
-                        const base = `cierre-${reportFiltersForPdf.fecha_desde ?? 'ini'}-${reportFiltersForPdf.fecha_hasta ?? 'fin'}`;
-                        try {
-                          await downloadProducerSettlementExcelClient({ fileBase: base, producerId: cierreInformeProducerId, producerName: name, summaryRow: sr, detailRows: (reportData.producerSettlementDetail?.rows ?? []) as Record<string, unknown>[], formatCostSummaryRows: (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[] });
-                          toast.success('Excel productor generado (3 hojas: resumen, despacho, formato).');
-                        } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
-                      }}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Excel productor
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={cierreInformeProducerId == null}
-                      onClick={() => {
-                        if (cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; }
-                        setProducerRowExpandRequest(cierreInformeProducerId);
-                      }}
-                    >
-                      Ver detalle en tabla
-                    </Button>
+                >
+                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', cierreView === 'global' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500')}>
+                    <BarChart2 className="h-5 w-5" aria-hidden />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Liquidación global</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Totales del período · todos los productores · exportaciones</p>
+                  </div>
+                </button>
 
-              {/* ── 4. EXPORTACIONES GENERALES ── */}
-              <Card className="border-slate-200/90 bg-white shadow-sm" id="rep-cierre-exportaciones">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-slate-900">Exportaciones</CardTitle>
-                  <CardDescription className="max-w-[42rem] text-sm">
-                    Dataset completo del período. Los PDF de liquidación omiten el filtro por productor individual.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                  <Button type="button" size="sm" variant="default" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('xlsx')}>
-                    <Download className="h-3.5 w-3.5" />
-                    Excel completo
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" disabled={!reportData} onClick={() => void downloadExport('csv')}>
-                    CSV
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
-                    <FileDown className="h-3.5 w-3.5" />
-                    PDF interno
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    disabled={!reportFiltersForPdf}
-                    onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('producer', { ...reportFiltersForPdf, productor_id: undefined }); }}
-                  >
-                    <FileDown className="h-3.5 w-3.5" />
-                    PDF liquidación (todos)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    disabled={!reportFiltersForPdf}
-                    onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('internal', { ...reportFiltersForPdf, productor_id: undefined }); }}
-                  >
-                    <FileDown className="h-3.5 w-3.5" />
-                    PDF liquidación interno
-                  </Button>
-                </CardContent>
-              </Card>
+                {/* Por productor */}
+                <button
+                  type="button"
+                  onClick={() => setCierreView('productor')}
+                  className={cn(
+                    'group flex items-start gap-4 overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition-all',
+                    cierreView === 'productor'
+                      ? 'border-emerald-300 bg-emerald-50/60 ring-2 ring-emerald-200'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md',
+                  )}
+                >
+                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', cierreView === 'productor' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
+                    <Users className="h-5 w-5" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Por productor</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Informe individual · PDF y Excel por productor</p>
+                  </div>
+                </button>
 
-              {/* ── 5. ANÁLISIS POR CLIENTE ── */}
-              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400">▸</span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Análisis por cliente</p>
-                      <p className="text-xs text-slate-500">Margen y ventas prorrateadas por cliente comercial</p>
-                    </div>
-                  </div>
-                </summary>
-                <div id="rep-cierre-margen" className="space-y-4 border-t border-slate-200 px-5 py-4">
-                  <ClientMarginSummaryTable section={reportData.clientMarginSummary} />
-                  <ClientMarginDetailTable section={reportData.clientMarginDetail} />
-                </div>
-              </details>
+              </div>
 
-              {/* ── 6. ANÁLISIS POR FORMATO ── */}
-              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400">▸</span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Análisis por formato</p>
-                      <p className="text-xs text-slate-500">Costo de materiales y packing por código de formato</p>
-                    </div>
-                  </div>
-                </summary>
-                <div id="rep-cierre-costos" className="space-y-4 border-t border-slate-200 px-5 py-4">
-                  {reportData.formatCostConfig?.packing_source ? (
-                    <p className="text-xs text-slate-500">
-                      Fuente costo packing:{' '}
-                      <strong className="text-slate-700">
-                        {reportData.formatCostConfig.packing_source === 'manual_filter'
-                          ? 'filtro manual (precio packing por lb)'
-                          : 'tabla packing_costs por especie'}
-                      </strong>
-                    </p>
-                  ) : null}
-                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-input"
-                        checked={showAllFormatCostRows}
-                        onChange={(e) => setShowAllFormatCostRows(e.target.checked)}
-                      />
-                      <span className="text-slate-700">Incluir formatos con cajas = 0 facturadas en el período</span>
-                    </label>
-                  </div>
-                  {hasFormatCostOnlyZeros ? (
-                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                      Todas las filas tienen cajas = 0. Activá la opción de arriba para ver líneas sin volumen facturado.
-                    </p>
-                  ) : null}
-                  <FormatCostOperational summary={formatCostSummaryForDisplay} />
-                  <FormatCostGrouped summary={formatCostSummaryForDisplay} lines={reportData.formatCostLines} />
-                </div>
-              </details>
+              {/* ── VISTA GLOBAL ── */}
+              {cierreView === 'global' ? (
+                <div className="space-y-5">
 
-              {/* ── 7. VENTAS POR DESPACHO ── */}
-              <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400">▸</span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Ventas por despacho</p>
-                      <p className="text-xs text-slate-500">Cruce de ventas y costos por despacho en el período</p>
-                    </div>
-                  </div>
-                </summary>
-                <div className="border-t border-slate-200 px-5 py-4">
-                  <SectionTable
-                    title="Ventas y márgenes por despacho"
-                    section={reportData.salesAndCostsByDispatch}
-                    dense
-                    subtitle="Cruce por despacho con el mismo período filtrado."
+                  <LiquidacionFinalModule
+                    reportData={reportData}
+                    summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
+                    expandProducerIdRequest={producerRowExpandRequest}
+                    onExpandProducerHandled={() => setProducerRowExpandRequest(null)}
+                    packingTariffsManualMode={!!cierrePackingManualMode}
+                    liquidacionAudit={liquidacionAudit}
                   />
-                </div>
-              </details>
 
-              {/* ── 8. DIAGNÓSTICO TÉCNICO (solo admin) ── */}
-              {isAdmin ? (
-                <details className="scroll-mt-24 rounded-xl border border-slate-200 bg-slate-50/50">
-                  <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
-                    <div className="flex items-center gap-3">
-                      <span className="text-slate-400">▸</span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-600">Diagnóstico técnico</p>
-                        <p className="text-xs text-slate-400">Admin / uso interno</p>
-                      </div>
+                  {/* Exportaciones */}
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+                      <p className="text-sm font-semibold text-slate-900">Exportaciones</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Dataset completo del período generado</p>
                     </div>
-                  </summary>
-                  <div id="rep-cierre-diagnostico" className="space-y-4 border-t border-slate-200 px-5 py-4">
-                    <DiagnosticoTrazabilidadGuiaCard />
-                    <ProducerSettlementDiagnosticPanel data={reportData.producerSettlementDiagnostic} />
+                    <div className="flex flex-wrap gap-2 px-5 py-4">
+                      <Button type="button" size="sm" variant="default" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('xlsx')}>
+                        <Download className="h-3.5 w-3.5" />Excel completo
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" disabled={!reportData} onClick={() => void downloadExport('csv')}>CSV</Button>
+                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
+                        <FileDown className="h-3.5 w-3.5" />PDF interno
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportFiltersForPdf}
+                        onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('producer', { ...reportFiltersForPdf, productor_id: undefined }); }}>
+                        <FileDown className="h-3.5 w-3.5" />PDF liquidación (todos)
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportFiltersForPdf}
+                        onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('internal', { ...reportFiltersForPdf, productor_id: undefined }); }}>
+                        <FileDown className="h-3.5 w-3.5" />PDF liquidación interno
+                      </Button>
+                    </div>
                   </div>
-                </details>
+
+                  {/* Análisis por cliente */}
+                  <details className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                          <Users className="h-4 w-4" aria-hidden />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-900">Análisis por cliente</p>
+                          <p className="text-xs text-slate-500">Margen y ventas prorrateadas por cliente comercial</p>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
+                      </div>
+                    </summary>
+                    <div id="rep-cierre-margen" className="space-y-4 border-t border-slate-100 px-5 py-5">
+                      <ClientMarginSummaryTable section={reportData.clientMarginSummary} />
+                      <ClientMarginDetailTable section={reportData.clientMarginDetail} />
+                    </div>
+                  </details>
+
+                  {/* Análisis por formato */}
+                  <details className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                          <Layers className="h-4 w-4" aria-hidden />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-900">Análisis por formato</p>
+                          <p className="text-xs text-slate-500">Costo de materiales y packing por código de formato</p>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
+                      </div>
+                    </summary>
+                    <div id="rep-cierre-costos" className="space-y-4 border-t border-slate-100 px-5 py-5">
+                      {reportData.formatCostConfig?.packing_source ? (
+                        <p className="text-xs text-slate-500">
+                          Fuente costo packing: <strong className="text-slate-700">
+                            {reportData.formatCostConfig.packing_source === 'manual_filter' ? 'filtro manual' : 'tabla por especie'}
+                          </strong>
+                        </p>
+                      ) : null}
+                      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <label className="flex cursor-pointer items-center gap-2 text-slate-600">
+                          <input type="checkbox" className="h-4 w-4 rounded border-input" checked={showAllFormatCostRows} onChange={(e) => setShowAllFormatCostRows(e.target.checked)} />
+                          Incluir formatos con cajas = 0 en el período
+                        </label>
+                      </div>
+                      {hasFormatCostOnlyZeros ? (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                          Todas las filas tienen cajas = 0. Activá la opción de arriba para ver líneas sin volumen.
+                        </p>
+                      ) : null}
+                      <FormatCostOperational summary={formatCostSummaryForDisplay} />
+                      <FormatCostGrouped summary={formatCostSummaryForDisplay} lines={reportData.formatCostLines} />
+                    </div>
+                  </details>
+
+                  {/* Ventas por despacho */}
+                  <details className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                          <FileText className="h-4 w-4" aria-hidden />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-900">Ventas por despacho</p>
+                          <p className="text-xs text-slate-500">Cruce de ventas y costos por despacho en el período</p>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
+                      </div>
+                    </summary>
+                    <div className="border-t border-slate-100 px-5 py-5">
+                      <SectionTable title="Ventas y márgenes por despacho" section={reportData.salesAndCostsByDispatch} dense subtitle="Cruce por despacho con el mismo período filtrado." />
+                    </div>
+                  </details>
+
+                  {/* Diagnóstico técnico admin */}
+                  {isAdmin ? (
+                    <details className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/50">
+                      <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                            <Info className="h-4 w-4" aria-hidden />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-600">Diagnóstico técnico</p>
+                            <p className="text-xs text-slate-400">Admin / uso interno</p>
+                          </div>
+                          <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
+                        </div>
+                      </summary>
+                      <div id="rep-cierre-diagnostico" className="space-y-4 border-t border-slate-200 px-5 py-5">
+                        <DiagnosticoTrazabilidadGuiaCard />
+                        <ProducerSettlementDiagnosticPanel data={reportData.producerSettlementDiagnostic} />
+                      </div>
+                    </details>
+                  ) : null}
+
+                </div>
+              ) : null}
+
+              {/* ── VISTA POR PRODUCTOR ── */}
+              {cierreView === 'productor' ? (
+                <div className="space-y-5">
+
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+                      <p className="text-sm font-semibold text-slate-900">Seleccioná un productor</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Solo productores presentes en esta liquidación</p>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div className="grid gap-2 sm:max-w-sm">
+                        <select
+                          id="cierre-prod-informe"
+                          className="flex h-10 w-full rounded-xl border border-input bg-muted/40 px-3 py-2 text-sm"
+                          value={cierreInformeProducerId ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCierreInformeProducerId(v === '' ? null : Number(v));
+                          }}
+                        >
+                          <option value="">{cierreProducerOptions.length ? 'Elegí un productor…' : 'Sin productores en esta liquidación'}</option>
+                          {cierreProducerOptions.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {cierreInformeProducerId != null ? (
+                        <>
+                          {informeExportVisual.tier === 'ok' ? (
+                            <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                              {informeExportVisual.title}
+                            </p>
+                          ) : informeExportVisual.tier === 'warn' ? (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
+                              <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />{informeExportVisual.title}</p>
+                              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">{informeExportVisual.detailLines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-950">
+                              <p className="flex items-center gap-1.5 font-semibold"><XCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />{informeExportVisual.title}</p>
+                              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">{informeExportVisual.detailLines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="default" className="gap-1.5"
+                              disabled={!reportFiltersForPdf}
+                              onClick={() => { if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; } void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId }); }}>
+                              <FileDown className="h-3.5 w-3.5" />PDF productor
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                              disabled={!reportFiltersForPdf}
+                              onClick={async () => {
+                                if (!reportFiltersForPdf || cierreInformeProducerId == null || !reportData) return;
+                                const summaryRows = (reportData.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[];
+                                const sr = summaryRows.find((raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId) as Record<string, unknown> | undefined;
+                                if (!sr) { toast.error('No hay fila de resumen para este productor.'); return; }
+                                const name = String(sr.productor_nombre ?? `Productor ${cierreInformeProducerId}`);
+                                const base = `cierre-${reportFiltersForPdf.fecha_desde ?? 'ini'}-${reportFiltersForPdf.fecha_hasta ?? 'fin'}`;
+                                try {
+                                  await downloadProducerSettlementExcelClient({ fileBase: base, producerId: cierreInformeProducerId, producerName: name, summaryRow: sr, detailRows: (reportData.producerSettlementDetail?.rows ?? []) as Record<string, unknown>[], formatCostSummaryRows: (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[] });
+                                  toast.success('Excel productor generado.');
+                                } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
+                              }}>
+                              <Download className="h-3.5 w-3.5" />Excel productor
+                            </Button>
+                            <Button type="button" size="sm" variant="outline"
+                              onClick={() => { if (cierreInformeProducerId == null) return; setProducerRowExpandRequest(cierreInformeProducerId); setCierreView('global'); }}>
+                              Ver en liquidación global
+                            </Button>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Tabla filtrada por productor */}
+                  {cierreInformeProducerId != null ? (
+                    <LiquidacionFinalModule
+                      reportData={reportData}
+                      summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
+                      expandProducerIdRequest={cierreInformeProducerId}
+                      onExpandProducerHandled={() => {}}
+                      packingTariffsManualMode={!!cierrePackingManualMode}
+                      liquidacionAudit={liquidacionAudit}
+                    />
+                  ) : null}
+
+                </div>
               ) : null}
 
             </div>
