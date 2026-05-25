@@ -23,6 +23,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -343,6 +344,7 @@ function MasterCostEditor({
   saving: boolean;
   onSave: (cost: number) => void;
 }) {
+  const { t } = useTranslation('common');
   const base = Number(row.costo_unitario);
   const [text, setText] = useState(String(Number.isFinite(base) ? base : 0));
   useEffect(() => {
@@ -353,7 +355,7 @@ function MasterCostEditor({
   const changed = valid && Math.abs(parsed - base) > 1e-8;
   return (
     <div className="mt-1.5 space-y-1 rounded-md bg-slate-50 px-2 py-1.5">
-      <span className={materialCardFieldLabelClass}>Costo maestro ($/u.)</span>
+      <span className={materialCardFieldLabelClass}>{t('materials.masterCost')}</span>
       <div className="flex gap-1.5">
         <Input
           className={cn(filterInputClass, 'h-8 min-w-0 flex-1 font-mono text-right text-sm')}
@@ -433,6 +435,7 @@ function packagingCategorySectionIcon(cat: { codigo: string; nombre: string }): 
 }
 
 export function MaterialsPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const canDelete = role === 'admin' || role === 'supervisor' || role === 'operator';
   const queryClient = useQueryClient();
@@ -590,7 +593,7 @@ export function MaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'summary-by-format'] });
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo guardar'),
+    onError: (e: Error) => toast.error(e.message || t('materials.toast.errSave')),
   });
 
   const mutation = useMutation({
@@ -625,7 +628,7 @@ export function MaterialsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'summary-by-format'] });
-      toast.success('Material creado');
+      toast.success(t('materials.toast.created'));
       setOpen(false);
       form.reset({
         nombre_material: '',
@@ -640,7 +643,7 @@ export function MaterialsPage() {
       });
     },
     onError: (e: Error) => {
-      toast.error(e.message || 'No se pudo crear');
+      toast.error(e.message || t('materials.toast.errCreate'));
     },
   });
 
@@ -665,11 +668,11 @@ export function MaterialsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'summary-by-format'] });
-      toast.success('Material creado · completá costo en la tabla');
+      toast.success(t('materials.toast.createdQuick'));
       setQuickOpen(false);
       quickForm.reset({ nombre_material: '', material_category_id: defaultCategoryId || 0 });
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo crear'),
+    onError: (e: Error) => toast.error(e.message || t('materials.toast.errCreate')),
   });
 
   const movementMut = useMutation({
@@ -705,7 +708,7 @@ export function MaterialsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'movements', kardexMaterialId] });
-      toast.success('Movimiento registrado');
+      toast.success(t('materials.toast.movementSaved'));
       setMoveDelta('');
       setMoveRefType('compra');
       setMoveGuideRef('');
@@ -724,7 +727,7 @@ export function MaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'recipes'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'summary-by-format'] });
-      toast.success('Material eliminado');
+      toast.success(t('materials.toast.deleted'));
       setDeleteConfirmRow(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -746,9 +749,9 @@ export function MaterialsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'packing-material-links'] });
-      toast.success('Proveedor vinculado');
+      toast.success(t('materials.toast.supplierLinked'));
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo vincular'),
+    onError: (e: Error) => toast.error(e.message || t('materials.toast.errLink')),
   });
 
   const patchLinkMut = useMutation({
@@ -764,9 +767,9 @@ export function MaterialsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'packing-material-links'] });
-      toast.success('Datos de guía actualizados');
+      toast.success(t('materials.toast.guideUpdated'));
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo guardar'),
+    onError: (e: Error) => toast.error(e.message || t('materials.toast.errSave')),
   });
 
   const unlinkMut = useMutation({
@@ -774,9 +777,9 @@ export function MaterialsPage() {
       apiJson('/api/masters/packing-material-links/unlink', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'packing-material-links'] });
-      toast.success('Vínculo quitado');
+      toast.success(t('materials.toast.linkRemoved'));
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo quitar'),
+    onError: (e: Error) => toast.error(e.message || t('materials.toast.errRemove')),
   });
 
   const activeRows = useMemo(() => (data ?? []).filter((m) => m.activo), [data]);
@@ -905,6 +908,21 @@ export function MaterialsPage() {
 
   const categoryOptions = (materialCategories ?? []).filter((c) => c.activo !== false);
 
+  const moveTypeOptions = useMemo(
+    () =>
+      [
+        { key: 'compra' as const, title: t('materials.kardexDialog.typePurchase'), hint: t('materials.kardexDialog.typePurchaseHint') },
+        { key: 'salida' as const, title: t('materials.kardexDialog.typeExit'), hint: t('materials.kardexDialog.typeExitHint') },
+        { key: 'manual' as const, title: t('materials.kardexDialog.typeManual'), hint: t('materials.kardexDialog.typeManualHint') },
+        {
+          key: 'inventario_inicial' as const,
+          title: t('materials.kardexDialog.typeInitial'),
+          hint: t('materials.kardexDialog.typeInitialHint'),
+        },
+      ] as const,
+    [t],
+  );
+
   if (isPending) {
     return (
       <div className="space-y-4">
@@ -929,8 +947,8 @@ export function MaterialsPage() {
     <div className="space-y-5">
       <div className={pageHeaderRow}>
         <div>
-          <h1 className={pageTitle}>Materiales de empaque</h1>
-          <p className={pageSubtitle}>Gestión operativa de stock, ajustes y trazabilidad de costos.</p>
+          <h1 className={pageTitle}>{t('materials.pageTitle')}</h1>
+          <p className={pageSubtitle}>{t('materials.pageSubtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -951,7 +969,7 @@ export function MaterialsPage() {
               setKardexOpen(true);
             }}
           >
-            Movimiento / kardex
+            {t('materials.kardexButton')}
           </Button>
           <Dialog
             open={quickOpen}
@@ -960,23 +978,23 @@ export function MaterialsPage() {
             <DialogTrigger asChild>
               <Button type="button" variant="default" className={cn(btnToolbarPrimary, 'gap-2 rounded-xl')}>
                 <Zap className="h-4 w-4" />
-                Material rápido
+                {t('materials.quickButton')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]">
               <DialogHeader>
-                <DialogTitle>Material rápido</DialogTitle>
+                <DialogTitle>{t('materials.quickDialog.title')}</DialogTitle>
               </DialogHeader>
               <form
                 onSubmit={quickForm.handleSubmit((v) => quickMutation.mutate(v))}
                 className="grid gap-4 py-1"
               >
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600">Nombre</Label>
+                  <Label className="text-xs text-slate-600">{t('materials.quickDialog.nameLabel')}</Label>
                   <Input
                     className={filterInputClass}
                     autoComplete="off"
-                    placeholder="Ej. Cinta 48mm"
+                    placeholder={t('materials.quickDialog.namePlaceholder')}
                     {...quickForm.register('nombre_material')}
                   />
                   {quickForm.formState.errors.nombre_material && (
@@ -984,12 +1002,12 @@ export function MaterialsPage() {
                   )}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600">Categoría</Label>
+                  <Label className="text-xs text-slate-600">{t('materials.quickDialog.categoryLabel')}</Label>
                   <select
                     className={filterSelectClass}
                     {...quickForm.register('material_category_id', { valueAsNumber: true })}
                   >
-                    <option value={0}>Elegir…</option>
+                    <option value={0}>{t('materials.quickDialog.categoryPlaceholder')}</option>
                     {categoryOptions.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nombre} ({c.codigo})
@@ -1000,13 +1018,13 @@ export function MaterialsPage() {
                     <p className="text-xs text-destructive">{quickForm.formState.errors.material_category_id.message}</p>
                   )}
                 </div>
-                <p className="text-xs text-slate-500">Unidad por defecto «unidad», costo 0 y stock 0. Ajustá en la tabla después.</p>
+                <p className="text-xs text-slate-500">{t('materials.quickDialog.hint')}</p>
                 <DialogFooter className="gap-2 sm:gap-0">
                   <Button type="button" variant="outline" className="rounded-xl" onClick={() => setQuickOpen(false)}>
-                    Cancelar
+                    {t('materials.quickDialog.cancelButton')}
                   </Button>
                   <Button type="submit" className="rounded-xl" disabled={quickMutation.isPending}>
-                    {quickMutation.isPending ? 'Creando…' : 'Crear'}
+                    {quickMutation.isPending ? t('materials.quickDialog.creatingButton') : t('materials.quickDialog.createButton')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1017,7 +1035,7 @@ export function MaterialsPage() {
             <DialogTrigger asChild>
               <Button variant="outline" className="shrink-0 gap-2 rounded-xl">
                 <Plus className="h-4 w-4" />
-                Agregar material
+                {t('materials.addButton')}
               </Button>
             </DialogTrigger>
             <DialogContent
@@ -1027,29 +1045,25 @@ export function MaterialsPage() {
               )}
             >
               <DialogHeader className={operationalModalHeaderClass}>
-                <DialogTitle className={operationalModalTitleClass}>Nuevo material</DialogTitle>
+                <DialogTitle className={operationalModalTitleClass}>{t('materials.addDialog.title')}</DialogTitle>
                 <DialogDescription className={operationalModalDescriptionClass}>
-                  Alta en maestro con alcance y unidad. El stock inicia en 0: cargá inventario inicial o compras desde «Ajuste de inventario».
+                  {t('materials.addDialog.description')}
                 </DialogDescription>
                 <details className="group text-[13px] text-muted-foreground">
                   <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
                       <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                      Consejos para un registro limpio
+                      {t('materials.addDialog.tipsTitle')}
                     </span>
                   </summary>
                   <ul className="mt-2 max-w-prose list-disc space-y-1.5 pl-4 text-pretty leading-snug">
                     <li>
-                      <strong className="font-medium text-foreground">Alcance vacío = general.</strong> Sin formatos ni clientes marcados, el
-                      material aplica a toda la operación.
+                      <strong className="font-medium text-foreground">{t('materials.addDialog.tip1Bold')}</strong> {t('materials.addDialog.tip1')}
                     </li>
+                    <li>{t('materials.addDialog.tip2')}</li>
                     <li>
-                      Marcá formatos o clientes solo cuando el consumo sea distinto (etiquetas por cliente, clamshell por formato, etc.).
-                    </li>
-                    <li>
-                      El <strong className="font-medium text-foreground">stock</strong> queda en 0 hasta que registres movimientos; el costo
-                      maestro podés editarlo en la grilla; conviene
-                      que la unidad (unidad, lb, ml, kg) coincida con cómo comprás y consumís en recetas.
+                      <strong className="font-medium text-foreground">{t('materials.addDialog.tip3Bold')}</strong>{' '}
+                      {t('materials.addDialog.tip3')}
                     </li>
                   </ul>
                 </details>
@@ -1064,18 +1078,18 @@ export function MaterialsPage() {
                       <section className={operationalModalSectionCard}>
                         <div className={operationalModalSectionHeadingRow}>
                           <span className={operationalModalStepBadge}>1</span>
-                          <h3 className={operationalModalStepTitle}>Identificación</h3>
+                          <h3 className={operationalModalStepTitle}>{t('materials.addDialog.step1')}</h3>
                         </div>
                         <div className="grid gap-3">
                           <div className="grid gap-1.5">
                             <Label className="text-xs text-slate-600" htmlFor="nombre_material">
-                              Nombre
+                              {t('materials.addDialog.nameLabel')}
                             </Label>
                             <Input
                               id="nombre_material"
                               className={filterInputClass}
                               autoComplete="off"
-                              placeholder="Ej. Tape 48mm transparente"
+                              placeholder={t('materials.addDialog.namePlaceholder')}
                               {...form.register('nombre_material')}
                             />
                             {form.formState.errors.nombre_material ? (
@@ -1084,14 +1098,14 @@ export function MaterialsPage() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label className="text-xs text-slate-600" htmlFor="material_category_id">
-                              Categoría
+                              {t('materials.addDialog.categoryLabel')}
                             </Label>
                             <select
                               id="material_category_id"
                               className={filterSelectClass}
                               {...form.register('material_category_id', { valueAsNumber: true })}
                             >
-                              <option value={0}>Elegir…</option>
+                              <option value={0}>{t('materials.quickDialog.categoryPlaceholder')}</option>
                               {categoryOptions.map((c) => (
                                 <option key={c.id} value={c.id}>
                                   {c.nombre} ({c.codigo})
@@ -1101,7 +1115,7 @@ export function MaterialsPage() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label className="text-xs text-slate-600" htmlFor="descripcion">
-                              Nota interna (opc.)
+                              {t('materials.addDialog.noteLabel')}
                             </Label>
                             <Input id="descripcion" className={filterInputClass} autoComplete="off" {...form.register('descripcion')} />
                           </div>
@@ -1110,7 +1124,7 @@ export function MaterialsPage() {
                       <section className={operationalModalSectionCard}>
                         <div className={operationalModalSectionHeadingRow}>
                           <span className={operationalModalStepBadge}>2</span>
-                          <h3 className={operationalModalStepTitle}>Alcance por formato</h3>
+                          <h3 className={operationalModalStepTitle}>{t('materials.addDialog.step2')}</h3>
                         </div>
                         <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2">
                           {(formatList ?? [])
@@ -1136,7 +1150,7 @@ export function MaterialsPage() {
                             })}
                         </div>
                         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                          Vacío = todos los formatos. Con selección = solo esos códigos.
+                          {t('materials.addDialog.formatHint')}
                         </p>
                       </section>
                     </div>
@@ -1144,7 +1158,7 @@ export function MaterialsPage() {
                       <section className={operationalModalSectionCard}>
                         <div className={operationalModalSectionHeadingRow}>
                           <span className={operationalModalStepBadge}>3</span>
-                          <h3 className={operationalModalStepTitle}>Alcance por cliente</h3>
+                          <h3 className={operationalModalStepTitle}>{t('materials.addDialog.step3')}</h3>
                         </div>
                         <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2">
                           {(commercialClients ?? []).map((c) => {
@@ -1171,30 +1185,30 @@ export function MaterialsPage() {
                           })}
                         </div>
                         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                          Vacío = todos los clientes. Útil para materiales dedicados por cuenta.
+                          {t('materials.addDialog.clientHint')}
                         </p>
                       </section>
                       <section className={operationalModalSectionMuted}>
                         <div className={operationalModalSectionHeadingRow}>
                           <span className={operationalModalStepBadge}>4</span>
-                          <h3 className={operationalModalStepTitle}>Unidad y costo maestro</h3>
+                          <h3 className={operationalModalStepTitle}>{t('materials.addDialog.step4')}</h3>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="grid gap-1.5 sm:col-span-2">
                             <Label className="text-xs text-slate-600" htmlFor="unidad_medida">
-                              Unidad de medida
+                              {t('materials.addDialog.uomLabel')}
                             </Label>
                             <select id="unidad_medida" className={filterSelectClass} {...form.register('unidad_medida')}>
                               {MATERIAL_UOM_OPTIONS.map((u) => (
                                 <option key={u} value={u}>
-                                  {u}
+                                  {t(`materials.uom.${u}`)}
                                 </option>
                               ))}
                             </select>
                           </div>
                           <div className="grid gap-1.5 sm:col-span-2">
                             <Label className="text-xs text-slate-600" htmlFor="costo_unitario">
-                              Costo unitario (referencia en alta; editable luego en cada material)
+                              {t('materials.addDialog.costLabel')}
                             </Label>
                             <Input
                               id="costo_unitario"
@@ -1206,12 +1220,11 @@ export function MaterialsPage() {
                             />
                           </div>
                           <p className="text-[11px] leading-snug text-muted-foreground sm:col-span-2">
-                            Inventario inicial y compras quedan en 0 al crear el material. Registrálos con el botón «Movimiento / kardex» o
-                            desde la pantalla Kardex.
+                            {t('materials.addDialog.costHint')}
                           </p>
                           {selectedCatCodigo === 'clamshell' ? (
                             <div className="grid gap-1.5 sm:col-span-2">
-                              <Label className="text-xs text-slate-600">Unidades clamshell por caja (opc.)</Label>
+                              <Label className="text-xs text-slate-600">{t('materials.addDialog.clamshellUnitsLabel')}</Label>
                               <Input
                                 type="number"
                                 step="0.0001"
@@ -1229,10 +1242,10 @@ export function MaterialsPage() {
                 </div>
                 <DialogFooter className={operationalModalFooterClass}>
                   <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
-                    Cancelar
+                    {t('materials.addDialog.cancelButton')}
                   </Button>
                   <Button type="submit" className={cn(btnToolbarPrimary)} disabled={mutation.isPending}>
-                    {mutation.isPending ? 'Guardando…' : 'Agregar material'}
+                    {mutation.isPending ? t('materials.addDialog.savingButton') : t('materials.addDialog.saveButton')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1256,21 +1269,18 @@ export function MaterialsPage() {
               )}
             >
               <DialogHeader className={operationalModalHeaderClass}>
-                <DialogTitle className={operationalModalTitleClass}>Ajuste de inventario</DialogTitle>
+                <DialogTitle className={operationalModalTitleClass}>{t('materials.kardexDialog.title')}</DialogTitle>
                 <DialogDescription className={operationalModalDescriptionClass}>
-                  Modifica el stock actual y registra el movimiento en Kardex.
+                  {t('materials.kardexDialog.description')}
                 </DialogDescription>
                 <details className="group text-[13px] text-muted-foreground">
                   <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
                       <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                      Más detalle para operación
+                      {t('materials.kardexDialog.detailTitle')}
                     </span>
                   </summary>
-                  <p className="mt-2 max-w-prose text-pretty leading-snug">
-                    Elegí el material y el tipo de movimiento. Las compras exigen proveedor vinculado; salidas y correcciones exigen motivo
-                    claro. El inventario inicial es solo para la primera carga histórica. Todo queda trazado en Kardex con fecha y referencia.
-                  </p>
+                  <p className="mt-2 max-w-prose text-pretty leading-snug">{t('materials.kardexDialog.detailDesc')}</p>
                 </details>
               </DialogHeader>
 
@@ -1290,7 +1300,7 @@ export function MaterialsPage() {
                     >
                       <div className={operationalModalSectionHeadingRow}>
                         <span className={operationalModalStepBadge}>1</span>
-                        <h3 className={operationalModalStepTitle}>Material</h3>
+                        <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step1')}</h3>
                       </div>
                       <div className="flex min-h-0 flex-1 flex-col gap-3">
                         <div className="relative shrink-0">
@@ -1298,14 +1308,14 @@ export function MaterialsPage() {
                           <Input
                             value={materialPickerSearch}
                             onChange={(e) => setMaterialPickerSearch(e.target.value)}
-                            placeholder="Buscar material..."
+                            placeholder={t('materials.kardexDialog.searchPlaceholder')}
                             className={cn(filterInputClass, 'pl-9')}
-                            aria-label="Buscar material"
+                            aria-label={t('materials.kardexDialog.searchAriaLabel')}
                           />
                         </div>
                         <div className="min-h-[200px] flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 lg:min-h-0">
                           {groupedPickerOptions.length === 0 ? (
-                            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin resultados.</p>
+                            <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('materials.kardexDialog.noResults')}</p>
                           ) : (
                             <div className="divide-y divide-border/80 p-1.5">
                               {groupedPickerOptions.map((group) => (
@@ -1349,10 +1359,12 @@ export function MaterialsPage() {
                         </div>
                         {kardexMaterialId > 0 ? (
                           <div className="shrink-0 rounded-lg border border-border bg-muted/20 p-3 shadow-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Material seleccionado</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              {t('materials.kardexDialog.selectedLabel')}
+                            </p>
                             <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{selectedKardexMaterial?.nombre_material}</p>
                             <p className="mt-1.5 text-sm text-muted-foreground">
-                              Stock actual:{' '}
+                              {t('materials.kardexDialog.currentStock')}{' '}
                               <span className="font-mono font-semibold tabular-nums text-foreground">
                                 {formatQty(selectedKardexMaterial?.cantidad_disponible ?? 0)}
                               </span>
@@ -1368,33 +1380,10 @@ export function MaterialsPage() {
                         <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
                           <div className={cn(operationalModalSectionHeadingRow, 'mb-1')}>
                             <span className={operationalModalStepBadge}>2</span>
-                            <h3 className={operationalModalStepTitle}>Tipo de ajuste</h3>
+                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step2')}</h3>
                           </div>
                           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                            {(
-                              [
-                                {
-                                  key: 'compra',
-                                  title: 'Compra',
-                                  hint: 'Entrada con proveedor, OC/factura y costo.',
-                                },
-                                {
-                                  key: 'salida',
-                                  title: 'Salida',
-                                  hint: 'Merma o consumo manual.',
-                                },
-                                {
-                                  key: 'manual',
-                                  title: 'Corrección',
-                                  hint: 'Ajuste delta +/- del saldo.',
-                                },
-                                {
-                                  key: 'inventario_inicial',
-                                  title: 'Inventario inicial',
-                                  hint: 'Primera carga histórica.',
-                                },
-                              ] as const
-                            ).map((opt) => (
+                            {moveTypeOptions.map((opt) => (
                               <button
                                 key={opt.key}
                                 type="button"
@@ -1426,19 +1415,19 @@ export function MaterialsPage() {
                         <section className={cn(operationalModalSectionCard, 'shrink-0')}>
                           <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                             <span className={operationalModalStepBadge}>3</span>
-                            <h3 className={operationalModalStepTitle}>Datos del movimiento</h3>
+                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step3')}</h3>
                           </div>
                           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                             {moveRefType === 'compra' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Proveedor</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.supplierLabel')}</Label>
                                   <select
                                     className={filterSelectClass}
                                     value={moveSupplierId}
                                     onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
                                   >
-                                    <option value={0}>Seleccionar…</option>
+                                    <option value={0}>{t('materials.kardexDialog.supplierPlaceholder')}</option>
                                     {(kardexMaterialLinks ?? []).map((lnk) => (
                                       <option key={lnk.supplier_id} value={lnk.supplier_id}>
                                         {lnk.supplier.nombre}
@@ -1447,59 +1436,59 @@ export function MaterialsPage() {
                                   </select>
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">Cantidad</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
-                                    placeholder="Ej. 500"
+                                    placeholder={t('materials.kardexDialog.qtyPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">OC / pedido</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.ocLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
-                                    placeholder="Ej. OC-1023"
+                                    placeholder={t('materials.kardexDialog.ocPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">Factura</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.invoiceLabel')}</Label>
                                   <Input
                                     value={moveInvoiceRef}
                                     onChange={(e) => setMoveInvoiceRef(e.target.value)}
-                                    placeholder="Ej. F-2218"
+                                    placeholder={t('materials.kardexDialog.invoicePlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
                                   <Label className="text-xs text-slate-600" title="Referencia de costo por unidad de medida del material">
-                                    Precio unitario
+                                    {t('materials.kardexDialog.unitCostLabel')}
                                   </Label>
                                   <Input
                                     value={moveUnitCostRef}
                                     onChange={(e) => setMoveUnitCostRef(e.target.value)}
-                                    placeholder="Ej. 0.052"
+                                    placeholder={t('materials.kardexDialog.unitCostPlaceholder')}
                                     title="Referencia de costo por unidad"
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Guía / referencia</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.guideLabel')}</Label>
                                   <Input
                                     value={moveGuiaRef}
                                     onChange={(e) => setMoveGuiaRef(e.target.value)}
-                                    placeholder="Guía de despacho u otro documento"
+                                    placeholder={t('materials.kardexDialog.guidePlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Motivo / nota</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.reasonLabel')}</Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
-                                    placeholder="Observación (opcional)"
+                                    placeholder={t('materials.kardexDialog.reasonPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
@@ -1508,31 +1497,31 @@ export function MaterialsPage() {
                             {moveRefType === 'salida' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">Cantidad</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
-                                    placeholder="Ej. -20"
+                                    placeholder={t('materials.kardexDialog.qtyExitPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Guía / referencia (opcional)</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.guideOptLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
-                                    placeholder="Documento de respaldo"
+                                    placeholder={t('materials.kardexDialog.guideOptPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
                                   <Label className="text-xs text-slate-600">
-                                    Motivo <span className="text-destructive">*</span>
+                                    {t('materials.kardexDialog.reasonRequired')} <span className="text-destructive">*</span>
                                   </Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
-                                    placeholder="Merma, consumo manual, etc."
+                                    placeholder={t('materials.kardexDialog.reasonExitPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
@@ -1541,22 +1530,22 @@ export function MaterialsPage() {
                             {moveRefType === 'manual' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">Cantidad delta (+/-)</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyDeltaLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
-                                    placeholder="Ej. +35 o -12"
+                                    placeholder={t('materials.kardexDialog.qtyDeltaPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
                                   <Label className="text-xs text-slate-600">
-                                    Motivo <span className="text-destructive">*</span>
+                                    {t('materials.kardexDialog.reasonRequired')} <span className="text-destructive">*</span>
                                   </Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
-                                    placeholder="Corrección de conteo, ajuste de saldo…"
+                                    placeholder={t('materials.kardexDialog.reasonManualPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
@@ -1565,29 +1554,29 @@ export function MaterialsPage() {
                             {moveRefType === 'inventario_inicial' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">Cantidad inicial</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyInitialLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
-                                    placeholder="Ej. 1200"
+                                    placeholder={t('materials.kardexDialog.qtyInitialPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Referencia (opcional)</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.refOptLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
-                                    placeholder="Acta, lote de carga histórica…"
+                                    placeholder={t('materials.kardexDialog.refOptPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">Motivo / nota</Label>
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.reasonLabel')}</Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
-                                    placeholder="Observación (opcional)"
+                                    placeholder={t('materials.kardexDialog.reasonPlaceholder')}
                                     className={filterInputClass}
                                   />
                                 </div>
@@ -1605,31 +1594,31 @@ export function MaterialsPage() {
                         >
                           <div className={cn(operationalModalSectionHeadingRow, 'mb-2')}>
                             <span className={operationalModalStepBadge}>4</span>
-                            <h3 className={operationalModalStepTitle}>Confirmación y Kardex</h3>
+                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step4')}</h3>
                           </div>
                           <p className="mb-3 shrink-0 text-xs text-muted-foreground">
                             {moveRefType === 'compra'
-                              ? 'Requerido: proveedor y cantidad positiva.'
+                              ? t('materials.kardexDialog.reqPurchase')
                               : moveRefType === 'salida' || moveRefType === 'manual'
-                                ? 'Requerido: cantidad distinta de cero y motivo.'
-                                : 'Requerido: cantidad inicial distinta de cero.'}
+                                ? t('materials.kardexDialog.reqExitManual')
+                                : t('materials.kardexDialog.reqInitial')}
                           </p>
-                          <p className={cn(materialCardFieldLabelClass, 'mb-2')}>Historial reciente</p>
+                          <p className={cn(materialCardFieldLabelClass, 'mb-2')}>{t('materials.kardexDialog.recentHistory')}</p>
                           <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-lg border border-border lg:min-h-[200px]">
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead>Fecha</TableHead>
+                                  <TableHead>{t('materials.kardexDialog.histColDate')}</TableHead>
                                   <TableHead>Δ</TableHead>
-                                  <TableHead>Ref.</TableHead>
-                                  <TableHead>Nota</TableHead>
+                                  <TableHead>{t('materials.kardexDialog.histColRef')}</TableHead>
+                                  <TableHead>{t('materials.kardexDialog.histColNote')}</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {(movements ?? []).length === 0 ? (
                                   <TableRow>
                                     <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                      Sin movimientos
+                                      {t('materials.kardexDialog.histEmpty')}
                                     </TableCell>
                                   </TableRow>
                                 ) : (
@@ -1654,7 +1643,7 @@ export function MaterialsPage() {
                       </div>
                     ) : (
                       <div className="hidden min-h-[120px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-8 text-center text-sm text-muted-foreground lg:flex">
-                        Seleccioná un material en la columna izquierda para cargar tipo de ajuste y datos del movimiento.
+                        {t('materials.kardexDialog.selectHint')}
                       </div>
                     )}
                   </div>
@@ -1662,14 +1651,14 @@ export function MaterialsPage() {
 
                 <DialogFooter className={cn(operationalModalFooterClass, 'flex flex-row flex-wrap justify-end gap-2')}>
                   <Button type="button" variant="outline" onClick={() => setKardexOpen(false)}>
-                    Cancelar
+                    {t('materials.kardexDialog.cancelButton')}
                   </Button>
                   <Button
                     type="button"
                     disabled={movementMut.isPending || !canSubmitAdjustment}
                     onClick={() => movementMut.mutate()}
                   >
-                    {movementMut.isPending ? 'Guardando…' : 'Guardar ajuste'}
+                    {movementMut.isPending ? t('materials.kardexDialog.savingButton') : t('materials.kardexDialog.saveButton')}
                   </Button>
                 </DialogFooter>
               </div>
@@ -1680,25 +1669,25 @@ export function MaterialsPage() {
 
       <Card className={contentCard}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Resumen de inventario</CardTitle>
-          <CardDescription>Vista operativa de stock y costo maestro de materiales activos.</CardDescription>
+          <CardTitle className="text-base font-semibold">{t('materials.summary.title')}</CardTitle>
+          <CardDescription>{t('materials.summary.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>Materiales activos</p>
+              <p className={materialCardFieldLabelClass}>{t('materials.summary.activeMaterials')}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.activeMaterials}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>Categorías con inventario</p>
+              <p className={materialCardFieldLabelClass}>{t('materials.summary.categoriesWithStock')}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.categories}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>Con stock visible</p>
+              <p className={materialCardFieldLabelClass}>{t('materials.summary.withStock')}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.stockLines}</p>
             </div>
             <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>Valor referencial stock</p>
+              <p className={materialCardFieldLabelClass}>{t('materials.summary.referenceValue')}</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">${formatMoneySimple(inventorySummary.stockValue)}</p>
             </div>
           </div>
@@ -1707,15 +1696,15 @@ export function MaterialsPage() {
 
       <Card className={contentCard}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Inventario agrupado por categoría</CardTitle>
-          <CardDescription>Materiales activos con lectura rápida para operación diaria y costo maestro.</CardDescription>
+          <CardTitle className="text-base font-semibold">{t('materials.inventory.title')}</CardTitle>
+          <CardDescription>{t('materials.inventory.description')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(140px,1fr)]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
-                placeholder="Buscar material..."
+                placeholder={t('materials.inventory.searchPlaceholder')}
                 value={inventorySearch}
                 onChange={(e) => setInventorySearch(e.target.value)}
                 className={cn(filterInputClass, 'pl-9')}
@@ -1726,7 +1715,7 @@ export function MaterialsPage() {
               value={inventoryCategoryFilter}
               onChange={(e) => setInventoryCategoryFilter(Number(e.target.value))}
             >
-              <option value={0}>Todas las categorías</option>
+              <option value={0}>{t('materials.inventory.allCategories')}</option>
               {categoryOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre}
@@ -1735,7 +1724,7 @@ export function MaterialsPage() {
             </select>
           </div>
           {groupedInventoryFiltered.length === 0 ? (
-            <p className="text-sm text-slate-500">Sin materiales activos para mostrar.</p>
+            <p className="text-sm text-slate-500">{t('materials.inventory.empty')}</p>
           ) : (
             groupedInventoryFiltered.map((group, groupIdx) => {
               const CategoryIcon = packagingCategorySectionIcon(group.category);
@@ -1761,7 +1750,8 @@ export function MaterialsPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-semibold leading-tight text-slate-900">{group.category.nombre}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {group.items.length} {group.items.length === 1 ? 'material' : 'materiales'}
+                      {group.items.length}{' '}
+                      {group.items.length === 1 ? t('materials.inventory.material') : t('materials.inventory.materials')}
                     </p>
                   </div>
                 </div>
@@ -1781,7 +1771,7 @@ export function MaterialsPage() {
                           </Badge>
                         </div>
                         <div className="text-right">
-                          <p className={materialCardFieldLabelClass}>Stock actual</p>
+                          <p className={materialCardFieldLabelClass}>{t('materials.inventory.stockLabel')}</p>
                           <div className="mt-0.5 flex flex-col items-end gap-1">
                             <p
                               className={cn(
@@ -1793,7 +1783,7 @@ export function MaterialsPage() {
                             </p>
                             {stockN <= 0 ? (
                               <Badge variant="outline" className="border-red-200 bg-red-50 px-1.5 py-0 text-[10px] text-red-700">
-                                Sin stock
+                                {t('materials.inventory.noStock')}
                               </Badge>
                             ) : null}
                           </div>
@@ -1807,7 +1797,7 @@ export function MaterialsPage() {
                           updateMut.mutate(
                             { id: row.id, body: { costo_unitario: cost } },
                             {
-                              onSuccess: () => toast.success('Costo maestro actualizado'),
+                              onSuccess: () => toast.success(t('materials.toast.costUpdated')),
                             },
                           )
                         }
@@ -1832,7 +1822,7 @@ export function MaterialsPage() {
                             setKardexOpen(true);
                           }}
                         >
-                          Ajustar
+                          {t('materials.inventory.adjustButton')}
                         </Button>
                         <Button
                           type="button"
@@ -1853,7 +1843,7 @@ export function MaterialsPage() {
                             setKardexOpen(true);
                           }}
                         >
-                          Corregir
+                          {t('materials.inventory.fixButton')}
                         </Button>
                         <Button
                           type="button"
@@ -1862,7 +1852,7 @@ export function MaterialsPage() {
                           className="h-8 px-2 text-[11px]"
                           onClick={() => setRenameRow(row)}
                         >
-                          Editar
+                          {t('materials.inventory.editButton')}
                         </Button>
                       </div>
                       {canDelete ? (
@@ -1875,7 +1865,7 @@ export function MaterialsPage() {
                             disabled={deleteMut.isPending}
                             onClick={() => setDeleteConfirmRow(row)}
                           >
-                            Eliminar
+                            {t('materials.inventory.deleteButton')}
                           </Button>
                         </div>
                       ) : null}
@@ -1883,7 +1873,7 @@ export function MaterialsPage() {
                         <Button asChild type="button" variant="outline" size="sm" className="h-8 w-full gap-1.5 text-[11px]">
                           <Link to={`/packaging/kardex?material=${row.id}`}>
                             <BarChart2 className="h-3.5 w-3.5" aria-hidden />
-                            Kardex
+                            {t('materials.inventory.kardexButton')}
                           </Link>
                         </Button>
                       </div>
@@ -1906,11 +1896,8 @@ export function MaterialsPage() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Proveedor y texto de guía</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Vinculá proveedores de empaque y el código o nombre que figura en remitos. Cualquier operador puede editar
-              esos textos; dar de alta vínculos nuevos: supervisor/admin.
-            </p>
+            <DialogTitle>{t('materials.linkDialog.title')}</DialogTitle>
+            <p className="text-sm text-muted-foreground">{t('materials.linkDialog.description')}</p>
           </DialogHeader>
           {linkDialogMaterialId > 0 && (
             <div className="space-y-4 py-2">
@@ -1918,7 +1905,7 @@ export function MaterialsPage() {
                 {(data ?? []).find((m) => m.id === linkDialogMaterialId)?.nombre_material ?? `#${linkDialogMaterialId}`}
               </p>
               {(materialLinks ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin proveedores vinculados.</p>
+                <p className="text-sm text-muted-foreground">{t('materials.linkDialog.noSuppliers')}</p>
               ) : (
                 <div className="space-y-3">
                   {(materialLinks ?? []).map((lnk) => (
@@ -1965,15 +1952,16 @@ export function MaterialsPage() {
       >
         <DialogContent className="max-h-[min(90vh,720px)] w-full max-w-[min(36rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(36rem,calc(100vw-2rem))]">
           <DialogHeader>
-            <DialogTitle>Alcance: formatos y clientes</DialogTitle>
+            <DialogTitle>{t('materials.scopeDialog.title')}</DialogTitle>
           </DialogHeader>
           {scopeEditRow ? (
             <div className="grid gap-4 py-2">
               <p className="text-sm text-muted-foreground">
-                Material: <span className="font-medium text-foreground">{scopeEditRow.nombre_material}</span>
+                {t('materials.scopeDialog.materialLabel')}{' '}
+                <span className="font-medium text-foreground">{scopeEditRow.nombre_material}</span>
               </p>
               <div className="grid gap-1.5">
-                <Label>Formatos (sin checks = todos)</Label>
+                <Label>{t('materials.scopeDialog.formatsLabel')}</Label>
                 <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-2 py-2">
                   {(formatList ?? [])
                     .filter((f) => (f as { activo?: boolean }).activo !== false)
@@ -1997,7 +1985,7 @@ export function MaterialsPage() {
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label>Clientes (sin checks = todos)</Label>
+                <Label>{t('materials.scopeDialog.clientsLabel')}</Label>
                 <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 px-2 py-2">
                   {(commercialClients ?? []).map((c) => {
                     const checked = scopeClientIds.includes(c.id);
@@ -2024,7 +2012,7 @@ export function MaterialsPage() {
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setScopeEditRow(null)}>
-              Cancelar
+              {t('materials.scopeDialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2041,14 +2029,14 @@ export function MaterialsPage() {
                   },
                   {
                     onSuccess: () => {
-                      toast.success('Alcance actualizado');
+                      toast.success(t('materials.toast.scopeUpdated'));
                       setScopeEditRow(null);
                     },
                   },
                 );
               }}
             >
-              {updateMut.isPending ? 'Guardando…' : 'Guardar'}
+              {updateMut.isPending ? t('materials.scopeDialog.savingButton') : t('materials.scopeDialog.saveButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2062,11 +2050,11 @@ export function MaterialsPage() {
       >
         <DialogContent className="w-full max-w-[min(32rem,calc(100vw-2rem))] sm:max-w-[min(32rem,calc(100vw-2rem))]">
           <DialogHeader>
-            <DialogTitle>Renombrar material</DialogTitle>
+            <DialogTitle>{t('materials.renameDialog.title')}</DialogTitle>
           </DialogHeader>
           {renameRow ? (
             <div className="grid gap-2 py-2">
-              <Label htmlFor="rename_material_name">Nombre</Label>
+              <Label htmlFor="rename_material_name">{t('materials.renameDialog.nameLabel')}</Label>
               <Input
                 id="rename_material_name"
                 className={filterInputClass}
@@ -2079,7 +2067,7 @@ export function MaterialsPage() {
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setRenameRow(null)}>
-              Cancelar
+              {t('materials.renameDialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2098,14 +2086,16 @@ export function MaterialsPage() {
                   { id: renameRow.id, body: { nombre_material: next } },
                   {
                     onSuccess: () => {
-                      toast.success('Nombre actualizado');
+                      toast.success(t('materials.toast.nameUpdated'));
                       setRenameRow(null);
                     },
                   },
                 );
               }}
             >
-              {updateMut.isPending && savingId === renameRow?.id ? 'Guardando…' : 'Guardar'}
+              {updateMut.isPending && savingId === renameRow?.id
+                ? t('materials.renameDialog.savingButton')
+                : t('materials.renameDialog.saveButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2114,12 +2104,8 @@ export function MaterialsPage() {
       <Dialog open={deleteConfirmRow != null} onOpenChange={(o) => !o && setDeleteConfirmRow(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Eliminar material</DialogTitle>
-            <DialogDescription>
-              Se quita del inventario y se borran los movimientos de kardex. Si falla, suele ser: receta activa que
-              aún lo lista, o historial de costo por tarja (breakdown de embalajes ya cargados), distinto de la receta
-              actual.
-            </DialogDescription>
+            <DialogTitle>{t('materials.deleteDialog.title')}</DialogTitle>
+            <DialogDescription>{t('materials.deleteDialog.description')}</DialogDescription>
           </DialogHeader>
           {deleteConfirmRow ? (
             <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
@@ -2128,7 +2114,7 @@ export function MaterialsPage() {
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDeleteConfirmRow(null)}>
-              Cancelar
+              {t('materials.deleteDialog.cancelButton')}
             </Button>
             <Button
               type="button"
@@ -2139,7 +2125,7 @@ export function MaterialsPage() {
                 deleteMut.mutate(deleteConfirmRow.id);
               }}
             >
-              {deleteMut.isPending ? 'Eliminando…' : 'Eliminar'}
+              {deleteMut.isPending ? t('materials.deleteDialog.deletingButton') : t('materials.deleteDialog.deleteButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2147,19 +2133,19 @@ export function MaterialsPage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Avisos</CardTitle>
+          <CardTitle className="text-base">{t('materials.notices.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div>
-            <p className="font-medium text-foreground">Duplicados (mismo nombre)</p>
+            <p className="font-medium text-foreground">{t('materials.notices.duplicatesTitle')}</p>
             {duplicates.length === 0 ? (
-              <p className="text-muted-foreground">Ninguno.</p>
+              <p className="text-muted-foreground">{t('materials.notices.noDuplicates')}</p>
             ) : (
               <div className="space-y-2">
                 {duplicates.map((g) => (
                   <div key={g.name} className="rounded-md border border-border p-2">
                     <p className="font-medium">{g.rows[0].nombre_material}</p>
-                    <p className="text-xs text-muted-foreground">Dejar uno activo.</p>
+                    <p className="text-xs text-muted-foreground">{t('materials.notices.duplicateHint')}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {g.rows.map((r, idx) => (
                         <Button
@@ -2171,7 +2157,7 @@ export function MaterialsPage() {
                           title={idx === 0 ? 'Conservar (más antiguo)' : 'Eliminar'}
                           onClick={() => deleteMut.mutate(r.id)}
                         >
-                          {idx === 0 ? `Mantener #${r.id}` : `Quitar #${r.id}`}
+                          {idx === 0 ? t('materials.notices.keepButton', { id: r.id }) : t('materials.notices.removeButton', { id: r.id })}
                         </Button>
                       ))}
                     </div>
@@ -2181,9 +2167,9 @@ export function MaterialsPage() {
             )}
           </div>
           <div>
-            <p className="font-medium text-foreground">Nombre igual a un formato</p>
+            <p className="font-medium text-foreground">{t('materials.notices.formatLikeTitle')}</p>
             {formatLikeMaterials.length === 0 ? (
-              <p className="text-muted-foreground">Ninguno.</p>
+              <p className="text-muted-foreground">{t('materials.notices.noFormatLike')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {formatLikeMaterials.map((m) => (
@@ -2195,7 +2181,7 @@ export function MaterialsPage() {
                     disabled={!canDelete || deleteMut.isPending}
                     onClick={() => deleteMut.mutate(m.id)}
                   >
-                    Quitar «{m.nombre_material}»
+                    {t('materials.notices.removeFormatLike', { name: m.nombre_material })}
                   </Button>
                 ))}
               </div>

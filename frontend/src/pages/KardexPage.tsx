@@ -2,6 +2,7 @@
 import { ArrowDownRight, ArrowLeftRight, Boxes, Layers, Package, Warehouse } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiJson } from '@/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,13 +99,14 @@ function movementDeltaTone(delta: number): string {
   return 'text-slate-600 tabular-nums';
 }
 
-function refOriginLine(ref: string | null, refId: number | null): string {
-  const base = movementRefTypeLabel(ref);
+function refOriginLine(ref: string | null, refId: number | null, t: (key: string) => string): string {
+  const base = movementRefTypeLabel(ref, t);
   if (refId != null && refId > 0) return `${base} · ref. #${refId}`;
   return base;
 }
 
 export function KardexPage() {
+  const { t } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
   const [materialId, setMaterialId] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState(0);
@@ -242,15 +244,15 @@ export function KardexPage() {
 
   const movementsTruncated = (movements?.length ?? 0) >= 5000;
   const moveFilterOptions: { value: string; label: string }[] = [
-    { value: MOVE_FILTER_ALL, label: 'Todos' },
-    { value: 'consumption', label: 'Consumo' },
-    { value: 'consumption_revert', label: 'Reverso consumo' },
-    { value: 'manual', label: 'Manual' },
-    { value: 'entrada', label: 'Entrada' },
-    { value: 'compra', label: 'Compra' },
-    { value: 'inventario_inicial', label: 'Inventario inicial' },
-    { value: 'salida', label: 'Salida' },
-    { value: 'final_inventario', label: 'Cierre inventario' },
+    { value: MOVE_FILTER_ALL, label: t('kardex.moveFilter.all') },
+    { value: 'consumption', label: t('kardex.moveFilter.consumption') },
+    { value: 'consumption_revert', label: t('kardex.moveFilter.consumption_revert') },
+    { value: 'manual', label: t('kardex.moveFilter.manual') },
+    { value: 'entrada', label: t('kardex.moveFilter.entrada') },
+    { value: 'compra', label: t('kardex.moveFilter.compra') },
+    { value: 'inventario_inicial', label: t('kardex.moveFilter.inventario_inicial') },
+    { value: 'salida', label: t('kardex.moveFilter.salida') },
+    { value: 'final_inventario', label: t('kardex.moveFilter.final_inventario') },
   ];
 
   const onPickMaterial = (id: number) => {
@@ -292,15 +294,15 @@ export function KardexPage() {
     <div className="space-y-5">
       <div className={pageHeaderRow}>
         <div>
-          <h1 className={pageTitle}>Kardex de Materiales</h1>
-          <p className={pageSubtitle}>Inventario inicial, compras y consumo de Unidad PT por material.</p>
+          <h1 className={pageTitle}>{t('kardex.pageTitle')}</h1>
+          <p className={pageSubtitle}>{t('kardex.pageSubtitle')}</p>
         </div>
       </div>
 
       <div className={filterPanel}>
         <div className="grid gap-4 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-3">
-            <Label className={kardexFilterLabelClass}>Categoría</Label>
+            <Label className={kardexFilterLabelClass}>{t('kardex.filters.category')}</Label>
             <select
               className={cn(filterSelectClass, 'mt-1.5')}
               value={categoryFilter}
@@ -312,7 +314,7 @@ export function KardexPage() {
                 setSearchParams(next, { replace: true });
               }}
             >
-              <option value={0}>Todas</option>
+              <option value={0}>{t('kardex.filters.categoryAll')}</option>
               {(materialCategories ?? [])
                 .filter((c) => c.activo !== false)
                 .map((c) => (
@@ -323,13 +325,13 @@ export function KardexPage() {
             </select>
           </div>
           <div className="lg:col-span-4">
-            <Label className={kardexFilterLabelClass}>Material</Label>
+            <Label className={kardexFilterLabelClass}>{t('kardex.filters.material')}</Label>
             <select
               className={cn(filterSelectClass, 'mt-1.5')}
               value={materialId || ''}
               onChange={(e) => onPickMaterial(Number(e.target.value) || 0)}
             >
-              <option value="">Selecciona un material</option>
+              <option value="">{t('kardex.filters.materialPlaceholder')}</option>
               {materialOptions.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.nombre_material} · {formatInventoryQtyFromString(m.cantidad_disponible)} {m.unidad_medida}
@@ -338,15 +340,15 @@ export function KardexPage() {
             </select>
           </div>
           <div className="lg:col-span-2">
-            <Label className={kardexFilterLabelClass}>Desde</Label>
+            <Label className={kardexFilterLabelClass}>{t('kardex.filters.from')}</Label>
             <Input type="date" className={cn(filterInputClass, 'mt-1.5')} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="lg:col-span-2">
-            <Label className={kardexFilterLabelClass}>Hasta</Label>
+            <Label className={kardexFilterLabelClass}>{t('kardex.filters.to')}</Label>
             <Input type="date" className={cn(filterInputClass, 'mt-1.5')} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
           <div className="lg:col-span-3">
-            <Label className={kardexFilterLabelClass}>Tipo de movimiento</Label>
+            <Label className={kardexFilterLabelClass}>{t('kardex.filters.moveType')}</Label>
             <select className={cn(filterSelectClass, 'mt-1.5')} value={moveType} onChange={(e) => setMoveType(e.target.value)}>
               {moveFilterOptions.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -358,16 +360,13 @@ export function KardexPage() {
         </div>
         {materialId > 0 && selectedMaterial ? (
           <div className="mt-4 border-t border-slate-100 pt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Material seleccionado</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t('kardex.filters.selectedLabel')}</p>
             <p className="text-sm font-semibold text-slate-900">{selectedMaterial.nombre_material}</p>
             <p className="text-xs text-slate-500">{describeAlcance(selectedMaterial, formatById, clientById)}</p>
           </div>
         ) : null}
         {materialId > 0 && !movementsLoading && movementsQueryError ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            No se pudieron cargar los movimientos. Revisá la conexión o probá de nuevo; el resumen operativo puede no mostrarse hasta que el
-            historial responda.
-          </p>
+          <p className="mt-3 text-xs text-muted-foreground">{t('kardex.filters.loadError')}</p>
         ) : null}
       </div>
 
@@ -378,15 +377,13 @@ export function KardexPage() {
           ) : kardexOp ? (
             <>
               <div className="space-y-2">
-                <h2 className={sectionHeadingLg}>Resumen del material</h2>
-                <p className="text-[12px] text-slate-500">
-                  Vista de stock operativo desde el servidor (no depende de fechas ni del filtro de tipo abajo).
-                </p>
+                <h2 className={sectionHeadingLg}>{t('kardex.summary.title')}</h2>
+                <p className="text-[12px] text-slate-500">{t('kardex.summary.hint')}</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-slate-100/90')}>
                   <Warehouse className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-violet-100" aria-hidden />
-                  <p className={kpiLabel}>Inventario inicial</p>
+                  <p className={kpiLabel}>{t('kardex.summary.initialInventory')}</p>
                   <p className={kpiValueMd}>
                     {formatInventoryQty(kardexOp.inventario_inicial)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
@@ -394,7 +391,7 @@ export function KardexPage() {
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-emerald-100/90 bg-emerald-50/25')}>
                   <Package className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-emerald-100" aria-hidden />
-                  <p className={kpiLabel}>Compras</p>
+                  <p className={kpiLabel}>{t('kardex.summary.purchases')}</p>
                   <p className="text-[1.5rem] font-semibold tabular-nums leading-none text-emerald-800">
                     +{formatInventoryQty(kardexOp.compras_total)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
@@ -402,7 +399,7 @@ export function KardexPage() {
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-sky-100/90 bg-sky-50/20')}>
                   <ArrowLeftRight className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-sky-100" aria-hidden />
-                  <p className={kpiLabel}>Otros mov. neto</p>
+                  <p className={kpiLabel}>{t('kardex.summary.otherNet')}</p>
                   <p
                     className={cn(
                       kpiValueMd,
@@ -413,38 +410,40 @@ export function KardexPage() {
                     {formatInventoryQty(kardexOp.otros_movimientos_neto)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>Entradas y salidas fuera de compras/cons. PT típico.</p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>{t('kardex.summary.otherNetNote')}</p>
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-teal-100/80 bg-teal-50/15')}>
                   <Boxes className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-teal-100" aria-hidden />
-                  <p className={kpiLabel}>Total entradas</p>
+                  <p className={kpiLabel}>{t('kardex.summary.totalEntries')}</p>
                   <p className={kpiValueMd}>
                     {formatInventoryQty(kardexOp.total_entradas)} <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>Base operativa cargada antes de consumir por PT.</p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>{t('kardex.summary.totalEntriesNote')}</p>
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-rose-100/90 bg-rose-50/20')}>
                   <ArrowDownRight className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-rose-100" aria-hidden />
-                  <p className={kpiLabel}>Consumo total (PT)</p>
+                  <p className={kpiLabel}>{t('kardex.summary.ptConsumption')}</p>
                   <p className="text-[1.5rem] font-semibold tabular-nums leading-none text-rose-800">
                     −{formatInventoryQty(kardexOp.consumo_pt_total)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>Tarjas × receta por caja.</p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>{t('kardex.summary.ptConsumptionNote')}</p>
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-slate-200 bg-slate-50/30')}>
                   <Layers className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-slate-200" aria-hidden />
-                  <p className={kpiLabel}>Stock final</p>
+                  <p className={kpiLabel}>{t('kardex.summary.finalStock')}</p>
                   <p className={cn(kpiValueMd, saldoKpiClass)}>
                     {formatInventoryQty(kardexOp.stock_final)} <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
                   <p className={cn(kpiFootnote, 'mt-2')}>
-                    Inv. inicial + compras − consumo PT = {formatInventoryQty(kardexOp.stock_segun_inv_compras_y_pt)}{' '}
-                    {uom}
+                    {t('kardex.summary.finalStockNote', {
+                      value: formatInventoryQty(kardexOp.stock_segun_inv_compras_y_pt),
+                      uom,
+                    })}
                   </p>
                   {kardexOp.movimientos_sin_consumo_pt !== 0 ? (
                     <p className={cn(kpiFootnote, 'mt-1 text-[11px] text-sky-900/80')} title="Conteo desde motor operativo">
-                      Incluye {formatCount(kardexOp.movimientos_sin_consumo_pt)} mov. sin consumo PT en el modelo.
+                      {t('kardex.summary.includesMov', { count: formatCount(kardexOp.movimientos_sin_consumo_pt) })}
                     </p>
                   ) : null}
                 </div>
@@ -454,8 +453,8 @@ export function KardexPage() {
 
           <Card className={contentCard}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Consumo por formato</CardTitle>
-              <CardDescription>Cajas producidas según tarjas PT, factor de receta por caja y consumo del formato.</CardDescription>
+              <CardTitle className="text-base font-semibold">{t('kardex.byFormat.title')}</CardTitle>
+              <CardDescription>{t('kardex.byFormat.description')}</CardDescription>
             </CardHeader>
             <CardContent>
               {kardexLoading ? (
@@ -465,10 +464,10 @@ export function KardexPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-slate-100 hover:bg-transparent">
-                        <TableHead className="text-xs font-semibold uppercase text-slate-500">Formato</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">Cajas producidas</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">Consumo por caja</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">Consumo total</TableHead>
+                        <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colFormat')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colBoxes')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colPerBox')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colTotal')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -487,7 +486,7 @@ export function KardexPage() {
                         </TableRow>
                       ))}
                       <TableRow className="border-t border-slate-200 bg-slate-50/80 font-medium">
-                        <TableCell>Total</TableCell>
+                        <TableCell>{t('kardex.byFormat.totalRow')}</TableCell>
                         <TableCell className="text-right font-mono tabular-nums text-slate-900">—</TableCell>
                         <TableCell className="text-right text-slate-500">—</TableCell>
                         <TableCell className="text-right font-mono tabular-nums text-slate-900">
@@ -498,9 +497,7 @@ export function KardexPage() {
                   </Table>
                 </div>
               ) : (
-                <p className="py-4 text-sm text-muted-foreground">
-                  Sin consumos por formato registrados para este material en el período.
-                </p>
+                <p className="py-4 text-sm text-muted-foreground">{t('kardex.byFormat.empty')}</p>
               )}
             </CardContent>
           </Card>
@@ -509,31 +506,24 @@ export function KardexPage() {
 
       {materialId > 0 && movementsTruncated ? (
         <div className={signalsPanel}>
-          <p className={signalsTitle}>Historial acotado</p>
-          <p className="text-[13px] leading-snug text-amber-950/90">
-            Se muestran los últimos <strong>5000</strong> movimientos de este material. Si no ves un movimiento antiguo, ampliá fechas o
-            consultá reportes fuera de esta pantalla.
-          </p>
+          <p className={signalsTitle}>{t('kardex.truncated.title')}</p>
+          <p className="text-[13px] leading-snug text-amber-950/90">{t('kardex.truncated.desc')}</p>
         </div>
       ) : null}
 
       <Card className={contentCard}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Movimientos</CardTitle>
+          <CardTitle className="text-base font-semibold">{t('kardex.movements.title')}</CardTitle>
           <CardDescription>
-            {materialId <= 0
-              ? 'Elegí un material para ver fechas, cantidades, referencia y saldo después de cada movimiento.'
-              : 'Orden: más recientes arriba. Los filtros solo ocultan filas; el saldo después sigue el historial completo cargado.'}
+            {materialId <= 0 ? t('kardex.movements.descEmpty') : t('kardex.movements.descLoaded')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {materialId > 0 && !movementsLoading ? (
-            <p className={cn(sectionHint, 'mb-3')}>
-              Verde = entrada, rojo = salida. Saldo después: en rojo si el saldo acumulado en esa fila es ≤ 0.
-            </p>
+            <p className={cn(sectionHint, 'mb-3')}>{t('kardex.movements.hint')}</p>
           ) : null}
           {materialId <= 0 ? (
-            <p className="text-sm text-slate-500">Seleccioná un material arriba.</p>
+            <p className="text-sm text-slate-500">{t('kardex.movements.selectMaterial')}</p>
           ) : movementsLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (
@@ -542,25 +532,25 @@ export function KardexPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-100 hover:bg-transparent">
-                      <TableHead className="text-xs font-semibold uppercase text-slate-500">Fecha</TableHead>
-                      <TableHead className="text-xs font-semibold uppercase text-slate-500">Material</TableHead>
-                      <TableHead className="text-xs font-semibold uppercase text-slate-500">Tipo</TableHead>
-                      <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">Cantidad</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colDate')}</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colMaterial')}</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colType')}</TableHead>
+                      <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colQty')}</TableHead>
                       <TableHead
                         className="text-right text-xs font-semibold uppercase text-slate-500"
-                        title="Saldo acumulado después de este movimiento (histórico completo cargado)"
+                        title={t('kardex.movements.colBalanceTitle')}
                       >
-                        Saldo después
+                        {t('kardex.movements.colBalance')}
                       </TableHead>
-                      <TableHead className="text-xs font-semibold uppercase text-slate-500">Referencia / origen</TableHead>
-                      <TableHead className="min-w-[140px] text-xs font-semibold uppercase text-slate-500">Nota</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colRef')}</TableHead>
+                      <TableHead className="min-w-[140px] text-xs font-semibold uppercase text-slate-500">{t('kardex.movements.colNote')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayRows.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">
-                          Sin movimientos con los filtros actuales.
+                          {t('kardex.movements.empty')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -577,7 +567,7 @@ export function KardexPage() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="font-normal">
-                                {movementRefTypeLabel(mv.ref_type)}
+                                {movementRefTypeLabel(mv.ref_type, t)}
                               </Badge>
                             </TableCell>
                             <TableCell className={cn('text-right text-sm', movementDeltaTone(d))}>{formatInventoryQty(d)}</TableCell>
@@ -590,7 +580,7 @@ export function KardexPage() {
                               {bal != null ? formatInventoryQty(bal) : '—'}
                             </TableCell>
                             <TableCell className="max-w-[200px] text-xs text-slate-600">
-                              {refOriginLine(mv.ref_type, mv.ref_id)}
+                              {refOriginLine(mv.ref_type, mv.ref_id, t)}
                             </TableCell>
                             <TableCell className="max-w-[220px] truncate text-xs text-slate-600" title={mv.nota ?? ''}>
                               {mv.nota ?? '—'}

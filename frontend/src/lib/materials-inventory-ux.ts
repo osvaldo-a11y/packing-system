@@ -86,22 +86,25 @@ export function stockHealthBadgeClass(h: StockHealth): string {
   return 'border-slate-200 bg-slate-50 text-slate-900';
 }
 
-/** Etiqueta legible para ref_type de movimientos (códigos internos → español). */
-export function movementRefTypeLabel(ref: string | null | undefined): string {
+/** Etiqueta legible para ref_type de movimientos (códigos internos → i18n). */
+export function movementRefTypeLabel(
+  ref: string | null | undefined,
+  t: (key: string) => string,
+): string {
   const r = (ref ?? 'manual').toLowerCase();
   const map: Record<string, string> = {
-    manual: 'Ajuste manual',
-    entrada: 'Ingreso',
-    compra: 'Compra / OC',
-    inventario_inicial: 'Inventario inicial',
-    salida: 'Salida / merma',
-    final_inventario: 'Cierre de inventario',
-    consumo: 'Consumo de tarja',
-    consumption: 'Consumo de tarja',
-    consumo_reverso: 'Reverso de consumo',
-    consumption_revert: 'Reverso de consumo',
-    ajuste: 'Corrección',
-    correccion: 'Corrección',
+    manual: t('kardex.moveLabel.manual'),
+    entrada: t('kardex.moveLabel.entrada'),
+    compra: t('kardex.moveLabel.compra'),
+    inventario_inicial: t('kardex.moveLabel.inventario_inicial'),
+    salida: t('kardex.moveLabel.salida'),
+    final_inventario: t('kardex.moveLabel.final_inventario'),
+    consumo: t('kardex.moveLabel.consumption'),
+    consumption: t('kardex.moveLabel.consumption'),
+    consumo_reverso: t('kardex.moveLabel.consumption_revert'),
+    consumption_revert: t('kardex.moveLabel.consumption_revert'),
+    ajuste: t('kardex.moveLabel.ajuste'),
+    correccion: t('kardex.moveLabel.ajuste'),
   };
-  return map[r] ?? ref ?? 'Movimiento';
+  return map[r] ?? ref ?? t('kardex.moveLabel.default');
 }
