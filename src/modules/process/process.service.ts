@@ -292,6 +292,29 @@ export class ProcessService {
     return Number(fresh.merma_lb ?? 0);
   }
 
+  /**
+   * Merma que cuenta en el cuadre: fila MERMA en componentes, o legacy + implícita (entrada − PT − resto)
+   * cuando `merma_lb` quedó desactualizada (p. ej. tras restaurar vínculos PT).
+   */
+  private resolveMermaLbForBalance(
+    entrada: number,
+    packProductLb: number,
+    componentTotal: number,
+    extraMerma: number,
+    extraIqf: number,
+    freshValues: FruitProcessComponentValue[],
+    activeComponents: Array<{ id: number; codigo: string }>,
+  ): number {
+    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaRowVal = mermaComp
+      ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
+      : 0;
+    if (mermaRowVal > BALANCE_EPS) return 0;
+    const implied = Math.max(0, entrada - packProductLb - componentTotal - extraIqf);
+    if (implied <= BALANCE_EPS) return Math.max(0, extraMerma);
+    return Math.max(extraMerma, implied);
+  }
+
   /** IQF en `lb_iqf` cuando el componente IQF no tiene lb en tabla de valores (misma idea que merma). */
   private extraIqfLbOutsideComponents(
     fresh: FruitProcess,
@@ -1517,7 +1540,17 @@ export class ProcessService {
     const packProductLb = Math.max(packFromTags, usedOnPallets);
     const extraMerma = this.extraMermaLbOutsideComponents(freshProc, freshValues, activeComponents);
     const extraIqf = this.extraIqfLbOutsideComponents(freshProc, freshValues, activeComponents);
-    const destinos = packProductLb + componentTotal + extraMerma + extraIqf;
+    const entradaCheck = this.computeEntradaLb(proc, await this.sumAllocationsLb(proc.id));
+    const mermaLb = this.resolveMermaLbForBalance(
+      entradaCheck,
+      packProductLb,
+      componentTotal,
+      extraMerma,
+      extraIqf,
+      freshValues,
+      activeComponents,
+    );
+    const destinos = packProductLb + componentTotal + mermaLb + extraIqf;
 
     if (
       dto.components != null ||
@@ -1532,7 +1565,7 @@ export class ProcessService {
         const diff = entrada - destinos;
         throw new BadRequestException(
           `Balance: lb entrada (${entrada.toFixed(3)}) debe ser packout producto (${packProductLb.toFixed(3)} = máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes (${componentTotal.toFixed(3)})` +
-            (extraMerma > BALANCE_EPS ? ` + merma fuera de tabla (${extraMerma.toFixed(3)})` : '') +
+            (mermaLb > BALANCE_EPS ? ` + merma (${mermaLb.toFixed(3)})` : '') +
             (extraIqf > BALANCE_EPS ? ` + IQF fuera de tabla (${extraIqf.toFixed(3)})` : '') +
             `. Diferencia: ${diff.toFixed(3)} lb.`,
         );
@@ -2201,15 +2234,49 @@ export class ProcessService {
     const packProductLb = Math.max(packFromTags, usedOnPallets);
     const extraMerma = this.extraMermaLbOutsideComponents(fresh, freshValues, activeComponents);
     const extraIqf = this.extraIqfLbOutsideComponents(fresh, freshValues, activeComponents);
-    const destinos = packProductLb + componentTotal + extraMerma + extraIqf;
+    const mermaLb = this.resolveMermaLbForBalance(
+      entrada,
+      packProductLb,
+      componentTotal,
+      extraMerma,
+      extraIqf,
+      freshValues,
+      activeComponents,
+    );
+    const destinos = packProductLb + componentTotal + mermaLb + extraIqf;
     const diff = entrada - destinos;
     if (Math.abs(diff) > BALANCE_EPS) {
       throw new BadRequestException(
         `Balance no cuadra: entrada ${entrada.toFixed(3)} ≠ packout producto ${packProductLb.toFixed(3)} (máx. unidades PT ${packFromTags.toFixed(3)}, pallets ${usedOnPallets.toFixed(3)}) + componentes ${componentTotal.toFixed(3)}` +
-          (extraMerma > BALANCE_EPS ? ` + merma fuera de tabla (${extraMerma.toFixed(3)})` : '') +
+          (mermaLb > BALANCE_EPS ? ` + merma (${mermaLb.toFixed(3)})` : '') +
           (extraIqf > BALANCE_EPS ? ` + IQF fuera de tabla (${extraIqf.toFixed(3)})` : '') +
           ` (diferencia ${diff.toFixed(3)} lb).`,
       );
+    }
+
+    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaRowVal = mermaComp
+      ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
+      : 0;
+    if (mermaComp && mermaRowVal <= BALANCE_EPS && mermaLb > BALANCE_EPS) {
+      const existing = await this.processComponentValueRepo.findOne({
+        where: { fruit_process_id: proc.id, component_id: Number(mermaComp.id) },
+      });
+      if (existing) {
+        existing.lb_value = mermaLb.toFixed(3);
+        await this.processComponentValueRepo.save(existing);
+      } else {
+        await this.processComponentValueRepo.save(
+          this.processComponentValueRepo.create({
+            fruit_process_id: proc.id,
+            component_id: Number(mermaComp.id),
+            lb_value: mermaLb.toFixed(3),
+          }),
+        );
+      }
+      fresh.merma_lb = mermaLb.toFixed(3);
+      fresh.lb_sobrante = '0.000';
+      fresh.lb_merma_balance = undefined;
     }
 
     fresh.process_status = 'confirmado';

@@ -172,6 +172,16 @@ function formatWeekRangeLabel(mondayYmd: string): string {
   return `${f(start)} – ${f(end)}`;
 }
 
+/** Semana ISO (lun–dom) a partir del lunes yyyy-mm-dd. */
+function isoWeekFromMondayKey(mondayYmd: string): { isoYear: number; week: number } {
+  const [y, m, d] = mondayYmd.split('-').map(Number);
+  const thursday = new Date(y, m - 1, d + 3);
+  const isoYear = thursday.getFullYear();
+  const firstThursday = new Date(isoYear, 0, 4);
+  const week = 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / 604_800_000);
+  return { isoYear, week };
+}
+
 function inDateRange(iso: string | null | undefined, from: Date, to: Date): boolean {
   if (!iso) return false;
   const t = new Date(iso).getTime();
@@ -494,7 +504,7 @@ function ReceivedPackedAreaChart({
   points,
   granularity,
 }: {
-  points: Array<{ label: string; received: number; packed: number; sortKey: string }>;
+  points: Array<{ label: string; title?: string; received: number; packed: number; sortKey: string }>;
   granularity: ChartGranularity;
 }) {
   if (!points.length) {
@@ -509,7 +519,7 @@ function ReceivedPackedAreaChart({
   const padL = 52;
   const padR = 20;
   const padT = 28;
-  const padB = granularity === 'week' ? 52 : 44;
+  const padB = granularity === 'week' ? 36 : 44;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const baseline = padT + innerH;
@@ -528,7 +538,8 @@ function ReceivedPackedAreaChart({
 
   const receivedVals = points.map((p) => p.received);
   const packedVals = points.map((p) => p.packed);
-  const tickStep = Math.max(1, Math.ceil(n / 10));
+  const tickStep =
+    granularity === 'week' ? Math.max(1, n <= 16 ? 1 : Math.ceil(n / 14)) : Math.max(1, Math.ceil(n / 10));
 
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/35 p-3">
@@ -589,16 +600,18 @@ function ReceivedPackedAreaChart({
         />
         {points.map((p, i) =>
           i % tickStep === 0 || i === n - 1 ? (
-            <text
-              key={`${p.sortKey}-${i}`}
-              x={xAt(i)}
-              y={H - 12}
-              textAnchor={n <= 3 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
-              className="fill-slate-500 text-[9px]"
-              transform={`rotate(${granularity === 'day' && n > 14 ? -35 : 0}, ${xAt(i)}, ${H - 12})`}
-            >
-              {p.label}
-            </text>
+            <g key={`${p.sortKey}-${i}`}>
+              {p.title ? <title>{p.title}</title> : null}
+              <text
+                x={xAt(i)}
+                y={H - 10}
+                textAnchor={n <= 3 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
+                className={`fill-slate-500 ${granularity === 'week' ? 'text-[10px] font-medium' : 'text-[9px]'}`}
+                transform={`rotate(${granularity === 'day' && n > 14 ? -35 : 0}, ${xAt(i)}, ${H - 10})`}
+              >
+                {p.label}
+              </text>
+            </g>
           ) : null,
         )}
       </svg>
@@ -1134,9 +1147,15 @@ export function DashboardPage() {
         wPack.set(wk, (wPack.get(wk) ?? 0) + (packMap.get(k) ?? 0));
       }
       const wKeys = [...new Set([...wRec.keys(), ...wPack.keys()])].sort((a, b) => a.localeCompare(b));
-      return wKeys.map((wk) => ({
+      const weekMeta = wKeys.map((wk) => ({ wk, ...isoWeekFromMondayKey(wk) }));
+      const isoYears = new Set(weekMeta.map((w) => w.isoYear));
+      const showIsoYear = isoYears.size > 1;
+      return weekMeta.map(({ wk, isoYear, week }) => ({
         sortKey: wk,
-        label: formatWeekRangeLabel(wk),
+        label: showIsoYear
+          ? t('dashboard.chart.weekAxisYear', { week, year: isoYear })
+          : t('dashboard.chart.weekAxis', { week }),
+        title: formatWeekRangeLabel(wk),
         received: wRec.get(wk) ?? 0,
         packed: wPack.get(wk) ?? 0,
       }));
@@ -1147,7 +1166,7 @@ export function DashboardPage() {
       received: recMap.get(k) ?? 0,
       packed: packMap.get(k) ?? 0,
     }));
-  }, [receptionsFiltered, ptTagsFiltered, chartGranularity]);
+  }, [receptionsFiltered, ptTagsFiltered, chartGranularity, t]);
 
   const productionByClient = useMemo(() => {
     const clientsMap = new Map((clientsQ.data ?? []).map((c) => [c.id, c.nombre]));

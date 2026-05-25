@@ -184,6 +184,8 @@
       "axisLabel": "Time axis",
       "byDay": "By day",
       "byWeek": "By week (Mon–Sun)",
+      "weekAxis": "Wk {{week}}",
+      "weekAxisYear": "Wk {{week}} · {{year}}",
       "noSession": "Chart not available without session."
     },
     "production": {

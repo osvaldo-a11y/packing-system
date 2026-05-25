@@ -709,8 +709,12 @@ export function ProcessesPage() {
               if (Number.isFinite(w)) return w;
               return Number(weightsRow.merma_lb ?? 0);
             })();
-    /** Merma en `merma_lb` / sob / balance que aún no está en la suma de componentes del modal. */
-    const mermaFueraDeComponentes = Math.max(0, mermaReg - mermaEnComponentes);
+    /** Merma fuera de tabla: legacy + implícita (entrada − PT − componentes) si `merma_lb` quedó baja. */
+    const impliedMermaLb = Math.max(0, entrada - packoutProductLb - components);
+    const mermaFueraDeComponentes =
+      mermaEnComponentes > ALLOC_EPS
+        ? 0
+        : Math.max(mermaReg - mermaEnComponentes, impliedMermaLb);
     const pendiente = entrada - packoutProductLb - components - mermaFueraDeComponentes;
     const ok = Math.abs(pendiente) < ALLOC_EPS;
     return {
