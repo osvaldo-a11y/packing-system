@@ -12,6 +12,7 @@ import { contentCard, pageTitle } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 export function LoginPage() {
   const { t } = useTranslation('common');
@@ -51,7 +52,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center p-4 sm:p-6">
+    <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center p-4 sm:p-6">
+      <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
+        <LanguageToggle />
+      </div>
       <div className="mb-8 text-center">
         <h1 className={pageTitle}>
           Pinebloom <span className="text-primary">Packing</span>

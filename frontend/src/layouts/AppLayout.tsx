@@ -193,11 +193,13 @@ export function AppLayout() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-12 items-center justify-between gap-3 border-b border-slate-200/50 bg-white/90 px-4 backdrop-blur-md md:hidden">
-          <NavLink to="/" className="text-[15px] font-semibold tracking-tight text-slate-900">
+        <header className="sticky top-0 z-40 flex h-12 items-center justify-between gap-2 border-b border-slate-200/50 bg-white/90 px-3 backdrop-blur-md sm:px-4 md:hidden">
+          <NavLink to="/" className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-slate-900">
             Pinebloom <span className="text-primary">Packing</span>
           </NavLink>
-          <DropdownMenu>
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageToggle />
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-lg border-slate-200/80 bg-white text-[13px] font-medium shadow-sm">
                 Menú
@@ -245,9 +247,10 @@ export function AppLayout() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </header>
 
-        <header className="hidden h-12 shrink-0 items-center justify-end border-b border-slate-200/50 bg-white/85 px-5 backdrop-blur-md md:flex">
+        <header className="hidden h-12 shrink-0 items-center justify-end gap-2 border-b border-slate-200/50 bg-white/85 px-5 backdrop-blur-md md:flex">
           <LanguageToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
