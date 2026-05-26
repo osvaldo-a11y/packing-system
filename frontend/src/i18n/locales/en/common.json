@@ -73,6 +73,34 @@
       "errSave": "Could not save"
     }
   },
+  "consumptions": {
+    "pageTitle": "Consumptions",
+    "pageSubtitle": "Operational consumption by format and category for quick replenishment decisions.",
+    "recalcButton": "Recalculate consumptions",
+    "materialsButton": "Materials",
+    "filters": {
+      "clientLabel": "Client (capacity)",
+      "clientAll": "All (generic)"
+    },
+    "sections": {
+      "title": "Consumption by material",
+      "zeroCostWarning": "Material cost shows $0 because recipes have no unit cost configured in materials. Set costs in Materials to see real cost per format.",
+      "boxesLabel": "boxes",
+      "palletsLabel": "pallets",
+      "consumoCategory": "Consumption by category",
+      "consumoLabel": "Consumption",
+      "stockLabel": "Stock",
+      "containersLabel": "Possible containers",
+      "stockByMaterial": "Stock by material (recipe)",
+      "labelsAssoc": "Associated labels"
+    },
+    "toast": {
+      "recalcOk": "Recalculation done: {{count}} consumption(s) updated.",
+      "recalcErr": "Could not recalculate consumptions",
+      "autoconsumoErr": "Could not auto-consume TAG #{{id}}: {{msg}}",
+      "autoconsumoOk": "Auto-consumption applied to {{count}} PT unit(s)"
+    }
+  },
   "nav": {
     "groups": {
       "principal": "Main",

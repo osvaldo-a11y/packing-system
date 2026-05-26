@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Package, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
@@ -272,6 +273,7 @@ function findRecipeForTag(tag: PtTagApi, recipes: RecipeApi[]): RecipeApi | null
 }
 
 export function ConsumptionsPage() {
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const [autoRunning, setAutoRunning] = useState(false);
   const [capClientId, setCapClientId] = useState<number | 'all'>('all');
@@ -311,10 +313,10 @@ export function ConsumptionsPage() {
       if (r.failed > 0) {
         toast.warning(`Recálculo parcial: ${r.recalculated}/${r.total} ok, ${r.failed} con error.`);
       } else {
-        toast.success(`Recálculo listo: ${r.recalculated} consumo(s) actualizados.`);
+        toast.success(t('consumptions.toast.recalcOk', { count: r.recalculated }));
       }
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo recalcular consumos'),
+    onError: (e: Error) => toast.error(e.message || t('consumptions.toast.recalcErr')),
   });
 
   const sortedTags = useMemo(() => (tags ?? []).slice().sort((a, b) => b.id - a.id), [tags]);
@@ -714,16 +716,16 @@ export function ConsumptionsPage() {
     setAutoRunning(true);
     void (async () => {
       let ok = 0;
-      for (const t of autoTargets) {
+      for (const autoTarget of autoTargets) {
         if (cancelled) break;
         try {
           await apiJson('/api/packaging/consumptions', {
             method: 'POST',
             body: JSON.stringify({
-              tarja_id: t.tarja_id,
-              recipe_id: t.recipe_id,
-              pallet_count: t.pallet_count,
-              boxes_count: t.boxes_count,
+              tarja_id: autoTarget.tarja_id,
+              recipe_id: autoTarget.recipe_id,
+              pallet_count: autoTarget.pallet_count,
+              boxes_count: autoTarget.boxes_count,
         tape_linear_meters: 0,
         corner_boards_qty: 0,
         labels_qty: 0,
@@ -731,17 +733,17 @@ export function ConsumptionsPage() {
           });
           ok += 1;
         } catch (e) {
-          autoSkipRef.current.add(t.tarja_id);
+          autoSkipRef.current.add(autoTarget.tarja_id);
           if (!cancelled) {
             const msg = e instanceof Error ? e.message : 'Error de autoconsumo';
-            toast.error(`No se pudo autoconsumir TAR #${t.tarja_id}: ${msg}`);
+            toast.error(t('consumptions.toast.autoconsumoErr', { id: autoTarget.tarja_id, msg }));
           }
         }
       }
       if (!cancelled && ok > 0) {
         await queryClient.invalidateQueries({ queryKey: ['packaging', 'consumptions'] });
         await queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
-        toast.success(`Autoconsumo aplicado en ${ok} unidad(es) PT`);
+        toast.success(t('consumptions.toast.autoconsumoOk', { count: ok }));
       }
       if (!cancelled) setAutoRunning(false);
     })();
@@ -773,8 +775,8 @@ export function ConsumptionsPage() {
     <div className="space-y-5">
       <div className={pageHeaderRow}>
         <div>
-          <h1 className={pageTitle}>Consumos</h1>
-          <p className={pageSubtitle}>Consumo operativo por formato y categoría para decisiones rápidas de reposición.</p>
+          <h1 className={pageTitle}>{t('consumptions.pageTitle')}</h1>
+          <p className={pageSubtitle}>{t('consumptions.pageSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -786,12 +788,12 @@ export function ConsumptionsPage() {
             onClick={() => recalcMut.mutate()}
           >
             <RotateCcw className={cn('h-4 w-4', recalcMut.isPending && 'animate-spin')} />
-            Recalcular consumos
+            {t('consumptions.recalcButton')}
           </Button>
           <Button variant="outline" size="sm" className="h-9 rounded-lg" asChild>
             <Link to="/packaging/materials" className="gap-1.5">
               <Package className="h-4 w-4" />
-              Materiales
+              {t('consumptions.materialsButton')}
             </Link>
             </Button>
         </div>
@@ -800,7 +802,7 @@ export function ConsumptionsPage() {
       <div className="flex flex-wrap items-end justify-between gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5">
         <div className="grid gap-1">
           <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500" htmlFor="consum-client">
-            Cliente (capacidad)
+            {t('consumptions.filters.clientLabel')}
           </label>
                 <select
             id="consum-client"
@@ -811,7 +813,7 @@ export function ConsumptionsPage() {
               setCapClientId(v === 'all' ? 'all' : Number(v));
             }}
           >
-            <option value="all">Todos (genéricos)</option>
+            <option value="all">{t('consumptions.filters.clientAll')}</option>
             {(clients ?? []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
@@ -830,15 +832,12 @@ export function ConsumptionsPage() {
       ) : (
         <section aria-labelledby="consum-mat-heading" className="space-y-4">
           <h2 id="consum-mat-heading" className={sectionTitle}>
-            Consumo por material
+            {t('consumptions.sections.title')}
           </h2>
           {formatMaterialSections.length > 0 && formatMaterialSections.every((f) => f.consumoTotal <= 0) ? (
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <span aria-hidden>⚠</span>
-              <span>
-                El costo de materiales aparece en $0 porque las recetas no tienen costo unitario configurado en los materiales.
-                Configurá los costos en Materiales para ver el costo real por formato.
-              </span>
+              <span>{t('consumptions.sections.zeroCostWarning')}</span>
             </div>
           ) : null}
           <div className="space-y-3">
@@ -848,14 +847,15 @@ export function ConsumptionsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div className="min-w-0">
                       <p className="font-mono text-[14px] font-semibold text-slate-900">{f.formatCode}</p>
-                      <p className="mt-0.5 text-[10px] text-slate-500">Consumo por categoría</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">{t('consumptions.sections.consumoCategory')}</p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
                       <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-foreground">
-                        {formatCount(Math.round(f.boxesProduced))} cajas
+                        {formatCount(Math.round(f.boxesProduced))} {t('consumptions.sections.boxesLabel')}
                       </span>
                       <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-foreground">
-                        {f.palletsProduced.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} pallets
+                        {f.palletsProduced.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                        {t('consumptions.sections.palletsLabel')}
                       </span>
                       {f.consumoTotal > 0 ? (
                         <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700">
@@ -894,19 +894,19 @@ export function ConsumptionsPage() {
                           <p className="text-[12px] font-semibold leading-tight text-slate-900">{c.label}</p>
                           <div className="mt-1.5 space-y-1">
                             <div className="flex justify-between gap-1 border-b border-slate-100/80 pb-1">
-                              <span className="text-slate-500">Consumo</span>
+                              <span className="text-slate-500">{t('consumptions.sections.consumoLabel')}</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-800">
                                 {c.consumoQty.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                               </span>
                             </div>
                             <div className="flex justify-between gap-1 border-b border-slate-100/80 pb-1">
-                              <span className="text-slate-500">Stock</span>
+                              <span className="text-slate-500">{t('consumptions.sections.stockLabel')}</span>
                               <span className="shrink-0 font-semibold tabular-nums text-slate-800">
                                 {formatCount(Math.round(c.stock))}
                               </span>
                             </div>
                             <div>
-                              <p className="text-[10px] font-semibold leading-tight text-slate-800">Contenedores posibles</p>
+                              <p className="text-[10px] font-semibold leading-tight text-slate-800">{t('consumptions.sections.containersLabel')}</p>
                               <p className="text-[9px] leading-tight text-slate-500">{f.contenedoresSub}</p>
                               <p className={cn('mt-0.5 text-lg font-bold tabular-nums leading-tight', contColorClass)}>
                                 {contNum != null ? contNum.toFixed(2) : '—'}
@@ -915,7 +915,7 @@ export function ConsumptionsPage() {
               </div>
                           {c.key === 'tape' && c.tapeItems.length > 1 ? (
                             <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stock por material (receta)</p>
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('consumptions.sections.stockByMaterial')}</p>
                               <div className="space-y-1">
                                 {c.tapeItems.map((e) => (
                                   <div key={e.id} className="flex items-center justify-between gap-1">
@@ -930,7 +930,7 @@ export function ConsumptionsPage() {
                           ) : null}
                           {c.key === 'etiqueta' && c.etiquetas.length > 1 ? (
                             <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Etiquetas asociadas</p>
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('consumptions.sections.labelsAssoc')}</p>
                               <div className="space-y-1">
                                 {c.etiquetas.map((e) => (
                                   <div key={e.id} className="flex items-center justify-between gap-1">

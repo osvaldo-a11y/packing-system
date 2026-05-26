@@ -73,6 +73,34 @@
       "errSave": "No se pudo guardar"
     }
   },
+  "consumptions": {
+    "pageTitle": "Consumos",
+    "pageSubtitle": "Consumo operativo por formato y categoría para decisiones rápidas de reposición.",
+    "recalcButton": "Recalcular consumos",
+    "materialsButton": "Materiales",
+    "filters": {
+      "clientLabel": "Cliente (capacidad)",
+      "clientAll": "Todos (genéricos)"
+    },
+    "sections": {
+      "title": "Consumo por material",
+      "zeroCostWarning": "El costo de materiales aparece en $0 porque las recetas no tienen costo unitario configurado en los materiales. Configurá los costos en Materiales para ver el costo real por formato.",
+      "boxesLabel": "cajas",
+      "palletsLabel": "pallets",
+      "consumoCategory": "Consumo por categoría",
+      "consumoLabel": "Consumo",
+      "stockLabel": "Stock",
+      "containersLabel": "Contenedores posibles",
+      "stockByMaterial": "Stock por material (receta)",
+      "labelsAssoc": "Etiquetas asociadas"
+    },
+    "toast": {
+      "recalcOk": "Recálculo listo: {{count}} consumo(s) actualizados.",
+      "recalcErr": "No se pudo recalcular consumos",
+      "autoconsumoErr": "No se pudo autoconsumir TAR #{{id}}: {{msg}}",
+      "autoconsumoOk": "Autoconsumo aplicado en {{count}} unidad(es) PT"
+    }
+  },
   "nav": {
     "groups": {
       "principal": "Principal",
