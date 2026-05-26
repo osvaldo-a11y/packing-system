@@ -54,6 +54,25 @@
     },
     "backHome": "← Volver al inicio"
   },
+  "plant": {
+    "pageTitle": "Parámetros de planta",
+    "pageSubtitle": "Lectura para todos los roles; guardar solo administradores.",
+    "loadError": "No se pudieron cargar los datos",
+    "card": {
+      "title": "Ajustes",
+      "lastUpdate": "Última actualización:",
+      "yieldTolerance": "Tolerancia rendimiento (%)",
+      "minYield": "Rendimiento mínimo aceptable (%)",
+      "maxMerma": "Merma máxima aceptable (%)",
+      "saveButton": "Guardar cambios",
+      "savingButton": "Guardando…",
+      "readOnlyHint": "Iniciá sesión como admin para editar estos valores."
+    },
+    "toast": {
+      "saved": "Parámetros guardados",
+      "errSave": "No se pudo guardar"
+    }
+  },
   "nav": {
     "groups": {
       "principal": "Principal",

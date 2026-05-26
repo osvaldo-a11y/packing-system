@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
@@ -34,6 +35,7 @@ function fetchPlant() {
 }
 
 export function PlantPage() {
+  const { t } = useTranslation('common');
   const { role } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = role === 'admin';
@@ -70,9 +72,9 @@ export function PlantPage() {
       }),
     onSuccess: (row) => {
       queryClient.setQueryData(['plant-settings'], row);
-      toast.success('Parámetros guardados');
+      toast.success(t('plant.toast.saved'));
     },
-    onError: (e: Error) => toast.error(e.message || 'No se pudo guardar'),
+    onError: (e: Error) => toast.error(e.message || t('plant.toast.errSave')),
   });
 
   if (isPending) {
@@ -88,7 +90,7 @@ export function PlantPage() {
     return (
       <Card className={errorStateCard}>
         <CardHeader>
-          <CardTitle>No se pudieron cargar los datos</CardTitle>
+          <CardTitle>{t('plant.loadError')}</CardTitle>
           <CardDescription>{error instanceof Error ? error.message : 'Reintentá más tarde.'}</CardDescription>
         </CardHeader>
       </Card>
@@ -98,22 +100,22 @@ export function PlantPage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h1 className={pageTitle}>Parámetros de planta</h1>
-        <p className={pageSubtitle}>Lectura para todos los roles; guardar solo administradores.</p>
+        <h1 className={pageTitle}>{t('plant.pageTitle')}</h1>
+        <p className={pageSubtitle}>{t('plant.pageSubtitle')}</p>
       </div>
 
       <Card className={contentCard}>
         <CardHeader>
-          <CardTitle>Ajustes</CardTitle>
+          <CardTitle>{t('plant.card.title')}</CardTitle>
           <CardDescription>
-            Última actualización:{' '}
+            {t('plant.card.lastUpdate')}{' '}
             {data?.updated_at ? new Date(data.updated_at).toLocaleString('es') : '—'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit((vals) => isAdmin && mutation.mutate(vals))} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="yield_tolerance_percent">Tolerancia rendimiento (%)</Label>
+              <Label htmlFor="yield_tolerance_percent">{t('plant.card.yieldTolerance')}</Label>
               <Input
                 id="yield_tolerance_percent"
                 type="number"
@@ -124,7 +126,7 @@ export function PlantPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="min_yield_percent">Rendimiento mínimo aceptable (%)</Label>
+              <Label htmlFor="min_yield_percent">{t('plant.card.minYield')}</Label>
               <Input
                 id="min_yield_percent"
                 type="number"
@@ -135,7 +137,7 @@ export function PlantPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="max_merma_percent">Merma máxima aceptable (%)</Label>
+              <Label htmlFor="max_merma_percent">{t('plant.card.maxMerma')}</Label>
               <Input
                 id="max_merma_percent"
                 type="number"
@@ -147,10 +149,10 @@ export function PlantPage() {
             </div>
             {isAdmin ? (
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Guardando…' : 'Guardar cambios'}
+                {mutation.isPending ? t('plant.card.savingButton') : t('plant.card.saveButton')}
               </Button>
             ) : (
-              <p className="text-sm text-muted-foreground">Iniciá sesión como admin para editar estos valores.</p>
+              <p className="text-sm text-muted-foreground">{t('plant.card.readOnlyHint')}</p>
             )}
           </form>
         </CardContent>

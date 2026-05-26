@@ -54,6 +54,25 @@
     },
     "backHome": "← Back to home"
   },
+  "plant": {
+    "pageTitle": "Plant parameters",
+    "pageSubtitle": "Read access for all roles; save for administrators only.",
+    "loadError": "Could not load data",
+    "card": {
+      "title": "Settings",
+      "lastUpdate": "Last update:",
+      "yieldTolerance": "Yield tolerance (%)",
+      "minYield": "Minimum acceptable yield (%)",
+      "maxMerma": "Maximum acceptable waste (%)",
+      "saveButton": "Save changes",
+      "savingButton": "Saving…",
+      "readOnlyHint": "Log in as admin to edit these values."
+    },
+    "toast": {
+      "saved": "Parameters saved",
+      "errSave": "Could not save"
+    }
+  },
   "nav": {
     "groups": {
       "principal": "Main",
