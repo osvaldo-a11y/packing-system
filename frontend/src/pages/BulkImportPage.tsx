@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Papa from 'papaparse';
@@ -44,15 +45,6 @@ type ImportEntity =
   | 'final-pallets'
   | 'sales-orders'
   | 'dispatches';
-
-const TABS: { key: ImportEntity; label: string }[] = [
-  { key: 'receptions', label: 'Recepciones' },
-  { key: 'processes', label: 'Procesos' },
-  { key: 'pt-tags', label: 'Unidad PT' },
-  { key: 'final-pallets', label: 'Existencias PT' },
-  { key: 'sales-orders', label: 'Pedidos' },
-  { key: 'dispatches', label: 'Despachos' },
-];
 
 type ImportSummary = {
   total: number;
@@ -120,8 +112,6 @@ type ImportLog = {
   errors_sample?: Array<{ row: number; field?: string; message: string }> | null;
 };
 
-const STEPS = ['Plantilla', 'Archivo', 'Preview', 'Resultado'] as const;
-
 type ParsedCsv = {
   headers: string[];
   rows: string[][];
@@ -159,6 +149,21 @@ function formatDateTime(iso: string): string {
 }
 
 export function BulkImportPage() {
+  const { t } = useTranslation('common');
+  const TABS = [
+    { key: 'receptions' as const, label: t('bulkImport.tabs.receptions') },
+    { key: 'processes' as const, label: t('bulkImport.tabs.processes') },
+    { key: 'pt-tags' as const, label: t('bulkImport.tabs.ptTags') },
+    { key: 'final-pallets' as const, label: t('bulkImport.tabs.finalPallets') },
+    { key: 'sales-orders' as const, label: t('bulkImport.tabs.salesOrders') },
+    { key: 'dispatches' as const, label: t('bulkImport.tabs.dispatches') },
+  ];
+  const STEPS = [
+    t('bulkImport.steps.template'),
+    t('bulkImport.steps.file'),
+    t('bulkImport.steps.preview'),
+    t('bulkImport.steps.result'),
+  ];
   const { role, username } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<ImportEntity>('receptions');
@@ -200,19 +205,19 @@ export function BulkImportPage() {
       return;
     }
     if (!f.name.toLowerCase().endsWith('.csv')) {
-      toast.error('Solo se acepta archivo .csv');
+      toast.error(t('bulkImport.toast.csvOnly'));
       return;
     }
     setFile(f);
     const reader = new FileReader();
     reader.onload = () => {
-      const t = typeof reader.result === 'string' ? reader.result : '';
-      const parsedCsv = parseCsvForUi(t);
+      const csvText = typeof reader.result === 'string' ? reader.result : '';
+      const parsedCsv = parseCsvForUi(csvText);
       setParsed(parsedCsv);
       setCurrentStep(3);
     };
     reader.readAsText(f, 'UTF-8');
-  }, []);
+  }, [t]);
 
   const logsQuery = useQuery({
     queryKey: ['import-logs'],
@@ -276,11 +281,15 @@ export function BulkImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['import-sales-orders-preview'] });
       void queryClient.invalidateQueries({ queryKey: ['import-logs'] });
       toast.success(
-        `Borrados ${data.deleted_sales_orders} pedido(s), ${data.deleted_lines} línea(s), ` +
-          `${data.cleared_planned_pallets} vínculo(s) plan en PT, ${data.deleted_modifications} registro(s) de historial`,
+        t('bulkImport.toast.deletedSalesOrders', {
+          orders: data.deleted_sales_orders,
+          lines: data.deleted_lines,
+          pallets: data.cleared_planned_pallets,
+          mods: data.deleted_modifications,
+        }),
       );
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo borrar'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errDelete')),
   });
 
   const deletePtTagsMutation = useMutation({
@@ -305,9 +314,9 @@ export function BulkImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['pt-tags'] });
       void queryClient.invalidateQueries({ queryKey: ['import-pt-tags-preview'] });
       void queryClient.invalidateQueries({ queryKey: ['import-logs'] });
-      toast.success(`Borradas ${data.deleted_pt_tags} unidad(es) PT`);
+      toast.success(t('bulkImport.toast.deletedPtTags', { count: data.deleted_pt_tags }));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo borrar'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errDelete')),
   });
 
   const deleteProcessesMutation = useMutation({
@@ -333,10 +342,13 @@ export function BulkImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['import-processes-preview'] });
       void queryClient.invalidateQueries({ queryKey: ['import-logs'] });
       toast.success(
-        `Borrados ${data.deleted_processes} proceso(s), ${data.deleted_raw_movements} movimiento(s) de MP asociados`,
+        t('bulkImport.toast.deletedProcesses', {
+          processes: data.deleted_processes,
+          movements: data.deleted_raw_movements,
+        }),
       );
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo borrar'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errDelete')),
   });
 
   const deleteReceptionsMutation = useMutation({
@@ -367,10 +379,14 @@ export function BulkImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['import-logs'] });
       void queryClient.invalidateQueries({ queryKey: ['processes'] });
       toast.success(
-        `Borradas ${data.deleted_receptions} recepción(es), ${data.deleted_lines} línea(s), ${data.deleted_movements} movimiento(s) de MP`,
+        t('bulkImport.toast.deletedReceptions', {
+          receptions: data.deleted_receptions,
+          lines: data.deleted_lines,
+          movements: data.deleted_movements,
+        }),
       );
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo borrar'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errDelete')),
   });
 
   const toggleReceptionDeleteSelect = useCallback((id: number) => {
@@ -384,11 +400,11 @@ export function BulkImportPage() {
     const ids = draft.slice(0, n).map((r) => r.id);
     setReceptionDeleteSelected(ids);
     if (ids.length < n) {
-      toast.success(`Solo hay ${ids.length} recepción(es) en borrador en esta vista (pediste ${n}).`);
+      toast.success(t('bulkImport.toast.receptionsDraftLimit', { count: ids.length, n }));
     } else {
-      toast.success(`${ids.length} recepciones en borrador seleccionadas.`);
+      toast.success(t('bulkImport.toast.receptionsDraftSelected', { count: ids.length }));
     }
-  }, [receptionDeleteLastN, receptionsPreviewQuery.data]);
+  }, [receptionDeleteLastN, receptionsPreviewQuery.data, t]);
 
   const toggleSalesOrderDeleteSelect = useCallback((id: number) => {
     setSalesOrderDeleteSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -401,11 +417,11 @@ export function BulkImportPage() {
     const ids = draft.slice(0, n).map((r) => r.id);
     setSalesOrderDeleteSelected(ids);
     if (ids.length < n) {
-      toast.success(`Solo hay ${ids.length} pedido(s) sin despacho en esta vista (pediste ${n}).`);
+      toast.success(t('bulkImport.toast.salesOrdersLimit', { count: ids.length, n }));
     } else {
-      toast.success(`${ids.length} pedidos sin despacho seleccionados.`);
+      toast.success(t('bulkImport.toast.salesOrdersSelected', { count: ids.length }));
     }
-  }, [salesOrderDeleteLastN, salesOrdersPreviewQuery.data]);
+  }, [salesOrderDeleteLastN, salesOrdersPreviewQuery.data, t]);
 
   const togglePtTagDeleteSelect = useCallback((id: number) => {
     setPtTagDeleteSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -418,13 +434,11 @@ export function BulkImportPage() {
     const ids = draft.slice(0, n).map((r) => r.id);
     setPtTagDeleteSelected(ids);
     if (ids.length < n) {
-      toast.success(
-        `Solo hay ${ids.length} unidad(es) PT borrable(s) en esta vista (pediste ${n}). Las demás tienen despacho, factura o merge.`,
-      );
+      toast.success(t('bulkImport.toast.ptTagsLimit', { count: ids.length, n }));
     } else {
-      toast.success(`${ids.length} unidades PT seleccionadas (borrables).`);
+      toast.success(t('bulkImport.toast.ptTagsSelected', { count: ids.length }));
     }
-  }, [ptTagDeleteLastN, ptTagsPreviewQuery.data]);
+  }, [ptTagDeleteLastN, ptTagsPreviewQuery.data, t]);
 
   const toggleProcessDeleteSelect = useCallback((id: number) => {
     setProcessDeleteSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -437,13 +451,11 @@ export function BulkImportPage() {
     const ids = draft.slice(0, n).map((r) => r.id);
     setProcessDeleteSelected(ids);
     if (ids.length < n) {
-      toast.success(
-        `Solo hay ${ids.length} proceso(s) borrable(s) en esta vista (pediste ${n}). Revisá estado, balance, tarjas o existencias PT.`,
-      );
+      toast.success(t('bulkImport.toast.processesLimit', { count: ids.length, n }));
     } else {
-      toast.success(`${ids.length} procesos seleccionados (borrables).`);
+      toast.success(t('bulkImport.toast.processesSelected', { count: ids.length }));
     }
-  }, [processDeleteLastN, processesPreviewQuery.data]);
+  }, [processDeleteLastN, processesPreviewQuery.data, t]);
 
   const templateMutation = useMutation({
     mutationFn: async () => {
@@ -469,9 +481,9 @@ export function BulkImportPage() {
     },
     onSuccess: () => {
       setCurrentStep((s) => Math.max(s, 2));
-      toast.success('Plantilla descargada');
+      toast.success(t('bulkImport.toast.templateOk'));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo descargar'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errDownload')),
   });
 
   const backupMutation = useMutation({
@@ -503,9 +515,9 @@ export function BulkImportPage() {
       const ts = new Date().toISOString();
       localStorage.setItem('last_backup_ts', ts);
       setLastBackupTs(ts);
-      toast.success(`Respaldo descargado: ${filename}`);
+      toast.success(t('bulkImport.toast.backupOk', { filename }));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo generar el respaldo'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errBackup')),
   });
 
   const importMutation = useMutation({
@@ -549,7 +561,7 @@ export function BulkImportPage() {
       }
       toast.success('Importación finalizada');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Error de red'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t('bulkImport.toast.errNetwork')),
   });
 
   const nowFmt = useMemo(() => new Date().toLocaleString(), [summary]);
@@ -571,11 +583,11 @@ export function BulkImportPage() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            <h1 className={pageTitle}>Carga masiva</h1>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Solo admin</span>
+            <h1 className={pageTitle}>{t('bulkImport.pageTitle')}</h1>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('bulkImport.adminBadge')}</span>
           </div>
           <p className={pageSubtitle}>
-            Importá datos históricos desde tu sistema anterior. Descargá la plantilla, completála y subila.
+            {t('bulkImport.pageSubtitle')}
           </p>
         </div>
         <Button
@@ -586,44 +598,37 @@ export function BulkImportPage() {
           onClick={() => backupMutation.mutate()}
         >
           <Download className="h-4 w-4" />
-          {backupMutation.isPending ? 'Generando respaldo...' : '⬇ Descargar respaldo completo'}
+          {backupMutation.isPending ? t('bulkImport.backupGenerating') : t('bulkImport.backupButton')}
         </Button>
       </header>
 
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            🛡️ Antes de limpiar o reimportar datos:
-            <br />
-            1. Descargá el respaldo completo (botón arriba)
-            <br />
-            2. Guardalo en un lugar seguro
-            <br />
-            3. Verificá que el ZIP contiene todos los archivos
-            <br />
-            4. Solo entonces procedé con la limpieza
-          </p>
+          <div>
+            <p className="font-semibold">{t('bulkImport.warningTitle')}</p>
+            <p className="mt-1 whitespace-pre-line">{t('bulkImport.warningSteps')}</p>
+          </div>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-4 border-b border-border pb-2">
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <button
-            key={t.key}
+            key={tabItem.key}
             type="button"
             onClick={() => {
-              setTab(t.key);
+              setTab(tabItem.key);
               resetFlow();
             }}
             className={cn(
               'border-b-2 px-1 pb-2 text-sm transition-colors',
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -631,14 +636,10 @@ export function BulkImportPage() {
       {tab === 'receptions' && (
         <section className="rounded-lg border border-rose-200 bg-rose-50/50">
           <header className="border-b border-rose-200 px-4 py-2.5 text-[11px] uppercase tracking-wide text-rose-900">
-            Borrar recepciones (solo borrador)
+            {t('bulkImport.sections.deleteReceptions')}
           </header>
           <div className="space-y-3 p-4 text-sm text-rose-950">
-            <p>
-              Para que desaparezcan en <strong className="font-semibold">Recepciones</strong>, hay que borrarlas en la
-              base y refrescar la lista. Solo se pueden eliminar recepciones en estado <strong>borrador</strong> y sin
-              procesos vinculados.
-            </p>
+            <p>{t('bulkImport.labels.receptionDesc')}</p>
             <div className="flex flex-wrap items-end gap-2">
               <Button
                 type="button"
@@ -648,11 +649,11 @@ export function BulkImportPage() {
                 disabled={receptionsPreviewQuery.isFetching}
                 onClick={() => void receptionsPreviewQuery.refetch()}
               >
-                {receptionsPreviewQuery.isFetching ? 'Cargando…' : 'Actualizar lista'}
+                {receptionsPreviewQuery.isFetching ? t('bulkImport.actions.loading') : t('bulkImport.actions.updateList')}
               </Button>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-rose-900 whitespace-nowrap" htmlFor="bulk-del-last-n">
-                  Últimas N en borrador
+                  {t('bulkImport.labels.lastNDraft')}
                 </label>
                 <Input
                   id="bulk-del-last-n"
@@ -663,7 +664,7 @@ export function BulkImportPage() {
                 />
               </div>
               <Button type="button" variant="outline" size="sm" className="border-rose-300 bg-white" onClick={selectLastNBorrador}>
-                Seleccionar
+                {t('bulkImport.actions.select')}
               </Button>
               <Button
                 type="button"
@@ -672,7 +673,7 @@ export function BulkImportPage() {
                 className="border-rose-300 bg-white"
                 onClick={() => setReceptionDeleteSelected([])}
               >
-                Limpiar selección
+                {t('bulkImport.actions.clearSelection')}
               </Button>
               <Button
                 type="button"
@@ -681,25 +682,25 @@ export function BulkImportPage() {
                 disabled={receptionDeleteSelected.length === 0}
                 onClick={() => setReceptionDeleteDialogOpen(true)}
               >
-                Borrar {receptionDeleteSelected.length || '…'} seleccionada(s)
+                {t('bulkImport.actions.deleteSelected', { count: receptionDeleteSelected.length || '…' })}
               </Button>
             </div>
 
             {receptionsPreviewQuery.isError ? (
-              <p className="text-sm text-red-700">No se pudo cargar la vista previa.</p>
+              <p className="text-sm text-red-700">{t('bulkImport.labels.previewError')}</p>
             ) : receptionsPreviewQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Cargando recepciones recientes…</p>
+              <p className="text-xs text-muted-foreground">{t('bulkImport.actions.loading')}</p>
             ) : (
               <div className={cn(tableShell, 'max-h-72 overflow-auto rounded-md border border-rose-200 bg-white')}>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
                       <TableHead className="w-10 text-xs" />
-                      <TableHead className="text-xs">Id</TableHead>
-                      <TableHead className="text-xs">Referencia</TableHead>
-                      <TableHead className="text-xs">Estado</TableHead>
-                      <TableHead className="text-xs">Líneas</TableHead>
-                      <TableHead className="text-xs">Alta</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.id')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.reference')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.state')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.lines')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.created')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -737,16 +738,10 @@ export function BulkImportPage() {
       {tab === 'processes' && (
         <section className="rounded-lg border border-violet-200 bg-violet-50/50">
           <header className="border-b border-violet-200 px-4 py-2.5 text-[11px] uppercase tracking-wide text-violet-950">
-            Borrar procesos (selectivo)
+            {t('bulkImport.sections.deleteProcesses')}
           </header>
           <div className="space-y-3 p-4 text-sm text-violet-950">
-            <p>
-              Para quitar procesos cargados por CSV (u otros en <strong className="font-semibold">borrador</strong>
-              ), elegí filas en la tabla y confirmá. Solo aplica si el proceso está en borrador, sin balance cerrado, sin
-              tarja PT vinculada, sin línea en existencias PT, factura ni repalet. También podés filas CSV con{' '}
-              <code className="rounded bg-white px-1 text-xs">import_action=borrar</code> y{' '}
-              <code className="rounded bg-white px-1 text-xs">process_id</code>.
-            </p>
+            <p>{t('bulkImport.labels.processDesc')}</p>
             <div className="flex flex-wrap items-end gap-2">
               <Button
                 type="button"
@@ -756,11 +751,11 @@ export function BulkImportPage() {
                 disabled={processesPreviewQuery.isFetching}
                 onClick={() => void processesPreviewQuery.refetch()}
               >
-                {processesPreviewQuery.isFetching ? 'Cargando…' : 'Actualizar lista'}
+                {processesPreviewQuery.isFetching ? t('bulkImport.actions.loading') : t('bulkImport.actions.updateList')}
               </Button>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-violet-950 whitespace-nowrap" htmlFor="bulk-del-proc-last-n">
-                  Primeros N borrables
+                  {t('bulkImport.labels.firstNDeletable')}
                 </label>
                 <Input
                   id="bulk-del-proc-last-n"
@@ -777,7 +772,7 @@ export function BulkImportPage() {
                 className="border-violet-300 bg-white"
                 onClick={selectLastNDeletableProcesses}
               >
-                Seleccionar
+                {t('bulkImport.actions.select')}
               </Button>
               <Button
                 type="button"
@@ -786,7 +781,7 @@ export function BulkImportPage() {
                 className="border-violet-300 bg-white"
                 onClick={() => setProcessDeleteSelected([])}
               >
-                Limpiar selección
+                {t('bulkImport.actions.clearSelection')}
               </Button>
               <Button
                 type="button"
@@ -795,29 +790,29 @@ export function BulkImportPage() {
                 disabled={processDeleteSelected.length === 0}
                 onClick={() => setProcessDeleteDialogOpen(true)}
               >
-                Borrar {processDeleteSelected.length || '…'} seleccionado(s)
+                {t('bulkImport.actions.deleteSelectedM', { count: processDeleteSelected.length || '…' })}
               </Button>
             </div>
 
             {processesPreviewQuery.isError ? (
-              <p className="text-sm text-red-700">No se pudo cargar la vista previa.</p>
+              <p className="text-sm text-red-700">{t('bulkImport.labels.previewError')}</p>
             ) : processesPreviewQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Cargando procesos recientes…</p>
+              <p className="text-xs text-muted-foreground">{t('bulkImport.actions.loading')}</p>
             ) : (
               <div className={cn(tableShell, 'max-h-72 overflow-auto rounded-md border border-violet-200 bg-white')}>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
                       <TableHead className="w-10 text-xs" />
-                      <TableHead className="text-xs">Id</TableHead>
-                      <TableHead className="text-xs">Estado</TableHead>
-                      <TableHead className="text-xs">Recep.</TableHead>
-                      <TableHead className="text-xs">Lb proc.</TableHead>
-                      <TableHead className="text-xs">PT</TableHead>
-                      <TableHead className="text-xs">FPL</TableHead>
-                      <TableHead className="text-xs">Fact.</TableHead>
-                      <TableHead className="text-xs">Rep.</TableHead>
-                      <TableHead className="text-xs">Fecha</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.id')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.state')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.recepcion')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.lbProc')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.pt')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.fpl')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.invoice')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.repallet')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.date')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -863,14 +858,10 @@ export function BulkImportPage() {
       {tab === 'sales-orders' && (
         <section className="rounded-lg border border-orange-200 bg-orange-50/50">
           <header className="border-b border-orange-200 px-4 py-2.5 text-[11px] uppercase tracking-wide text-orange-950">
-            Borrar pedidos (solo sin despacho)
+            {t('bulkImport.sections.deleteSalesOrders')}
           </header>
           <div className="space-y-3 p-4 text-sm text-orange-950">
-            <p>
-              Para que desaparezcan en <strong className="font-semibold">Pedidos</strong>, hay que borrarlos en la base
-              y refrescar la lista. Solo se pueden eliminar pedidos <strong>sin ningún despacho</strong> vinculado (
-              <code className="rounded bg-white/80 px-1">dispatches.orden_id</code>).
-            </p>
+            <p>{t('bulkImport.labels.salesOrderDesc')}</p>
             <div className="flex flex-wrap items-end gap-2">
               <Button
                 type="button"
@@ -880,11 +871,11 @@ export function BulkImportPage() {
                 disabled={salesOrdersPreviewQuery.isFetching}
                 onClick={() => void salesOrdersPreviewQuery.refetch()}
               >
-                {salesOrdersPreviewQuery.isFetching ? 'Cargando…' : 'Actualizar lista'}
+                {salesOrdersPreviewQuery.isFetching ? t('bulkImport.actions.loading') : t('bulkImport.actions.updateList')}
               </Button>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-orange-950 whitespace-nowrap" htmlFor="bulk-del-so-last-n">
-                  Últimos N sin despacho
+                  {t('bulkImport.labels.lastNNoDispatch')}
                 </label>
                 <Input
                   id="bulk-del-so-last-n"
@@ -901,7 +892,7 @@ export function BulkImportPage() {
                 className="border-orange-300 bg-white"
                 onClick={selectLastNSinDespacho}
               >
-                Seleccionar
+                {t('bulkImport.actions.select')}
               </Button>
               <Button
                 type="button"
@@ -910,7 +901,7 @@ export function BulkImportPage() {
                 className="border-orange-300 bg-white"
                 onClick={() => setSalesOrderDeleteSelected([])}
               >
-                Limpiar selección
+                {t('bulkImport.actions.clearSelection')}
               </Button>
               <Button
                 type="button"
@@ -919,26 +910,26 @@ export function BulkImportPage() {
                 disabled={salesOrderDeleteSelected.length === 0}
                 onClick={() => setSalesOrderDeleteDialogOpen(true)}
               >
-                Borrar {salesOrderDeleteSelected.length || '…'} seleccionado(s)
+                {t('bulkImport.actions.deleteSelectedM', { count: salesOrderDeleteSelected.length || '…' })}
               </Button>
             </div>
 
             {salesOrdersPreviewQuery.isError ? (
-              <p className="text-sm text-red-700">No se pudo cargar la vista previa.</p>
+              <p className="text-sm text-red-700">{t('bulkImport.labels.previewError')}</p>
             ) : salesOrdersPreviewQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Cargando pedidos recientes…</p>
+              <p className="text-xs text-muted-foreground">{t('bulkImport.actions.loading')}</p>
             ) : (
               <div className={cn(tableShell, 'max-h-72 overflow-auto rounded-md border border-orange-200 bg-white')}>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
                       <TableHead className="w-10 text-xs" />
-                      <TableHead className="text-xs">Id</TableHead>
-                      <TableHead className="text-xs">Pedido</TableHead>
-                      <TableHead className="text-xs">Despachos</TableHead>
-                      <TableHead className="text-xs">Líneas</TableHead>
-                      <TableHead className="text-xs">Estado com.</TableHead>
-                      <TableHead className="text-xs">Fecha pedido</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.id')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.order')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.dispatches')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.lines')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.commercialState')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.orderDate')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -979,14 +970,10 @@ export function BulkImportPage() {
       {tab === 'pt-tags' && (
         <section className="rounded-lg border border-indigo-200 bg-indigo-50/50">
           <header className="border-b border-indigo-200 px-4 py-2.5 text-[11px] uppercase tracking-wide text-indigo-950">
-            Borrar unidades PT (selectivo)
+            {t('bulkImport.sections.deletePtTags')}
           </header>
           <div className="space-y-3 p-4 text-sm text-indigo-950">
-            <p>
-              Igual que recepciones: elegí tarjas en la tabla y confirmá el borrado. Solo se pueden eliminar unidades{' '}
-              <strong>sin despacho</strong>, <strong>sin líneas en facturas</strong> y <strong>sin participar en un
-              merge</strong>. También podés borrar por CSV con la columna <code className="rounded bg-white px-1 text-xs">import_action=borrar</code>.
-            </p>
+            <p>{t('bulkImport.labels.ptTagDesc')}</p>
             <div className="flex flex-wrap items-end gap-2">
               <Button
                 type="button"
@@ -996,11 +983,11 @@ export function BulkImportPage() {
                 disabled={ptTagsPreviewQuery.isFetching}
                 onClick={() => void ptTagsPreviewQuery.refetch()}
               >
-                {ptTagsPreviewQuery.isFetching ? 'Cargando…' : 'Actualizar lista'}
+                {ptTagsPreviewQuery.isFetching ? t('bulkImport.actions.loading') : t('bulkImport.actions.updateList')}
               </Button>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-indigo-950 whitespace-nowrap" htmlFor="bulk-del-pt-last-n">
-                  Primeras N borrables
+                  {t('bulkImport.labels.firstNDeletablePt')}
                 </label>
                 <Input
                   id="bulk-del-pt-last-n"
@@ -1017,7 +1004,7 @@ export function BulkImportPage() {
                 className="border-indigo-300 bg-white"
                 onClick={selectLastNDeletablePtTags}
               >
-                Seleccionar
+                {t('bulkImport.actions.select')}
               </Button>
               <Button
                 type="button"
@@ -1026,7 +1013,7 @@ export function BulkImportPage() {
                 className="border-indigo-300 bg-white"
                 onClick={() => setPtTagDeleteSelected([])}
               >
-                Limpiar selección
+                {t('bulkImport.actions.clearSelection')}
               </Button>
               <Button
                 type="button"
@@ -1035,28 +1022,28 @@ export function BulkImportPage() {
                 disabled={ptTagDeleteSelected.length === 0}
                 onClick={() => setPtTagDeleteDialogOpen(true)}
               >
-                Borrar {ptTagDeleteSelected.length || '…'} seleccionada(s)
+                {t('bulkImport.actions.deleteSelected', { count: ptTagDeleteSelected.length || '…' })}
               </Button>
             </div>
 
             {ptTagsPreviewQuery.isError ? (
-              <p className="text-sm text-red-700">No se pudo cargar la vista previa.</p>
+              <p className="text-sm text-red-700">{t('bulkImport.labels.previewError')}</p>
             ) : ptTagsPreviewQuery.isLoading ? (
-              <p className="text-xs text-muted-foreground">Cargando unidades PT recientes…</p>
+              <p className="text-xs text-muted-foreground">{t('bulkImport.actions.loading')}</p>
             ) : (
               <div className={cn(tableShell, 'max-h-72 overflow-auto rounded-md border border-indigo-200 bg-white')}>
                 <Table>
                   <TableHeader>
                     <TableRow className={tableHeaderRow}>
                       <TableHead className="w-10 text-xs" />
-                      <TableHead className="text-xs">Id</TableHead>
-                      <TableHead className="text-xs">Tarja</TableHead>
-                      <TableHead className="text-xs">Formato</TableHead>
-                      <TableHead className="text-xs">Cajas</TableHead>
-                      <TableHead className="text-xs">Desp.</TableHead>
-                      <TableHead className="text-xs">Fact.</TableHead>
-                      <TableHead className="text-xs">Merge</TableHead>
-                      <TableHead className="text-xs">Cliente</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.id')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.tag')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.format')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.boxes')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.disp')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.invoice')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.merge')}</TableHead>
+                      <TableHead className="text-xs">{t('bulkImport.cols.client')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1096,15 +1083,14 @@ export function BulkImportPage() {
       <Dialog open={receptionDeleteDialogOpen} onOpenChange={setReceptionDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Borrar recepciones seleccionadas</DialogTitle>
+            <DialogTitle>{t('bulkImport.dialogs.deleteReceptionsTitle')}</DialogTitle>
             <DialogDescription>
-              Se eliminarán {receptionDeleteSelected.length} recepción(es) y sus líneas en la base de datos. No se puede
-              deshacer.
+              {t('bulkImport.dialogs.deleteReceptionsDesc', { count: receptionDeleteSelected.length })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setReceptionDeleteDialogOpen(false)}>
-              Cancelar
+              {t('bulkImport.actions.cancel')}
             </Button>
             <Button
               type="button"
@@ -1112,7 +1098,7 @@ export function BulkImportPage() {
               disabled={deleteReceptionsMutation.isPending || receptionDeleteSelected.length === 0}
               onClick={() => deleteReceptionsMutation.mutate(receptionDeleteSelected)}
             >
-              {deleteReceptionsMutation.isPending ? 'Borrando…' : 'Confirmar borrado'}
+              {deleteReceptionsMutation.isPending ? t('bulkImport.actions.deleting') : t('bulkImport.actions.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1121,15 +1107,14 @@ export function BulkImportPage() {
       <Dialog open={salesOrderDeleteDialogOpen} onOpenChange={setSalesOrderDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Borrar pedidos seleccionados</DialogTitle>
+            <DialogTitle>{t('bulkImport.dialogs.deleteSalesOrdersTitle')}</DialogTitle>
             <DialogDescription>
-              Se eliminarán {salesOrderDeleteSelected.length} pedido(s) y sus líneas en la base de datos. No se puede
-              deshacer. Solo aplica a pedidos sin despacho.
+              {t('bulkImport.dialogs.deleteSalesOrdersDesc', { count: salesOrderDeleteSelected.length })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setSalesOrderDeleteDialogOpen(false)}>
-              Cancelar
+              {t('bulkImport.actions.cancel')}
             </Button>
             <Button
               type="button"
@@ -1137,7 +1122,7 @@ export function BulkImportPage() {
               disabled={deleteSalesOrdersMutation.isPending || salesOrderDeleteSelected.length === 0}
               onClick={() => deleteSalesOrdersMutation.mutate(salesOrderDeleteSelected)}
             >
-              {deleteSalesOrdersMutation.isPending ? 'Borrando…' : 'Confirmar borrado'}
+              {deleteSalesOrdersMutation.isPending ? t('bulkImport.actions.deleting') : t('bulkImport.actions.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1146,15 +1131,14 @@ export function BulkImportPage() {
       <Dialog open={ptTagDeleteDialogOpen} onOpenChange={setPtTagDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Borrar unidades PT seleccionadas</DialogTitle>
+            <DialogTitle>{t('bulkImport.dialogs.deletePtTagsTitle')}</DialogTitle>
             <DialogDescription>
-              Se eliminarán {ptTagDeleteSelected.length} unidad(es) PT en la base de datos (ítems de proceso, pallet
-              técnico borrador, etc.). No se puede deshacer. No aplica a tarjas con despacho, factura o merge.
+              {t('bulkImport.dialogs.deletePtTagsDesc', { count: ptTagDeleteSelected.length })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setPtTagDeleteDialogOpen(false)}>
-              Cancelar
+              {t('bulkImport.actions.cancel')}
             </Button>
             <Button
               type="button"
@@ -1162,7 +1146,7 @@ export function BulkImportPage() {
               disabled={deletePtTagsMutation.isPending || ptTagDeleteSelected.length === 0}
               onClick={() => deletePtTagsMutation.mutate(ptTagDeleteSelected)}
             >
-              {deletePtTagsMutation.isPending ? 'Borrando…' : 'Confirmar borrado'}
+              {deletePtTagsMutation.isPending ? t('bulkImport.actions.deleting') : t('bulkImport.actions.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1171,16 +1155,14 @@ export function BulkImportPage() {
       <Dialog open={processDeleteDialogOpen} onOpenChange={setProcessDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Borrar procesos seleccionados</DialogTitle>
+            <DialogTitle>{t('bulkImport.dialogs.deleteProcessesTitle')}</DialogTitle>
             <DialogDescription>
-              Se eliminarán {processDeleteSelected.length} proceso(s), sus asignaciones a líneas de recepción y
-              movimientos de MP vinculados a esos procesos. No se puede deshacer. Solo aplica a procesos en borrador sin
-              vínculos a PT, existencias PT, factura ni repalet.
+              {t('bulkImport.dialogs.deleteProcessesDesc', { count: processDeleteSelected.length })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setProcessDeleteDialogOpen(false)}>
-              Cancelar
+              {t('bulkImport.actions.cancel')}
             </Button>
             <Button
               type="button"
@@ -1188,7 +1170,7 @@ export function BulkImportPage() {
               disabled={deleteProcessesMutation.isPending || processDeleteSelected.length === 0}
               onClick={() => deleteProcessesMutation.mutate(processDeleteSelected)}
             >
-              {deleteProcessesMutation.isPending ? 'Borrando…' : 'Confirmar borrado'}
+              {deleteProcessesMutation.isPending ? t('bulkImport.actions.deleting') : t('bulkImport.actions.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1227,12 +1209,12 @@ export function BulkImportPage() {
 
         <section className="rounded-lg border border-border bg-background">
           <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-            1 · Descargar plantilla CSV
+            {t('bulkImport.sections.step1')}
           </header>
           <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Plantilla con columnas reales del sistema + catálogos de códigos válidos al pie.</p>
-              <p className="text-sm font-semibold">Completá con tus datos históricos y guardá como CSV UTF-8.</p>
+              <p className="text-sm text-muted-foreground">{t('bulkImport.labels.templateHint')}</p>
+              <p className="text-sm font-semibold">{t('bulkImport.labels.templateFill')}</p>
             </div>
             <Button
               type="button"
@@ -1241,14 +1223,14 @@ export function BulkImportPage() {
               disabled={templateMutation.isPending}
               onClick={() => templateMutation.mutate()}
             >
-              {templateMutation.isPending ? 'Descargando...' : '⬇ Descargar plantilla'}
+              {templateMutation.isPending ? t('bulkImport.actions.downloadingTemplate') : t('bulkImport.actions.downloadTemplate')}
             </Button>
           </div>
         </section>
 
         <section className="rounded-lg border border-border bg-background">
           <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-            2 · Subir archivo CSV
+            {t('bulkImport.sections.step2')}
           </header>
           <div className="p-4">
             {!file ? (
@@ -1271,8 +1253,8 @@ export function BulkImportPage() {
                   onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
                 />
                 <FileUp size={32} className="mx-auto text-muted-foreground" />
-                <p className="mt-2 text-sm">Arrastrá tu CSV aquí o hacé click para seleccionar</p>
-                <p className="text-xs text-muted-foreground">Solo archivos .csv · UTF-8 · separador coma</p>
+                <p className="mt-2 text-sm">{t('bulkImport.labels.dragDrop')}</p>
+                <p className="text-xs text-muted-foreground">{t('bulkImport.labels.csvOnly')}</p>
               </div>
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
@@ -1286,7 +1268,7 @@ export function BulkImportPage() {
                     {parsed?.totalRows ?? 0} filas · {parsed?.mainRows ?? 0} registros principales · {parsed?.detailRows ?? 0} líneas de detalle
                   </span>
                   <Button type="button" variant="outline" size="sm" onClick={() => onPickFile(null)}>
-                    Cambiar
+                    {t('bulkImport.actions.change')}
                   </Button>
                 </div>
               </div>
@@ -1296,7 +1278,7 @@ export function BulkImportPage() {
 
         <section className="rounded-lg border border-border bg-background">
           <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-            3 · Preview
+            {t('bulkImport.sections.step3')}
           </header>
           <div className="p-4 space-y-3">
             {parsed && parsed.headers.length > 0 ? (
@@ -1337,7 +1319,7 @@ export function BulkImportPage() {
                   </p>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={resetFlow}>
-                      Cancelar
+                      {t('bulkImport.actions.cancel')}
                     </Button>
                     <Button
                       type="button"
@@ -1345,13 +1327,13 @@ export function BulkImportPage() {
                       disabled={importMutation.isPending}
                       onClick={() => importMutation.mutate()}
                     >
-                      {importMutation.isPending ? 'Importando...' : 'Confirmar e importar →'}
+                      {importMutation.isPending ? t('bulkImport.actions.importing') : t('bulkImport.actions.confirmImport')}
                     </Button>
                   </div>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">Subí un archivo para ver preview.</p>
+              <p className="text-sm text-muted-foreground">{t('bulkImport.labels.uploadPreview')}</p>
             )}
           </div>
         </section>
@@ -1359,24 +1341,24 @@ export function BulkImportPage() {
         {summary && (
           <section className="rounded-lg border border-border bg-background">
             <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-              4 · Resultado
+              {t('bulkImport.sections.step4')}
             </header>
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">
-                  <div className="text-xs uppercase">Insertadas</div>
+                  <div className="text-xs uppercase">{t('bulkImport.result.inserted')}</div>
                   <div className="text-xl font-semibold">{summary.inserted}</div>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800">
-                  <div className="text-xs uppercase">Eliminadas (PT)</div>
+                  <div className="text-xs uppercase">{t('bulkImport.result.deleted')}</div>
                   <div className="text-xl font-semibold">{summary.deleted ?? 0}</div>
                 </div>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-700">
-                  <div className="text-xs uppercase">Omitidas</div>
+                  <div className="text-xs uppercase">{t('bulkImport.result.skipped')}</div>
                   <div className="text-xl font-semibold">{summary.skipped}</div>
                 </div>
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
-                  <div className="text-xs uppercase">Con errores</div>
+                  <div className="text-xs uppercase">{t('bulkImport.result.errors')}</div>
                   <div className="text-xl font-semibold">{summary.errors.length}</div>
                 </div>
               </div>
@@ -1384,9 +1366,9 @@ export function BulkImportPage() {
               {summary.errors.length > 0 && (
                 <div className="rounded-lg border border-red-200">
                   <div className="flex items-center justify-between border-b border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                    <span>Detalle de errores</span>
+                    <span>{t('bulkImport.labels.errorsTitle')}</span>
                     <button type="button" onClick={() => setShowErrors((v) => !v)} className="text-xs">
-                      {showErrors ? '▴ Ocultar' : '▾ Ver'}
+                      {showErrors ? t('bulkImport.actions.hideErrors') : t('bulkImport.actions.showErrors')}
                     </button>
                   </div>
                   {showErrors && (
@@ -1394,9 +1376,9 @@ export function BulkImportPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Fila</TableHead>
-                            <TableHead>Campo</TableHead>
-                            <TableHead>Mensaje</TableHead>
+                            <TableHead>{t('bulkImport.labels.rowLabel')}</TableHead>
+                            <TableHead>{t('bulkImport.labels.fieldLabel')}</TableHead>
+                            <TableHead>{t('bulkImport.labels.messageLabel')}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1416,10 +1398,10 @@ export function BulkImportPage() {
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button type="button" variant="outline" onClick={resetFlow}>
-                  ↩ Nueva importación
+                  {t('bulkImport.actions.newImport')}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Log guardado · {username ?? 'unknown'} · {nowFmt}
+                  {t('bulkImport.labels.logSaved', { user: username ?? 'unknown', date: nowFmt })}
                 </p>
               </div>
             </div>
@@ -1429,13 +1411,13 @@ export function BulkImportPage() {
         <div className="border-t border-border pt-3" />
         <section className="rounded-lg border border-border bg-background">
           <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-            Historial de importaciones
+            {t('bulkImport.sections.history')}
           </header>
           <div className="p-4">
             {logsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Cargando historial...</p>
+              <p className="text-sm text-muted-foreground">{t('bulkImport.labels.historyLoading')}</p>
             ) : logsQuery.isError ? (
-              <p className="text-sm text-red-600">No se pudo cargar el historial</p>
+              <p className="text-sm text-red-600">{t('bulkImport.labels.historyError')}</p>
             ) : (
               <div className="space-y-2">
                 {(logsQuery.data ?? []).map((log) => (
@@ -1461,7 +1443,7 @@ export function BulkImportPage() {
                             }))
                           }
                         >
-                          Ver detalle
+                          {t('bulkImport.actions.viewDetail')}
                         </Button>
                       </div>
                     </div>
@@ -1476,7 +1458,7 @@ export function BulkImportPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground">Sin muestra de errores.</p>
+                          <p className="text-xs text-muted-foreground">{t('bulkImport.labels.noErrorSample')}</p>
                         )}
                       </div>
                     )}
@@ -1489,18 +1471,18 @@ export function BulkImportPage() {
 
         <section className="rounded-lg border border-border bg-background">
           <header className="border-b border-border px-4 py-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-            Respaldos
+            {t('bulkImport.sections.backups')}
           </header>
           <div className="p-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              Último respaldo descargado:{' '}
+              {t('bulkImport.labels.lastBackup')}{' '}
               <span className="font-medium text-foreground">
-                {lastBackupTs ? formatDateTime(lastBackupTs) : 'Sin registros'}
+                {lastBackupTs ? formatDateTime(lastBackupTs) : t('bulkImport.labels.noBackup')}
               </span>
             </p>
             {shouldWarnBackup && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                ⚠ Respaldá antes de hacer cambios masivos
+                {t('bulkImport.labels.warnBackup')}
               </span>
             )}
           </div>
