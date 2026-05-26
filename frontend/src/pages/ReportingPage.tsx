@@ -197,6 +197,16 @@ type PackingCostRow = {
   active: boolean;
 };
 
+interface PackingFormatSurcharge {
+  id: number;
+  format_code: string;
+  surcharge_per_lb: string;
+  season: string | null;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
 type SavedReportRow = {
   id: number;
   report_name: string;
@@ -3154,6 +3164,11 @@ export function ReportingPage() {
   const [packingSeason, setPackingSeason] = useState('');
   const [packingPrice, setPackingPrice] = useState('');
   const [packingActive, setPackingActive] = useState(true);
+  const [surchargeFormatCode, setSurchargeFormatCode] = useState('');
+  const [surchargePerLb, setSurchargePerLb] = useState('');
+  const [surchargeSeason, setSurchargeSeason] = useState('');
+  const [surchargeActive, setSurchargeActive] = useState(true);
+  const [surchargeNotes, setSurchargeNotes] = useState('');
   const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
   /** Tarifas packing: abierto por defecto en Cierre para configurar antes de generar liquidación. */
   const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(true);
@@ -3231,6 +3246,20 @@ export function ReportingPage() {
     queryKey: ['reporting', 'packing-costs'],
     queryFn: () => apiJson<PackingCostRow[]>('/api/reporting/packing-costs'),
   });
+
+  const { data: formatSurcharges, isLoading: formatSurchargesLoading, refetch: refetchFormatSurcharges } = useQuery({
+    queryKey: ['reporting', 'packing-format-surcharges'],
+    queryFn: () => apiJson<PackingFormatSurcharge[]>('/api/reporting/packing-format-surcharges'),
+  });
+
+  const { data: presentationFormatsForSurcharge } = useQuery({
+    queryKey: ['masters', 'presentation-formats', 'reporting-surcharges'],
+    queryFn: () => apiJson<Array<{ format_code: string; activo?: boolean }>>('/api/masters/presentation-formats'),
+  });
+  const activePresFormats = useMemo(
+    () => (presentationFormatsForSurcharge ?? []).filter((f) => f.activo !== false),
+    [presentationFormatsForSurcharge],
+  );
 
   const formatCostSummaryForDisplay = useMemo(() => {
     const s = reportData?.formatCostSummary;
@@ -3438,6 +3467,30 @@ export function ReportingPage() {
       setPackingSeason('');
       setPackingPrice('');
       setPackingActive(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const upsertFormatSurchargeMut = useMutation({
+    mutationFn: (body: {
+      format_code: string;
+      surcharge_per_lb: number;
+      season?: string | null;
+      active: boolean;
+      notes?: string | null;
+    }) =>
+      apiJson('/api/reporting/packing-format-surcharges', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toast.success('Recargo por formato guardado');
+      void refetchFormatSurcharges();
+      setSurchargeFormatCode('');
+      setSurchargePerLb('');
+      setSurchargeSeason('');
+      setSurchargeActive(true);
+      setSurchargeNotes('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3907,6 +3960,138 @@ export function ReportingPage() {
                   </Table>
                 </div>
               )}
+
+              {/* Recargos por formato */}
+              <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Recargos adicionales por formato</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Cargo extra en USD/lb para formatos específicos (ej: jumbo 12×9.8oz).
+                    Se suma al packing base por especie en la liquidación.
+                  </p>
+                </div>
+
+                {canManagePackingCosts ? (
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
+                    <div className="grid gap-1.5 md:col-span-2">
+                      <Label className="text-xs text-slate-500">Formato</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={surchargeFormatCode}
+                        onChange={(e) => setSurchargeFormatCode(e.target.value)}
+                      >
+                        <option value="">Elegir formato…</option>
+                        {(activePresFormats ?? []).map((f) => (
+                          <option key={f.format_code} value={f.format_code}>
+                            {f.format_code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Recargo / lb</Label>
+                      <Input
+                        className="h-9 font-mono"
+                        type="number"
+                        step="0.000001"
+                        min={0}
+                        value={surchargePerLb}
+                        onChange={(e) => setSurchargePerLb(e.target.value)}
+                        placeholder="0.0500"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={surchargeSeason}
+                        onChange={(e) => setSurchargeSeason(e.target.value)}
+                        placeholder="2026-2027"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={surchargeNotes}
+                        onChange={(e) => setSurchargeNotes(e.target.value)}
+                        placeholder="Ej. Jumbo size extra"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={surchargeActive ? '1' : '0'}
+                        onChange={(e) => setSurchargeActive(e.target.value === '1')}
+                      >
+                        <option value="1">Sí</option>
+                        <option value="0">No</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          upsertFormatSurchargeMut.isPending ||
+                          !surchargeFormatCode ||
+                          !surchargePerLb.trim()
+                        }
+                        onClick={() =>
+                          upsertFormatSurchargeMut.mutate({
+                            format_code: surchargeFormatCode,
+                            surcharge_per_lb: Number(surchargePerLb),
+                            season: surchargeSeason.trim() || null,
+                            active: surchargeActive,
+                            notes: surchargeNotes.trim() || null,
+                          })
+                        }
+                      >
+                        {upsertFormatSurchargeMut.isPending ? 'Guardando…' : 'Guardar recargo'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {formatSurchargesLoading ? (
+                  <Skeleton className="h-20 w-full" />
+                ) : (formatSurcharges ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-400">Sin recargos por formato configurados.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recargo/lb</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notas</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(formatSurcharges ?? []).map((r, i) => (
+                          <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                            <TableCell className="py-2.5 font-mono text-sm font-semibold text-slate-900">{r.format_code}</TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
+                              +{formatMoney(Number(r.surcharge_per_lb))}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-sm text-slate-600">{r.season ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-500">{r.notes ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              {r.active
+                                ? <span className="font-medium text-emerald-600">✓ Activo</span>
+                                : <span className="text-slate-400">Inactivo</span>
+                              }
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </div>
           </details>
 

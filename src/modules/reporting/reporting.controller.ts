@@ -16,7 +16,13 @@ import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
-import { ReportExportQueryDto, ReportFilterDto, SaveReportDto, UpsertPackingCostDto } from './reporting.dto';
+import {
+  ReportExportQueryDto,
+  ReportFilterDto,
+  SaveReportDto,
+  UpsertPackingCostDto,
+  UpsertPackingFormatSurchargeDto,
+} from './reporting.dto';
 import { ReportingExportService } from './reporting-export.service';
 import { ReportingService } from './reporting.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -85,6 +91,20 @@ export class ReportingController {
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   upsertPackingCost(@Body() dto: UpsertPackingCostDto) {
     return this.service.upsertPackingCost(dto);
+  }
+
+  @Get('packing-format-surcharges')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  getPackingFormatSurcharges() {
+    return this.service.getPackingFormatSurcharges();
+  }
+
+  @Post('packing-format-surcharges')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
+  upsertPackingFormatSurcharge(@Body() dto: UpsertPackingFormatSurchargeDto) {
+    return this.service.upsertPackingFormatSurcharge(dto);
   }
 
   @Get('export')

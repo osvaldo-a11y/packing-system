@@ -39,3 +39,27 @@ export class PackingCost {
   @CreateDateColumn()
   created_at: Date;
 }
+
+@Entity('packing_format_surcharges')
+export class PackingFormatSurcharge {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'varchar', length: 80 })
+  format_code: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 6, default: 0 })
+  surcharge_per_lb: string;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  season: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  notes: string | null;
+
+  @CreateDateColumn()
+  created_at: Date;
+}

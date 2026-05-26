@@ -37,3 +37,11 @@ export class UpsertPackingCostDto {
   @Type(() => Number) @IsNumber() @Min(0) price_per_lb: number;
   @IsOptional() @IsBoolean() active?: boolean;
 }
+
+export class UpsertPackingFormatSurchargeDto {
+  @IsString() format_code!: string;
+  @Type(() => Number) @IsNumber() @Min(0) surcharge_per_lb!: number;
+  @IsOptional() @IsString() season?: string | null;
+  @IsOptional() @IsBoolean() active?: boolean;
+  @IsOptional() @IsString() notes?: string | null;
+}

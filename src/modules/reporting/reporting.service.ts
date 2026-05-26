@@ -3,8 +3,8 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { PlantService } from '../plant/plant.service';
 import { ProcessService } from '../process/process.service';
-import { ReportFilterDto, SaveReportDto, UpsertPackingCostDto } from './reporting.dto';
-import { PackingCost, ReportSnapshot } from './reporting.entities';
+import { ReportFilterDto, SaveReportDto, UpsertPackingCostDto, UpsertPackingFormatSurchargeDto } from './reporting.dto';
+import { PackingCost, PackingFormatSurcharge, ReportSnapshot } from './reporting.entities';
 
 type Paginated<T> = { rows: T[]; total: number; page: number; limit: number };
 
@@ -14,6 +14,8 @@ export class ReportingService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(ReportSnapshot) private readonly reportRepo: Repository<ReportSnapshot>,
     @InjectRepository(PackingCost) private readonly packingCostRepo: Repository<PackingCost>,
+    @InjectRepository(PackingFormatSurcharge)
+    private readonly packingFormatSurchargeRepo: Repository<PackingFormatSurcharge>,
     private readonly plantService: PlantService,
     private readonly processService: ProcessService,
   ) {}
@@ -369,6 +371,15 @@ export class ReportingService {
       }
     }
 
+    const formatSurcharges = await this.packingFormatSurchargeRepo.find({ where: { active: true } });
+    const surchargeByFormat = new Map<string, number>();
+    for (const fs of formatSurcharges) {
+      const fk = fs.format_code.trim().toLowerCase();
+      if (!surchargeByFormat.has(fk)) {
+        surchargeByFormat.set(fk, Number(fs.surcharge_per_lb));
+      }
+    }
+
     const items = (await this.dataSource.query(
       `
       SELECT i.id, i.recipe_id, i.material_id, i.qty_per_unit, i.base_unidad, i.cost_type,
@@ -494,7 +505,9 @@ export class ReportingService {
       }
 
       const subtotalMateriales = totalDirecto + totalTripaje;
-      const costoPacking = agg.lb_totales * pricePacking;
+      const surchargePerLb = surchargeByFormat.get(formatKey) ?? 0;
+      const effectivePacking = pricePacking + surchargePerLb;
+      const costoPacking = agg.lb_totales * effectivePacking;
       const costoTotal = subtotalMateriales + costoPacking;
       const costoPorCaja = agg.cajas > 0 ? costoTotal / agg.cajas : 0;
       const costoPorLb = agg.lb_totales > 0 ? costoTotal / agg.lb_totales : 0;
@@ -511,6 +524,8 @@ export class ReportingService {
         lb_totales: Number(agg.lb_totales.toFixed(3)),
         cajas_por_pallet: cajasPorPallet > 0 ? cajasPorPallet : null,
         precio_packing_por_lb: Number(pricePacking.toFixed(4)),
+        surcharge_per_lb: Number(surchargePerLb.toFixed(6)),
+        precio_packing_efectivo: Number(effectivePacking.toFixed(6)),
         total_directo: Number(totalDirecto.toFixed(2)),
         total_tripaje: Number(totalTripaje.toFixed(2)),
         costo_materiales: Number(subtotalMateriales.toFixed(2)),
@@ -1626,6 +1641,35 @@ export class ReportingService {
       active: !!r.active,
       created_at: r.created_at,
     }));
+  }
+
+  async getPackingFormatSurcharges(): Promise<PackingFormatSurcharge[]> {
+    return this.packingFormatSurchargeRepo.find({ order: { format_code: 'ASC', id: 'DESC' } });
+  }
+
+  async upsertPackingFormatSurcharge(dto: UpsertPackingFormatSurchargeDto): Promise<PackingFormatSurcharge> {
+    const formatKey = dto.format_code.trim().toLowerCase();
+    const seasonKey = dto.season?.trim() || null;
+    const existing = await this.packingFormatSurchargeRepo
+      .createQueryBuilder('s')
+      .where('LOWER(TRIM(s.format_code)) = :fk', { fk: formatKey })
+      .andWhere("COALESCE(s.season, '') = COALESCE(:sk, '')", { sk: seasonKey })
+      .getOne();
+    if (existing) {
+      existing.surcharge_per_lb = String(dto.surcharge_per_lb);
+      if (dto.active !== undefined) existing.active = dto.active;
+      if (dto.notes !== undefined) existing.notes = dto.notes ?? null;
+      if (dto.season !== undefined) existing.season = seasonKey;
+      return this.packingFormatSurchargeRepo.save(existing);
+    }
+    const entity = this.packingFormatSurchargeRepo.create({
+      format_code: dto.format_code.trim(),
+      surcharge_per_lb: String(dto.surcharge_per_lb),
+      season: seasonKey,
+      active: dto.active ?? true,
+      notes: dto.notes ?? null,
+    });
+    return this.packingFormatSurchargeRepo.save(entity);
   }
 
   async upsertPackingCost(dto: UpsertPackingCostDto) {
