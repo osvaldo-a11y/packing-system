@@ -101,6 +101,12 @@
       "autoconsumoOk": "Autoconsumo aplicado en {{count}} unidad(es) PT"
     }
   },
+  "forbidden": {
+    "title": "Acceso denegado",
+    "description": "Tu usuario no tiene permiso para esta acción o ruta. Si creés que es un error, contactá a un administrador.",
+    "homeButton": "Volver al inicio",
+    "aboutButton": "Acerca del sistema"
+  },
   "nav": {
     "groups": {
       "principal": "Principal",

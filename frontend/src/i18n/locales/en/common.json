@@ -101,6 +101,12 @@
       "autoconsumoOk": "Auto-consumption applied to {{count}} PT unit(s)"
     }
   },
+  "forbidden": {
+    "title": "Access denied",
+    "description": "Your user does not have permission for this action or route. If you think this is an error, contact an administrator.",
+    "homeButton": "Back to home",
+    "aboutButton": "About the system"
+  },
   "nav": {
     "groups": {
       "principal": "Main",
