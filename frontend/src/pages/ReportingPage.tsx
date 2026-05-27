@@ -260,23 +260,33 @@ function loadHiddenPackingSpeciesIds(): Set<number> {
   }
 }
 
-function ReportCategoryBadge({ kind }: { kind: 'operativo' | 'decision' | 'financiero' | 'entregable' }) {
+function ReportCategoryBadge({ kind }: { kind: ReportModuleTab | 'financiero' | 'operativo' | 'entregable' }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   const map = {
     operativo: 'border-sky-200 text-sky-900 bg-sky-50',
     decision: 'border-violet-200 text-violet-950 bg-violet-50',
     financiero: 'border-slate-300 text-slate-800 bg-slate-50',
     entregable: 'border-emerald-200 text-emerald-900 bg-emerald-50',
   };
-  const label =
-    kind === 'operativo'
-      ? 'Operación'
+  const styleKey: keyof typeof map =
+    kind === 'operativo' || kind === 'operacion'
+      ? 'operativo'
       : kind === 'decision'
-        ? 'Decisión'
-        : kind === 'financiero'
-          ? 'Cierre'
-          : 'Documentos';
+        ? 'decision'
+        : kind === 'financiero' || kind === 'cierre'
+          ? 'financiero'
+          : 'entregable';
+  const label =
+    kind === 'operativo' || kind === 'operacion'
+      ? tr('badges.operacion')
+      : kind === 'decision'
+        ? tr('badges.decision')
+        : kind === 'financiero' || kind === 'cierre'
+          ? tr('badges.cierre')
+          : tr('badges.documentos');
   return (
-    <Badge variant="outline" className={cn('text-[10px] font-semibold uppercase tracking-wide', map[kind])}>
+    <Badge variant="outline" className={cn('text-[10px] font-semibold uppercase tracking-wide', map[styleKey])}>
       {label}
     </Badge>
   );
@@ -308,9 +318,9 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
           </CardDescription>
         {missingFromApi ? (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-100/80 px-3 py-2 text-sm text-amber-950">
-            <strong className="font-medium">{tr('diagnostico.aviso')}</strong> el JSON no incluye{' '}
+            <strong className="font-medium">{tr('diagnostico.aviso')}</strong> {tr('misc.jsonMissing')}{' '}
             <span className="font-mono">producerSettlementDiagnostic</span> (p. ej. reporte guardado antes de esta función).
-            Pulsá <strong>{tr('diagnostico.generar')}</strong> otra vez para obtener datos del backend.
+            Pulsá <strong>{tr('diagnostico.generar')}</strong> {tr('misc.jsonMissingHint')}
           </div>
         ) : null}
         {typeof hint === 'string' && hint ? (
@@ -1984,7 +1994,7 @@ function CierreEstadoDelCierreStrip({
       title: tr('cierreStatus.producerReport'),
       description: (
         <>
-          Faltan datos: <span className="font-medium text-foreground">{informeProducerIssues.join(' · ')}</span>
+          {tr('misc.faltanDatos')} <span className="font-medium text-foreground">{informeProducerIssues.join(' · ')}</span>
         </>
       ),
     });
@@ -2117,6 +2127,8 @@ function ProducerLiquidacionFormatBreakdownTable({
   formatCostSummaryRows: Record<string, unknown>[];
   packingManual: boolean;
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   const pid = productorIdRaw == null || productorIdRaw === '' ? null : Number(productorIdRaw);
   const aggRaw = aggregateDetailByFormatForProducer(
     unassigned ? null : pid,
@@ -2155,16 +2167,16 @@ function ProducerLiquidacionFormatBreakdownTable({
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className={tableHeaderRow}>
-              <TableHead className="text-xs">Formato</TableHead>
-              <TableHead className="text-right text-xs">Cajas</TableHead>
-              <TableHead className="text-right text-xs">LB</TableHead>
-              <TableHead className="text-right text-xs">Material/caja</TableHead>
-              <TableHead className="text-right text-xs">Packing/caja</TableHead>
-              <TableHead className="text-right text-xs">Total/caja</TableHead>
-              <TableHead className="text-right text-xs">Material total</TableHead>
-              <TableHead className="text-right text-xs">Packing total</TableHead>
-              <TableHead className="text-right text-xs">Costo total</TableHead>
-              <TableHead className="text-right text-xs">Neto</TableHead>
+              <TableHead className="text-xs">{tr('tablaFormato.colFormato')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colCajas')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colLb')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colMatCaja')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colPackCaja')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colTotalCaja')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colMatTotal')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colPackTotal')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colCostoTotal')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('tablaFormato.colNeto')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -2352,7 +2364,7 @@ function LiquidacionFinalModule({
                       : '—'
                   }
                   hint={
-                    kpis.unassignedCount > 0 ? `${kpis.unassignedCount} fila(s) sin productor en resumen.` : tr('liquidacion.kpiSinAsignarHint')
+                    kpis.unassignedCount > 0 ? `${kpis.unassignedCount} ${tr('misc.filassinProductor')}` : tr('liquidacion.kpiSinAsignarHint')
                   }
                 />
                 <KpiTile
@@ -2367,8 +2379,8 @@ function LiquidacionFinalModule({
                     {tr('liquidacion.sinAsignarRevision')}
                   </Badge>
                   <span className="text-xs text-amber-950">
-                    Hay filas sin productor o incompletas. Revisá <strong className="font-medium">{tr('liquidacion.diagTrazabilidad')}</strong>{' '}
-                    más abajo en esta pantalla si los montos son relevantes.
+                    {tr('misc.hayFilasSinProductor')} <strong className="font-medium">{tr('liquidacion.diagTrazabilidad')}</strong>{' '}
+                    {tr('misc.hayFilasSinProductorEnd')}
                   </span>
                 </div>
               ) : null}
@@ -2397,7 +2409,7 @@ function LiquidacionFinalModule({
                     {tr('liquidacion.porProductor')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {summaryRows.length} productor(es) · período {periodoDesde} → {periodoHasta}
+                    {summaryRows.length} {tr('misc.productoresPeriodo')} {periodoDesde} → {periodoHasta}
                   </p>
                 </div>
                 {summaryRows.length > 0 && summaryRows.length <= 8 ? (
@@ -2595,24 +2607,23 @@ function LiquidacionFinalModule({
                                     <div className="border-t border-slate-200 px-3 py-3 sm:px-4 space-y-3">
                                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('liquidacion.resumen')}</p>
                                       <p className="text-[13px] font-medium text-slate-800 md:text-center">
-                                        <span className="text-muted-foreground">Ventas</span>{' '}
+                                        <span className="text-muted-foreground">{tr('liquidacion.colVentas')}</span>{' '}
                                         <span className="tabular-nums">{fmtMoney(r.ventas)}</span>
                                         <span className="mx-2 text-slate-500">−</span>
-                                        <span className="text-muted-foreground">Materiales</span>{' '}
+                                        <span className="text-muted-foreground">{tr('liquidacionDetalle.colMateriales')}</span>{' '}
                                         <span className="tabular-nums text-slate-700">{fmtMoney(r.costo_materiales)}</span>
                                         <span className="mx-2 text-slate-500">−</span>
-                                        <span className="text-muted-foreground">Packing</span>{' '}
+                                        <span className="text-muted-foreground">{tr('liquidacionDetalle.colPacking')}</span>{' '}
                                         <span className="tabular-nums text-slate-700">{fmtMoney(r.costo_packing)}</span>
                                         <span className="mx-2 font-semibold text-slate-500">=</span>
-                                        <span className="text-muted-foreground">Neto</span>{' '}
+                                        <span className="text-muted-foreground">{tr('liquidacionDetalle.colNeto')}</span>{' '}
                                         <span className={cn('tabular-nums font-bold', netoColor)}>{fmtMoney(r.neto_productor)}</span>
                                       </p>
                                       {!packingTariffsManualMode && toNum(r.lb) > 0 && toNum(r.costo_packing) === 0 ? (
                                         <p className="flex items-start gap-2 rounded border border-amber-300/80 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-950">
                                           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
                                           <span>
-                                            <strong>Packing no calculado</strong> (tarifa faltante, especie sin mapear o datos
-                                            incompletos). El neto mostrado puede no incluir packing real para este productor.
+                                            <strong>{tr('misc.packingNocalculado')}</strong> {tr('misc.packingNocalculadoDesc')}
                                           </span>
                                         </p>
                                       ) : null}
@@ -2620,8 +2631,7 @@ function LiquidacionFinalModule({
                                         <p className="flex items-start gap-2 rounded border border-amber-300/80 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-950">
                                           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
                                           <span>
-                                            <strong>Materiales en $0</strong> con ventas y cajas — revisá recetas/consumos o líneas sin
-                                            formato en el detalle.
+                                            <strong>{tr('misc.materialesEnCero')}</strong> {tr('misc.materialesEnCeroDesc')}
                                           </span>
                                         </p>
                                       ) : null}
@@ -2647,12 +2657,12 @@ function LiquidacionFinalModule({
                                       </div>
                                       {summaryTrace ? (
                                         <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-                                          <span className="font-semibold text-slate-800">Fuente trazabilidad: </span>
+                                          <span className="font-semibold text-slate-800">{tr('misc.fuenteTrazabilidad')} </span>
                                           <span>{summaryTrace}</span>
                                         </div>
                                       ) : null}
                                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                        Desglose por formato (mismo detalle, agregado)
+                                        {tr('misc.desgloseFormato')}
                                       </p>
                                       <ProducerLiquidacionFormatBreakdownTable
                                         productorIdRaw={pid}
@@ -2662,7 +2672,7 @@ function LiquidacionFinalModule({
                                         packingManual={packingTariffsManualMode}
                                       />
                                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                        Auditoría del productor
+                                        {tr('misc.auditoriaProductor')}
                                       </p>
                                       <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs space-y-2">
                                         {(() => {
@@ -2684,7 +2694,7 @@ function LiquidacionFinalModule({
                                                       : 'border-amber-600 bg-amber-50 text-[10px] font-semibold text-amber-950'
                                                   }
                                                 >
-                                                  {copy.okInforme ? 'Listo para informe' : 'Revisar antes de informe'}
+                                                  {copy.okInforme ? tr('misc.listoInforme') : tr('misc.revisarInforme')}
                                                 </Badge>
                                               </div>
                                               <ul className="list-disc space-y-0.5 pl-4 text-[11px] leading-snug text-slate-700">
@@ -2697,12 +2707,12 @@ function LiquidacionFinalModule({
                                         })()}
                                       </div>
                                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                        Detalle operativo
+                                        {tr('misc.detalleOperativo')}
                                       </p>
                                       <div className="rounded-lg border border-dashed border-slate-300 bg-white">
                                         {!hasDetailLines ? (
                                           <p className="px-3 py-3 text-sm leading-snug text-muted-foreground">
-                                            No hay detalle operativo disponible para este productor en la respuesta actual.
+                                            {tr('misc.noDetalleOperativo')}
                                           </p>
                                         ) : (
                                           <SettlementDetailByProducerTable productorId={pid} detailRows={detailRows} />
@@ -2776,18 +2786,20 @@ function DiagnosticoTrazabilidadGuiaCard() {
 
 /** Muestra primeras filas del bloque principal para validar antes de exportar. */
 function ReportPreviewStrip({ data }: { data: GenerateResponse }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   const section = data.boxesByProducer;
   const rows = section?.rows ?? [];
   if (!rows.length) {
-    return <div className={emptyStatePanel}>Sin filas en cajas PT para estos filtros.</div>;
+    return <div className={emptyStatePanel}>{tr('misc.sinFilasCajasPt')}</div>;
   }
   const preview = rows.slice(0, 15);
   const cols = Object.keys(preview[0] ?? {});
   return (
     <div className="space-y-2">
       <div>
-        <p className={sectionTitle}>Tabla resumida — Cajas PT por productor</p>
-        <p className={sectionHint}>Primeras 15 filas del mismo payload generado</p>
+        <p className={sectionTitle}>{tr('misc.tablaResumidaCajasPt')}</p>
+        <p className={sectionHint}>{tr('misc.primeras15Filas')}</p>
       </div>
       <div className={cn(tableShell, 'overflow-x-auto')}>
         <Table>
@@ -4101,7 +4113,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('recargos.temporada')}</Label>
                       <Input
                         className="h-9"
                         value={surchargeSeason}
@@ -4110,7 +4122,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('recargos.notas')}</Label>
                       <Input
                         className="h-9"
                         value={surchargeNotes}
@@ -4470,8 +4482,7 @@ export function ReportingPage() {
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm">
-              Estás viendo el guardado <strong>#{activeSavedId}</strong>. Podés regenerar datos y luego sincronizar el
-              snapshot.
+              {tr('misc.estasviendo')} <strong>#{activeSavedId}</strong>. {tr('misc.regenerarSincronizar')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -5140,24 +5151,24 @@ export function ReportingPage() {
                   </div>
                   <Link to="/dispatches" className="inline-flex items-center gap-2 text-[13px] text-primary underline-offset-4 hover:underline">
                     <Printer className="h-4 w-4 shrink-0" />
-                    Facturas y packing lists se generan en Despachos
+                    {tr('misc.facturasDespachos')}
                   </Link>
                 </CardContent>
               </Card>
 
               <div className={cn(contentCard, 'p-4 sm:p-5')}>
-                <p className={sectionTitle}>Reportes guardados</p>
-                <p className={sectionHint}>Cargar, renombrar o eliminar. Guardar: supervisor/admin · eliminar: admin.</p>
+                <p className={sectionTitle}>{tr('misc.reportesGuardados')}</p>
+                <p className={sectionHint}>{tr('misc.reportesGuardadosHint')}</p>
                 <div className="mt-4">
                   {savedLoading ? (
                     <Skeleton className="h-24 w-full" />
                   ) : savedSorted.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Ninguno guardado aún.</p>
+                    <p className="text-sm text-muted-foreground">{tr('misc.ningunoGuardado')}</p>
                   ) : (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Nombre</TableHead>
+                          <TableHead>{tr('misc.colNombre')}</TableHead>
                           <TableHead>Creado</TableHead>
                           <TableHead className="min-w-[200px]">Acciones</TableHead>
                         </TableRow>

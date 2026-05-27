@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
 import {
   contentCard,
@@ -487,6 +488,8 @@ export function ProcessesPage() {
     queryFn: () => apiJson<{ format_code: string; activo: boolean }[]>('/api/masters/presentation-formats'),
   });
 
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterProducer, setFilterProducer] = useState(0);
   const [filterVariedad, setFilterVariedad] = useState(0);
   const [filterStatus, setFilterStatus] = useState<string>('todos');
@@ -1042,6 +1045,9 @@ export function ProcessesPage() {
 
   const filteredProcesses = useMemo(() => {
     let rows = data ?? [];
+    if (filterDateFrom || filterDateTo) {
+      rows = rows.filter((r) => isoInLocalDateRange(r.fecha_proceso, filterDateFrom, filterDateTo));
+    }
     if (filterProducer > 0) rows = rows.filter((r) => r.productor_id === filterProducer);
     if (filterVariedad > 0) rows = rows.filter((r) => r.variedad_id === filterVariedad);
     if (filterStatus === 'vinculable_pt') {
@@ -1072,6 +1078,8 @@ export function ProcessesPage() {
     return rows;
   }, [
     data,
+    filterDateFrom,
+    filterDateTo,
     filterProducer,
     filterVariedad,
     filterStatus,
@@ -2674,6 +2682,51 @@ export function ProcessesPage() {
           >
             <Info className="h-3.5 w-3.5" />
           </button>
+        </div>
+        <div className="mb-4 flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-xs text-slate-500">{t('process.filters.dateFrom')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-xs text-slate-500">{t('process.filters.dateTo')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            {t('process.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 text-slate-600"
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('process.filters.clearDates')}
+          </Button>
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-stretch">
           <div className="min-w-0 flex-[1_1_12rem]">

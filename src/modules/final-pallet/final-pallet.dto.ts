@@ -111,6 +111,10 @@ export class ListExistenciasPtQueryDto {
   })
   @IsBoolean()
   excluir_anulados?: boolean;
+
+  /** YYYY-MM-DD — fecha de alta del pallet en cámara (`created_at`). */
+  @IsOptional() @IsString() fecha_desde?: string;
+  @IsOptional() @IsString() fecha_hasta?: string;
 }
 
 /** Origen de cajas para repaletizaje (FIFO por líneas del pallet). */

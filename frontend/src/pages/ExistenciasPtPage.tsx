@@ -18,12 +18,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   btnToolbarOutline,
   btnToolbarPrimary,
   emptyStatePanel,
   errorStatePanel,
+  filterInputClass,
   filterPanel,
   filterSelectClass,
   kpiCard,
@@ -356,12 +358,16 @@ function buildQuery(params: {
   status: string;
   soloDeposito: boolean;
   excluirAnulados: boolean;
+  fechaDesde: string;
+  fechaHasta: string;
 }) {
   const sp = new URLSearchParams();
   if (params.speciesId > 0) sp.set('species_id', String(params.speciesId));
   if (params.varietyId > 0) sp.set('variety_id', String(params.varietyId));
   if (params.formatId > 0) sp.set('presentation_format_id', String(params.formatId));
   if (params.clientId > 0) sp.set('client_id', String(params.clientId));
+  if (params.fechaDesde.trim()) sp.set('fecha_desde', params.fechaDesde.trim());
+  if (params.fechaHasta.trim()) sp.set('fecha_hasta', params.fechaHasta.trim());
   sp.set('solo_deposito', params.soloDeposito ? '1' : '0');
   if (!params.soloDeposito) {
     if (params.status) sp.set('status', params.status);
@@ -377,12 +383,16 @@ function buildReservedPlQuery(params: {
   varietyId: number;
   formatId: number;
   clientId: number;
+  fechaDesde: string;
+  fechaHasta: string;
 }) {
   const sp = new URLSearchParams();
   if (params.speciesId > 0) sp.set('species_id', String(params.speciesId));
   if (params.varietyId > 0) sp.set('variety_id', String(params.varietyId));
   if (params.formatId > 0) sp.set('presentation_format_id', String(params.formatId));
   if (params.clientId > 0) sp.set('client_id', String(params.clientId));
+  if (params.fechaDesde.trim()) sp.set('fecha_desde', params.fechaDesde.trim());
+  if (params.fechaHasta.trim()) sp.set('fecha_hasta', params.fechaHasta.trim());
   sp.set('solo_deposito', '0');
   sp.set('status', 'asignado_pl');
   sp.set('excluir_anulados', '1');
@@ -413,6 +423,8 @@ export function ExistenciasPtPage() {
   const { t } = useTranslation('common');
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [speciesId, setSpeciesId] = useState(0);
   const [varietyId, setVarietyId] = useState(0);
   const [formatId, setFormatId] = useState(0);
@@ -437,8 +449,10 @@ export function ExistenciasPtPage() {
         status,
         soloDeposito,
         excluirAnulados,
+        fechaDesde: filterDateFrom,
+        fechaHasta: filterDateTo,
       }),
-    [speciesId, varietyId, formatId, clientId, status, soloDeposito, excluirAnulados],
+    [speciesId, varietyId, formatId, clientId, status, soloDeposito, excluirAnulados, filterDateFrom, filterDateTo],
   );
 
   useEffect(() => {
@@ -472,8 +486,16 @@ export function ExistenciasPtPage() {
   });
 
   const reservedQueryStr = useMemo(
-    () => buildReservedPlQuery({ speciesId, varietyId, formatId, clientId }),
-    [speciesId, varietyId, formatId, clientId],
+    () =>
+      buildReservedPlQuery({
+        speciesId,
+        varietyId,
+        formatId,
+        clientId,
+        fechaDesde: filterDateFrom,
+        fechaHasta: filterDateTo,
+      }),
+    [speciesId, varietyId, formatId, clientId, filterDateFrom, filterDateTo],
   );
 
   const { data: reservedPlRows, isPending: reservedPlPending } = useQuery({
@@ -896,6 +918,51 @@ export function ExistenciasPtPage() {
           >
             <Info className="h-3.5 w-3.5" />
           </button>
+        </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.dateFrom')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.dateTo')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            {t('existenciasPt.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 text-slate-600"
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('existenciasPt.filters.clearDates')}
+          </Button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="grid gap-2">

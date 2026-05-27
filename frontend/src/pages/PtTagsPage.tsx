@@ -43,6 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   downloadZplFile,
@@ -453,6 +454,8 @@ export function PtTagsPage() {
   /** Evita condición de carrera: al abrir con el trigger «Nueva», Radix llama onOpenChange(true) antes que setEditTag(null) del botón y el modal quedaba en modo edición. */
   const openPtModalForEditRef = useRef(false);
 
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterProducer, setFilterProducer] = useState(0);
   const [filterFormat, setFilterFormat] = useState('');
   const [filterClient, setFilterClient] = useState<number | null>(null);
@@ -600,6 +603,10 @@ export function PtTagsPage() {
     if (!tags) return [];
     let list = tags;
 
+    if (filterDateFrom || filterDateTo) {
+      list = list.filter((t) => isoInLocalDateRange(t.fecha, filterDateFrom, filterDateTo));
+    }
+
     const s = search.trim().toLowerCase();
     if (s) {
       list = list.filter(
@@ -629,7 +636,7 @@ export function PtTagsPage() {
     if (filterEstado === 'sin_cajas') list = list.filter((t) => t.total_cajas <= 0);
 
     return list;
-  }, [tags, search, filterProducer, filterFormat, filterClient, filterEstado]);
+  }, [tags, filterDateFrom, filterDateTo, search, filterProducer, filterFormat, filterClient, filterEstado]);
 
   const listKpis = useMemo(() => {
     const rows = filteredTags;
@@ -1808,6 +1815,51 @@ export function PtTagsPage() {
       <div className={filterPanel}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('ptTag.filters.title')}</span>
+        </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.dateFrom')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.dateTo')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            {t('ptTag.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 text-slate-600"
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('ptTag.filters.clearDates')}
+          </Button>
         </div>
         <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
           <div className="grid min-w-0 gap-1.5">

@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,8 @@ export function CommercialOfferCalculatorBlock({
   presentationFormats,
   className,
 }: Props) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.decision.${k}`);
   const [cliente, setCliente] = useState('');
   const [selectedFormatCodes, setSelectedFormatCodes] = useState<string[]>([]);
   const [formatoManual, setFormatoManual] = useState('');
@@ -146,7 +149,7 @@ export function CommercialOfferCalculatorBlock({
       return null;
     }
     const pl = parsePositive(pallets);
-    const fmt = formatLabelForSummary.trim() || 'el formato indicado';
+    const fmt = formatLabelForSummary.trim() || tr('formato').toLowerCase();
     const plLabel = pl != null ? formatPalletsLabel(pl) : pallets.trim() || '—';
     const req = formatLb(derived.lbRequeridas, 2);
     const disp = formatLb(derived.lbDisponibles ?? 0, 2);
@@ -162,7 +165,7 @@ export function CommercialOfferCalculatorBlock({
       return `${head} Con ${disp} lb disponibles para reparto, faltan ${absLb} lb.`;
     }
     return `${head} Con ${disp} lb disponibles para reparto, cerrás justo el balance.`;
-  }, [derived, formatLabelForSummary, pallets]);
+  }, [derived, formatLabelForSummary, pallets, t]);
 
   /** Autocompletar cajas/pallet y lb/caja al elegir un solo formato (misma lógica que el botón anterior). */
   useEffect(() => {
@@ -208,39 +211,39 @@ export function CommercialOfferCalculatorBlock({
     if (planBlockedNoFruit) {
       return {
         tone: 'blocked' as const,
-        title: 'No hay fruta disponible para planificar oferta',
-        detail: 'Usá «Detalle» para ingresar lb manualmente o esperá recepción.',
+        title: tr('bloqueadoTitle'),
+        detail: tr('bloqueadoDetail'),
       };
     }
     if (derived.lbRequeridas == null) {
-      return { tone: 'idle' as const, title: 'Elegí formato y pallets', detail: 'El rendimiento actualiza la proyección al instante.' };
+      return { tone: 'idle' as const, title: tr('idleTitle'), detail: tr('idleDetail') };
     }
     if (derived.balance == null) {
       return {
         tone: 'partial' as const,
-        title: `${formatLb(derived.lbRequeridas, 2)} lb requeridas`,
-        detail: 'Indicá lb disponibles (o sincronizá con MP) para ver el balance.',
+        title: tr('parcialTitle').replace('{lb}', formatLb(derived.lbRequeridas, 2)),
+        detail: tr('parcialDetail'),
       };
     }
     const b = derived.balance;
     if (Math.abs(b) < JUSTO_EPS_LB) {
-      return { tone: 'justo' as const, title: 'Estás justo', detail: 'Balance en cero con los datos actuales.' };
+      return { tone: 'justo' as const, title: tr('justoTitle'), detail: tr('justoDetail') };
     }
     if (b > 0) {
       const pl = parsePositive(pallets);
       const plLabel = pl != null ? formatPalletsLabel(pl) : pallets.trim() || '—';
       return {
         tone: 'ok' as const,
-        title: `Podés ofrecer ${plLabel} pallets`,
-        detail: `Sobran ${formatLb(b, 2)} lb respecto de lo requerido.`,
+        title: tr('okTitle').replace('{pallets}', plLabel),
+        detail: tr('okDetail').replace('{lb}', formatLb(b, 2)),
       };
     }
     return {
       tone: 'short' as const,
-      title: `Faltan ${formatLb(Math.abs(b), 2)} lb`,
-      detail: 'No alcanza la fruta disponible para cubrir la oferta indicada.',
+      title: tr('shortTitle').replace('{lb}', formatLb(Math.abs(b), 2)),
+      detail: tr('shortDetail'),
     };
-  }, [derived.lbRequeridas, derived.balance, pallets, planBlockedNoFruit]);
+  }, [derived.lbRequeridas, derived.balance, pallets, planBlockedNoFruit, t]);
 
   const heroShell = useMemo(() => {
     if (decision.tone === 'blocked') {
@@ -269,9 +272,9 @@ export function CommercialOfferCalculatorBlock({
       <div className="border-b border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-white px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div id="rep-decision-planificacion" className="scroll-mt-24 min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-indigo-800/90">Oferta comercial</p>
-            <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Planificación rápida</h3>
-            <p className="mt-0.5 text-[12px] text-slate-500">Formato, pallets y rendimiento. No modifica Packed, En cámara ni Shipped.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-indigo-800/90">{tr('ofertaComercial')}</p>
+            <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">{tr('planificacionTitle')}</h3>
+            <p className="mt-0.5 text-[12px] text-slate-500">{tr('planificacionDesc')}</p>
           </div>
           <div id="rep-decision-mp-real" className="scroll-mt-24 flex shrink-0 justify-end sm:justify-start">
             <Button
@@ -286,7 +289,7 @@ export function CommercialOfferCalculatorBlock({
                 if (v != null && Number.isFinite(v) && v > 0) setLbDisponiblesStr(String(v));
               }}
             >
-              Usar MP real
+              {tr('usarMpReal')}
             </Button>
           </div>
         </div>
@@ -298,27 +301,27 @@ export function CommercialOfferCalculatorBlock({
             planBlockedNoFruit && 'pointer-events-none opacity-50',
           )}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-current opacity-80">Resultado</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-current opacity-80">{tr('resultado')}</p>
           <p className="mt-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{decision.title}</p>
           {decision.detail ? <p className="mt-2 text-sm font-medium opacity-90">{decision.detail}</p> : null}
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div>
-              <p className={kpiLabel}>lb requeridas</p>
+              <p className={kpiLabel}>{tr('lbRequeridas')}</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
                 {derived.lbRequeridas != null ? `${formatLb(derived.lbRequeridas, 2)} lb` : '—'}
               </p>
-              <p className={kpiFootnote}>Finales ÷ rendimiento</p>
+              <p className={kpiFootnote}>{tr('lbRequeridasHint')}</p>
             </div>
             <div>
-              <p className={kpiLabel}>lb disponibles</p>
+              <p className={kpiLabel}>{tr('lbDisponibles')}</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
                 {derived.lbDisponibles != null ? `${formatLb(derived.lbDisponibles, 2)} lb` : '—'}
               </p>
-              <p className={kpiFootnote}>Para reparto</p>
+              <p className={kpiFootnote}>{tr('lbDisponiblesHint')}</p>
             </div>
             <div>
-              <p className={kpiLabel}>Balance</p>
+              <p className={kpiLabel}>{tr('balance')}</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">
                 {derived.balance == null
                   ? '—'
@@ -326,7 +329,7 @@ export function CommercialOfferCalculatorBlock({
                     ? '0 lb'
                     : `${derived.balance < 0 ? '−' : '+'}${formatLb(Math.abs(derived.balance), 2)} lb`}
               </p>
-              <p className={kpiFootnote}>Disponibles − requeridas</p>
+              <p className={kpiFootnote}>{tr('balanceHint')}</p>
             </div>
           </div>
 
@@ -334,13 +337,13 @@ export function CommercialOfferCalculatorBlock({
             <div className="mt-4 flex flex-wrap gap-4 border-t border-slate-200/60 pt-4 text-sm text-slate-600">
               {derived.cajasObjetivo != null ? (
                 <span>
-                  <span className="font-semibold text-slate-800">{formatCount(Math.round(derived.cajasObjetivo))}</span> cajas
-                  objetivo
+                  <span className="font-semibold text-slate-800">{formatCount(Math.round(derived.cajasObjetivo))}</span>{' '}
+                  {tr('cajasObjetivo')}
                 </span>
               ) : null}
               {derived.lbFinales != null ? (
                 <span>
-                  <span className="font-semibold text-slate-800">{formatLb(derived.lbFinales, 2)} lb</span> finales objetivo
+                  <span className="font-semibold text-slate-800">{formatLb(derived.lbFinales, 2)} lb</span> {tr('lbFinalesObjetivo')}
                 </span>
               ) : null}
             </div>
@@ -351,7 +354,7 @@ export function CommercialOfferCalculatorBlock({
       <div className="space-y-4 px-4 py-4 sm:px-6 sm:py-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="grid min-w-0 gap-1.5 sm:col-span-1">
-            <Label className="text-xs font-medium text-slate-600">Formato</Label>
+            <Label className="text-xs font-medium text-slate-600">{tr('formato')}</Label>
             {hasMasterFormats ? (
               <div className="min-w-0">
                 <button
@@ -370,7 +373,7 @@ export function CommercialOfferCalculatorBlock({
                     )}
                   >
                     {selectedFormatCodes.length === 0
-                      ? 'Elegir del maestro…'
+                      ? tr('elegirMaestro')
                       : selectedFormatCodes.length === 1
                         ? selectedFormatCodes[0]
                         : `Mix (${selectedFormatCodes.length})`}
@@ -420,7 +423,7 @@ export function CommercialOfferCalculatorBlock({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="co-pallets" className="text-xs font-medium text-slate-600">
-              Pallets solicitados
+              {tr('palletsOlicitados')}
             </Label>
             <Input
               id="co-pallets"
@@ -433,7 +436,7 @@ export function CommercialOfferCalculatorBlock({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="co-rend" className="text-xs font-medium text-slate-600">
-              Rendimiento (%)
+              {tr('rendimiento')}
             </Label>
             <Input
               id="co-rend"
@@ -451,35 +454,35 @@ export function CommercialOfferCalculatorBlock({
           className="group scroll-mt-24 rounded-xl border border-slate-200/80 bg-slate-50/40 open:bg-slate-50/60"
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span>Detalle · MP, cliente y cajas/lb</span>
+            <span>{tr('detalleMp')}</span>
             <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
           </summary>
           <div className="space-y-4 border-t border-slate-200/60 px-3 pb-3 pt-3">
             <div className="grid gap-1.5">
               <Label htmlFor="co-lb-disp" className="text-xs text-slate-600">
-                lb disponibles para reparto
+                {tr('lbDisponiblesReparto')}
               </Label>
               <Input
                 id="co-lb-disp"
                 className={cn(filterInputClass, 'tabular-nums')}
                 inputMode="decimal"
-                placeholder={mpPending ? 'Cargando…' : 'Ej. 12.500'}
+                placeholder={mpPending ? tr('cargando') : 'Ej. 12.500'}
                 value={lbDisponiblesStr}
                 onChange={(e) => {
                   setLbDisponiblesTouched(true);
                   setLbDisponiblesStr(e.target.value);
                 }}
               />
-              <p className="text-[11px] text-slate-500">Editable para simular otro escenario.</p>
+              <p className="text-[11px] text-slate-500">{tr('lbDisponiblesEditable')}</p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="co-cliente" className="text-xs text-slate-600">
-                Cliente (opcional)
+                {tr('clienteOpcional')}
               </Label>
               <Input
                 id="co-cliente"
                 className={filterInputClass}
-                placeholder="Referencia rápida"
+                placeholder={tr('referenciaRapida')}
                 value={cliente}
                 onChange={(e) => setCliente(e.target.value)}
                 list={commercialClients?.length ? clientDatalistId : undefined}
@@ -495,33 +498,33 @@ export function CommercialOfferCalculatorBlock({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="co-cpp" className="text-xs text-slate-600">
-                  Cajas por pallet
+                  {tr('cajasPorPallet')}
                 </Label>
                 <Input
                   id="co-cpp"
                   className={cn(filterInputClass, 'tabular-nums')}
                   inputMode="numeric"
-                  placeholder="Maestro o manual"
+                  placeholder={tr('maestroOManual')}
                   value={cajasPorPallet}
                   onChange={(e) => setCajasPorPallet(e.target.value)}
                 />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="co-lb" className="text-xs text-slate-600">
-                  lb por caja
+                  {tr('lbPorCaja')}
                 </Label>
                 <Input
                   id="co-lb"
                   className={cn(filterInputClass, 'tabular-nums')}
                   inputMode="decimal"
-                  placeholder="Maestro o manual"
+                  placeholder={tr('maestroOManual')}
                   value={lbPorCaja}
                   onChange={(e) => setLbPorCaja(e.target.value)}
                 />
               </div>
             </div>
             {selectedFormatCodes.length > 1 ? (
-              <p className="text-[11px] text-slate-500">Varios formatos: ajustá cajas/pallet y lb/caja según el mix.</p>
+              <p className="text-[11px] text-slate-500">{tr('variosFormatos')}</p>
             ) : null}
           </div>
         </details>

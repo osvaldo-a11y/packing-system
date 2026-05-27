@@ -2534,6 +2534,15 @@ export class FinalPalletService {
       }
     }
 
+    const fd = q.fecha_desde?.trim();
+    const fh = q.fecha_hasta?.trim();
+    if (fd && /^\d{4}-\d{2}-\d{2}$/.test(fd)) {
+      qb.andWhere(`(fp.created_at)::date >= :fd`, { fd });
+    }
+    if (fh && /^\d{4}-\d{2}-\d{2}$/.test(fh)) {
+      qb.andWhere(`(fp.created_at)::date <= :fh`, { fh });
+    }
+
     const pallets = await qb.orderBy('fp.id', 'DESC').take(500).getMany();
 
     const palletIds = pallets.map((p) => p.id);

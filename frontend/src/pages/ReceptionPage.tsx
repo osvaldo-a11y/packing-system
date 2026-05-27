@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   badgePill,
@@ -450,6 +451,8 @@ export function ReceptionPage() {
     [returnableContainers],
   );
 
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterProducer, setFilterProducer] = useState(0);
   const [filterVariety, setFilterVariety] = useState(0);
   const [filterTipo, setFilterTipo] = useState(0);
@@ -460,6 +463,9 @@ export function ReceptionPage() {
 
   const filteredReceptions = useMemo(() => {
     let list = receptions ?? [];
+    if (filterDateFrom || filterDateTo) {
+      list = list.filter((r) => isoInLocalDateRange(r.received_at, filterDateFrom, filterDateTo));
+    }
     if (filterProducer > 0) list = list.filter((r) => r.producer_id === filterProducer);
     if (filterVariety > 0) {
       list = list.filter((r) => r.lines?.some((ln) => ln.variety_id === filterVariety));
@@ -486,7 +492,7 @@ export function ReceptionPage() {
       });
     }
     return list;
-  }, [receptions, filterProducer, filterVariety, filterTipo, filterUso, search]);
+  }, [receptions, filterDateFrom, filterDateTo, filterProducer, filterVariety, filterTipo, filterUso, search]);
 
   const compactGroups = useMemo(() => {
     const byProducer = new Map<
@@ -1746,6 +1752,51 @@ export function ReceptionPage() {
           >
             <Info className="h-3.5 w-3.5" />
           </button>
+        </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-xs text-slate-500">{t('reception.filters.dateFrom')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-xs text-slate-500">{t('reception.filters.dateTo')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            {t('reception.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 text-slate-600"
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('reception.filters.clearDates')}
+          </Button>
         </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
           <div className="grid gap-2 lg:col-span-2">

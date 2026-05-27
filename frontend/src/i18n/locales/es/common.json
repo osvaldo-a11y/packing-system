@@ -424,7 +424,11 @@
       "usageOpen": "Solo abiertos",
       "usageClosed": "Solo cerrados",
       "search": "Buscar",
-      "searchPlaceholder": "Ref., guía, productor, nota, lote…"
+      "searchPlaceholder": "Ref., guía, productor, nota, lote…",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "today": "Hoy",
+      "clearDates": "Ver todo"
     },
     "table": {
       "title": "Historial operativo",
@@ -633,7 +637,11 @@
       "allStates": "Todos los estados",
       "linkablePt": "Solo vinculables a PT",
       "allFormats": "Todos los formatos PT",
-      "allClients": "Todos los clientes (PT)"
+      "allClients": "Todos los clientes (PT)",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "today": "Hoy",
+      "clearDates": "Ver todo"
     },
     "columns": {
       "lbEntrada": "Lb entrada",
@@ -949,7 +957,11 @@
       "moreFilters": "Más filtros",
       "expectedClient": "Cliente previsto",
       "clientAll": "Todos",
-      "clientNone": "Sin cliente"
+      "clientNone": "Sin cliente",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "today": "Hoy",
+      "clearDates": "Ver todo"
     },
     "table": {
       "title": "Unidades PT",
@@ -1176,7 +1188,11 @@
       "bolAll": "Todos",
       "bolHint": "Solo BOL presentes en este lote.",
       "depositOnly": "Solo disponibles en depósito (definitivo y sin despacho)",
-      "excludeVoided": "Excluir anulados (si no elegís estado)"
+      "excludeVoided": "Excluir anulados (si no elegís estado)",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "today": "Hoy",
+      "clearDates": "Ver todo"
     },
     "selection": {
       "boxes": "cajas",
@@ -2977,6 +2993,99 @@
       "incluye": "Incluye",
       "noIncluye": "No incluye",
       "sinDescripcion": "Sin descripción ampliada para este informe."
+    },
+    "badges": {
+      "operacion": "Operación",
+      "decision": "Decisión",
+      "cierre": "Cierre",
+      "documentos": "Documentos"
+    },
+    "misc": {
+      "jsonMissing": "el JSON no incluye",
+      "jsonMissingHint": "otra vez para obtener datos del backend.",
+      "faltanDatos": "Faltan datos:",
+      "filassinProductor": "fila(s) sin productor en resumen.",
+      "hayFilasSinProductor": "Hay filas sin productor o incompletas. Revisá",
+      "hayFilasSinProductorEnd": "más abajo en esta pantalla si los montos son relevantes.",
+      "productoresPeriodo": "productor(es) · período",
+      "fuenteTrazabilidad": "Fuente trazabilidad:",
+      "desgloseFormato": "Desglose por formato (mismo detalle, agregado)",
+      "auditoriaProductor": "Auditoría del productor",
+      "listoInforme": "Listo para informe",
+      "revisarInforme": "Revisar antes de informe",
+      "detalleOperativo": "Detalle operativo",
+      "noDetalleOperativo": "No hay detalle operativo disponible para este productor en la respuesta actual.",
+      "packingNocalculado": "Packing no calculado",
+      "packingNocalculadoDesc": "(tarifa faltante, especie sin mapear o datos incompletos). El neto mostrado puede no incluir packing real para este productor.",
+      "materialesEnCero": "Materiales en $0",
+      "materialesEnCeroDesc": "con ventas y cajas — revisá recetas/consumos o líneas sin formato en el detalle.",
+      "sinFilasCajasPt": "Sin filas en cajas PT para estos filtros.",
+      "tablaResumidaCajasPt": "Tabla resumida — Cajas PT por productor",
+      "primeras15Filas": "Primeras 15 filas del mismo payload generado",
+      "estasviendo": "Estás viendo el guardado",
+      "regenerarSincronizar": "Podés regenerar datos y luego sincronizar el snapshot.",
+      "facturasDespachos": "Facturas y packing lists se generan en Despachos",
+      "reportesGuardados": "Reportes guardados",
+      "reportesGuardadosHint": "Cargar, renombrar o eliminar. Guardar: supervisor/admin · eliminar: admin.",
+      "ningunoGuardado": "Ninguno guardado aún.",
+      "colNombre": "Nombre"
+    },
+    "tablaFormato": {
+      "colFormato": "Formato",
+      "colCajas": "Cajas",
+      "colLb": "LB",
+      "colMatCaja": "Material/caja",
+      "colPackCaja": "Packing/caja",
+      "colTotalCaja": "Total/caja",
+      "colMatTotal": "Material total",
+      "colPackTotal": "Packing total",
+      "colCostoTotal": "Costo total",
+      "colNeto": "Neto"
+    },
+    "recargos": {
+      "temporada": "Temporada (opc.)",
+      "notas": "Notas (opc.)"
+    },
+    "decision": {
+      "ofertaComercial": "Oferta comercial",
+      "planificacionTitle": "Planificación rápida",
+      "planificacionDesc": "Formato, pallets y rendimiento. No modifica Packed, En cámara ni Shipped.",
+      "usarMpReal": "Usar MP real",
+      "resultado": "Resultado",
+      "lbRequeridas": "lb requeridas",
+      "lbRequeridasHint": "Finales ÷ rendimiento",
+      "lbDisponibles": "lb disponibles",
+      "lbDisponiblesHint": "Para reparto",
+      "balance": "Balance",
+      "balanceHint": "Disponibles − requeridas",
+      "cajasObjetivo": "cajas objetivo",
+      "lbFinalesObjetivo": "lb finales objetivo",
+      "formato": "Formato",
+      "elegirMaestro": "Elegir del maestro…",
+      "palletsOlicitados": "Pallets solicitados",
+      "rendimiento": "Rendimiento (%)",
+      "detalleMp": "Detalle · MP, cliente y cajas/lb",
+      "lbDisponiblesReparto": "lb disponibles para reparto",
+      "lbDisponiblesEditable": "Editable para simular otro escenario.",
+      "clienteOpcional": "Cliente (opcional)",
+      "cajasPorPallet": "Cajas por pallet",
+      "lbPorCaja": "lb por caja",
+      "maestroOManual": "Maestro o manual",
+      "variosFormatos": "Varios formatos: ajustá cajas/pallet y lb/caja según el mix.",
+      "bloqueadoTitle": "No hay fruta disponible para planificar oferta",
+      "bloqueadoDetail": "Usá «Detalle» para ingresar lb manualmente o esperá recepción.",
+      "idleTitle": "Elegí formato y pallets",
+      "idleDetail": "El rendimiento actualiza la proyección al instante.",
+      "parcialDetail": "Indicá lb disponibles (o sincronizá con MP) para ver el balance.",
+      "justoTitle": "Estás justo",
+      "justoDetail": "Balance en cero con los datos actuales.",
+      "okTitle": "Podés ofrecer {pallets} pallets",
+      "okDetail": "Sobran {lb} lb respecto de lo requerido.",
+      "shortTitle": "Faltan {lb} lb",
+      "shortDetail": "No alcanza la fruta disponible para cubrir la oferta indicada.",
+      "parcialTitle": "{lb} lb requeridas",
+      "cargando": "Cargando…",
+      "referenciaRapida": "Referencia rápida"
     }
   },
   "systemGuide": {

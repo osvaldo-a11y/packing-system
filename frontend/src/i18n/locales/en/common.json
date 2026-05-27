@@ -424,7 +424,11 @@
       "usageOpen": "Open only",
       "usageClosed": "Closed only",
       "search": "Search",
-      "searchPlaceholder": "Ref., guide, producer, note, lot…"
+      "searchPlaceholder": "Ref., guide, producer, note, lot…",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "today": "Today",
+      "clearDates": "Show all"
     },
     "table": {
       "title": "Operational history",
@@ -633,7 +637,11 @@
       "allStates": "All states",
       "linkablePt": "Linkable to PT only",
       "allFormats": "All PT formats",
-      "allClients": "All clients (PT)"
+      "allClients": "All clients (PT)",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "today": "Today",
+      "clearDates": "Show all"
     },
     "columns": {
       "lbEntrada": "Input lb",
@@ -949,7 +957,11 @@
       "moreFilters": "More filters",
       "expectedClient": "Expected client",
       "clientAll": "All",
-      "clientNone": "No client"
+      "clientNone": "No client",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "today": "Today",
+      "clearDates": "Show all"
     },
     "table": {
       "title": "PT Units",
@@ -1176,7 +1188,11 @@
       "bolAll": "All",
       "bolHint": "Only BOLs present in this batch.",
       "depositOnly": "Available in depot only (definitive and no dispatch)",
-      "excludeVoided": "Exclude voided (if no status selected)"
+      "excludeVoided": "Exclude voided (if no status selected)",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "today": "Today",
+      "clearDates": "Show all"
     },
     "selection": {
       "boxes": "boxes",
@@ -2977,6 +2993,99 @@
       "incluye": "Includes",
       "noIncluye": "Does not include",
       "sinDescripcion": "No extended description for this report."
+    },
+    "badges": {
+      "operacion": "Operations",
+      "decision": "Decision",
+      "cierre": "Close",
+      "documentos": "Documents"
+    },
+    "misc": {
+      "jsonMissing": "the JSON does not include",
+      "jsonMissingHint": "again to fetch data from the backend.",
+      "faltanDatos": "Missing data:",
+      "filassinProductor": "row(s) without producer in summary.",
+      "hayFilasSinProductor": "There are rows without producer or incomplete. Check",
+      "hayFilasSinProductorEnd": "below on this screen if the amounts are relevant.",
+      "productoresPeriodo": "producer(s) · period",
+      "fuenteTrazabilidad": "Traceability source:",
+      "desgloseFormato": "Format breakdown (same detail, aggregated)",
+      "auditoriaProductor": "Producer audit",
+      "listoInforme": "Ready for report",
+      "revisarInforme": "Review before report",
+      "detalleOperativo": "Operative detail",
+      "noDetalleOperativo": "No operative detail available for this producer in the current response.",
+      "packingNocalculado": "Packing not calculated",
+      "packingNocalculadoDesc": "(missing rate, unmapped species or incomplete data). The net shown may not include real packing for this producer.",
+      "materialesEnCero": "Materials at $0",
+      "materialesEnCeroDesc": "with sales and boxes — check recipes/consumptions or lines without format in the detail.",
+      "sinFilasCajasPt": "No rows in PT boxes for these filters.",
+      "tablaResumidaCajasPt": "Summary table — PT boxes by producer",
+      "primeras15Filas": "First 15 rows from the same generated payload",
+      "estasviendo": "You are viewing saved report",
+      "regenerarSincronizar": "You can regenerate data and then sync the snapshot.",
+      "facturasDespachos": "Invoices and packing lists are generated in Dispatches",
+      "reportesGuardados": "Saved reports",
+      "reportesGuardadosHint": "Load, rename or delete. Save: supervisor/admin · delete: admin.",
+      "ningunoGuardado": "None saved yet.",
+      "colNombre": "Name"
+    },
+    "tablaFormato": {
+      "colFormato": "Format",
+      "colCajas": "Boxes",
+      "colLb": "LB",
+      "colMatCaja": "Mat./box",
+      "colPackCaja": "Pack./box",
+      "colTotalCaja": "Total/box",
+      "colMatTotal": "Mat. total",
+      "colPackTotal": "Pack. total",
+      "colCostoTotal": "Total cost",
+      "colNeto": "Net"
+    },
+    "recargos": {
+      "temporada": "Season (opt.)",
+      "notas": "Notes (opt.)"
+    },
+    "decision": {
+      "ofertaComercial": "Commercial offer",
+      "planificacionTitle": "Quick planning",
+      "planificacionDesc": "Format, pallets and yield. Does not modify Packed, In cold-storage or Shipped.",
+      "usarMpReal": "Use real RM",
+      "resultado": "Result",
+      "lbRequeridas": "lbs required",
+      "lbRequeridasHint": "Finals ÷ yield",
+      "lbDisponibles": "lbs available",
+      "lbDisponiblesHint": "For allocation",
+      "balance": "Balance",
+      "balanceHint": "Available − required",
+      "cajasObjetivo": "target boxes",
+      "lbFinalesObjetivo": "target final lbs",
+      "formato": "Format",
+      "elegirMaestro": "Choose from master…",
+      "palletsOlicitados": "Requested pallets",
+      "rendimiento": "Yield (%)",
+      "detalleMp": "Detail · RM, client and boxes/lb",
+      "lbDisponiblesReparto": "lbs available for allocation",
+      "lbDisponiblesEditable": "Editable to simulate another scenario.",
+      "clienteOpcional": "Client (optional)",
+      "cajasPorPallet": "Boxes per pallet",
+      "lbPorCaja": "lb per box",
+      "maestroOManual": "Master or manual",
+      "variosFormatos": "Multiple formats: adjust boxes/pallet and lb/box according to the mix.",
+      "bloqueadoTitle": "No fruit available to plan offer",
+      "bloqueadoDetail": "Use «Detail» to enter lbs manually or wait for reception.",
+      "idleTitle": "Choose format and pallets",
+      "idleDetail": "Yield updates the projection instantly.",
+      "parcialDetail": "Enter available lbs (or sync with RM) to see the balance.",
+      "justoTitle": "Exactly right",
+      "justoDetail": "Balance at zero with current data.",
+      "okTitle": "You can offer {pallets} pallets",
+      "okDetail": "{lb} lbs to spare over what is required.",
+      "shortTitle": "Missing {lb} lbs",
+      "shortDetail": "Not enough fruit available to cover the indicated offer.",
+      "parcialTitle": "{lb} lbs required",
+      "cargando": "Loading…",
+      "referenciaRapida": "Quick reference"
     }
   },
   "systemGuide": {
