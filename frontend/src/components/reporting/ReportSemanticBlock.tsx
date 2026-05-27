@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ReportHelpId } from '@/content/reportingHelp';
 import { getReportGlossaryEntry, REPORT_SOURCE_TRUTH } from '@/content/reportingHelp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
  * Bloque de claridad semántica: qué mide, fuente, incluye / no incluye (solo UX).
  */
 export function ReportSemanticBlock({ helpId }: { helpId: ReportHelpId }) {
-  const g = getReportGlossaryEntry(helpId);
+  const { i18n } = useTranslation('common');
+  const lang = i18n.language.startsWith('en') ? 'en' : 'es';
+  const g = getReportGlossaryEntry(helpId, lang);
   const shortSource = REPORT_SOURCE_TRUTH[helpId];
 
   return (

@@ -76,7 +76,8 @@ export class ReportingController {
     const v =
       variant === 'internal' ? 'internal' :
       variant === 'executive' ? 'executive' : 'producer';
-    const { buffer, mime, filename } = await this.exportService.buildProducerSettlementPdf(v, query);
+    const lang = query.lang === 'en' ? 'en' : 'es';
+    const { buffer, mime, filename } = await this.exportService.buildProducerSettlementPdf(v, query, lang);
     res.setHeader('Content-Type', mime);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);

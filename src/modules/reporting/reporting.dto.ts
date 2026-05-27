@@ -14,7 +14,11 @@ export class ReportFilterDto {
   @IsOptional() @Type(() => Number) precio_packing_por_lb?: number;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(9999) limit?: number;
+
+  @IsOptional()
+  @IsIn(['es', 'en'])
+  lang?: 'es' | 'en';
 }
 
 export class ReportExportQueryDto extends ReportFilterDto {

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { GitBranch } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { REPORT_GLOSSARY, VALIDATION_SCENARIOS } from '@/content/reportingHelp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,11 @@ import { cn } from '@/lib/utils';
  * Ayuda colapsable en la pantalla Reportes: glosario, escenarios y enlace a la guía del sistema.
  */
 export function ReportingHelpPanel() {
+  const { i18n } = useTranslation('common');
+  const lang = i18n.language.startsWith('en') ? 'en' : 'es';
+  const glossary = REPORT_GLOSSARY(lang);
+  const scenarios = VALIDATION_SCENARIOS(lang);
+
   return (
     <details className="group rounded-2xl border border-slate-100 bg-white/95 shadow-sm open:border-slate-200/90">
       <summary className="cursor-pointer list-none px-4 py-2.5 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -36,7 +42,7 @@ export function ReportingHelpPanel() {
         <div>
           <h3 className="mb-2 text-sm font-semibold">Glosario</h3>
           <div className="grid gap-3 md:grid-cols-2">
-            {REPORT_GLOSSARY.map((g) => (
+            {glossary.map((g) => (
               <Card key={g.id} className={cn(contentCard, 'border-slate-100')}>
                 <CardHeader className="pb-1">
                   <CardTitle className="text-sm leading-snug">{g.name}</CardTitle>
@@ -65,7 +71,7 @@ export function ReportingHelpPanel() {
             actual.
           </p>
           <div className="space-y-4">
-            {VALIDATION_SCENARIOS.map((s) => (
+            {scenarios.map((s) => (
               <Card key={s.id} className={cn(contentCard, 'border-dashed border-slate-200/90 bg-slate-50/40')}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">

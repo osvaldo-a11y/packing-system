@@ -31,7 +31,8 @@ export const REPORT_SOURCE_TRUTH: Record<ReportHelpId, string> = {
   'ventas-despacho': 'ventas y costos agregados por despacho en el período filtrado',
   'margen-cliente':
     'líneas de factura por cliente + prorrateo de costo por formato del período (sin reparto por productor)',
-  documentos: 'PDF liquidación (mismos filtros que Generar); factura/PL en módulo Despachos',
+  documentos:
+    'libro Excel/CSV/PDF operativo del período; PDF liquidación productor; factura/PL en Despachos',
   'fin-del-dia': 'pt_tags del día + despachos marcados despachados + existencias en cámara (fecha operativa)',
 };
 
@@ -44,11 +45,120 @@ export type GlossaryEntry = {
   excludes: string;
 };
 
-export function getReportGlossaryEntry(id: ReportHelpId): GlossaryEntry | undefined {
-  return REPORT_GLOSSARY.find((e) => e.id === id);
+export function getReportGlossaryEntry(id: ReportHelpId, lang: 'es' | 'en' = 'es'): GlossaryEntry | undefined {
+  return REPORT_GLOSSARY(lang).find((e) => e.id === id);
 }
 
-export const REPORT_GLOSSARY: GlossaryEntry[] = [
+export function REPORT_GLOSSARY(lang: 'es' | 'en'): GlossaryEntry[] {
+  if (lang === 'en') return EN_REPORT_GLOSSARY;
+  return ES_REPORT_GLOSSARY;
+}
+
+const EN_REPORT_GLOSSARY: GlossaryEntry[] = [
+  {
+    id: 'fin-del-dia',
+    name: 'End of day (Reports → Operations)',
+    meaning: 'Daily operations summary by client and format: packed, cold-storage and dispatched.',
+    source: 'PT units dated today, dispatches counted as sent that day, stock in warehouse.',
+    includes: 'Copy report per client; daily planning KPIs and available RM in process.',
+    excludes: 'Does not use settlement filters (close from/to dates); does not replace producer settlement.',
+  },
+  {
+    id: 'cajas-pt',
+    name: 'PT boxes by producer (PT units)',
+    meaning: 'Boxes produced at plant per PT process lines, grouped by producer.',
+    source: 'Operational level: pt_tag_items linked to processes with date in period.',
+    includes: 'Only production in PT unit / process; consistent with PT stock generated at plant.',
+    excludes: 'Does not include boxes that only passed through dispatch/invoice without that operational PT link.',
+  },
+  {
+    id: 'cajas-despacho',
+    name: 'Dispatched boxes by producer (invoicing)',
+    meaning: 'Invoiced boxes in period dispatches, with producer resolved as in settlement.',
+    source: 'Invoice lines in dispatches (commercial-logistics).',
+    includes: 'Same producer resolution as settlement (PT unit, process, pallet, re-pallet when applicable).',
+    excludes: 'Not «PT unit boxes» in production sense; may differ from production if commercial flow shifted dates or mixed origins.',
+  },
+  {
+    id: 'cajas-pt-detalle',
+    name: 'PT boxes detail by operation',
+    meaning: 'Line-by-line view of pt_tag_items with process, PT unit and format.',
+    source: 'pt_tag_items + process/PT unit metadata.',
+    includes: 'Fine audit of operation vs aggregate by producer.',
+    excludes: 'Does not replace invoicing report.',
+  },
+  {
+    id: 'pallet-tarja',
+    name: 'Average pallet cost per PT unit',
+    meaning: 'Packaging cost associated with PT units in dispatch items.',
+    source: 'Dispatch / load logistics.',
+    includes: 'Logistics cost analysis per PT unit in dispatch.',
+    excludes: 'Not recipe packaging cost nor financial settlement by producer.',
+  },
+  {
+    id: 'rendimiento',
+    name: 'Packout yield and recorded waste',
+    meaning: 'Average yield over intake and waste explicitly recorded in system.',
+    source: 'fruit_processes and waste fields in DB.',
+    includes: 'Alerts per plant thresholds.',
+    excludes: 'Does not calculate theoretical «residual waste» (intake − destinations) if not recorded.',
+  },
+  {
+    id: 'empaque-formato',
+    name: 'Packaging by format',
+    meaning: 'Packaging material consumption per format code.',
+    source: 'Operational packaging movements/consumptions.',
+    includes: 'Material tracking by format.',
+    excludes: 'Not invoiced monetary cost nor settlement.',
+  },
+  {
+    id: 'liquidacion-interna',
+    name: 'Settlement by producer (internal)',
+    meaning: 'Boxes, lbs, sales and costs prorated by producer per period invoicing.',
+    source: 'Invoice lines + traceability to producer.',
+    includes:
+      'Expandable summary by producer, dispatch/format detail (dispatch date, BOL), pre-export auditor; exports in global view.',
+    excludes:
+      'Producer delivery PDF and executive PDF are generated from Close → By producer or Documents; internal operational PDF is not settlement.',
+  },
+  {
+    id: 'costo-formato-facturado',
+    name: 'Cost by invoiced format',
+    meaning: 'Material + packing cost per format per invoiced volume in period.',
+    source: 'Period invoicing + recipes + packing rate per species or manual price in filters.',
+    includes: 'Operational summary table and grouped breakdown by recipe in Close → Format analysis.',
+    excludes: 'Not physical stock cost nor plant cost outside the invoiced period.',
+  },
+  {
+    id: 'ventas-despacho',
+    name: 'Sales by dispatch',
+    meaning: 'Total sales and associated costs per dispatch for shipment analysis.',
+    source: 'Aggregation per dispatch from period invoicing.',
+    includes: 'Compare dispatches within the date range (dense table in Close).',
+    excludes: 'Does not break down by producer (that is settlement).',
+  },
+  {
+    id: 'margen-cliente',
+    name: 'Client margin',
+    meaning: 'Sales minus total costs per dispatch client, with optional format detail.',
+    source: 'Invoice lines per client + same format costs as settlement (prorated by client boxes in format).',
+    includes: 'Summary and detail by packaging_code in Close → Client analysis.',
+    excludes: 'Does not split by producer; internal use, not a document for third parties.',
+  },
+  {
+    id: 'documentos',
+    name: 'Settlement (delivery) and documents',
+    meaning:
+      'Full report Excel workbook, operational PDFs for the period and settlement PDF; saved reports.',
+    source: 'Same filters as «Refresh close» / Generate; dispatch PDFs in Dispatches module.',
+    includes:
+      'Export ALL (multi-sheet Excel from generate), CSV, internal PDF, summary PDF, producer settlement PDF (all or one producer if filter indicates), save/sync view.',
+    excludes:
+      'Does not include the 4-sheet settlement Excel (that is in Close → global). Operations does not use the settlement period.',
+  },
+];
+
+const ES_REPORT_GLOSSARY: GlossaryEntry[] = [
   {
     id: 'fin-del-dia',
     name: 'Fin del día (Reportes → Operación)',
@@ -110,8 +220,10 @@ export const REPORT_GLOSSARY: GlossaryEntry[] = [
     name: 'Liquidación por productor (interna)',
     meaning: 'Cajas, lb, ventas y costos prorrateados por productor según facturación del período.',
     source: 'Líneas de factura + trazabilidad hasta productor.',
-    includes: 'Resumen expandible por productor, detalle por despacho/formato, auditor previo a exportar.',
-    excludes: 'No es el PDF simplificado para entregar al productor (ver Documentos / vista Por productor).',
+    includes:
+      'Resumen expandible por productor, detalle por despacho/formato (fecha despacho, BOL), auditor previo a exportar; exportaciones en vista global.',
+    excludes:
+      'El PDF de entrega al productor y el PDF ejecutivo se generan desde Cierre → Por productor o Documentos; el PDF interno operativo no es liquidación.',
   },
   {
     id: 'costo-formato-facturado',
@@ -140,12 +252,16 @@ export const REPORT_GLOSSARY: GlossaryEntry[] = [
   {
     id: 'documentos',
     name: 'Liquidación (entrega) y documentos',
-    meaning: 'Exportaciones del período generado y PDF de liquidación para productor.',
+    meaning:
+      'Libro Excel del reporte completo, PDFs operativos del período y PDF de liquidación; reportes guardados.',
     source: 'Mismos filtros que «Actualizar cierre» / Generar; PDFs de despacho en módulo Despachos.',
-    includes: 'Excel completo, CSV, PDF interno/resumen, PDF liquidación productor, reportes guardados.',
-    excludes: 'Las tablas interactivas detalladas están en Cierre; Operación no usa el período de liquidación.',
+    includes:
+      'Exportar TODO (Excel multi-hoja del generate), CSV, PDF interno, PDF resumen, PDF liquidación productor (todos o un productor si el filtro lo indica), guardar/sincronizar vista.',
+    excludes:
+      'No incluye el Excel de liquidación de 4 hojas (eso está en Cierre → global). Operación no usa el período de liquidación.',
   },
 ];
+
 
 /** Mapa de navegación de la aplicación (menú lateral). */
 export type AppNavItem = {
@@ -161,7 +277,156 @@ export type AppNavGroup = {
   items: AppNavItem[];
 };
 
-export const APP_NAV_GROUPS: AppNavGroup[] = [
+export function APP_NAV_GROUPS(lang: 'es' | 'en'): AppNavGroup[] {
+  if (lang === 'en') return EN_APP_NAV_GROUPS;
+  return ES_APP_NAV_GROUPS;
+}
+
+const EN_APP_NAV_GROUPS: AppNavGroup[] = [
+  {
+    id: 'principal',
+    label: 'Main',
+    items: [
+      {
+        label: 'Home',
+        path: '/',
+        purpose: 'Dashboard with daily/weekly KPIs, stock alerts, orders and quick access to critical modules.',
+      },
+    ],
+  },
+  {
+    id: 'config',
+    label: 'Configuration',
+    items: [
+      {
+        label: 'Plant',
+        path: '/plant',
+        purpose: 'Yield and waste thresholds that feed alerts in process reports.',
+        notes: 'Edit: admin role.',
+      },
+      {
+        label: 'Masters',
+        path: '/masters',
+        purpose: 'Catalogs: producers, clients, species, varieties, presentation formats, qualities.',
+        notes: 'Base for report filters, recipes and settlement traceability.',
+      },
+    ],
+  },
+  {
+    id: 'packaging',
+    label: 'Packaging',
+    items: [
+      {
+        label: 'Materials',
+        path: '/packaging/materials',
+        purpose: 'Packaging materials catalog and available stock.',
+      },
+      {
+        label: 'Kardex',
+        path: '/packaging/kardex',
+        purpose: 'Materials inflow/outflow movements.',
+      },
+      {
+        label: 'Recipes',
+        path: '/packaging/recipes',
+        purpose: 'Consumption recipe per format; feeds material cost in Close.',
+      },
+      {
+        label: 'Consumptions',
+        path: '/packaging/consumptions',
+        purpose: 'Operational record of consumption per format/process.',
+        notes: 'Related to «Packaging by format» in Excel export (not settlement).',
+      },
+    ],
+  },
+  {
+    id: 'operacion',
+    label: 'Operations',
+    items: [
+      {
+        label: 'Receptions',
+        path: '/receptions',
+        purpose: 'Fruit intake at plant; origin of subsequent processes.',
+      },
+      {
+        label: 'Processes',
+        path: '/processes',
+        purpose: 'Transformation (packout, recorded waste, PT destinations); generates PT units.',
+      },
+      {
+        label: 'PT Unit',
+        path: '/pt-tags',
+        purpose: 'Create and edit PT units (tarjas): boxes per format, client, process.',
+        notes: 'Strong anchor for production and traceability to invoice.',
+      },
+      {
+        label: 'PT Stock',
+        path: '/existencias-pt/inventario',
+        purpose: 'Inventory in cold storage, re-palletizing and PT packing lists before commercial dispatch.',
+        notes: 'Sub-routes: inventory, re-palletize, packing-lists, detail by folio.',
+      },
+    ],
+  },
+  {
+    id: 'comercial',
+    label: 'Commercial',
+    items: [
+      {
+        label: 'Sales orders',
+        path: '/sales-orders',
+        purpose: 'Commercial orders: boxes ordered vs produced, reserved and dispatched.',
+        notes: 'Progress per order at /sales-orders/:id/avance.',
+      },
+      {
+        label: 'Dispatches',
+        path: '/dispatches',
+        purpose: 'Dispatch, invoice, commercial packing list; dispatch date defines the financial period.',
+        notes: 'Invoice and packing list PDFs are generated here, not in Reports.',
+      },
+    ],
+  },
+  {
+    id: 'analisis',
+    label: 'Analytics',
+    items: [
+      {
+        label: 'Reports',
+        path: '/reporting',
+        purpose: 'Four tabs: Operations, Decision, Close and Documents (see tab guide).',
+      },
+    ],
+  },
+  {
+    id: 'sistema',
+    label: 'System',
+    items: [
+      {
+        label: 'System guide',
+        path: '/guide/sistema',
+        purpose: 'This document: data flow, modules and validation.',
+      },
+      {
+        label: 'About',
+        path: '/about',
+        purpose: 'Application version and credits.',
+      },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Administration (admin only)',
+    items: [
+      {
+        label: 'Bulk import',
+        path: '/bulk-import',
+        purpose: 'CSV import of receptions, processes, PT units, stock, orders and dispatches.',
+        notes: 'Appears at the bottom of the side menu and in the mobile menu; downloadable template per entity.',
+      },
+    ],
+  },
+];
+
+const ES_APP_NAV_GROUPS: AppNavGroup[] = [
   {
     id: 'principal',
     label: 'Principal',
@@ -305,6 +570,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
   },
 ];
 
+
 /** Pestañas del módulo Reportes (estado actual de la UI). */
 export type ReportingTabGuide = {
   id: 'operacion' | 'decision' | 'cierre' | 'documentos';
@@ -315,7 +581,68 @@ export type ReportingTabGuide = {
   exports?: string;
 };
 
-export const REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
+export function REPORTING_TABS_GUIDE(lang: 'es' | 'en'): ReportingTabGuide[] {
+  if (lang === 'en') return EN_REPORTING_TABS_GUIDE;
+  return ES_REPORTING_TABS_GUIDE;
+}
+
+const EN_REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
+  {
+    id: 'operacion',
+    label: 'Operations',
+    answers: 'What happened today at the plant and what was dispatched?',
+    dateBasis: 'Current operative date (selector in end-of-day), not the close period from/to dates.',
+    sections: [
+      'End of day: table by client with packed, cold-storage and dispatched; copy report.',
+      'Daily planning: packed/cold-storage/shipped KPIs and available RM in process.',
+      'Suggested order: end of day first, then shift KPIs.',
+    ],
+    exports: 'Full Excel workbook for the settlement period: Documents tab (same filters as Close).',
+  },
+  {
+    id: 'decision',
+    label: 'Decision',
+    answers: 'What is best to produce or offer with current RM and formats?',
+    dateBasis: 'Commercial offer calculator and RM context; no financial close filters.',
+    sections: [
+      'Simulation / commercial offer (calculator block).',
+      'Does not include settlement or financial period tables — that is in Close.',
+    ],
+    exports: 'Same as Operations: bulk exports in Documents.',
+  },
+  {
+    id: 'cierre',
+    label: 'Close',
+    answers: 'How much did each producer earn and how did the period close?',
+    dateBasis:
+      'Settlement period: from/to date, pagination (up to 9,999 rows per page in API) and optional filters (producer, client, format, manual packing price). Export language: follows app language (es/en).',
+    sections: [
+      'Two-column config (desktop): packing rates (USD/lb, format surcharges, material adjustments) and period with «Refresh close».',
+      'Close status + settlement auditor (packing, materials, traceability).',
+      'View selector: Global settlement vs By producer (responsive; subtitles visible from sm).',
+      'Global view: expandable final settlement, Exports block (Excel/CSV/PDF settlement for all), collapsible analysis by client/format/dispatch.',
+      'By producer view: selector, export-ready status, producer PDF, executive PDF, producer Excel, «View in global» link.',
+      'Technical diagnostic (admin only): traceability and backend debug JSON.',
+    ],
+    exports:
+      'Global → Settlement Excel (4 sheets, all producers), detail CSV, settlement PDF. By producer → producer PDF, executive PDF, producer Excel. Full workbook and internal PDF → Documents tab.',
+  },
+  {
+    id: 'documentos',
+    label: 'Documents',
+    answers: 'How do I export and save the period work?',
+    dateBasis: 'Reflects the last «Refresh close» / generated in memory with active filters.',
+    sections: [
+      'Period view: PT vs dispatched KPIs, PT boxes sample, normalized technical dataset.',
+      'Export ALL (generate Excel with translated settlement sheets), CSV, internal PDF, summary PDF, producer settlement PDF.',
+      'Saved reports: load, rename (supervisor/admin), delete (admin).',
+    ],
+    exports:
+      'Excel/CSV/PDF of full dataset; settlement PDF via same endpoint as Close (lang es/en). Invoice and commercial packing list in Dispatches.',
+  },
+];
+
+const ES_REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
   {
     id: 'operacion',
     label: 'Operación',
@@ -343,15 +670,18 @@ export const REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
     id: 'cierre',
     label: 'Cierre',
     answers: '¿Cuánto ganó cada productor y cómo cerró el período?',
-    dateBasis: 'Período de liquidación: fecha desde/hasta, paginación y filtros opcionales (productor, cliente, formato, precio packing manual).',
+    dateBasis:
+      'Período de liquidación: fecha desde/hasta, paginación (hasta 9 999 filas por página en API) y filtros opcionales (productor, cliente, formato, precio packing manual). Idioma de exportes: según idioma de la app (es/en).',
     sections: [
-      'Tarifas de packing por especie (USD/lb) y período con «Actualizar cierre».',
+      'Configuración en dos columnas (desktop): tarifas de packing (USD/lb, recargos por formato, ajustes de materiales) y período con «Actualizar cierre».',
       'Estado del cierre + auditor de liquidación (packing, materiales, trazabilidad).',
-      'Vista global: liquidación expandible, exportaciones, análisis por cliente/formato/despacho.',
-      'Vista por productor: selector, PDF/Excel del informe y liquidación filtrada a un productor.',
+      'Selector de vista: Liquidación global vs Por productor (responsive; subtítulos visibles desde sm).',
+      'Vista global: liquidación final expandible, exportaciones (Excel/CSV/PDF liquidación de todos), análisis por cliente/formato/despacho.',
+      'Vista por productor: selector, estado de exportación, PDF productor, PDF ejecutivo, Excel productor, enlace «Ver en global».',
       'Diagnóstico técnico (solo admin): trazabilidad y JSON de depuración del backend.',
     ],
-    exports: 'Bloque Exportaciones en vista global; también Documentos para Excel/PDF masivos.',
+    exports:
+      'Vista global → Excel liquidación (4 hojas, todos los productores), CSV detalle, PDF liquidación. Vista por productor → PDF productor, PDF ejecutivo, Excel productor. Libro completo y PDF interno → pestaña Documentos.',
   },
   {
     id: 'documentos',
@@ -360,15 +690,60 @@ export const REPORTING_TABS_GUIDE: ReportingTabGuide[] = [
     dateBasis: 'Refleja el último «Actualizar cierre» / generado en memoria con los filtros activos.',
     sections: [
       'Vista del período: KPIs PT vs despachado, muestra de cajas PT, dataset técnico normalizado.',
-      'Exportar TODO (Excel), CSV, PDF interno, PDF resumen, PDF liquidación productor.',
+      'Exportar TODO (Excel del generate con hojas de liquidación traducidas), CSV, PDF interno, PDF resumen, PDF liquidación productor.',
       'Reportes guardados: cargar, renombrar (supervisor/admin), eliminar (admin).',
     ],
-    exports: 'Todos los formatos listados arriba; factura y packing list comercial siguen en Despachos.',
+    exports:
+      'Excel/CSV/PDF operativo del dataset completo; PDF liquidación vía mismo endpoint que Cierre (`lang` es/en). Factura y packing list comercial en Despachos.',
   },
 ];
 
+
 /** Pasos recomendados dentro del tab Cierre. */
-export const CIERRE_WORKFLOW_STEPS: { step: number; title: string; detail: string }[] = [
+export function CIERRE_WORKFLOW_STEPS(lang: 'es' | 'en'): { step: number; title: string; detail: string }[] {
+  if (lang === 'en') return EN_CIERRE_WORKFLOW_STEPS;
+  return ES_CIERRE_WORKFLOW_STEPS;
+}
+
+const EN_CIERRE_WORKFLOW_STEPS: { step: number; title: string; detail: string }[] = [
+  {
+    step: 1,
+    title: 'Configure packing rates',
+    detail:
+      'In the «Packing rates» card, review USD/lb per species and season. If using manual price in filters, that value takes priority over the table.',
+  },
+  {
+    step: 2,
+    title: 'Set period and filters',
+    detail:
+      'From/to dates, page and limit in «Settlement period». Optional filters: producer, client, format, quality, manual packing price.',
+  },
+  {
+    step: 3,
+    title: 'Refresh close',
+    detail: 'Click «Refresh close» to regenerate settlement, format costs and margins with those filters.',
+  },
+  {
+    step: 4,
+    title: 'Review auditor',
+    detail:
+      'The auditor summarizes packing, materials and traceability issues before exporting. Fix data in Dispatches / PT Unit / PT Stock according to the type of finding.',
+  },
+  {
+    step: 5,
+    title: 'Choose global or by-producer view',
+    detail:
+      'Global: totals, expandable table, collapsible analyses (client, format, dispatch) and Exports block. By producer: selector, producer PDF, executive PDF (management summary), producer Excel and filtered table.',
+  },
+  {
+    step: 6,
+    title: 'Export or save',
+    detail:
+      'Global → Settlement Excel (summary, sales by dispatch, costs, by format), detail CSV with TOTAL row, settlement PDF (all). By producer → producer and executive PDFs and Excel. Documents → full report Excel, internal/summary PDF. Save view: supervisor/admin.',
+  },
+];
+
+const ES_CIERRE_WORKFLOW_STEPS: { step: number; title: string; detail: string }[] = [
   {
     step: 1,
     title: 'Configurar tarifas de packing',
@@ -396,23 +771,212 @@ export const CIERRE_WORKFLOW_STEPS: { step: number; title: string; detail: strin
     step: 5,
     title: 'Elegir vista global o por productor',
     detail:
-      'Global: totales, tabla expandible, análisis por cliente/formato/despacho y exportaciones del período. Por productor: informe individual y PDF/Excel del productor elegido.',
+      'Global: totales, tabla expandible, análisis colapsables (cliente, formato, despacho) y bloque Exportaciones. Por productor: selector, PDF productor, PDF ejecutivo (resumen gerencial), Excel paginado del productor y tabla filtrada.',
   },
   {
     step: 6,
     title: 'Exportar o guardar',
     detail:
-      'Exportaciones en Cierre (global) o en Documentos (libro completo y PDFs). Guardar vista: supervisor/admin. Sincronizar guardado antiguo tras regenerar.',
+      'Global → Excel liquidación (resumen, ventas por despacho, costos, por formato), CSV con detalle y fila TOTAL, PDF liquidación (todos). Por productor → PDFs y Excel del productor. Documentos → libro Excel del reporte, PDF interno/resumen. Guardar vista: supervisor/admin.',
   },
 ];
 
+
+/** Matriz de exportaciones — referencia para la guía del sistema. */
+export type ExportGuideRow = {
+  location: string;
+  label: string;
+  format: string;
+  scope: string;
+  technical?: string;
+};
+
+export function CIERRE_EXPORTS_GUIDE(lang: 'es' | 'en'): ExportGuideRow[] {
+  if (lang === 'en') return EN_CIERRE_EXPORTS_GUIDE;
+  return ES_CIERRE_EXPORTS_GUIDE;
+}
+
+const EN_CIERRE_EXPORTS_GUIDE: ExportGuideRow[] = [
+  {
+    location: 'Close → Global settlement → Exports',
+    label: 'Excel settlement',
+    format: 'XLSX (client, ExcelJS)',
+    scope: 'All producers in period; 4 sheets: summary, sales by dispatch, costs, by format.',
+    technical:
+      'GET /api/reporting/producer-settlement?page=1&limit=9999&lang=… → downloadSettlementExcelAll. Nombre: liquidacion-todos.xlsx / packing-settlement-all.xlsx.',
+  },
+  {
+    location: 'Close → Global settlement → Exports',
+    label: 'CSV',
+    format: 'CSV UTF-8 with BOM',
+    scope: 'Dispatch/format detail for all producers + TOTAL row from summary.',
+    technical: 'Misma API producer-settlement; armado en navegador.',
+  },
+  {
+    location: 'Close → Global settlement → Exports',
+    label: 'Settlement PDF',
+    format: 'PDF',
+    scope: 'Formal settlement for all producers (producer variant, no producer_id).',
+    technical: 'GET /api/reporting/producer-settlement/pdf?variant=producer&lang=es|en',
+  },
+  {
+    location: 'Close → By producer',
+    label: 'Producer PDF',
+    format: 'PDF',
+    scope: 'One producer — delivery document (sales, costs, no technical note column).',
+    technical: '…/pdf?variant=producer&productor_id=…',
+  },
+  {
+    location: 'Close → By producer',
+    label: 'Executive PDF',
+    format: 'PDF',
+    scope: 'One producer — management summary (executive variant).',
+    technical: '…/pdf?variant=executive&productor_id=…',
+  },
+  {
+    location: 'Close → By producer',
+    label: 'Producer Excel',
+    format: 'XLSX',
+    scope: 'One producer — same 4 sheets as global Excel, filtered data.',
+    technical: 'Paginación API 100 filas hasta completar detalle y costos por formato.',
+  },
+];
+
+const ES_CIERRE_EXPORTS_GUIDE: ExportGuideRow[] = [
+  {
+    location: 'Cierre → Liquidación global → Exportaciones',
+    label: 'Excel liquidación',
+    format: 'XLSX (cliente, ExcelJS)',
+    scope: 'Todos los productores del período; 4 hojas: resumen, ventas por despacho, costos, por formato.',
+    technical:
+      'GET /api/reporting/producer-settlement?page=1&limit=9999&lang=… → downloadSettlementExcelAll. Nombre: liquidacion-todos.xlsx / packing-settlement-all.xlsx.',
+  },
+  {
+    location: 'Cierre → Liquidación global → Exportaciones',
+    label: 'CSV',
+    format: 'CSV UTF-8 con BOM',
+    scope: 'Detalle por despacho/formato de todos los productores + fila TOTAL desde resumen.',
+    technical: 'Misma API producer-settlement; armado en navegador.',
+  },
+  {
+    location: 'Cierre → Liquidación global → Exportaciones',
+    label: 'PDF liquidación',
+    format: 'PDF',
+    scope: 'Liquidación formal para todos los productores (variante producer, sin productor_id).',
+    technical: 'GET /api/reporting/producer-settlement/pdf?variant=producer&lang=es|en',
+  },
+  {
+    location: 'Cierre → Por productor',
+    label: 'PDF productor',
+    format: 'PDF',
+    scope: 'Un productor — documento de entrega (ventas, costos, sin columna nota técnica).',
+    technical: '…/pdf?variant=producer&productor_id=…',
+  },
+  {
+    location: 'Cierre → Por productor',
+    label: 'PDF ejecutivo',
+    format: 'PDF',
+    scope: 'Un productor — resumen gerencial (variante executive).',
+    technical: '…/pdf?variant=executive&productor_id=…',
+  },
+  {
+    location: 'Cierre → Por productor',
+    label: 'Excel productor',
+    format: 'XLSX',
+    scope: 'Un productor — mismas 4 hojas que el Excel global, datos filtrados.',
+    technical: 'Paginación API 100 filas hasta completar detalle y costos por formato.',
+  },
+];
+
+
+export function DOCUMENTOS_EXPORTS_GUIDE(lang: 'es' | 'en'): ExportGuideRow[] {
+  if (lang === 'en') return EN_DOCUMENTOS_EXPORTS_GUIDE;
+  return ES_DOCUMENTOS_EXPORTS_GUIDE;
+}
+
+const EN_DOCUMENTOS_EXPORTS_GUIDE: ExportGuideRow[] = [
+  {
+    location: 'Reports → Documents',
+    label: 'Export ALL (Excel)',
+    format: 'XLSX',
+    scope: 'Full dataset from last generate (operations + settlement + margins, translated sheets).',
+    technical: 'GET /api/reporting/export?format=xlsx&lang=…',
+  },
+  {
+    location: 'Reports → Documents',
+    label: 'Internal PDF',
+    format: 'PDF',
+    scope: 'Complete operational tables for the period (internal profile).',
+    technical: 'GET /api/reporting/export?format=pdf&pdf_profile=internal',
+  },
+  {
+    location: 'Reports → Documents',
+    label: 'Summary PDF',
+    format: 'PDF',
+    scope: 'External summary with less operational detail (external profile).',
+    technical: 'GET /api/reporting/export?format=pdf&pdf_profile=external',
+  },
+  {
+    location: 'Reports → Documents',
+    label: 'Producer settlement PDF',
+    format: 'PDF',
+    scope: 'Settlement per active filters (if producer_id in filters, one producer only).',
+    technical: 'GET /api/reporting/producer-settlement/pdf?variant=producer',
+  },
+];
+
+const ES_DOCUMENTOS_EXPORTS_GUIDE: ExportGuideRow[] = [
+  {
+    location: 'Reportes → Documentos',
+    label: 'Exportar TODO (Excel)',
+    format: 'XLSX',
+    scope: 'Dataset completo del último generate (operación + liquidación + márgenes, hojas traducidas).',
+    technical: 'GET /api/reporting/export?format=xlsx&lang=…',
+  },
+  {
+    location: 'Reportes → Documentos',
+    label: 'PDF interno',
+    format: 'PDF',
+    scope: 'Tablas operativas completas del período (perfil internal).',
+    technical: 'GET /api/reporting/export?format=pdf&pdf_profile=internal',
+  },
+  {
+    location: 'Reportes → Documentos',
+    label: 'PDF resumen',
+    format: 'PDF',
+    scope: 'Resumen externo con menos detalle operativo (perfil external).',
+    technical: 'GET /api/reporting/export?format=pdf&pdf_profile=external',
+  },
+  {
+    location: 'Reportes → Documentos',
+    label: 'PDF liquidación productor',
+    format: 'PDF',
+    scope: 'Liquidación según filtros activos (si hay productor_id en filtros, un solo productor).',
+    technical: 'GET /api/reporting/producer-settlement/pdf?variant=producer',
+  },
+];
+
+
 /** Resolución de productor en liquidación (referencia para usuarios admin). */
-export const TRACEABILITY_RESOLUTION_RULES: { code: string; when: string }[] = [
+export function TRACEABILITY_RESOLUTION_RULES(lang: 'es' | 'en'): { code: string; when: string }[] {
+  if (lang === 'en') return EN_TRACEABILITY_RESOLUTION_RULES;
+  return ES_TRACEABILITY_RESOLUTION_RULES;
+}
+
+const EN_TRACEABILITY_RESOLUTION_RULES: { code: string; when: string }[] = [
+  { code: 'pt_tag_items / tarja', when: 'Invoice line references PT unit: producer from PT items of that tarja.' },
+  { code: 'fruit_process_direct', when: 'Line declares process: producer from the fruit process.' },
+  { code: 'final_pallet / repallet_multi_producer', when: 'Pallet or re-pallet with mix: amounts may be prorated by boxes of origin.' },
+  { code: 'sin_tarja / unassigned', when: 'No clear link: sales and costs in «no PT unit / unassigned» row in settlement.' },
+];
+
+const ES_TRACEABILITY_RESOLUTION_RULES: { code: string; when: string }[] = [
   { code: 'pt_tag_items / tarja', when: 'La línea de factura referencia unidad PT: productor desde ítems PT de esa tarja.' },
   { code: 'fruit_process_direct', when: 'La línea declara proceso: productor del proceso de fruta.' },
   { code: 'final_pallet / repallet_multi_producer', when: 'Pallet o repalet con mezcla: montos pueden prorratearse por cajas de procedencia.' },
   { code: 'sin_tarja / sin asignar', when: 'Sin vínculo claro: ventas y costos en fila «sin unidad PT / sin asignar» en liquidación.' },
 ];
+
 
 export type FlowStage = {
   title: string;
@@ -422,7 +986,77 @@ export type FlowStage = {
   reports: string[];
 };
 
-export const SYSTEM_FLOW_STAGES: FlowStage[] = [
+export function SYSTEM_FLOW_STAGES(lang: 'es' | 'en'): FlowStage[] {
+  if (lang === 'en') return EN_SYSTEM_FLOW_STAGES;
+  return ES_SYSTEM_FLOW_STAGES;
+}
+
+const EN_SYSTEM_FLOW_STAGES: FlowStage[] = [
+  {
+    title: 'Reception',
+    summary: 'Fruit intake at plant; record and lines that feed processes.',
+    born: ['Intake weight/volume', 'Declared quality', 'Reception reference'],
+    carries: ['Traceable input toward fruit_processes'],
+    reports: ['Indirect in yield/waste if process links the reception'],
+  },
+  {
+    title: 'Process (fruit_processes)',
+    summary: 'Transformation of intake into destinations (PT, byproducts); packout yield and waste only if recorded.',
+    born: ['Processed weight', 'Packout yield %', 'Waste in lbs (if recorded)', 'Process variety/quality'],
+    carries: ['Link to PT units generated in that process'],
+    reports: ['Yield and waste (Excel export)', 'Packaging by format (operational consumption)'],
+  },
+  {
+    title: 'PT Unit',
+    summary: 'Finished product tarja: boxes per format, client and process; created in /pt-tags.',
+    born: ['pt_tag_items lines', 'PT unit ↔ process relation', 'excluded_sum_packout flag if applicable'],
+    carries: ['Toward cold-storage inventory and toward invoice when line references tarja/process'],
+    reports: ['Boxes PT by producer', 'Boxes PT detail', 'End of day (packed today)'],
+  },
+  {
+    title: 'PT Stock (cold storage & re-palletize)',
+    summary: 'Stock in warehouse, re-palletizing and PT packing lists before commercial dispatch.',
+    born: ['Pallets in inventory', 'Origin lines in re-pallet', 'PT packing list'],
+    carries: ['Logistics bridge to dispatch; resolved by final_pallet_id in invoicing'],
+    reports: ['End of day (cold storage)', 'Settlement when line resolves by pallet/re-pallet'],
+  },
+  {
+    title: 'Sales orders',
+    summary: 'Commercial commitment of boxes per client; progress tracking vs production and dispatch.',
+    born: ['Boxes ordered', 'Commercial order status'],
+    carries: ['Operational reference; does not replace dispatch invoicing'],
+    reports: ['Progress at /sales-orders/:id/avance', 'KPIs on Home'],
+  },
+  {
+    title: 'Dispatch & invoice',
+    summary: 'Commercial shipment with dispatch date; invoice lines with packaging_code and prices.',
+    born: ['Dispatch header', 'Client', 'Monetary sales', 'Invoiced boxes and lbs'],
+    carries: ['Financial period base in Reports → Close'],
+    reports: [
+      'Dispatched boxes by producer',
+      'Sales by dispatch',
+      'Format cost invoiced',
+      'Settlement by producer',
+      'Client margin',
+    ],
+  },
+  {
+    title: 'Reports — module',
+    summary:
+      'Four tabs with different questions: Operations (day), Decision (offer/RM), Close (financial period), Documents (export). Always distinguish operative source vs invoicing.',
+    born: ['No new data: aggregates, labels and exports existing data'],
+    carries: ['—'],
+    reports: [
+      'Operations: end of day and daily KPIs',
+      'Decision: commercial calculator',
+      'Close: settlement, auditor, margins and costs',
+      'Documents: Excel/CSV/PDF and saved reports',
+      'Glossary and source of truth on screen and in this guide',
+    ],
+  },
+];
+
+const ES_SYSTEM_FLOW_STAGES: FlowStage[] = [
   {
     title: 'Recepción',
     summary: 'Ingreso de fruta a planta; documento y líneas que alimentan procesos.',
@@ -487,6 +1121,7 @@ export const SYSTEM_FLOW_STAGES: FlowStage[] = [
   },
 ];
 
+
 export type ValidationScenario = {
   id: string;
   title: string;
@@ -499,7 +1134,53 @@ export type ValidationScenario = {
 };
 
 /** Escenarios orientativos para validar datos con la siembra / datos reales del entorno. */
-export const VALIDATION_SCENARIOS: ValidationScenario[] = [
+export function VALIDATION_SCENARIOS(lang: 'es' | 'en'): ValidationScenario[] {
+  if (lang === 'en') return EN_VALIDATION_SCENARIOS;
+  return ES_VALIDATION_SCENARIOS;
+}
+
+const EN_VALIDATION_SCENARIOS: ValidationScenario[] = [
+  {
+    id: 'A',
+    title: 'Linear flow: process → PT unit → single dispatch in period',
+    setup:
+      'One process in date range with PT units; one invoiced dispatch in same period whose lines reference those units or coherent pallets.',
+    expectDispatches: 'In Dispatches: the shipment appears with client and date; items with boxes aligned to production.',
+    expectInvoices: 'Lines with packaging_code and boxes feeding period invoicing.',
+    expectFormatCost:
+      'Reports → Close → Format analysis: formats with boxes > 0; cost consistent with recipes and packing rate per species.',
+    expectLiquidacion:
+      'Close → global view: producers with boxes/sales if traceability resolves; auditor without criticals; Excel/CSV/PDF settlement in Exports; producer/executive PDFs in By producer view.',
+    expectMargen:
+      'Close → Client analysis: dispatch client with sales and margin; format detail with proration note if applicable.',
+  },
+  {
+    id: 'B',
+    title: 'Mix or re-pallet: multiple origins in same pallet/dispatch',
+    setup: 'Pallet or dispatch with lines requiring re-palletizing or proration between producers or formats.',
+    expectDispatches: 'Single dispatch with multiple lines or pallets; total boxes match invoice.',
+    expectInvoices: 'Lines with different packaging_code or references to pallet/PT unit; correct period invoicing.',
+    expectFormatCost:
+      'Format cost: proration by invoiced volume; check notes in margin detail and auditor rows for materials/packing.',
+    expectLiquidacion:
+      'Settlement: rows split by producer; expand row (dispatch date, BOL in detail); by-producer view with executive PDF and paginated Excel.',
+    expectMargen:
+      'Client margin: aggregated by client; format detail without duplicating producer settlement logic.',
+  },
+  {
+    id: 'C',
+    title: 'Daily operative close vs period financial close',
+    setup: 'Production and dispatches on different dates within the same calendar week.',
+    expectDispatches: 'Dispatches with fecha_despacho within the chosen settlement period.',
+    expectInvoices: 'Only lines from period dispatches enter Close; may not match a single operative day.',
+    expectFormatCost: 'Format costs only on volume invoiced in period, not on everything packed at plant.',
+    expectLiquidacion:
+      'Operations → end of day: packed/dispatched for ONE day. Close: settlement for from/to range. Compare «PT Boxes − dispatched» KPI in Documents.',
+    expectMargen: 'Do not mix Close margin with end-of-day totals; they are different time cuts.',
+  },
+];
+
+const ES_VALIDATION_SCENARIOS: ValidationScenario[] = [
   {
     id: 'A',
     title: 'Flujo lineal: proceso → unidad PT → despacho único en el período',
@@ -510,7 +1191,7 @@ export const VALIDATION_SCENARIOS: ValidationScenario[] = [
     expectFormatCost:
       'Reportes → Cierre → Análisis por formato: formatos con cajas > 0; costo coherente con recetas y packing por especie.',
     expectLiquidacion:
-      'Cierre → vista global: productores con cajas/ventas si la trazabilidad resuelve; auditor sin críticos; PDF desde Documentos o exportaciones del cierre.',
+      'Cierre → vista global: productores con cajas/ventas si la trazabilidad resuelve; auditor sin críticos; Excel/CSV/PDF liquidación en Exportaciones; PDF productor/ejecutivo en vista Por productor.',
     expectMargen:
       'Cierre → Análisis por cliente: cliente del despacho con ventas y margen; detalle por formato con nota de prorrateo si aplica.',
   },
@@ -524,7 +1205,7 @@ export const VALIDATION_SCENARIOS: ValidationScenario[] = [
     expectFormatCost:
       'Costo por formato: prorrateo por volumen facturado; revisar notas en margen detalle y filas del auditor de materiales/packing.',
     expectLiquidacion:
-      'Liquidación: filas fraccionadas por productor; expandir fila y revisar detalle operativo + desglose por formato; vista por productor para un solo productor.',
+      'Liquidación: filas fraccionadas por productor; expandir fila (fecha despacho, BOL en detalle); vista por productor con PDF ejecutivo y Excel paginado.',
     expectMargen:
       'Margen por cliente: agregado por cliente; detalle por formato sin duplicar lógica de liquidación por productor.',
   },
@@ -543,7 +1224,43 @@ export const VALIDATION_SCENARIOS: ValidationScenario[] = [
   },
 ];
 
-export const ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
+
+export function ROLES_SUMMARY(lang: 'es' | 'en'): { role: string; canDo: string[] }[] {
+  if (lang === 'en') return EN_ROLES_SUMMARY;
+  return ES_ROLES_SUMMARY;
+}
+
+const EN_ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
+  {
+    role: 'operator',
+    canDo: [
+      'Read reports and export',
+      'Operate receptions, processes, PT, dispatches per screen permissions',
+      'Cannot save reports or edit packing rates in Close',
+    ],
+  },
+  {
+    role: 'supervisor',
+    canDo: [
+      'Everything in operator',
+      'Edit tarjas and orders',
+      'Save and rename reports',
+      'Configure packing rates in Close (if UI allows with their session)',
+    ],
+  },
+  {
+    role: 'admin',
+    canDo: [
+      'Everything in supervisor',
+      'Plant parameters',
+      'Delete saved reports',
+      'Bulk CSV import',
+      'Technical settlement diagnostic in Close',
+    ],
+  },
+];
+
+const ES_ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
   {
     role: 'operator',
     canDo: [
@@ -572,3 +1289,4 @@ export const ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
     ],
   },
 ];
+

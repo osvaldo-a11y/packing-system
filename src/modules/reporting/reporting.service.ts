@@ -47,7 +47,7 @@ export class ReportingService {
 
   private pageLimit(filter: ReportFilterDto) {
     const page = filter.page ?? 1;
-    const limit = Math.min(filter.limit ?? 20, 100);
+    const limit = Math.min(filter.limit ?? 20, 9999);
     return { page, limit, offset: (page - 1) * limit };
   }
 

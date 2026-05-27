@@ -22,6 +22,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiFetch, apiJson, downloadPdf } from '@/api';
@@ -62,6 +63,7 @@ import {
 import {
   aggregateDetailByFormatForProducer,
   downloadProducerSettlementExcelClient,
+  downloadSettlementExcelAll,
   enrichFormatAggWithFormatCostSummary,
   type RawRow as CierreRawRow,
 } from '@/lib/cierre-producer-excel';
@@ -100,7 +102,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
 async function downloadProducerSettlementPdf(
   variant: 'producer' | 'internal' | 'executive',
   f: ReportFilters,
-  opts?: { productor_id?: number },
+  opts?: { productor_id?: number; lang?: 'es' | 'en' },
 ) {
   const merged: ReportFilters = {
     ...f,
@@ -120,6 +122,7 @@ async function downloadProducerSettlementPdf(
     calidad: merged.calidad || undefined,
     page: merged.page,
     limit: merged.limit,
+    lang: opts?.lang,
   });
   const path = `/api/reporting/producer-settlement/pdf?${q}`;
   const defaultName =
@@ -3164,6 +3167,8 @@ export function ReportingPage() {
   const canSave = role === 'admin' || role === 'supervisor';
   const canDelete = role === 'admin';
   const queryClient = useQueryClient();
+  const { i18n } = useTranslation('common');
+  const docLang = i18n.language.startsWith('en') ? 'en' : 'es';
 
   const [filters, setFilters] = useState<ReportFilters>({
     page: 1,
@@ -3616,6 +3621,7 @@ export function ReportingPage() {
     const exportProdId = opts?.productor_id ?? base.productor_id;
     const q = toQuery({
       format,
+      lang: docLang,
       pdf_profile:
         format === 'pdf' && opts?.pdfProfile ? opts.pdfProfile : undefined,
       ...base,
@@ -3908,7 +3914,7 @@ export function ReportingPage() {
 
       {reportTab === 'cierre' ? (
         <div className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[3fr_2fr]">
 
           {/* Tarjeta TARIFAS */}
           <details
@@ -3918,7 +3924,7 @@ export function ReportingPage() {
             onToggle={(e) => setPackingTariffsSectionOpen((e.target as HTMLDetailsElement).open)}
           >
             <summary className="cursor-pointer list-none marker:content-none [&::-webkit-details-marker]:hidden">
-              <div className="flex items-center gap-4 px-5 py-5">
+              <div className="flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                   <DollarSign className="h-5 w-5" aria-hidden />
                 </div>
@@ -4400,7 +4406,7 @@ export function ReportingPage() {
 
           {/* Tarjeta PERÍODO */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center gap-4 border-b border-slate-100 px-5 py-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <RefreshCw className="h-5 w-5" aria-hidden />
               </div>
@@ -4527,48 +4533,51 @@ export function ReportingPage() {
               ) : null}
 
               {/* ── SELECTOR DE VISTA ── */}
-              <div className="grid gap-4 sm:grid-cols-2">
-
+              <div className="grid grid-cols-2 gap-3 lg:gap-4">
                 {/* Liquidación global */}
                 <button
                   type="button"
                   onClick={() => setCierreView('global')}
                   className={cn(
-                    'group flex items-start gap-4 overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition-all',
+                    'group flex items-center gap-3 overflow-hidden rounded-2xl border px-4 py-4 text-left shadow-sm transition-all sm:items-start sm:gap-4 sm:p-5 lg:p-6',
                     cierreView === 'global'
                       ? 'border-blue-300 bg-blue-50/60 ring-2 ring-blue-200'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md',
                   )}
                 >
-                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', cierreView === 'global' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500')}>
-                    <BarChart2 className="h-5 w-5" aria-hidden />
+                  <div className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11',
+                    cierreView === 'global' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500',
+                  )}>
+                    <BarChart2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900">Liquidación global</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Totales del período · todos los productores · exportaciones</p>
+                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">Totales del período · todos los productores · exportaciones</p>
                   </div>
                 </button>
-
                 {/* Por productor */}
                 <button
                   type="button"
                   onClick={() => setCierreView('productor')}
                   className={cn(
-                    'group flex items-start gap-4 overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition-all',
+                    'group flex items-center gap-3 overflow-hidden rounded-2xl border px-4 py-4 text-left shadow-sm transition-all sm:items-start sm:gap-4 sm:p-5 lg:p-6',
                     cierreView === 'productor'
                       ? 'border-emerald-300 bg-emerald-50/60 ring-2 ring-emerald-200'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md',
                   )}
                 >
-                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', cierreView === 'productor' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
-                    <Users className="h-5 w-5" aria-hidden />
+                  <div className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11',
+                    cierreView === 'productor' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500',
+                  )}>
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900">Por productor</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Informe individual · PDF y Excel por productor</p>
+                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">Informe individual · PDF y Excel por productor</p>
                   </div>
                 </button>
-
               </div>
 
               {/* ── VISTA GLOBAL ── */}
@@ -4586,25 +4595,122 @@ export function ReportingPage() {
 
                   {/* Exportaciones */}
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+                    <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex sm:items-center sm:justify-between">
                       <p className="text-sm font-semibold text-slate-900">Exportaciones</p>
                       <p className="mt-0.5 text-xs text-slate-500">Dataset completo del período generado</p>
                     </div>
                     <div className="flex flex-wrap gap-2 px-5 py-4">
-                      <Button type="button" size="sm" variant="default" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('xlsx')}>
-                        <Download className="h-3.5 w-3.5" />Excel completo
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        className="gap-1.5"
+                        disabled={!reportData}
+                        onClick={async () => {
+                          if (!reportData || !reportFiltersForPdf) return;
+                          const base = `cierre-${reportFiltersForPdf.fecha_desde ?? 'ini'}-${reportFiltersForPdf.fecha_hasta ?? 'fin'}`;
+                          const period = reportFiltersForPdf.fecha_desde != null && reportFiltersForPdf.fecha_hasta != null
+                            ? `${String(reportFiltersForPdf.fecha_desde)} → ${String(reportFiltersForPdf.fecha_hasta)}`
+                            : reportFiltersForPdf.fecha_desde != null ? `desde ${String(reportFiltersForPdf.fecha_desde)}`
+                            : reportFiltersForPdf.fecha_hasta != null ? `hasta ${String(reportFiltersForPdf.fecha_hasta)}`
+                            : docLang === 'en' ? 'Full period' : 'Período completo';
+                          try {
+                            const q = toQuery({ ...reportFiltersForPdf, page: 1, limit: 9999, lang: docLang });
+                            const settlement = await apiJson<{
+                              producerSettlementSummary?: { rows: Record<string, unknown>[] };
+                              producerSettlementDetail?:  { rows: Record<string, unknown>[] };
+                              formatCostSummary?:         { rows: Record<string, unknown>[] };
+                            }>(`/api/reporting/producer-settlement?${q}`);
+                            await downloadSettlementExcelAll({
+                              fileBase: base,
+                              summaryRows:         settlement.producerSettlementSummary?.rows ?? [],
+                              detailRows:          settlement.producerSettlementDetail?.rows  ?? [],
+                              formatCostSummaryRows: settlement.formatCostSummary?.rows       ?? [],
+                              period,
+                              company: ((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? '',
+                              lang: docLang,
+                            });
+                            toast.success(docLang === 'en' ? 'Excel generated.' : 'Excel generado.');
+                          } catch (e) { toast.error(e instanceof Error ? e.message : 'Error'); }
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {docLang === 'en' ? 'Excel settlement' : 'Excel liquidación'}
                       </Button>
-                      <Button type="button" size="sm" variant="outline" disabled={!reportData} onClick={() => void downloadExport('csv')}>CSV</Button>
-                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
-                        <FileDown className="h-3.5 w-3.5" />PDF interno
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={!reportData || !reportFiltersForPdf}
+                        onClick={async () => {
+                          if (!reportFiltersForPdf) return;
+                          try {
+                            const q = toQuery({ ...reportFiltersForPdf, page: 1, limit: 9999 });
+                            const settlement = await apiJson<{
+                              producerSettlementSummary?: { rows: Record<string, unknown>[] };
+                              producerSettlementDetail?:  { rows: Record<string, unknown>[] };
+                            }>(`/api/reporting/producer-settlement?${q}`);
+                            const summaryRows = settlement.producerSettlementSummary?.rows ?? [];
+                            const detailRows  = settlement.producerSettlementDetail?.rows  ?? [];
+                            const headers = docLang === 'en'
+                              ? ['Producer','Dispatch #','Format','Boxes','LB','Sales','Materials','Pack fee','Net']
+                              : ['Productor','N° Despacho','Formato','Cajas','LB','Ventas','Materiales','Pack fee','Neto'];
+                            const lines: string[] = [headers.join(',')];
+                            for (const d of detailRows) {
+                              lines.push([
+                                `"${String(d.productor_nombre ?? '')}"`,
+                                String(d.dispatch_number ?? d.dispatch_id ?? ''),
+                                `"${String(d.format_code ?? '')}"`,
+                                String(d.cajas ?? ''),
+                                String(d.lb ?? ''),
+                                String(d.ventas ?? ''),
+                                String(d.costo_materiales ?? ''),
+                                String(d.costo_packing ?? ''),
+                                String(d.neto ?? ''),
+                              ].join(','));
+                            }
+                            // Totals row
+                            const tot = summaryRows.reduce((acc, r) => ({
+                              ventas: acc.ventas + Number(r.ventas ?? 0),
+                              mat:    acc.mat    + Number(r.costo_materiales ?? 0),
+                              pack:   acc.pack   + Number(r.costo_packing ?? 0),
+                              neto:   acc.neto   + Number(r.neto_productor ?? 0),
+                              cajas:  acc.cajas  + Number(r.cajas ?? 0),
+                              lb:     acc.lb     + Number(r.lb ?? 0),
+                            }), { ventas: 0, mat: 0, pack: 0, neto: 0, cajas: 0, lb: 0 });
+                            lines.push([
+                              docLang === 'en' ? '"TOTAL"' : '"TOTAL"', '',  '',
+                              String(tot.cajas), String(tot.lb),
+                              String(tot.ventas), String(tot.mat), String(tot.pack), String(tot.neto),
+                            ].join(','));
+                            const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                            const url  = URL.createObjectURL(blob);
+                            const a    = document.createElement('a');
+                            a.href = url;
+                            a.download = docLang === 'en' ? 'settlement.csv' : 'liquidacion.csv';
+                            a.click(); URL.revokeObjectURL(url);
+                            toast.success(docLang === 'en' ? 'CSV generated.' : 'CSV generado.');
+                          } catch (e) { toast.error(e instanceof Error ? e.message : 'Error'); }
+                        }}
+                      >
+                        CSV
                       </Button>
-                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportFiltersForPdf}
-                        onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('producer', { ...reportFiltersForPdf, productor_id: undefined }); }}>
-                        <FileDown className="h-3.5 w-3.5" />PDF liquidación (todos)
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={!reportFiltersForPdf}
-                        onClick={() => { if (!reportFiltersForPdf) return; void downloadProducerSettlementPdf('internal', { ...reportFiltersForPdf, productor_id: undefined }); }}>
-                        <FileDown className="h-3.5 w-3.5" />PDF liquidación interno
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={!reportFiltersForPdf}
+                        onClick={() => {
+                          if (!reportFiltersForPdf) return;
+                          void downloadProducerSettlementPdf('producer', { ...reportFiltersForPdf, productor_id: undefined }, { lang: docLang });
+                        }}
+                      >
+                        <FileDown className="h-3.5 w-3.5" />
+                        {docLang === 'en' ? 'PDF settlement' : 'PDF liquidación'}
                       </Button>
                     </div>
                   </div>
@@ -4757,26 +4863,29 @@ export function ReportingPage() {
                             </div>
                           )}
 
-                          <div className="flex flex-wrap gap-2">
-                            <Button type="button" size="sm" variant="default" className="gap-1.5"
+                          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                            <Button type="button" size="sm" variant="default" className="gap-1.5 justify-center"
                               disabled={!reportFiltersForPdf}
-                              onClick={() => { if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; } void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId }); }}>
+                              onClick={() => { if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; } void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId, lang: docLang }); }}>
                               <FileDown className="h-3.5 w-3.5" />PDF productor
                             </Button>
-                            <button
+                            <Button
                               type="button"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 justify-center"
+                              disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
                               onClick={() =>
-                                downloadProducerSettlementPdf('executive', reportFiltersForPdf!, {
+                                void downloadProducerSettlementPdf('executive', reportFiltersForPdf!, {
                                   productor_id: cierreInformeProducerId ?? undefined,
+                                  lang: docLang,
                                 })
                               }
-                              disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
                             >
-                              <FileText className="h-4 w-4" />
+                              <FileText className="h-3.5 w-3.5" />
                               PDF ejecutivo
-                            </button>
-                            <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" className="gap-1.5 justify-center"
                               disabled={!reportFiltersForPdf}
                               onClick={async () => {
                                 if (!reportFiltersForPdf || cierreInformeProducerId == null || !reportData) return;
@@ -4836,17 +4945,24 @@ export function ReportingPage() {
                                     formatCostSummaryRows: allFormatCostRows.length
                                       ? allFormatCostRows
                                       : (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[],
-                                    period: `${reportFiltersForPdf.fecha_desde != null ? String(reportFiltersForPdf.fecha_desde) : '—'} → ${reportFiltersForPdf.fecha_hasta != null ? String(reportFiltersForPdf.fecha_hasta) : '—'}`,
+                                    period: reportFiltersForPdf.fecha_desde != null && reportFiltersForPdf.fecha_hasta != null
+                                      ? `${String(reportFiltersForPdf.fecha_desde)} → ${String(reportFiltersForPdf.fecha_hasta)}`
+                                      : reportFiltersForPdf.fecha_desde != null
+                                      ? `desde ${String(reportFiltersForPdf.fecha_desde)}`
+                                      : reportFiltersForPdf.fecha_hasta != null
+                                      ? `hasta ${String(reportFiltersForPdf.fecha_hasta)}`
+                                      : docLang === 'en' ? 'Full period' : 'Período completo',
                                     company: ((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? '',
+                                    lang: docLang,
                                   });
                                   toast.success('Excel productor generado.');
                                 } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
                               }}>
                               <Download className="h-3.5 w-3.5" />Excel productor
                             </Button>
-                            <Button type="button" size="sm" variant="outline"
+                            <Button type="button" size="sm" variant="outline" className="justify-center"
                               onClick={() => { if (cierreInformeProducerId == null) return; setProducerRowExpandRequest(cierreInformeProducerId); setCierreView('global'); }}>
-                              Ver en liquidación global
+                              Ver en global
                             </Button>
                           </div>
                         </>
@@ -4956,7 +5072,7 @@ export function ReportingPage() {
                             toast.error('Generá primero.');
                             return;
                           }
-                          void downloadProducerSettlementPdf('producer', reportFiltersForPdf);
+                          void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { lang: docLang });
                         }}
                       >
                         <FileDown className="h-4 w-4" />
