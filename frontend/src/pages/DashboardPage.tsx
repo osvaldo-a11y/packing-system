@@ -1336,8 +1336,8 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <section className="sticky top-0 z-20 rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
-        <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1.5 md:h-10 md:max-h-10 md:flex-nowrap md:gap-2">
+      <section className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
+        <div className="flex h-10 flex-nowrap items-center gap-2 overflow-x-auto">
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {[
               { key: 'today', label: t('dashboard.filters.today') },
