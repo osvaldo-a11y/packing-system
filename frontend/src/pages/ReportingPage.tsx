@@ -4652,7 +4652,7 @@ export function ReportingPage() {
                               producerSettlementSummary?: { rows: Record<string, unknown>[] };
                               producerSettlementDetail?:  { rows: Record<string, unknown>[] };
                             }>(`/api/reporting/producer-settlement?${q}`);
-                            const summaryRows = settlement.producerSettlementSummary?.rows ?? [];
+                            const summaryRows = (settlement.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[];
                             const detailRows  = settlement.producerSettlementDetail?.rows  ?? [];
                             const headers = docLang === 'en'
                               ? ['Producer','Dispatch #','Format','Boxes','LB','Sales','Materials','Pack fee','Net']
@@ -4672,14 +4672,18 @@ export function ReportingPage() {
                               ].join(','));
                             }
                             // Totals row
-                            const tot = summaryRows.reduce((acc, r) => ({
-                              ventas: acc.ventas + Number(r.ventas ?? 0),
-                              mat:    acc.mat    + Number(r.costo_materiales ?? 0),
-                              pack:   acc.pack   + Number(r.costo_packing ?? 0),
-                              neto:   acc.neto   + Number(r.neto_productor ?? 0),
-                              cajas:  acc.cajas  + Number(r.cajas ?? 0),
-                              lb:     acc.lb     + Number(r.lb ?? 0),
-                            }), { ventas: 0, mat: 0, pack: 0, neto: 0, cajas: 0, lb: 0 });
+                            type Totals = { ventas: number; mat: number; pack: number; neto: number; cajas: number; lb: number };
+                            const tot = summaryRows.reduce<Totals>(
+                              (acc, r) => ({
+                                ventas: acc.ventas + Number(r.ventas ?? 0),
+                                mat: acc.mat + Number(r.costo_materiales ?? 0),
+                                pack: acc.pack + Number(r.costo_packing ?? 0),
+                                neto: acc.neto + Number(r.neto_productor ?? 0),
+                                cajas: acc.cajas + Number(r.cajas ?? 0),
+                                lb: acc.lb + Number(r.lb ?? 0),
+                              }),
+                              { ventas: 0, mat: 0, pack: 0, neto: 0, cajas: 0, lb: 0 },
+                            );
                             lines.push([
                               docLang === 'en' ? '"TOTAL"' : '"TOTAL"', '',  '',
                               String(tot.cajas), String(tot.lb),
