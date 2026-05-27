@@ -394,7 +394,7 @@ export class ReportingExportService {
     }
     if (filter.fecha_desde) return `desde ${filter.fecha_desde}`;
     if (filter.fecha_hasta) return `hasta ${filter.fecha_hasta}`;
-    return 'Todo el rango (sin filtro de fechas en despacho)';
+    return 'Período completo';
   }
 
   private filterDescription(filter: ReportFilterDto): string {
@@ -415,10 +415,14 @@ export class ReportingExportService {
    * `producer`: documento de entrega, claro y sin detalle técnico interno.
    * `internal`: desglose materiales/packing, notas de trazabilidad y diagnóstico.
    */
-  async buildProducerSettlementPdf(variant: 'producer' | 'internal', filter: ReportFilterDto) {
+  async buildProducerSettlementPdf(variant: 'producer' | 'internal' | 'executive', filter: ReportFilterDto) {
     const inner = await this.reporting.computeFormatCostingRows(filter);
     const { summaryRows, detailRows } = await this.reporting.computeProducerSettlementRows(filter, inner);
 
+    if (variant === 'executive') {
+      const meta = await this.reporting.getSettlementPdfMeta(filter);
+      return await this.renderProducerExecutivePdf(summaryRows, detailRows, filter, meta);
+    }
     if (variant === 'producer') {
       const meta = await this.reporting.getSettlementPdfMeta(filter);
       return await this.renderProducerDeliveryPdf(summaryRows, detailRows, filter, meta);
@@ -445,6 +449,13 @@ export class ReportingExportService {
     const t = s.replace(/\s+/g, ' ').trim();
     if (!t) return '—';
     return t.length <= max ? t : `${t.slice(0, Math.max(0, max - 1))}…`;
+  }
+
+  private static fmtFecha(v: unknown): string {
+    if (!v) return '—';
+    const d = new Date(String(v));
+    if (isNaN(d.getTime())) return String(v).slice(0, 10);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   /** Ancho útil entre márgenes del documento. */
@@ -544,7 +555,7 @@ export class ReportingExportService {
     const totalFs = options?.totalFontSize ?? 9;
 
     doc.moveDown(0.4);
-    doc.font('Helvetica-Bold').fontSize(titleSize).fillColor('#000000').text(title, { align: 'left' });
+    doc.font('Helvetica-Bold').fontSize(titleSize).fillColor('#000000').text(title, left, doc.y, { align: 'left', width: tw });
     doc.moveDown(0.35);
 
     const colMeta = columns.map((c) => ({ w: c.w, align: c.align }));
@@ -615,7 +626,7 @@ export class ReportingExportService {
     filter: ReportFilterDto,
     meta: { productorNombre: string | null; especieLabel: string | null; formatoCodigo: string | null },
   ): Promise<{ buffer: Buffer; mime: string; filename: string }> {
-    const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape' });
+    const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape', bufferPages: true });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
@@ -734,15 +745,16 @@ export class ReportingExportService {
     doc.moveDown(0.5);
 
     const detailColsA = [
-      { w: 0.09, header: 'Despacho', align: 'left' as const },
-      { w: 0.12, header: 'Código / BOL', align: 'left' as const },
-      { w: 0.16, header: 'Formato', align: 'left' as const },
-      { w: 0.08, header: 'Cajas', align: 'right' as const },
-      { w: 0.08, header: 'LB', align: 'right' as const },
-      { w: 0.1, header: 'Precio venta/caja', align: 'right' as const },
-      { w: 0.12, header: 'Ventas', align: 'right' as const },
-      { w: 0.12, header: 'Neto', align: 'right' as const },
-      { w: 0.13, header: 'Nota', align: 'left' as const },
+      { w: 0.07, header: 'Despacho',         align: 'left'  as const },
+      { w: 0.10, header: 'Fecha',             align: 'left'  as const },
+      { w: 0.10, header: 'BOL',               align: 'left'  as const },
+      { w: 0.14, header: 'Formato',           align: 'left'  as const },
+      { w: 0.07, header: 'Cajas',             align: 'right' as const },
+      { w: 0.07, header: 'LB',               align: 'right' as const },
+      { w: 0.09, header: 'Precio venta/caja', align: 'right' as const },
+      { w: 0.11, header: 'Ventas',            align: 'right' as const },
+      { w: 0.11, header: 'Neto',              align: 'right' as const },
+      { w: 0.14, header: 'Nota',              align: 'left'  as const },
     ];
 
     const detailColsB = [
@@ -770,9 +782,6 @@ export class ReportingExportService {
       >();
       for (const r of detailRows) {
         const did = pickText(r, ['dispatch_number', 'dispatch_id']);
-        const dispatchCode = pickText(r, ['dispatch_code']);
-        const bol = pickText(r, ['bol', 'reference', 'reference_number']);
-        const codeBol = dispatchCode !== '—' ? dispatchCode : bol;
         const fc = ReportingExportService.clipText(String((r as { format_code?: string }).format_code ?? '—'), 24);
         const cajas = num((r as { cajas?: number }).cajas);
         const lb = num((r as { lb?: number }).lb);
@@ -785,14 +794,12 @@ export class ReportingExportService {
         const matCaja = cajas > 0 ? cm / cajas : 0;
         const packCaja = cajas > 0 ? cp / cajas : 0;
         const totalCaja = cajas > 0 ? ct / cajas : 0;
-        const note = ReportingExportService.clipText(
-          pickText(r, ['nota_prorrateo', 'nota_trazabilidad', 'trace_note']),
-          56,
-        );
+        const note = 'Costo prorrateado por formato';
 
         detailBodyA.push([
-          did,
-          ReportingExportService.clipText(codeBol, 22),
+          String((r as Record<string, unknown>).dispatch_number ?? (r as Record<string, unknown>).dispatch_id ?? '—'),
+          ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho),
+          ReportingExportService.clipText(String((r as Record<string, unknown>).numero_bol ?? '—'), 16),
           ReportingExportService.clipText(fc, 24),
           ReportingExportService.qtyAr(cajas),
           ReportingExportService.qtyAr(lb),
@@ -868,12 +875,36 @@ export class ReportingExportService {
       });
     }
 
+    // Asegurar espacio antes del pie
+    if (doc.y + 50 > this.pdfBottomY(doc)) {
+      doc.addPage();
+    }
     doc.moveDown(1);
-    doc.fontSize(8);
-    doc.fillColor('#333333').text(
+    doc.fontSize(8).fillColor('#333333').text(
       'Documento emitido para fines de liquidación comercial. Ante consultas, coordinar con la administración de la empresa.',
       { width: w, align: 'left' },
     );
+
+    // Números de página en todas las hojas
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footerY = this.pdfBottomY(doc) - 14;
+      doc.fontSize(7).fillColor('#888888');
+      doc.text(
+        `${company}  ·  Liquidación al productor`,
+        doc.page.margins.left,
+        footerY,
+        { align: 'left', width: w },
+      );
+      doc.text(
+        `Pág. ${i - range.start + 1} / ${range.count}`,
+        doc.page.margins.left,
+        footerY,
+        { align: 'right', width: w },
+      );
+      doc.fillColor('#000000');
+    }
 
     return this.pdfBufferAndFinish(doc, chunks, 'liquidacion_productor.pdf');
   }
@@ -1065,6 +1096,145 @@ export class ReportingExportService {
     );
 
     return this.pdfBufferAndFinish(doc, chunks, 'liquidacion_productor_interno.pdf');
+  }
+
+  private async renderProducerExecutivePdf(
+    summaryRows: Record<string, unknown>[],
+    detailRows: Record<string, unknown>[],
+    filter: ReportFilterDto,
+    meta: { productorNombre: string | null; especieLabel: string | null; formatoCodigo: string | null },
+  ): Promise<{ buffer: Buffer; mime: string; filename: string }> {
+    const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape', bufferPages: true });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+
+    const company  = process.env.COMPANY_DISPLAY_NAME?.trim() || 'Empresa emisora';
+    const period   = this.formatSettlementPeriod(filter);
+    const emission = new Date().toLocaleString('es-AR', {
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+    const w   = this.pdfContentWidth(doc);
+    const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+    // ── Encabezado ──
+    doc.fontSize(16).font('Helvetica-Bold').text('LIQUIDACIÓN AL PRODUCTOR', { align: 'center', width: w });
+    doc.moveDown(0.35);
+    doc.fontSize(11).text(company, { align: 'center', width: w });
+    doc.font('Helvetica').moveDown(0.85);
+    doc.fontSize(10).fillColor('#111111');
+    if (meta.productorNombre) doc.text(`Productor: ${meta.productorNombre}`, { width: w });
+    doc.text(`Período: ${period}`, { width: w });
+    doc.text(`Fecha de emisión: ${emission}`, { width: w });
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor('#444444').text(
+      'Los costos se componen de materiales de empaque según receta y servicio de packing calculado por libra de acuerdo a la especie/formato.',
+      { width: w },
+    );
+    doc.fillColor('#000000').moveDown(0.9);
+
+    // ── Resumen ──
+    let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0, sumPack = 0, sumNeto = 0;
+    const summaryCols = [
+      { w: 0.28, header: 'Productor',          align: 'left'  as const },
+      { w: 0.10, header: 'Cajas',              align: 'right' as const },
+      { w: 0.10, header: 'LB',                 align: 'right' as const },
+      { w: 0.14, header: 'Ventas',             align: 'right' as const },
+      { w: 0.14, header: 'Materiales',         align: 'right' as const },
+      { w: 0.10, header: 'Pack fee',           align: 'right' as const },
+      { w: 0.14, header: 'Neto',               align: 'right' as const },
+    ];
+    const summaryBody: string[][] = [];
+    for (const r of summaryRows) {
+      const name   = ReportingExportService.clipText(String((r as { productor_nombre?: string }).productor_nombre ?? '—'), 36);
+      const cajas  = num((r as { cajas?: number }).cajas);
+      const lb     = num((r as { lb?: number }).lb);
+      const ventas = num((r as { ventas?: number }).ventas);
+      const mat    = num((r as { costo_materiales?: number }).costo_materiales);
+      const pack   = num((r as { costo_packing?: number }).costo_packing);
+      const neto   = num((r as { neto_productor?: number }).neto_productor);
+      sumCajas += cajas; sumLb += lb; sumVentas += ventas;
+      sumMat += mat; sumPack += pack; sumNeto += neto;
+      summaryBody.push([
+        name,
+        ReportingExportService.qtyAr(cajas),
+        ReportingExportService.qtyAr(lb),
+        ReportingExportService.moneyAr(ventas),
+        ReportingExportService.moneyAr(mat),
+        ReportingExportService.moneyAr(pack),
+        ReportingExportService.moneyAr(neto),
+      ]);
+    }
+    this.pdfDrawDataTable(doc, 'Resumen', summaryCols, summaryBody, [
+      'TOTAL',
+      ReportingExportService.qtyAr(sumCajas),
+      ReportingExportService.qtyAr(sumLb),
+      ReportingExportService.moneyAr(sumVentas),
+      ReportingExportService.moneyAr(sumMat),
+      ReportingExportService.moneyAr(sumPack),
+      ReportingExportService.moneyAr(sumNeto),
+    ], { titleSize: 13 });
+
+    doc.moveDown(0.5);
+
+    // ── Detalle por despacho ──
+    const execCols = [
+      { w: 0.06, header: 'Desp.',        align: 'left'  as const },
+      { w: 0.09, header: 'Fecha',        align: 'left'  as const },
+      { w: 0.09, header: 'BOL',          align: 'left'  as const },
+      { w: 0.13, header: 'Formato',      align: 'left'  as const },
+      { w: 0.06, header: 'Cajas',        align: 'right' as const },
+      { w: 0.07, header: 'LB',           align: 'right' as const },
+      { w: 0.08, header: 'Precio/caja',  align: 'right' as const },
+      { w: 0.10, header: 'Ventas',       align: 'right' as const },
+      { w: 0.09, header: 'Materiales',   align: 'right' as const },
+      { w: 0.09, header: 'Pack fee',     align: 'right' as const },
+      { w: 0.14, header: 'Neto',         align: 'right' as const },
+    ];
+    const execBody: string[][] = [];
+    for (const r of detailRows) {
+      const cajas  = num((r as { cajas?: number }).cajas);
+      const lb     = num((r as { lb?: number }).lb);
+      const ventas = num((r as { ventas?: number }).ventas);
+      const mat    = num((r as { costo_materiales?: number }).costo_materiales);
+      const pack   = num((r as { costo_packing?: number }).costo_packing);
+      const neto   = num((r as { neto?: number }).neto);
+      const precio = cajas > 0 ? ventas / cajas : 0;
+      execBody.push([
+        String((r as Record<string, unknown>).dispatch_number ?? (r as Record<string, unknown>).dispatch_id ?? '—'),
+        ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho),
+        ReportingExportService.clipText(String((r as Record<string, unknown>).numero_bol ?? '—'), 14),
+        ReportingExportService.clipText(String((r as { format_code?: string }).format_code ?? '—'), 18),
+        ReportingExportService.qtyAr(cajas),
+        ReportingExportService.qtyAr(lb),
+        ReportingExportService.precioCajaAr(precio),
+        ReportingExportService.moneyAr(ventas),
+        ReportingExportService.moneyAr(mat),
+        ReportingExportService.moneyAr(pack),
+        ReportingExportService.moneyAr(neto),
+      ]);
+    }
+    this.pdfDrawDataTable(doc, 'Detalle por despacho', execCols, execBody, null, {
+      titleSize: 12, headerFontSize: 8, bodyFontSize: 7.5,
+    });
+
+    // ── Pie ──
+    if (doc.y + 50 > this.pdfBottomY(doc)) doc.addPage();
+    doc.moveDown(1);
+    doc.fontSize(8).fillColor('#333333').text(
+      'Documento emitido para fines de liquidación comercial. Ante consultas, coordinar con la administración de la empresa.',
+      { width: w, align: 'left' },
+    );
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footerY = this.pdfBottomY(doc) - 14;
+      doc.fontSize(7).fillColor('#888888');
+      doc.text(`${company}  ·  Liquidación al productor`, doc.page.margins.left, footerY, { align: 'left', width: w });
+      doc.text(`Pág. ${i - range.start + 1} / ${range.count}`, doc.page.margins.left, footerY, { align: 'right', width: w });
+      doc.fillColor('#000000');
+    }
+    return this.pdfBufferAndFinish(doc, chunks, 'liquidacion_productor_ejecutivo.pdf');
   }
 
   private pdfBufferAndFinish(

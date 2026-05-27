@@ -98,7 +98,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
  * `productor_id` en ReportFilterDto (backend) filtra liquidación a un solo productor vía computeProducerSettlementRows.
  */
 async function downloadProducerSettlementPdf(
-  variant: 'producer' | 'internal',
+  variant: 'producer' | 'internal' | 'executive',
   f: ReportFilters,
   opts?: { productor_id?: number },
 ) {
@@ -123,7 +123,11 @@ async function downloadProducerSettlementPdf(
   });
   const path = `/api/reporting/producer-settlement/pdf?${q}`;
   const defaultName =
-    variant === 'producer' ? 'liquidacion_productor.pdf' : 'liquidacion_productor_interno.pdf';
+    variant === 'producer'
+      ? 'liquidacion_productor.pdf'
+      : variant === 'executive'
+        ? 'liquidacion_productor_ejecutivo.pdf'
+        : 'liquidacion_productor_interno.pdf';
   try {
     await downloadPdf(path, defaultName);
     toast.success('PDF descargado');
@@ -4759,17 +4763,82 @@ export function ReportingPage() {
                               onClick={() => { if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; } void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId }); }}>
                               <FileDown className="h-3.5 w-3.5" />PDF productor
                             </Button>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                              onClick={() =>
+                                downloadProducerSettlementPdf('executive', reportFiltersForPdf!, {
+                                  productor_id: cierreInformeProducerId ?? undefined,
+                                })
+                              }
+                              disabled={!reportFiltersForPdf || cierreInformeProducerId == null}
+                            >
+                              <FileText className="h-4 w-4" />
+                              PDF ejecutivo
+                            </button>
                             <Button type="button" size="sm" variant="outline" className="gap-1.5"
                               disabled={!reportFiltersForPdf}
                               onClick={async () => {
                                 if (!reportFiltersForPdf || cierreInformeProducerId == null || !reportData) return;
                                 const summaryRows = (reportData.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[];
-                                const sr = summaryRows.find((raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId) as Record<string, unknown> | undefined;
+                                const sr = summaryRows.find(
+                                  (raw) => Number((raw as Record<string, unknown>).productor_id) === cierreInformeProducerId,
+                                ) as Record<string, unknown> | undefined;
                                 if (!sr) { toast.error('No hay fila de resumen para este productor.'); return; }
                                 const name = String(sr.productor_nombre ?? `Productor ${cierreInformeProducerId}`);
                                 const base = `cierre-${reportFiltersForPdf.fecha_desde ?? 'ini'}-${reportFiltersForPdf.fecha_hasta ?? 'fin'}`;
                                 try {
-                                  await downloadProducerSettlementExcelClient({ fileBase: base, producerId: cierreInformeProducerId, producerName: name, summaryRow: sr, detailRows: (reportData.producerSettlementDetail?.rows ?? []) as Record<string, unknown>[], formatCostSummaryRows: (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[] });
+                                  // Traer TODAS las líneas del productor respetando límite backend (max 100).
+                                  const pageLimit = 100;
+                                  let page = 1;
+                                  const allDetailRows: Record<string, unknown>[] = [];
+                                  const allFormatCostRows: Record<string, unknown>[] = [];
+                                  let detailDone = false;
+                                  let formatDone = false;
+                                  while (!detailDone || !formatDone) {
+                                    const q = toQuery({
+                                      ...reportFiltersForPdf,
+                                      productor_id: cierreInformeProducerId,
+                                      page,
+                                      limit: pageLimit,
+                                    });
+                                    const settlement = await apiJson<{
+                                      producerSettlementDetail?: PaginatedSection;
+                                      formatCostSummary?: PaginatedSection;
+                                    }>(`/api/reporting/producer-settlement?${q}`);
+                                    const detailSection = settlement.producerSettlementDetail;
+                                    const formatSection = settlement.formatCostSummary;
+                                    const detailPageRows = detailSection?.rows ?? [];
+                                    const formatPageRows = formatSection?.rows ?? [];
+                                    if (!detailDone) {
+                                      allDetailRows.push(...detailPageRows);
+                                      detailDone =
+                                        allDetailRows.length >= (detailSection?.total ?? allDetailRows.length) ||
+                                        detailPageRows.length < pageLimit;
+                                    }
+                                    if (!formatDone) {
+                                      allFormatCostRows.push(...formatPageRows);
+                                      formatDone =
+                                        allFormatCostRows.length >= (formatSection?.total ?? allFormatCostRows.length) ||
+                                        formatPageRows.length < pageLimit;
+                                    }
+                                    if ((detailPageRows.length === 0 && formatPageRows.length === 0) || page >= 200) {
+                                      break;
+                                    }
+                                    page += 1;
+                                  }
+                                  await downloadProducerSettlementExcelClient({
+                                    fileBase: base,
+                                    producerId: cierreInformeProducerId,
+                                    producerName: name,
+                                    summaryRow: sr,
+                                    detailRows: allDetailRows,
+                                    formatCostSummaryRows: allFormatCostRows.length
+                                      ? allFormatCostRows
+                                      : (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[],
+                                    period: `${reportFiltersForPdf.fecha_desde != null ? String(reportFiltersForPdf.fecha_desde) : '—'} → ${reportFiltersForPdf.fecha_hasta != null ? String(reportFiltersForPdf.fecha_hasta) : '—'}`,
+                                    company: ((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? '',
+                                  });
                                   toast.success('Excel productor generado.');
                                 } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
                               }}>

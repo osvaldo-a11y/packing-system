@@ -610,6 +610,9 @@ export class ReportingService {
         ii.id AS line_id,
         ii.invoice_id,
         d.id AS dispatch_id,
+        d.fecha_despacho,
+        d.numero_bol,
+        inv.invoice_number,
         ii.tarja_id,
         ii.fruit_process_id,
         ii.final_pallet_id,
@@ -632,6 +635,9 @@ export class ReportingService {
       line_id: number;
       invoice_id: number;
       dispatch_id: number;
+      fecha_despacho: string | null;
+      numero_bol: string | null;
+      invoice_number: string | null;
       tarja_id: number | null;
       fruit_process_id: number | null;
       final_pallet_id: number | null;
@@ -782,7 +788,17 @@ export class ReportingService {
     const detailRows: Record<string, unknown>[] = [];
     const byProdDispatchFormat = new Map<
       string,
-      { productor_id: number | null; dispatch_id: number; format_key: string | null; cajas: number; lb: number; ventas: number }
+      {
+        productor_id: number | null;
+        dispatch_id: number;
+        format_key: string | null;
+        cajas: number;
+        lb: number;
+        ventas: number;
+        fecha_despacho: string | null;
+        numero_bol: string | null;
+        invoice_number: string | null;
+      }
     >();
 
     for (const li of lines) {
@@ -813,6 +829,9 @@ export class ReportingService {
           cajas: 0,
           lb: 0,
           ventas: 0,
+          fecha_despacho: li.fecha_despacho ?? null,
+          numero_bol: li.numero_bol ?? null,
+          invoice_number: li.invoice_number ?? null,
         };
         cur.cajas += cajas * s.frac;
         cur.lb += lbLine * s.frac;
@@ -833,6 +852,10 @@ export class ReportingService {
         productor_id: agg.productor_id,
         productor_nombre: agg.productor_id != null ? nameById.get(agg.productor_id) ?? null : '(sin unidad PT / sin asignar)',
         dispatch_id: agg.dispatch_id,
+        dispatch_number: agg.dispatch_id,
+        fecha_despacho: (agg as Record<string, unknown>).fecha_despacho ?? null,
+        numero_bol: (agg as Record<string, unknown>).numero_bol ?? null,
+        invoice_number: (agg as Record<string, unknown>).invoice_number ?? null,
         format_code: agg.format_key,
         cajas: Number(agg.cajas.toFixed(4)),
         lb: Number(agg.lb.toFixed(4)),
