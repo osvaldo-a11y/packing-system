@@ -237,38 +237,14 @@ type SavedReportRow = {
 
 type ReportModuleTab = 'operacion' | 'decision' | 'cierre' | 'documentos';
 
-const REPORT_MODULE_TABS: {
-  id: ReportModuleTab;
-  label: string;
-  subtitle: string;
-  excelCtaHint: string;
-}[] = [
-  {
-    id: 'operacion',
-    label: 'Operación',
-    subtitle: '¿Qué pasó hoy? Fin del día primero; KPIs del turno; período al final.',
-    excelCtaHint: 'En Documentos podés exportar el libro completo con los mismos filtros.',
-  },
-  {
-    id: 'decision',
-    label: 'Decisión',
-    subtitle:
-      '¿Qué debo producir? Contexto de MP y simulación — sin filtros del reporte económico; liquidación desde Cierre.',
-    excelCtaHint: 'En Documentos podés exportar el libro completo con los mismos filtros.',
-  },
-  {
-    id: 'cierre',
-    label: 'Cierre',
-    subtitle: '¿Cuánto ganó cada productor? Liquidación, packing por especie y trazabilidad.',
-    excelCtaHint: 'Exportar TODO (Excel) y PDF desde la pestaña Documentos.',
-  },
-  {
-    id: 'documentos',
-    label: 'Documentos',
-    subtitle: '¿Cómo exporto? Vista del período y descargas.',
-    excelCtaHint: 'Mismos filtros del período aplicados al archivo generado.',
-  },
-];
+function getReportModuleTabs(t: (k: string) => string) {
+  return [
+    { id: 'operacion' as const, label: t('reporting.tabs.operacion.label'), subtitle: t('reporting.tabs.operacion.subtitle'), excelCtaHint: t('reporting.tabs.operacion.excelHint') },
+    { id: 'decision' as const, label: t('reporting.tabs.decision.label'), subtitle: t('reporting.tabs.decision.subtitle'), excelCtaHint: t('reporting.tabs.decision.excelHint') },
+    { id: 'cierre' as const, label: t('reporting.tabs.cierre.label'), subtitle: t('reporting.tabs.cierre.subtitle'), excelCtaHint: t('reporting.tabs.cierre.excelHint') },
+    { id: 'documentos' as const, label: t('reporting.tabs.documentos.label'), subtitle: t('reporting.tabs.documentos.subtitle'), excelCtaHint: t('reporting.tabs.documentos.excelHint') },
+  ] as const;
+}
 
 const PACKING_HIDDEN_SPECIES_LS = 'reporting.packingHiddenSpeciesIds';
 
@@ -307,6 +283,8 @@ function ReportCategoryBadge({ kind }: { kind: 'operativo' | 'decision' | 'finan
 }
 
 function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementDiagnosticPayload | undefined }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   const missingFromApi = data == null;
   const effective = data ?? EMPTY_PRODUCER_SETTLEMENT_DIAGNOSTIC;
   const { meta, dispatches_included, invoice_lines } = effective;
@@ -320,20 +298,19 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
     >
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-amber-950 marker:content-none [&::-webkit-details-marker]:hidden">
         <span className="mr-2 inline-block transition-transform group-open:rotate-90">▸</span>
-        Depuración técnica (solo admin)
-        <span className="ml-2 font-normal text-amber-800/90">— Uso interno; no mostrar como resultado al productor.</span>
+        {tr('diagnostico.depuracionTitle')}
+        <span className="ml-2 font-normal text-amber-800/90">{tr('diagnostico.depuracionDesc')}</span>
       </summary>
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader className="pb-2 pt-0">
           <CardDescription className="text-amber-950/85">
-            Despachos y líneas de factura del período, con la misma resolución unidad PT → productor que la liquidación. Usá
-            esto solo para diagnosticar datos; no confundir con reportes financieros finales.
+            {tr('diagnostico.depuracionHelp')}
           </CardDescription>
         {missingFromApi ? (
           <div className="mt-3 rounded-md border border-amber-300 bg-amber-100/80 px-3 py-2 text-sm text-amber-950">
-            <strong className="font-medium">Aviso:</strong> el JSON no incluye{' '}
+            <strong className="font-medium">{tr('diagnostico.aviso')}</strong> el JSON no incluye{' '}
             <span className="font-mono">producerSettlementDiagnostic</span> (p. ej. reporte guardado antes de esta función).
-            Pulsá <strong>Generar</strong> otra vez para obtener datos del backend.
+            Pulsá <strong>{tr('diagnostico.generar')}</strong> otra vez para obtener datos del backend.
           </div>
         ) : null}
         {typeof hint === 'string' && hint ? (
@@ -342,17 +319,17 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
       </CardHeader>
       <CardContent className="space-y-4">
         <details className="rounded-md border border-border bg-muted/20 p-3">
-          <summary className="cursor-pointer text-sm font-medium">Meta (filtros y conteos)</summary>
+          <summary className="cursor-pointer text-sm font-medium">{tr('diagnostico.metaTitle')}</summary>
           <pre className="mt-3 max-h-[min(70vh,720px)] overflow-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
             {JSON.stringify(meta, null, 2)}
           </pre>
         </details>
         <div>
           <p className="mb-1 text-xs font-medium text-muted-foreground">
-            1) Despachos con factura en el período ({dispatches_included.length})
+            {tr('diagnostico.despachos')} ({dispatches_included.length})
           </p>
           {dispatches_included.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ninguno. Revisá fechas o que existan despachos facturados.</p>
+            <p className="text-sm text-muted-foreground">{tr('diagnostico.sinDespachos')}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <Table className="min-w-[600px]">
@@ -382,11 +359,11 @@ function ProducerSettlementDiagnosticPanel({ data }: { data: ProducerSettlementD
         </div>
         <div>
           <p className="mb-1 text-xs font-medium text-muted-foreground">
-            2) Líneas facturadas consideradas ({invoice_lines.length}) — scroll vertical si hay muchas
+            {tr('diagnostico.lineas')} ({invoice_lines.length}) — scroll vertical si hay muchas
           </p>
           {invoice_lines.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sin líneas: la liquidación queda vacía porque no hay ítems de factura en despachos del período.
+              {tr('diagnostico.sinLineas')}
             </p>
           ) : (
             <div className="max-h-[min(85vh,1400px)] overflow-x-auto rounded-md border border-border">
@@ -435,15 +412,43 @@ function SectionTable({
   /** Texto bajo el título (p. ej. validación operativa). */
   subtitle?: ReactNode;
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
+  const COL_MAP: Record<string, string> = {
+    productor_id: tr('liquidacionDetalle.colProductorId'),
+    productor_nombre: tr('liquidacionDetalle.colProductor'),
+    dispatch_id: tr('liquidacionDetalle.colDespacho'),
+    dispatch_number: tr('liquidacionDetalle.colDespachoNum'),
+    fecha_despacho: tr('liquidacionDetalle.colFecha'),
+    numero_bol: tr('liquidacionDetalle.colBol'),
+    invoice_number: tr('liquidacionDetalle.colFactura'),
+    format_code: tr('liquidacionDetalle.colFormato'),
+    cajas: tr('liquidacionDetalle.colCajas'),
+    lb: tr('liquidacionDetalle.colLb'),
+    ventas: tr('liquidacionDetalle.colVentas'),
+    costo_materiales: tr('liquidacionDetalle.colMateriales'),
+    costo_packing: tr('liquidacionDetalle.colPacking'),
+    costo_total: tr('liquidacionDetalle.colCostoTotal'),
+    neto: tr('liquidacionDetalle.colNeto'),
+    neto_productor: tr('liquidacionDetalle.colNetoProductor'),
+    nota_prorrateo: tr('liquidacionDetalle.colNota'),
+    client_id: tr('liquidacionDetalle.colClienteId'),
+    client_nombre: tr('liquidacionDetalle.colCliente'),
+    invoice_id: tr('liquidacionDetalle.colFacturaId'),
+  };
+  const colLabel = (c: string) => COL_MAP[c] ?? c;
   const total = section?.total ?? 0;
   const hasRows = (section?.rows?.length ?? 0) > 0;
   const pageInfo =
     section != null
-      ? `Total en servidor: ${total} filas · página ${section.page} · ${section.limit} por página`
+      ? tr('paginacion.totalServidor')
+          .replace('{total}', String(total))
+          .replace('{page}', String(section.page))
+          .replace('{limit}', String(section.limit))
       : '';
   const truncated = section != null && total > section.rows.length;
   const emptyButTotal =
-    section != null && !hasRows && total > 0 ? 'Hay datos en otras páginas: bajá “Página” a 1 o subí “Límite” (máx. 100).' : null;
+    section != null && !hasRows && total > 0 ? tr('paginacion.hayOtrasPaginas') : null;
 
   if (!section) {
     return (
@@ -451,7 +456,7 @@ function SectionTable({
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{title}</CardTitle>
           {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
-          <CardDescription>Sin sección.</CardDescription>
+          <CardDescription>{tr('paginacion.sinSeccion')}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -465,8 +470,12 @@ function SectionTable({
           {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
           <CardDescription>
             {total === 0
-              ? 'Sin filas para estos filtros.'
-              : `Sin filas en esta página (${pageInfo}).`}
+              ? tr('margenCliente.sinFilas')
+              : (
+                  <>
+                    {tr('margenCliente.sinFilasPagina')} {pageInfo ? `(${pageInfo})` : ''}
+                  </>
+                )}
             {emptyButTotal ? ` ${emptyButTotal}` : ''}
           </CardDescription>
         </CardHeader>
@@ -483,8 +492,9 @@ function SectionTable({
           {pageInfo}
           {truncated ? (
             <span className="mt-1 block text-amber-800">
-              Mostrás {section.rows.length} de {total}. Para ver más en una sola respuesta, poné Página 1 y Límite 100 en
-              filtros, y volvé a generar.
+              {tr('paginacion.mostrandoDeTotal')
+                .replace('{shown}', String(section.rows.length))
+                .replace('{total}', String(total))}
             </span>
           ) : null}
         </CardDescription>
@@ -499,7 +509,7 @@ function SectionTable({
                     key={c}
                     className={`whitespace-nowrap ${i === 0 ? 'min-w-[8rem] font-medium text-foreground' : ''} ${dense ? 'sticky top-0 z-[1] bg-card text-xs shadow-sm' : ''}`}
                   >
-                    {c}
+                    {colLabel(c)}
                   </TableHead>
                 ))}
               </TableRow>
@@ -529,7 +539,10 @@ function SectionTable({
   );
 }
 
-function reportPaginationNote(section: PaginatedSection | undefined): {
+function reportPaginationNote(
+  section: PaginatedSection | undefined,
+  tr: (k: string) => string = (k) => k,
+): {
   pageInfo: string;
   truncated: boolean;
   emptyButTotal: string | null;
@@ -538,11 +551,14 @@ function reportPaginationNote(section: PaginatedSection | undefined): {
   const hasRows = (section?.rows?.length ?? 0) > 0;
   const pageInfo =
     section != null
-      ? `Total en servidor: ${total} filas · página ${section.page} · ${section.limit} por página`
+      ? tr('paginacion.totalServidor')
+          .replace('{total}', String(total))
+          .replace('{page}', String(section.page))
+          .replace('{limit}', String(section.limit))
       : '';
   const truncated = section != null && total > section.rows.length;
   const emptyButTotal =
-    section != null && !hasRows && total > 0 ? 'Hay datos en otras páginas: bajá “Página” a 1 o subí “Límite” (máx. 100).' : null;
+    section != null && !hasRows && total > 0 ? tr('paginacion.hayOtrasPaginas') : null;
   return { pageInfo, truncated, emptyButTotal };
 }
 
@@ -572,7 +588,9 @@ function ClientMarginSummaryTable({
   section: PaginatedSection | undefined;
   id?: string;
 }) {
-  const { pageInfo, truncated, emptyButTotal } = reportPaginationNote(section);
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
+  const { pageInfo, truncated, emptyButTotal } = reportPaginationNote(section, tr);
   const rows = section?.rows ?? [];
   const hasRows = rows.length > 0;
 
@@ -580,7 +598,7 @@ function ClientMarginSummaryTable({
     return (
       <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Margen por cliente — resumen</CardTitle>
+          <CardTitle className="text-base">{tr('margenCliente.titleResumen')}</CardTitle>
           <CardDescription>Sin sección.</CardDescription>
         </CardHeader>
       </Card>
@@ -591,13 +609,13 @@ function ClientMarginSummaryTable({
     return (
       <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Margen por cliente — resumen</CardTitle>
+          <CardTitle className="text-base">{tr('margenCliente.titleResumen')}</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Totales por cliente: margen = ventas − costo total; últimas columnas son margen por caja y por lb.
+            {tr('margenCliente.totalesDesc')}
           </CardDescription>
           <CardDescription>
             {section.total === 0
-              ? 'Sin filas para estos filtros.'
+              ? tr('margenCliente.sinFilas')
               : `Sin filas en esta página (${pageInfo}).`}
             {emptyButTotal ? ` ${emptyButTotal}` : ''}
           </CardDescription>
@@ -609,27 +627,32 @@ function ClientMarginSummaryTable({
   return (
     <Card id={id} className="scroll-mt-20 overflow-hidden border-slate-200/90 bg-white shadow-sm">
       <CardHeader className="border-b border-slate-100 bg-slate-50/60 pb-3">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">Margen por cliente</CardTitle>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.titleResumen')}</CardTitle>
         <CardDescription className="mt-0.5 text-xs text-slate-500">
-          Ventas − costo total = margen neto. Columnas finales: margen por caja y por lb.
+          {tr('margenCliente.descResumen')}
         </CardDescription>
-        <p className="text-[11px] text-muted-foreground">{pageInfo}{truncated ? ` · Mostrás ${section.rows.length} de ${section.total}` : ''}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {pageInfo}
+          {truncated
+            ? ` · ${tr('paginacion.mostrandoDeTotal').replace('{shown}', String(section.rows.length)).replace('{total}', String(section.total))}`
+            : ''}
+        </p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-[min(80vh,920px)] overflow-x-auto rounded-md border border-border">
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-              <TableHead className="sticky top-0 z-[1] min-w-[140px] border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cliente</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cajas</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lb</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ventas</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo mat.</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo pack.</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo total</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margen</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/caja</TableHead>
-              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/lb</TableHead>
+              <TableHead className="sticky top-0 z-[1] min-w-[140px] border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colCliente')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colCajas')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colLb')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colVentas')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colCostoMat')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colCostoPack')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colCostoTotal')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colMargen')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colPorCaja')}</TableHead>
+              <TableHead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('margenCliente.colPorLb')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -669,7 +692,9 @@ function ClientMarginDetailTable({
   section: PaginatedSection | undefined;
   id?: string;
 }) {
-  const { pageInfo, truncated, emptyButTotal } = reportPaginationNote(section);
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
+  const { pageInfo, truncated, emptyButTotal } = reportPaginationNote(section, tr);
   const rows = section?.rows ?? [];
   const hasRows = rows.length > 0;
 
@@ -677,7 +702,7 @@ function ClientMarginDetailTable({
     return (
       <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Margen por cliente — detalle por formato</CardTitle>
+          <CardTitle className="text-base">{tr('margenCliente.titleDetalle')}</CardTitle>
           <CardDescription>Sin sección.</CardDescription>
         </CardHeader>
       </Card>
@@ -688,14 +713,13 @@ function ClientMarginDetailTable({
     return (
       <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Margen por cliente — detalle por formato</CardTitle>
+          <CardTitle className="text-base">{tr('margenCliente.titleDetalle')}</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Por cliente y <span className="font-mono">packaging_code</span>; la nota explica el prorrateo de costos del
-            período.
+            {tr('margenCliente.descDetalle')}
           </CardDescription>
           <CardDescription>
             {section.total === 0
-              ? 'Sin filas para estos filtros.'
+              ? tr('margenCliente.sinFilas')
               : `Sin filas en esta página (${pageInfo}).`}
             {emptyButTotal ? ` ${emptyButTotal}` : ''}
           </CardDescription>
@@ -707,17 +731,17 @@ function ClientMarginDetailTable({
   return (
     <Card id={id} className="scroll-mt-20 border-slate-200/90 bg-white shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Margen por cliente — detalle por formato</CardTitle>
+        <CardTitle className="text-base">{tr('margenCliente.titleDetalle')}</CardTitle>
         <CardDescription className="text-muted-foreground">
-          Por cliente y <span className="font-mono">packaging_code</span>; la nota explica el prorrateo de costos del
-          período.
+          {tr('margenCliente.descDetalle')}
         </CardDescription>
         <CardDescription>
           {pageInfo}
           {truncated ? (
             <span className="mt-1 block text-amber-800">
-              Mostrás {section.rows.length} de {section.total}. Para ver más en una sola respuesta, poné Página 1 y Límite
-              100 en filtros, y volvé a generar.
+              {tr('paginacion.mostrandoDeTotal')
+                .replace('{shown}', String(section.rows.length))
+                .replace('{total}', String(section.total))}
             </span>
           ) : null}
         </CardDescription>
@@ -727,19 +751,19 @@ function ClientMarginDetailTable({
           <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky top-0 z-[1] min-w-[120px] bg-card text-xs shadow-sm">Cliente</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-xs shadow-sm">ID</TableHead>
-                <TableHead className="sticky top-0 z-[1] min-w-[100px] bg-card text-xs shadow-sm">Formato</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Cajas</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Lb</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Ventas</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo mat.</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo pack.</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Costo total</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen / caja</TableHead>
-                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">Margen / lb</TableHead>
-                <TableHead className="sticky top-0 z-[1] min-w-[220px] bg-card text-xs shadow-sm">Nota prorrateo</TableHead>
+                <TableHead className="sticky top-0 z-[1] min-w-[120px] bg-card text-xs shadow-sm">{tr('margenCliente.colCliente')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-xs shadow-sm">{tr('margenCliente.colId')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] min-w-[100px] bg-card text-xs shadow-sm">{tr('costoFormato.colFormato')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colCajas')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colLb')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colVentas')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colCostoMat')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colCostoPack')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colCostoTotal')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colMargen')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colMargenCaja')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] bg-card text-right text-xs shadow-sm">{tr('margenCliente.colMargenLb')}</TableHead>
+                <TableHead className="sticky top-0 z-[1] min-w-[220px] bg-card text-xs shadow-sm">{tr('margenCliente.colNota')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1407,8 +1431,9 @@ function informePerProducerExportTier(args: {
   producerId: number | null;
   readiness: { ready: boolean; issues: string[] };
   audit: ReturnType<typeof computeLiquidacionAudit>;
+  tr: (k: string) => string;
 }): { tier: 'ok' | 'warn' | 'crit'; title: string; detailLines: string[] } {
-  const { producerId, readiness, audit } = args;
+  const { producerId, readiness, audit, tr } = args;
   if (producerId == null) {
     return { tier: 'ok', title: '', detailLines: [] };
   }
@@ -1428,7 +1453,7 @@ function informePerProducerExportTier(args: {
     if (lineMat) d.push('Falta materiales en alguna línea de despacho');
     return { tier: 'warn', title: 'Exportar con revisión', detailLines: d };
   }
-  return { tier: 'ok', title: 'Listo para PDF productor', detailLines: [] };
+  return { tier: 'ok', title: tr('productor.listoExportar'), detailLines: [] };
 }
 
 function producerAuditPanelCopy(
@@ -1460,9 +1485,11 @@ function producerAuditPanelCopy(
 function LiquidacionAuditorBlock({
   audit,
   packingManual,
+  tr,
 }: {
   audit: ReturnType<typeof computeLiquidacionAudit>;
   packingManual: boolean;
+  tr: (k: string) => string;
 }) {
   const ex = audit.executive;
   const anyIssues =
@@ -1504,33 +1531,33 @@ function LiquidacionAuditorBlock({
   return (
     <Card className="border-slate-300/80 bg-white shadow-sm" id="rep-cierre-auditor-liquidacion">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base text-slate-900">Auditor de liquidación</CardTitle>
+        <CardTitle className="text-base text-slate-900">{tr('auditor.title')}</CardTitle>
         <CardDescription className="max-w-[52rem] text-sm text-slate-700">
-          Revisá costos, trazabilidad y datos incompletos antes de exportar informes.
+          {tr('auditor.subtitle')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 border-t border-slate-100 pt-3">
         <div className="flex flex-wrap gap-2 text-[11px]">
           <Badge variant="outline" className="border-slate-300 bg-slate-50 font-medium text-slate-800">
-            Críticos: {ex.criticalPillars}
+            {tr('auditor.criticals')} {ex.criticalPillars}
           </Badge>
           <Badge variant="outline" className="border-slate-300 bg-slate-50 font-medium text-slate-800">
-            Advertencias: {ex.warningPillars}
+            {tr('auditor.warnings')} {ex.warningPillars}
           </Badge>
           <Badge variant="outline" className="border-slate-300 bg-slate-50 font-medium text-slate-800">
-            Productores afectados: {ex.affectedProducers}
+            {tr('auditor.producersAffected')} {ex.affectedProducers}
           </Badge>
           <Badge variant="outline" className="border-slate-300 bg-slate-50 font-medium text-slate-800">
-            Formatos afectados: {ex.affectedFormatos}
+            {tr('auditor.formatsAffected')} {ex.affectedFormatos}
           </Badge>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          {pillar('Tarifas packing', packingManual ? 'ok' : audit.packing.severity, audit.packing.summaryLine)}
-          {pillar('Materiales / recetas', audit.materials.severity, audit.materials.summaryLine)}
-          {pillar('Trazabilidad', audit.traceability.severity, audit.traceability.summaryLine)}
+          {pillar(tr('auditor.packingRates'), packingManual ? 'ok' : audit.packing.severity, audit.packing.summaryLine)}
+          {pillar(tr('auditor.materials'), audit.materials.severity, audit.materials.summaryLine)}
+          {pillar(tr('auditor.traceability'), audit.traceability.severity, audit.traceability.summaryLine)}
           <div className={cn('rounded-lg border px-2.5 py-2 text-[12px] leading-snug', exportRing)}>
-            <p className="font-semibold text-slate-900">Listo para exportar</p>
+            <p className="font-semibold text-slate-900">{tr('auditor.readyToExport')}</p>
             <p className="mt-0.5 font-medium text-slate-900">{audit.exportGate.headline}</p>
             <p className="mt-1 text-slate-800">{audit.exportGate.subline}</p>
           </div>
@@ -1545,26 +1572,26 @@ function LiquidacionAuditorBlock({
         <details className="rounded-md border border-slate-200 bg-slate-50/50 text-sm">
           <summary className="cursor-pointer list-none px-3 py-2 font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
             <span className="mr-1.5 text-slate-400">▸</span>
-            Ver problemas detectados
+            {tr('auditor.viewIssues')}
           </summary>
           <div className="space-y-4 border-t border-slate-200 px-2 py-3 sm:px-3">
             {!anyIssues ? (
-              <p className="text-xs font-medium text-emerald-900">No se detectaron problemas críticos.</p>
+              <p className="text-xs font-medium text-emerald-900">{tr('auditor.noIssues')}</p>
             ) : null}
 
             {audit.packing.tableRows.length > 0 ? (
               <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de packing</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">{tr('auditor.packingIssues')}</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
                   <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
-                        <TableHead className="text-xs">Productor</TableHead>
-                        <TableHead className="text-xs">Formato</TableHead>
-                        <TableHead className="text-right text-xs">Cajas</TableHead>
-                        <TableHead className="text-right text-xs">LB</TableHead>
-                        <TableHead className="text-right text-xs">Packing actual</TableHead>
-                        <TableHead className="text-xs">Problema</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colProducer')}</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colFormat')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colBoxes')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colLb')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colCurrentPacking')}</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colIssue')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1582,23 +1609,23 @@ function LiquidacionAuditorBlock({
                   </Table>
                 </div>
                 {audit.packing.tableRows.length > 80 ? (
-                  <p className="mt-1 text-[10px] text-muted-foreground">Mostrando 80 de {audit.packing.tableRows.length} filas.</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{tr('auditor.showingRows').replace('{total}', String(audit.packing.tableRows.length))}</p>
                 ) : null}
               </div>
             ) : null}
 
             {audit.materials.tableRows.length > 0 ? (
               <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de materiales</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">{tr('auditor.materialIssues')}</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
                   <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
-                        <TableHead className="text-xs">Productor</TableHead>
-                        <TableHead className="text-xs">Formato</TableHead>
-                        <TableHead className="text-right text-xs">Cajas</TableHead>
-                        <TableHead className="text-right text-xs">Material actual</TableHead>
-                        <TableHead className="text-xs">Problema</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colProducer')}</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colFormat')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colBoxes')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colCurrentMaterial')}</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colIssue')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1615,23 +1642,23 @@ function LiquidacionAuditorBlock({
                   </Table>
                 </div>
                 {audit.materials.tableRows.length > 80 ? (
-                  <p className="mt-1 text-[10px] text-muted-foreground">Mostrando 80 de {audit.materials.tableRows.length} filas.</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{tr('auditor.showingRows').replace('{total}', String(audit.materials.tableRows.length))}</p>
                 ) : null}
               </div>
             ) : null}
 
             {audit.traceability.tableRows.length > 0 || audit.traceability.producersSinDetalle.length > 0 ? (
               <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Problemas de trazabilidad</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">{tr('auditor.traceIssues')}</p>
                 <div className="overflow-x-auto rounded border border-slate-200 bg-white">
                   <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
-                        <TableHead className="text-xs">Productor / Sin asignar</TableHead>
-                        <TableHead className="text-right text-xs">Cajas</TableHead>
-                        <TableHead className="text-right text-xs">LB</TableHead>
-                        <TableHead className="text-right text-xs">Ventas</TableHead>
-                        <TableHead className="text-xs">Problema</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colProducerUnassigned')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colBoxes')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colLb')}</TableHead>
+                        <TableHead className="text-right text-xs">{tr('auditor.colSales')}</TableHead>
+                        <TableHead className="text-xs">{tr('auditor.colIssue')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1641,7 +1668,7 @@ function LiquidacionAuditorBlock({
                           <TableCell className="text-right text-xs">—</TableCell>
                           <TableCell className="text-right text-xs">—</TableCell>
                           <TableCell className="text-right text-xs">—</TableCell>
-                          <TableCell className="text-[11px] text-slate-700">Sin detalle operativo en la respuesta.</TableCell>
+                          <TableCell className="text-[11px] text-slate-700">{tr('auditor.noOpDetail')}</TableCell>
                         </TableRow>
                       ))}
                       {audit.traceability.tableRows.slice(0, 60).map((row, i) => (
@@ -1682,6 +1709,8 @@ function SettlementDetailByProducerTable({
   productorId: unknown;
   detailRows: Record<string, unknown>[];
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   function pickField(row: Record<string, unknown>, keys: string[]): unknown {
     for (const k of keys) {
       if (row[k] != null && String(row[k]).trim() !== '') return row[k];
@@ -1712,17 +1741,17 @@ function SettlementDetailByProducerTable({
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className={tableHeaderRow}>
-              <TableHead className="text-xs">Despacho</TableHead>
-              <TableHead className="text-xs">Factura</TableHead>
-              <TableHead className="text-xs">Cliente</TableHead>
-              <TableHead className="text-xs">Formato</TableHead>
-              <TableHead className="text-right text-xs">Cajas</TableHead>
-              <TableHead className="text-right text-xs">LB</TableHead>
-              <TableHead className="text-right text-xs">Ventas</TableHead>
-              <TableHead className="text-right text-xs">Materiales</TableHead>
-              <TableHead className="text-right text-xs">Packing</TableHead>
-              <TableHead className="text-right text-xs">Neto</TableHead>
-              <TableHead className="min-w-[10rem] text-xs">Nota / trazabilidad</TableHead>
+              <TableHead className="text-xs">{tr('liquidacionDetalle.colDespacho')}</TableHead>
+              <TableHead className="text-xs">{tr('liquidacionDetalle.colFactura')}</TableHead>
+              <TableHead className="text-xs">{tr('liquidacionDetalle.colCliente')}</TableHead>
+              <TableHead className="text-xs">{tr('liquidacionDetalle.colFormato')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colCajas')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colLb')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colVentas')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colMateriales')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colPacking')}</TableHead>
+              <TableHead className="text-right text-xs">{tr('liquidacionDetalle.colNeto')}</TableHead>
+              <TableHead className="min-w-[10rem] text-xs">{tr('liquidacionDetalle.colNota')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1805,6 +1834,7 @@ function CierreEstadoDelCierreStrip({
   informeProducerIssues,
   zeroCostLines,
   kpisPackingZeroNoManual,
+  tr,
 }: {
   packingManual: boolean;
   missingTariffLabels: string[];
@@ -1814,6 +1844,7 @@ function CierreEstadoDelCierreStrip({
   informeProducerIssues: string[];
   zeroCostLines: string[];
   kpisPackingZeroNoManual: boolean;
+  tr: (k: string) => string;
 }) {
   const tariffsOk = packingManual || missingTariffLabels.length === 0;
   const detailOk = producersMissingDetail.length === 0;
@@ -1840,8 +1871,8 @@ function CierreEstadoDelCierreStrip({
       column: 'ok',
       tone: 'neutral',
       icon: <Circle className="text-muted-foreground" />,
-      title: 'Tarifas packing',
-      description: <>Neutro — precio manual; no aplica tarifa por especie.</>,
+      title: tr('cierreStatus.packingRates'),
+      description: <>{tr('cierreStatus.neutral')}</>,
     });
   } else if (tariffsOk) {
     cards.push({
@@ -1849,8 +1880,8 @@ function CierreEstadoDelCierreStrip({
       column: 'ok',
       tone: 'ok',
       icon: <CheckCircle2 className="text-emerald-600" />,
-      title: 'Tarifas packing',
-      description: <>Listo — todas las especies usadas tienen tarifa activa.</>,
+      title: tr('cierreStatus.packingRates'),
+      description: <>{tr('cierreStatus.ready')}</>,
     });
   } else {
     cards.push({
@@ -1858,17 +1889,17 @@ function CierreEstadoDelCierreStrip({
       column: 'issue',
       tone: 'error',
       icon: <AlertTriangle className="text-red-600" />,
-      title: 'Tarifas packing',
+      title: tr('cierreStatus.packingRates'),
       description: (
         <>
           <p className="text-muted-foreground">
-            Pendiente — faltan tarifas activas:{' '}
+            {tr('cierreStatus.pending')}{' '}
             <span className="font-medium text-foreground">{fmtList(missingTariffLabels)}</span>.
           </p>
-          <p className="mt-1.5 font-medium text-foreground">Impacto</p>
+          <p className="mt-1.5 font-medium text-foreground">{tr('cierreStatus.impact')}</p>
           {missingTariffLabels.map((lab) => (
             <p key={lab} className="mt-1">
-              Falta tarifa en <strong>{lab}</strong> → el packing por lb de esa especie no entra en la liquidación (puede figurar en $0).
+              {tr('cierreStatus.missingImpact').replace('{format}', lab)}
             </p>
           ))}
         </>
@@ -1882,10 +1913,10 @@ function CierreEstadoDelCierreStrip({
       column: 'issue',
       tone: 'error',
       icon: <AlertTriangle className="text-red-600" />,
-      title: 'Packing global en $0',
+      title: tr('cierreStatus.packingZero'),
       description: (
         <>
-          Revisá tarifas por especie o datos de formato/LB en el período; el neto puede quedar inflado si el packing no se aplicó.
+          {tr('cierreStatus.packingZeroHint')}
         </>
       ),
     });
@@ -1897,7 +1928,7 @@ function CierreEstadoDelCierreStrip({
       column: 'issue',
       tone: 'warning',
       icon: <AlertTriangle className="text-amber-600" />,
-      title: 'Costos en $0 con ventas',
+      title: tr('cierreStatus.costsZero'),
       description: <>{fmtList(zeroCostLines, 3)}</>,
     });
   }
@@ -1908,8 +1939,8 @@ function CierreEstadoDelCierreStrip({
       column: 'ok',
       tone: 'ok',
       icon: <CheckCircle2 className="text-emerald-600" />,
-      title: 'Detalle operativo',
-      description: <>Listo — todos los productores tienen líneas de detalle.</>,
+      title: tr('cierreStatus.opDetail'),
+      description: <>{tr('cierreStatus.opDetailReady')}</>,
     });
   } else {
     cards.push({
@@ -1917,11 +1948,10 @@ function CierreEstadoDelCierreStrip({
       column: 'issue',
       tone: 'warning',
       icon: <AlertTriangle className="text-amber-600" />,
-      title: 'Detalle operativo',
+      title: tr('cierreStatus.opDetail'),
       description: (
         <>
-          Sin detalle operativo en la respuesta:{' '}
-          <span className="font-medium text-foreground">{fmtList(producersMissingDetail)}</span>. El PDF puede quedar incompleto para esos casos.
+          {tr('cierreStatus.opDetailMissing')} <span className="font-medium text-foreground">{fmtList(producersMissingDetail)}</span>.
         </>
       ),
     });
@@ -1933,8 +1963,8 @@ function CierreEstadoDelCierreStrip({
       column: 'ok',
       tone: 'neutral',
       icon: <Circle className="text-muted-foreground" />,
-      title: 'Informe productor',
-      description: <>Elegí un productor para emitir informe individual.</>,
+      title: tr('cierreStatus.producerReport'),
+      description: <>{tr('cierreStatus.producerReportChoose')}</>,
     });
   } else if (informeProducerReady) {
     cards.push({
@@ -1942,8 +1972,8 @@ function CierreEstadoDelCierreStrip({
       column: 'ok',
       tone: 'ok',
       icon: <CheckCircle2 className="text-emerald-600" />,
-      title: 'Informe productor',
-      description: <>Listo para exportar PDF / Excel con los datos actuales.</>,
+      title: tr('cierreStatus.producerReport'),
+      description: <>{tr('cierreStatus.producerReportReady')}</>,
     });
   } else {
     cards.push({
@@ -1951,7 +1981,7 @@ function CierreEstadoDelCierreStrip({
       column: 'issue',
       tone: 'error',
       icon: <XCircle className="text-red-600" />,
-      title: 'Informe productor',
+      title: tr('cierreStatus.producerReport'),
       description: (
         <>
           Faltan datos: <span className="font-medium text-foreground">{informeProducerIssues.join(' · ')}</span>
@@ -1965,8 +1995,8 @@ function CierreEstadoDelCierreStrip({
   const problemaCount = issueCards.length;
 
   return (
-    <div role="region" aria-label="Estado del cierre" className="min-w-0">
-      <p className="mb-3 text-[11px] uppercase tracking-wide text-muted-foreground">Estado del cierre</p>
+    <div role="region" aria-label={tr('cierreStatus.title')} className="min-w-0">
+      <p className="mb-3 text-[11px] uppercase tracking-wide text-muted-foreground">{tr('cierreStatus.title')}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           {leftCards.map((c) => (
@@ -1992,10 +2022,10 @@ function CierreEstadoDelCierreStrip({
         </div>
       </div>
       {problemaCount === 0 ? (
-        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Cierre listo para exportar</p>
+        <p className="mt-2 text-xs font-medium text-emerald-700">{tr('cierreStatus.closeListo')}</p>
       ) : (
         <p className="mt-2 text-xs font-medium text-amber-700">
-          {problemaCount} item(s) requieren revisión antes de exportar
+          {problemaCount} {tr('cierreStatus.closeReview')}
         </p>
       )}
     </div>
@@ -2010,6 +2040,8 @@ function ComoSeCalculaElCostoCierreBlock({
   reportData: GenerateResponse;
   kpis: ReturnType<typeof computeLiquidacionKpis>;
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   const manual = reportData.formatCostConfig?.packing_source === 'manual_filter';
   const rows = (reportData.formatCostSummary?.rows ?? []) as Record<string, unknown>[];
   const example = rows.find((raw) => toNum((raw as Record<string, unknown>).cajas) > 0) as Record<string, unknown> | undefined;
@@ -2018,54 +2050,54 @@ function ComoSeCalculaElCostoCierreBlock({
   const exPackingLb = example ? toNum(example.precio_packing_por_lb) : null;
   return (
     <div className="rounded-md border border-indigo-200/80 bg-indigo-50/50 px-3 py-2 text-[12px] leading-snug text-indigo-950">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-900/90">Cómo se calcula el costo</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-900/90">{tr('costoCalculo.title')}</p>
       <ul className="mt-1.5 list-disc space-y-1 pl-4 marker:text-indigo-400">
         <li>
-          <strong>Materiales</strong>: desde recetas de embalaje por formato (consumos del sistema; no es un importe manual por
-          productor).
+          <strong>{tr('costoCalculo.materiales')}</strong>
+          {tr('costoCalculo.materialesDesc')}
         </li>
         <li>
-          <strong>Packing</strong>: tarifa <span className="font-mono">$/lb</span> de la especie del formato
-          {manual ? ' (en este período el filtro usa precio packing manual y reemplaza el maestro por especie).' : ' (maestro de tarifas packing por especie).'}
+          <strong>{tr('costoCalculo.packing')}</strong>: tarifa <span className="font-mono">$/lb</span> de la especie del formato
+          {manual ? ` ${tr('costoCalculo.packingManualNote')}` : ` ${tr('costoCalculo.packingMaestroNote')}`}
         </li>
         <li>
-          <strong>Formato</strong>: los lb del período por caja acumulan packing en USD — más lb por caja implica más costo de
-          packing para esas cajas.
+          <strong>{tr('costoCalculo.formato')}</strong>
+          {tr('costoCalculo.formatoDesc')}
         </li>
       </ul>
       <p className="mt-2 rounded border border-indigo-100/80 bg-white/90 px-2 py-1.5 text-[11px] text-slate-800">
-        <span className="font-semibold text-slate-900">Costo por formato (según respuesta del API):</span>{' '}
-        <span className="font-mono text-[11px]">materiales(receta) + (lb del formato × $/lb packing)</span>
+        <span className="font-semibold text-slate-900">{tr('costoCalculo.costoPorFormato')}</span>{' '}
+        <span className="font-mono text-[11px]">{tr('costoCalculo.formula')}</span>
         {example ? (
           <>
-            <span className="mx-1 text-slate-500">· ejemplo</span>
+            <span className="mx-1 text-slate-500">{tr('costoCalculo.ejemplo')}</span>
             <span className="font-mono">{String(example.format_code)}</span>
             {exLbPerCaja != null ? (
               <>
                 {' '}
-                · <span className="font-mono">lb/caja ≈ {formatTechnical(exLbPerCaja, 3)}</span>
+                · <span className="font-mono">{tr('costoCalculo.lbCaja')} {formatTechnical(exLbPerCaja, 3)}</span>
               </>
             ) : null}
             {exPackingLb != null && Number.isFinite(exPackingLb) && exPackingLb > 0 ? (
               <>
                 {' '}
-                · <span className="font-mono">$/lb = {formatTechnical(exPackingLb, 4)}</span>
+                · <span className="font-mono">{tr('costoCalculo.slbEqual')} {formatTechnical(exPackingLb, 4)}</span>
               </>
             ) : !manual ? (
-              <> · packing en $/lb puede ser 0 si falta tarifa o especie en el formato.</>
+              <> {tr('costoCalculo.packingCeroNote')}</>
             ) : null}
           </>
         ) : (
-          <span className="text-muted-foreground"> Sin fila de costo por formato con cajas &gt; 0 en la página cargada.</span>
+          <span className="text-muted-foreground"> {tr('costoCalculo.sinFilaCosto')}</span>
         )}
       </p>
       <p className="mt-2 text-[12px] text-indigo-950">
-        <span className="font-semibold">Liquidación (suma filas visibles):</span>{' '}
+        <span className="font-semibold">{tr('costoCalculo.liquidacionSuma')}</span>{' '}
         <span className="tabular-nums">{fmtMoney(kpis.ventas)}</span> −{' '}
         <span className="tabular-nums">{fmtMoney(kpis.materiales)}</span> −{' '}
         <span className="tabular-nums">{fmtMoney(kpis.packing)}</span> ={' '}
         <span className="font-semibold tabular-nums">{fmtMoney(kpis.netoSum)}</span>
-        <span className="text-muted-foreground"> (neto productor).</span>
+        <span className="text-muted-foreground"> {tr('costoCalculo.netoProductor')}</span>
       </p>
     </div>
   );
@@ -2199,6 +2231,7 @@ function LiquidacionFinalModule({
   onExpandProducerHandled,
   packingTariffsManualMode,
   liquidacionAudit,
+  tr,
 }: {
   reportData: GenerateResponse;
   summaryNote: { pageInfo: string; truncated: boolean; emptyButTotal: string | null };
@@ -2207,6 +2240,7 @@ function LiquidacionFinalModule({
   onExpandProducerHandled?: () => void;
   packingTariffsManualMode: boolean;
   liquidacionAudit: ReturnType<typeof computeLiquidacionAudit> | null;
+  tr: (k: string) => string;
 }) {
   const audit = useMemo(
     () =>
@@ -2260,13 +2294,12 @@ function LiquidacionFinalModule({
             <div className="flex flex-wrap items-center gap-2">
               <ReportCategoryBadge kind="financiero" />
               <Badge variant="default" className="text-[10px] font-semibold uppercase tracking-wide">
-                Liquidación
+                {tr('liquidacion.badge')}
               </Badge>
             </div>
-            <CardTitle className="text-xl font-semibold tracking-tight text-slate-900">Liquidación final</CardTitle>
+            <CardTitle className="text-xl font-semibold tracking-tight text-slate-900">{tr('liquidacion.title')}</CardTitle>
             <CardDescription className="max-w-[52rem] text-sm leading-relaxed text-slate-700">
-              Ventas − materiales (receta) − packing ($/lb × lb) = neto por productor. Usá el auditor de liquidación arriba y este
-              resumen antes de exportar.
+              {tr('liquidacion.desc')}
             </CardDescription>
           </div>
         </CardHeader>
@@ -2274,35 +2307,35 @@ function LiquidacionFinalModule({
           {!summaryRows.length ? (
             <p className="text-sm text-muted-foreground">
               {summary?.total === 0
-                ? 'Sin liquidación para estos filtros (no hay líneas de factura en despachos del período).'
-                : `${summaryNote.emptyButTotal ?? 'Generá de nuevo o subí el límite de filas.'} ${summaryNote.pageInfo}`}
+                ? tr('liquidacion.sinLiquidacion')
+                : `${summaryNote.emptyButTotal ?? tr('liquidacion.sinLiquidacionHint')} ${summaryNote.pageInfo}`}
             </p>
           ) : (
             <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiTile
-                  label="Ventas totales"
+                  label={tr('liquidacion.kpiVentas')}
                   value={fmtMoney(kpis.ventas)}
                   valueClassName={kpis.ventas > 0 ? 'text-[#1D9E75]' : undefined}
                 />
-                <KpiTile label="Cajas totales" value={formatBoxes(kpis.cajas)} />
-                <KpiTile label="LB totales" value={fmtQty(kpis.lb, 2)} />
+                <KpiTile label={tr('liquidacion.kpiCajas')} value={formatBoxes(kpis.cajas)} />
+                <KpiTile label={tr('liquidacion.kpiLb')} value={fmtQty(kpis.lb, 2)} />
                 <KpiTile
-                  label="Costo materiales"
+                  label={tr('liquidacion.kpiMat')}
                   value={fmtMoney(kpis.materiales)}
                   valueClassName={
                     kpis.materiales === 0 && kpis.ventas > 0 ? 'text-amber-600' : undefined
                   }
                 />
                 <KpiTile
-                  label="Costo packing"
+                  label={tr('liquidacion.kpiPacking')}
                   value={fmtMoney(kpis.packing)}
                   valueClassName={kpis.packing === 0 && kpis.ventas > 0 ? 'text-amber-600' : undefined}
                 />
                 <KpiTile
-                  label="Neto productores"
+                  label={tr('liquidacion.kpiNeto')}
                   value={fmtMoney(kpis.netoSum)}
-                  hint="Suma de neto por fila (página cargada)."
+                  hint={tr('liquidacion.kpiNetoHint')}
                   valueClassName={
                     kpis.netoSum > 0
                       ? 'text-emerald-600'
@@ -2312,37 +2345,37 @@ function LiquidacionFinalModule({
                   }
                 />
                 <KpiTile
-                  label="Sin asignar / incompleto"
+                  label={tr('liquidacion.kpiSinAsignar')}
                   value={
                     kpis.unassignedCount > 0
                       ? `${fmtMoney(kpis.unassignedVentas)} ventas · ${fmtQty(kpis.unassignedLb, 2)} lb`
                       : '—'
                   }
                   hint={
-                    kpis.unassignedCount > 0 ? `${kpis.unassignedCount} fila(s) sin productor en resumen.` : 'Sin fila sin productor.'
+                    kpis.unassignedCount > 0 ? `${kpis.unassignedCount} fila(s) sin productor en resumen.` : tr('liquidacion.kpiSinAsignarHint')
                   }
                 />
                 <KpiTile
-                  label="Costos totales (mat.+pack.)"
+                  label={tr('liquidacion.kpiCostoTotal')}
                   value={fmtMoney(kpis.costoTotal)}
-                  hint="Suma sobre filas cargadas; coherente con ventas − netos."
+                  hint={tr('liquidacion.kpiCostoTotalHint')}
                 />
               </div>
               {kpis.unassignedCount > 0 ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2">
                   <Badge variant="outline" className="border-destructive/50 bg-destructive/10 text-[11px] text-destructive">
-                    Sin asignar · revisión
+                    {tr('liquidacion.sinAsignarRevision')}
                   </Badge>
                   <span className="text-xs text-amber-950">
-                    Hay filas sin productor o incompletas. Revisá <strong className="font-medium">Diagnóstico de trazabilidad</strong>{' '}
+                    Hay filas sin productor o incompletas. Revisá <strong className="font-medium">{tr('liquidacion.diagTrazabilidad')}</strong>{' '}
                     más abajo en esta pantalla si los montos son relevantes.
                   </span>
                 </div>
               ) : null}
               {summaryNote.truncated ? (
                 <p className="text-xs text-amber-800">
-                  KPIs y tabla muestran solo la página actual ({summaryNote.pageInfo}). Para totales globales poné página 1 y
-                  límite 100 en filtros.
+                  {tr('liquidacion.paginaActual')} ({summaryNote.pageInfo}). Para totales globales poné página 1 y{' '}
+                  {tr('liquidacion.limiteFiltros')}
                 </p>
               ) : null}
               <p className="text-xs text-muted-foreground">{summaryNote.pageInfo}</p>
@@ -2351,7 +2384,7 @@ function LiquidacionFinalModule({
 
               <details className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm open:border-slate-300">
                 <summary className="cursor-pointer font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                  Ver criterios (definición y fuentes)
+                  {tr('liquidacion.verCriterios')}
                 </summary>
                 <div className="mt-2 border-t border-slate-100 pt-2">
                   <ReportSemanticBlock helpId="liquidacion-interna" />
@@ -2361,7 +2394,7 @@ function LiquidacionFinalModule({
               <div className="space-y-2">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Por productor
+                    {tr('liquidacion.porProductor')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {summaryRows.length} productor(es) · período {periodoDesde} → {periodoHasta}
@@ -2404,19 +2437,19 @@ function LiquidacionFinalModule({
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <p className="text-muted-foreground">Cajas</p>
+                              <p className="text-muted-foreground">{tr('liquidacion.colCajas')}</p>
                               <p className="font-medium">{formatBoxes(toNum(r.cajas))}</p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">LB</p>
+                              <p className="text-muted-foreground">{tr('liquidacion.colLb')}</p>
                               <p className="font-medium">{fmtQty(r.lb, 0)}</p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Ventas</p>
+                              <p className="text-muted-foreground">{tr('liquidacion.colVentas')}</p>
                               <p className="font-medium tabular-nums">{fmtMoney(ventas)}</p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">$/caja</p>
+                              <p className="text-muted-foreground">{tr('liquidacion.colPrecioCaja')}</p>
                               <p className="font-medium tabular-nums">
                                 {cajasN > 0 ? fmtMoney(netoN / cajasN) : '—'}
                               </p>
@@ -2433,28 +2466,28 @@ function LiquidacionFinalModule({
                       <TableHeader>
                         <TableRow className={tableHeaderRow}>
                           <TableHead className="min-w-0 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 md:w-[18%]">
-                            Productor
+                            {tr('liquidacion.colProductor')}
                           </TableHead>
                           <TableHead className="w-[9%] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Cajas
+                            {tr('liquidacion.colCajas')}
                           </TableHead>
                           <TableHead className="w-[11%] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            LB
+                            {tr('liquidacion.colLb')}
                           </TableHead>
                           <TableHead className="w-[17%] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Ventas
+                            {tr('liquidacion.colVentas')}
                           </TableHead>
                           <TableHead className="w-[14%] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Neto productor
+                            {tr('liquidacion.colNetoProductor')}
                           </TableHead>
                           <TableHead className="w-[12%] px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Costo prom./caja
+                            {tr('liquidacion.colCostoPromCaja')}
                           </TableHead>
                           <TableHead className="w-[11%] px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Estado
+                            {tr('liquidacion.colEstado')}
                           </TableHead>
                           <TableHead className="w-[11%] whitespace-nowrap px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                            Acción
+                            {tr('liquidacion.colAccion')}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2552,7 +2585,7 @@ function LiquidacionFinalModule({
                                     className="h-8 shrink-0 text-xs"
                                     onClick={() => toggleKey(rowKey)}
                                   >
-                                    {open ? 'Ocultar' : 'Ver detalle'}
+                                    {open ? tr('liquidacion.ocultar') : tr('liquidacion.verDetalle')}
                                   </Button>
                                 </TableCell>
                               </TableRow>
@@ -2560,7 +2593,7 @@ function LiquidacionFinalModule({
                                 <TableRow className="border-0 bg-slate-50/90 hover:bg-slate-50/90">
                                   <TableCell colSpan={8} className="p-0">
                                     <div className="border-t border-slate-200 px-3 py-3 sm:px-4 space-y-3">
-                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Resumen</p>
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('liquidacion.resumen')}</p>
                                       <p className="text-[13px] font-medium text-slate-800 md:text-center">
                                         <span className="text-muted-foreground">Ventas</span>{' '}
                                         <span className="tabular-nums">{fmtMoney(r.ventas)}</span>
@@ -2592,7 +2625,7 @@ function LiquidacionFinalModule({
                                           </span>
                                         </p>
                                       ) : null}
-                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Desglose</p>
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('liquidacion.tablaCompleta')}</p>
                                       <div className="grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
                                         <div className="rounded-md border border-slate-200/80 bg-white px-3 py-2">
                                           <p className="text-[10px] uppercase text-muted-foreground">Materiales</p>
@@ -2690,14 +2723,14 @@ function LiquidacionFinalModule({
 
               <details className="rounded-lg border border-dashed border-slate-200 bg-muted/25 px-3 py-2">
                 <summary className="cursor-pointer list-none py-2 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="text-slate-400">▸</span> Tabla completa · detalle por despacho y formato (todas las columnas)
+                  <span className="text-slate-400">▸</span> {tr('liquidacion.tablaCompleta')}
                 </summary>
                 <div className="border-t border-slate-200 pt-4">
                   <SectionTable
-                    title="Liquidación — detalle por despacho y formato"
+                    title={tr('liquidacionDetalle.title')}
                     section={reportData.producerSettlementDetail}
                     dense
-                    subtitle="Desglose por despacho y packaging_code; coincide con los detalles desplegables arriba."
+                    subtitle={tr('liquidacionDetalle.desc')}
                   />
                 </div>
               </details>
@@ -2711,34 +2744,29 @@ function LiquidacionFinalModule({
 
 /** Texto orientativo sobre resolución de productor en liquidación (sin nuevos datos). */
 function DiagnosticoTrazabilidadGuiaCard() {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   return (
     <Card className="border-slate-200/90 bg-white shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base text-slate-900">Diagnóstico de trazabilidad</CardTitle>
+        <CardTitle className="text-base text-slate-900">{tr('diagnostico.trazabilidadTitle')}</CardTitle>
         <CardDescription className="max-w-[52rem] text-sm leading-relaxed">
-          El sistema asigna cada línea de factura en un despacho a un productor (o a <strong>sin asignar</strong>) según cómo llegue la
-          fruta hasta el pallet facturado. Estas etiquetas aparecen en el detalle técnico del backend y en PDF interno / tablas admin.
+          {tr('diagnostico.trazabilidadDesc')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-700">
         <ul className="list-disc space-y-1.5 pl-5 marker:text-slate-400">
           <li>
-            <span className="font-mono text-xs">pt_tag_items</span> — cuando la línea lleva{' '}
-            <span className="font-medium">tarja</span>: el productor sale de los ítems PT de esa unidad.
+            <span className="font-mono text-xs">{tr('diagnostico.regla1code')}</span> — {tr('diagnostico.regla1desc')}
           </li>
           <li>
-            <span className="font-mono text-xs">fruit_process_direct</span> / proceso en línea — si la factura declara proceso de fruta,
-            se usa el <span className="font-medium">productor del proceso</span>.
+            <span className="font-mono text-xs">{tr('diagnostico.regla2code')}</span> — {tr('diagnostico.regla2desc')}
           </li>
           <li>
-            <span className="font-mono text-xs">final_pallet</span> / <span className="font-mono text-xs">repallet_multi_producer</span>{' '}
-            — pallets resultantes de mezcla o repaletizado: los montos pueden <span className="font-medium">prorratearse</span> entre
-            productores según cajas de procedencia.
+            <span className="font-mono text-xs">{tr('diagnostico.regla3code')}</span> — {tr('diagnostico.regla3desc')}
           </li>
           <li>
-            <span className="font-mono text-xs">sin_tarja</span> / sin asignar — sin unidad PT ni vínculo claro al proceso/productor en
-            esa línea: las ventas y costos pueden acumular en{' '}
-            <span className="font-medium">«sin unidad PT / sin asignar»</span> en la tabla de liquidación.
+            <span className="font-mono text-xs">{tr('diagnostico.regla4code')}</span> — {tr('diagnostico.regla4desc')}
           </li>
         </ul>
       </CardContent>
@@ -2926,12 +2954,14 @@ function FormatCostGrouped({
   summary: PaginatedSection | undefined;
   lines: PaginatedSection | undefined;
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   if (!summary?.rows?.length) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Costo por formato — detalle por receta (agrupado)</CardTitle>
-          <CardDescription>Sin filas visibles para los filtros aplicados (o todas con cajas = 0 si ocultaste esas filas).</CardDescription>
+          <CardTitle className="text-base">{tr('costoFormato.titleDetalle')}</CardTitle>
+          <CardDescription>{tr('costoFormato.sinFilasDetalle')}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -2955,19 +2985,27 @@ function FormatCostGrouped({
           <Card key={`${formatCode}-${idx}`}>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-base">Formato {formatCode} — recetas y consumo</CardTitle>
-                <Badge variant="outline">cajas {formatLb(toNum(s.cajas), 2)}</Badge>
-                <Badge variant="outline">lb {formatLb(lb, 2)}</Badge>
-                <Badge variant="outline">materiales {formatMoney(costoMateriales)}</Badge>
-                <Badge variant="outline">packing {formatMoney(toNum(s.costo_packing))}</Badge>
-                <Badge variant="outline">total {formatMoney(toNum(s.costo_total))}</Badge>
-                <Badge variant="outline">costo/caja {formatTechnical(toNum(s.costo_por_caja), 4)}</Badge>
+                <CardTitle className="text-base">{tr('costoFormato.formatoTitle').replace('{code}', formatCode)}</CardTitle>
+                <Badge variant="outline">{tr('costoFormato.labelCajas')} {formatLb(toNum(s.cajas), 2)}</Badge>
+                <Badge variant="outline">{tr('costoFormato.labelLb')} {formatLb(lb, 2)}</Badge>
+                <Badge variant="outline">{tr('costoFormato.labelMateriales')} {formatMoney(costoMateriales)}</Badge>
+                <Badge variant="outline">{tr('costoFormato.labelPacking')} {formatMoney(toNum(s.costo_packing))}</Badge>
+                <Badge variant="outline">{tr('costoFormato.labelTotal')} {formatMoney(toNum(s.costo_total))}</Badge>
+                <Badge variant="outline">{tr('costoFormato.labelCostoCaja')} {formatTechnical(toNum(s.costo_por_caja), 4)}</Badge>
               </div>
               <CardDescription>
-                Financiero (facturación del período + recetas + packing por especie vía costo/caja): cajas{' '}
-                {formatLb(toNum(s.cajas), 2)} · lb {formatLb(lb, 2)} · costo_materiales {formatMoney(costoMateriales)} ·
-                costo_packing {formatMoney(toNum(s.costo_packing))} · costo_total {formatMoney(toNum(s.costo_total))} ·
-                costo_por_caja {formatTechnical(toNum(s.costo_por_caja), 4)}
+                {tr('costoFormato.financiero')} {tr('costoFormato.finCajas')}{' '}
+                {formatLb(toNum(s.cajas), 2)}
+                {' · '}{tr('costoFormato.finLb')}{' '}
+                {formatLb(lb, 2)}
+                {' · '}{tr('costoFormato.finMat')}{' '}
+                {formatMoney(costoMateriales)}
+                {' · '}{tr('costoFormato.finPack')}{' '}
+                {formatMoney(toNum(s.costo_packing))}
+                {' · '}{tr('costoFormato.finTotal')}{' '}
+                {formatMoney(toNum(s.costo_total))}
+                {' · '}{tr('costoFormato.finCostoCaja')}{' '}
+                {formatTechnical(toNum(s.costo_por_caja), 4)}
               </CardDescription>
               {s.warning ? (
                 <p className="text-xs text-amber-800">{toStr(s.warning)}</p>
@@ -2976,30 +3014,30 @@ function FormatCostGrouped({
             <CardContent className="pt-0 space-y-3">
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="rounded-md bg-muted px-2 py-1">
-                  precio cliente: {s.precio_cliente == null ? '—' : formatTechnical(toNum(s.precio_cliente), 4)}
+                  {tr('costoFormato.precioCliente')} {s.precio_cliente == null ? '—' : formatTechnical(toNum(s.precio_cliente), 4)}
                 </span>
                 <span className="rounded-md bg-muted px-2 py-1">
-                  delta/caja: {s.delta_por_caja == null ? '—' : formatTechnical(toNum(s.delta_por_caja), 4)}
+                  {tr('costoFormato.deltaCaja')} {s.delta_por_caja == null ? '—' : formatTechnical(toNum(s.delta_por_caja), 4)}
                 </span>
                 <span className="rounded-md bg-muted px-2 py-1">
-                  margen total: {s.margen_total == null ? '—' : formatMoney(toNum(s.margen_total))}
+                  {tr('costoFormato.margenTotal')} {s.margen_total == null ? '—' : formatMoney(toNum(s.margen_total))}
                 </span>
               </div>
               {detail.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin líneas de receta para este formato.</p>
+                <p className="text-sm text-muted-foreground">{tr('costoFormato.sinRecetas')}</p>
               ) : (
                 <div className="overflow-x-auto">
                 <Table className="min-w-[700px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Base</TableHead>
-                      <TableHead>Cant. receta</TableHead>
-                      <TableHead>Factor/caja</TableHead>
-                      <TableHead>Consumo total</TableHead>
-                      <TableHead>Costo unit.</TableHead>
-                      <TableHead>Costo total</TableHead>
+                      <TableHead>{tr('costoFormato.colMaterial')}</TableHead>
+                      <TableHead>{tr('costoFormato.colTipo')}</TableHead>
+                      <TableHead>{tr('costoFormato.colBase')}</TableHead>
+                      <TableHead>{tr('costoFormato.colCantReceta')}</TableHead>
+                      <TableHead>{tr('costoFormato.colFactorCaja')}</TableHead>
+                      <TableHead>{tr('costoFormato.colConsumoTotal')}</TableHead>
+                      <TableHead>{tr('costoFormato.colCostoUnit')}</TableHead>
+                      <TableHead>{tr('costoFormato.colCostoTotal')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3035,12 +3073,14 @@ function FormatCostOperational({
 }: {
   summary: PaginatedSection | undefined;
 }) {
+  const { t } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
   if (!summary?.rows?.length) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Costo por formato — tabla resumen</CardTitle>
-          <CardDescription>Sin filas para los filtros aplicados (o todas con cajas = 0 si las ocultaste).</CardDescription>
+          <CardTitle className="text-base">{tr('costoFormato.titleTablaResumen')}</CardTitle>
+          <CardDescription>{tr('costoFormato.sinFilasResumen')}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -3048,24 +3088,24 @@ function FormatCostOperational({
   return (
     <Card className="overflow-hidden border-slate-200/90 bg-white shadow-sm">
       <CardHeader className="border-b border-slate-100 bg-slate-50/60 pb-3">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">Costo por formato</CardTitle>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.titleResumen')}</CardTitle>
         <CardDescription className="mt-0.5 text-xs text-slate-500">
-          Volumen y costos según facturación del período · recetas de empaque · precio packing/lb por especie.
+          {tr('costoFormato.descResumen')}
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
         <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cajas</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lb</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mat. total</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pack. total</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Costo total</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mat./caja</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pack./caja</TableHead>
-              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500 font-bold">Total/caja</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colFormato')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colCajas')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colLb')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colMatTotal')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colPackTotal')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colCostoTotal')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colMatCaja')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('costoFormato.colPackCaja')}</TableHead>
+              <TableHead className="border-b border-slate-200 bg-slate-50/80 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500 font-bold">{tr('costoFormato.colTotalCaja')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -3167,7 +3207,9 @@ export function ReportingPage() {
   const canSave = role === 'admin' || role === 'supervisor';
   const canDelete = role === 'admin';
   const queryClient = useQueryClient();
-  const { i18n } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const tr = (k: string) => t(`reporting.${k}`);
+  const REPORT_MODULE_TABS = getReportModuleTabs(t);
   const docLang = i18n.language.startsWith('en') ? 'en' : 'es';
 
   const [filters, setFilters] = useState<ReportFilters>({
@@ -3388,8 +3430,9 @@ export function ReportingPage() {
       producerId: cierreInformeProducerId,
       readiness: cierreInformeReadiness,
       audit: liquidacionAudit,
+      tr,
     });
-  }, [liquidacionAudit, cierreInformeProducerId, cierreInformeReadiness]);
+  }, [liquidacionAudit, cierreInformeProducerId, cierreInformeReadiness, tr]);
 
   const generateMut = useMutation({
     mutationFn: async (f: ReportFilters) => {
@@ -3665,9 +3708,7 @@ export function ReportingPage() {
   const periodFilterFieldsGrid = (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-desde">
-          Desde
-        </label>
+        <label className={filterLabel} htmlFor="rep-desde">{tr('periodo.desde')}</label>
         <Input
           id="rep-desde"
           type="date"
@@ -3677,9 +3718,7 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-hasta">
-          Hasta
-        </label>
+        <label className={filterLabel} htmlFor="rep-hasta">{tr('periodo.hasta')}</label>
         <Input
           id="rep-hasta"
           type="date"
@@ -3689,9 +3728,7 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-page">
-          Página
-        </label>
+        <label className={filterLabel} htmlFor="rep-page">{tr('periodo.pagina')}</label>
         <Input
           id="rep-page"
           type="number"
@@ -3702,9 +3739,7 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-limit">
-          Límite (máx. 100)
-        </label>
+        <label className={filterLabel} htmlFor="rep-limit">{tr('periodo.limite')}</label>
         <Input
           id="rep-limit"
           type="number"
@@ -3721,9 +3756,7 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-productor">
-          Productor
-        </label>
+        <label className={filterLabel} htmlFor="rep-productor">{tr('periodo.productor')}</label>
         <select
           id="rep-productor"
           className={reportFilterCatalogSelectClass}
@@ -3738,7 +3771,7 @@ export function ReportingPage() {
             }));
           }}
         >
-          <option value="">Todos los productores</option>
+          <option value="">{tr('periodo.allProductores')}</option>
           {producersSorted.map((p) => (
             <option key={p.id} value={p.id}>
               {p.nombre}
@@ -3747,9 +3780,7 @@ export function ReportingPage() {
         </select>
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-cliente">
-          Cliente
-        </label>
+        <label className={filterLabel} htmlFor="rep-cliente">{tr('periodo.cliente')}</label>
         <select
           id="rep-cliente"
           className={reportFilterCatalogSelectClass}
@@ -3762,7 +3793,7 @@ export function ReportingPage() {
             }));
           }}
         >
-          <option value="">Todos los clientes</option>
+          <option value="">{tr('periodo.allClientes')}</option>
           {clientsSorted.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nombre}
@@ -3771,9 +3802,7 @@ export function ReportingPage() {
         </select>
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-variedad">
-          Variedad
-        </label>
+        <label className={filterLabel} htmlFor="rep-variedad">{tr('periodo.variedad')}</label>
         <select
           id="rep-variedad"
           className={reportFilterCatalogSelectClass}
@@ -3786,7 +3815,7 @@ export function ReportingPage() {
             }));
           }}
         >
-          <option value="">Todas las variedades</option>
+          <option value="">{tr('periodo.allVariedades')}</option>
           {varietiesSorted.map((v) => (
             <option key={v.id} value={v.id}>
               {v.nombre}
@@ -3795,15 +3824,13 @@ export function ReportingPage() {
         </select>
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-tarja">
-          Tarja id
-        </label>
+        <label className={filterLabel} htmlFor="rep-tarja">{tr('periodo.tarjaId')}</label>
         <Input
           id="rep-tarja"
           type="number"
           min={0}
           className={filterInputClass}
-          placeholder="Opcional"
+          placeholder={tr('periodo.opcional')}
           value={draft.tarja_id ?? ''}
           onChange={(e) =>
             setDraft((d) => ({
@@ -3814,27 +3841,23 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-format">
-          Código formato
-        </label>
+        <label className={filterLabel} htmlFor="rep-format">{tr('periodo.codigoFormato')}</label>
         <Input
           id="rep-format"
           className={filterInputClass}
-          placeholder="Opcional"
+          placeholder={tr('periodo.opcional')}
           value={draft.format_code ?? ''}
           onChange={(e) => setDraft((d) => ({ ...d, format_code: e.target.value || undefined }))}
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-precio-packing">
-          Precio packing / lb (manual)
-        </label>
+        <label className={filterLabel} htmlFor="rep-precio-packing">{tr('periodo.precioPackingManual')}</label>
         <Input
           id="rep-precio-packing"
           type="number"
           step="0.0001"
           className={filterInputClass}
-          placeholder="Opcional"
+          placeholder={tr('periodo.opcional')}
           value={draft.precio_packing_por_lb ?? ''}
           onChange={(e) =>
             setDraft((d) => ({
@@ -3845,13 +3868,11 @@ export function ReportingPage() {
         />
       </div>
       <div className="grid gap-1.5">
-        <label className={filterLabel} htmlFor="rep-calidad">
-          Calidad
-        </label>
+        <label className={filterLabel} htmlFor="rep-calidad">{tr('periodo.calidad')}</label>
         <Input
           id="rep-calidad"
           className={filterInputClass}
-          placeholder="Opcional"
+          placeholder={tr('periodo.opcional')}
           value={draft.calidad ?? ''}
           onChange={(e) => setDraft((d) => ({ ...d, calidad: e.target.value || undefined }))}
         />
@@ -3864,10 +3885,10 @@ export function ReportingPage() {
       <div className={pageHeaderRow}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className={pageTitle}>Reportes</h1>
+            <h1 className={pageTitle}>{tr('title')}</h1>
           </div>
           <p className={cn(pageSubtitle, 'mt-1')}>
-            Operación y Decisión usan la fecha operativa — Cierre y Documentos usan el período de liquidación.
+            {tr('subtitle')}
           </p>
         </div>
         <Link
@@ -3875,7 +3896,7 @@ export function ReportingPage() {
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 shadow-sm hover:bg-slate-50"
         >
           <Info className="h-3.5 w-3.5" aria-hidden />
-          Guía del sistema
+          {tr('guideLink')}
         </Link>
       </div>
 
@@ -3929,17 +3950,14 @@ export function ReportingPage() {
                   <DollarSign className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">Tarifas de packing</p>
-                  <p className="mt-0.5 text-xs text-slate-500">Precio USD/lb por especie · configurar antes del cierre</p>
+                  <p className="text-sm font-semibold text-slate-900">{tr('cierre.packingRates')}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{tr('cierre.packingRatesDesc')}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
               </div>
             </summary>
             <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
-              <p className="text-xs leading-relaxed text-slate-500">
-                Precio de servicio de packing en USD/lb por especie. Se aplica sobre el volumen del período.
-                Si usás <strong className="text-slate-700">Precio packing manual</strong> en filtros, ese valor tiene prioridad.
-              </p>
+              <p className="text-xs leading-relaxed text-slate-500">{tr('cierre.packingRatesHelp')}</p>
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <label className="flex cursor-pointer items-center gap-2 text-slate-600">
                   <input
@@ -3948,47 +3966,47 @@ export function ReportingPage() {
                     checked={showInactivePackingCosts}
                     onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
                   />
-                  Mostrar inactivas
+                  {tr('cierre.showInactive')}
                 </label>
                 {hiddenPackingSpeciesIds.size > 0 ? (
                   <Button type="button" variant="link" className="h-auto p-0 text-xs text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
-                    Restaurar ocultas ({hiddenPackingSpeciesIds.size})
+                    {tr('cierre.restoreHidden')} ({hiddenPackingSpeciesIds.size})
                   </Button>
                 ) : null}
               </div>
               {canManagePackingCosts ? (
                 <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">Especie</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.species')}</Label>
                     <select
                       className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                       value={packingSpeciesId}
                       onChange={(e) => setPackingSpeciesId(Number(e.target.value))}
                     >
-                      <option value={0}>Elegir…</option>
+                      <option value={0}>{tr('cierre.chooseDots')}</option>
                       {(species ?? []).map((s) => (
                         <option key={s.id} value={s.id}>{s.nombre}</option>
                       ))}
                     </select>
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.season')}</Label>
                     <Input className="h-9" value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">Precio / lb</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.pricePerLb')}</Label>
                     <Input className="h-9 font-mono" type="number" step="0.000001" min={0} value={packingPrice} onChange={(e) => setPackingPrice(e.target.value)} placeholder="0.1200" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">Activo</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.active')}</Label>
                     <select className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" value={packingActive ? '1' : '0'} onChange={(e) => setPackingActive(e.target.value === '1')}>
-                      <option value="1">Sí</option>
-                      <option value="0">No</option>
+                      <option value="1">{tr('cierre.yes')}</option>
+                      <option value="0">{tr('cierre.no')}</option>
                     </select>
                   </div>
                   <div className="md:col-span-4">
                     <Button type="button" size="sm" disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''} onClick={() => upsertPackingCostMut.mutate()}>
-                      {upsertPackingCostMut.isPending ? 'Guardando…' : 'Guardar tarifa'}
+                      {upsertPackingCostMut.isPending ? tr('cierre.saving') : tr('cierre.saveRate')}
                     </Button>
                   </div>
                 </div>
@@ -4000,10 +4018,10 @@ export function ReportingPage() {
                   <Table className="min-w-[500px]">
                     <TableHeader>
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Especie</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">$/lb</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colSpecies')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colSeason')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colPricePerLb')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colStatus')}</TableHead>
                         <TableHead className="border-b border-slate-200 py-2.5 w-[80px]" />
                       </TableRow>
                     </TableHeader>
@@ -4011,7 +4029,7 @@ export function ReportingPage() {
                       {visiblePackingCosts.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-400">
-                            {packingCosts?.length ? 'Sin filas visibles.' : 'Sin configuración.'}
+                            {packingCosts?.length ? tr('cierre.noRows') : tr('cierre.noConfig')}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -4022,18 +4040,18 @@ export function ReportingPage() {
                             <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">{formatMoney(Number(r.price_per_lb))}</TableCell>
                             <TableCell className="py-2.5 text-xs leading-snug">
                               {cierrePackingManualMode ? (
-                                <span className="text-slate-400">Modo manual activo</span>
+                                <span className="text-slate-400">{tr('cierre.manualMode')}</span>
                               ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
-                                <span className="font-medium text-rose-600">Falta tarifa activa</span>
+                                <span className="font-medium text-rose-600">{tr('cierre.missingRate')}</span>
                               ) : r.active && Number(r.price_per_lb) > 0 ? (
-                                <span className="font-medium text-emerald-600">✓ Activa</span>
+                                <span className="font-medium text-emerald-600">{tr('cierre.rateActive')}</span>
                               ) : (
-                                <span className="text-amber-600">Sin tarifa efectiva</span>
+                                <span className="text-amber-600">{tr('cierre.noEffectiveRate')}</span>
                               )}
                             </TableCell>
                             <TableCell className="py-2.5">
                               <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-slate-400 hover:text-slate-700" onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}>
-                                Ocultar
+                                {tr('cierre.hide')}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -4047,23 +4065,22 @@ export function ReportingPage() {
               {/* Recargos por formato */}
               <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Recargos adicionales por formato</p>
+                  <p className="text-sm font-semibold text-slate-800">{tr('cierre.surcharges')}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Cargo extra en USD/lb para formatos específicos (ej: jumbo 12×9.8oz).
-                    Se suma al packing base por especie en la liquidación.
+                    {tr('cierre.surchargesDesc')}
                   </p>
                 </div>
 
                 {canManagePackingCosts ? (
                   <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                     <div className="grid gap-1.5 md:col-span-2">
-                      <Label className="text-xs text-slate-500">Formato</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.format')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={surchargeFormatCode}
                         onChange={(e) => setSurchargeFormatCode(e.target.value)}
                       >
-                        <option value="">Elegir formato…</option>
+                        <option value="">{tr('cierre.chooseFormat')}</option>
                         {(activePresFormats ?? []).map((f) => (
                           <option key={f.format_code} value={f.format_code}>
                             {f.format_code}
@@ -4072,7 +4089,7 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Recargo / lb</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.surchargePerLb')}</Label>
                       <Input
                         className="h-9 font-mono"
                         type="number"
@@ -4180,14 +4197,15 @@ export function ReportingPage() {
               <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Ajustes de escenario — materiales</p>
+                    <p className="text-sm font-semibold text-slate-800">{tr('ajustes.title')}</p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Costo adicional por caja, lb o % sobre materiales. Activo = se aplica al cierre.
-                      El PDF interno siempre muestra el costo real; el PDF productor usa el ajuste activo.
+                      {tr('ajustes.desc1')}
+                      {' '}
+                      {tr('ajustes.desc2')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-xs text-slate-500">Vista liquidación:</span>
+                    <span className="text-xs text-slate-500">{tr('ajustes.vistaLabel')}</span>
                     <button
                       type="button"
                       onClick={() => setUseAdjustedCost(false)}
@@ -4198,7 +4216,7 @@ export function ReportingPage() {
                           : 'text-slate-500 hover:text-slate-800',
                       )}
                     >
-                      Real (interno)
+                      {tr('ajustes.vistaReal')}
                     </button>
                     <button
                       type="button"
@@ -4210,7 +4228,7 @@ export function ReportingPage() {
                           : 'text-slate-500 hover:text-slate-800',
                       )}
                     >
-                      Ajustado (productor)
+                      {tr('ajustes.vistaAjustado')}
                     </button>
                   </div>
                 </div>
@@ -4218,28 +4236,28 @@ export function ReportingPage() {
                 {canManagePackingCosts ? (
                   <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                     <div className="grid gap-1.5 md:col-span-2">
-                      <Label className="text-xs text-slate-500">Nombre del escenario</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.nombreEscenario')}</Label>
                       <Input
                         className="h-9"
                         value={adjName}
                         onChange={(e) => setAdjName(e.target.value)}
-                        placeholder="Ej. Temporada alta +15%"
+                        placeholder={tr('ajustes.nombrePlaceholder')}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Tipo de ajuste</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.tipoAjuste')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjType}
                         onChange={(e) => setAdjType(e.target.value as 'per_box' | 'per_lb' | 'percent')}
                       >
-                        <option value="per_box">Por caja ($/caja)</option>
-                        <option value="per_lb">Por lb ($/lb)</option>
-                        <option value="percent">Porcentaje (% sobre mat.)</option>
+                        <option value="per_box">{tr('ajustes.porCaja')}</option>
+                        <option value="per_lb">{tr('ajustes.porLb')}</option>
+                        <option value="percent">{tr('ajustes.porPct')}</option>
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Valor</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.valor')}</Label>
                       <Input
                         className="h-9 font-mono"
                         type="number"
@@ -4247,17 +4265,17 @@ export function ReportingPage() {
                         min={0}
                         value={adjValue}
                         onChange={(e) => setAdjValue(e.target.value)}
-                        placeholder={adjType === 'percent' ? 'Ej. 15' : 'Ej. 0.50'}
+                        placeholder={adjType === 'percent' ? tr('ajustes.valPlaceholderPct') : tr('ajustes.valPlaceholderFixed')}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Formato (vacío = todos)</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.formatoVacio')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjFormatCode}
                         onChange={(e) => setAdjFormatCode(e.target.value)}
                       >
-                        <option value="">Todos los formatos</option>
+                        <option value="">{tr('ajustes.allFormatos')}</option>
                         {(activePresFormats ?? []).map((f) => (
                           <option key={f.format_code} value={f.format_code}>
                             {f.format_code}
@@ -4266,13 +4284,13 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Productor (vacío = todos)</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.productorVacio')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjProducerId}
                         onChange={(e) => setAdjProducerId(Number(e.target.value))}
                       >
-                        <option value={0}>Todos los productores</option>
+                        <option value={0}>{tr('ajustes.allProductores')}</option>
                         {(producersSorted ?? []).map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.nombre}
@@ -4281,7 +4299,7 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.temporada')}</Label>
                       <Input
                         className="h-9"
                         value={adjSeason}
@@ -4290,23 +4308,23 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.notas')}</Label>
                       <Input
                         className="h-9"
                         value={adjNotes}
                         onChange={(e) => setAdjNotes(e.target.value)}
-                        placeholder="Descripción del escenario"
+                        placeholder={tr('ajustes.notasPlaceholder')}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <Label className="text-xs text-slate-500">{tr('ajustes.activo')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjActive ? '1' : '0'}
                         onChange={(e) => setAdjActive(e.target.value === '1')}
                       >
-                        <option value="1">Sí</option>
-                        <option value="0">No</option>
+                        <option value="1">{tr('ajustes.si')}</option>
+                        <option value="0">{tr('ajustes.no')}</option>
                       </select>
                     </div>
                     <div className="md:col-span-4">
@@ -4327,7 +4345,7 @@ export function ReportingPage() {
                           })
                         }
                       >
-                        {upsertMaterialAdjMut.isPending ? 'Guardando…' : 'Guardar ajuste'}
+                        {upsertMaterialAdjMut.isPending ? tr('ajustes.saving') : tr('ajustes.guardar')}
                       </Button>
                     </div>
                   </div>
@@ -4336,18 +4354,18 @@ export function ReportingPage() {
                 {materialAdjustmentsLoading ? (
                   <Skeleton className="h-20 w-full" />
                 ) : (materialAdjustments ?? []).length === 0 ? (
-                  <p className="text-xs text-slate-400">Sin ajustes de escenario configurados.</p>
+                  <p className="text-xs text-slate-400">{tr('ajustes.sinAjustes')}</p>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-slate-200">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Escenario</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tipo</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Valor</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Productor</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colEscenario')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colTipo')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colValor')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colFormato')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colProductor')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colEstado')}</TableHead>
                           <TableHead className="border-b border-slate-200 py-2.5 w-[60px]" />
                         </TableRow>
                       </TableHeader>
@@ -4356,23 +4374,23 @@ export function ReportingPage() {
                           <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
                             <TableCell className="py-2.5 text-sm font-semibold text-slate-900">{r.name}</TableCell>
                             <TableCell className="py-2.5 text-xs text-slate-600">
-                              {r.adjustment_type === 'per_box' ? '$/caja' : r.adjustment_type === 'per_lb' ? '$/lb' : '% mat.'}
+                              {r.adjustment_type === 'per_box' ? tr('ajustes.unidadCaja') : r.adjustment_type === 'per_lb' ? tr('ajustes.unidadLb') : tr('ajustes.unidadPct')}
                             </TableCell>
                             <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
                               {r.adjustment_type === 'percent'
                                 ? `${formatTechnical(Number(r.value), 2)}%`
                                 : `+${formatMoney(Number(r.value))}`}
                             </TableCell>
-                            <TableCell className="py-2.5 font-mono text-xs text-slate-700">{r.format_code ?? 'Todos'}</TableCell>
+                            <TableCell className="py-2.5 font-mono text-xs text-slate-700">{r.format_code ?? tr('ajustes.todos')}</TableCell>
                             <TableCell className="py-2.5 text-xs text-slate-600">
                               {r.producer_id != null
                                 ? producersSorted.find((p) => p.id === r.producer_id)?.nombre ?? `#${r.producer_id}`
-                                : 'Todos'}
+                                : tr('ajustes.todos')}
                             </TableCell>
                             <TableCell className="py-2.5 text-xs">
                               {r.active
-                                ? <span className="font-medium text-emerald-600">✓ Activo</span>
-                                : <span className="text-slate-400">Inactivo</span>}
+                                ? <span className="font-medium text-emerald-600">{tr('ajustes.activo2')}</span>
+                                : <span className="text-slate-400">{tr('ajustes.inactivo')}</span>}
                             </TableCell>
                             <TableCell className="py-2.5">
                               <Button
@@ -4383,7 +4401,7 @@ export function ReportingPage() {
                                 disabled={deleteMaterialAdjMut.isPending}
                                 onClick={() => deleteMaterialAdjMut.mutate(r.id)}
                               >
-                                Quitar
+                                {tr('ajustes.quitar')}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -4395,9 +4413,9 @@ export function ReportingPage() {
 
                 {useAdjustedCost && (materialAdjustments ?? []).filter((a) => a.active).length > 0 ? (
                   <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                    <span className="font-semibold">Vista ajustada activa:</span>
+                    <span className="font-semibold">{tr('ajustes.vistaAjustadaActiva')}</span>
                     {(materialAdjustments ?? []).filter((a) => a.active).map((a) => a.name).join(', ')}
-                    {' '}· Presioná «Actualizar cierre» para aplicar.
+                    {' '}{tr('ajustes.aplicarHint')}
                   </div>
                 ) : null}
               </div>
@@ -4411,9 +4429,9 @@ export function ReportingPage() {
                 <RefreshCw className="h-5 w-5" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900">Período de liquidación</p>
+                <p className="text-sm font-semibold text-slate-900">{tr('periodo.title')}</p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · pág. {filters.page} · {filters.limit} filas
+                  {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · {tr('periodo.pagLabel')} {filters.page} · {filters.limit} {tr('periodo.filasLabel')}
                 </p>
               </div>
               <Button
@@ -4423,7 +4441,7 @@ export function ReportingPage() {
                 disabled={generateMut.isPending}
               >
                 <RefreshCw className="h-4 w-4" />
-                {generateMut.isPending ? 'Generando…' : 'Actualizar cierre'}
+                {generateMut.isPending ? tr('periodo.generando') : tr('periodo.actualizar')}
               </Button>
             </div>
             <details
@@ -4435,7 +4453,7 @@ export function ReportingPage() {
               <summary className="cursor-pointer list-none px-5 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
                 <div className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800">
                   <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-                  Filtros del período (fechas, paginación, productor, cliente, formato…)
+                  {tr('periodo.filtros')}
                 </div>
               </summary>
               <div className="space-y-3 border-t border-slate-100 px-5 py-4">
@@ -4505,7 +4523,7 @@ export function ReportingPage() {
                 finOpenByDefault
                 planningDomId="rep-operacion-diaria"
                 finDelDiaDomId="rep-operacion-fin-dia"
-                planningHint="KPIs del día (packed, cámara, shipped y MP proceso) justo debajo del fin del día de la fecha operativa."
+                planningHint={tr('operacion.kpisHint')}
               />
             </>
           ) : null}
@@ -4527,9 +4545,10 @@ export function ReportingPage() {
                 informeProducerIssues={cierreInformeReadiness.issues}
                 zeroCostLines={cierreZeroCostLines}
                 kpisPackingZeroNoManual={cierreKpisPackingZeroNoManual}
+                tr={tr}
               />
               {liquidacionAudit ? (
-                <LiquidacionAuditorBlock audit={liquidacionAudit} packingManual={!!cierrePackingManualMode} />
+                <LiquidacionAuditorBlock audit={liquidacionAudit} packingManual={!!cierrePackingManualMode} tr={tr} />
               ) : null}
 
               {/* ── SELECTOR DE VISTA ── */}
@@ -4552,8 +4571,8 @@ export function ReportingPage() {
                     <BarChart2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">Liquidación global</p>
-                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">Totales del período · todos los productores · exportaciones</p>
+                    <p className="text-sm font-semibold text-slate-900">{tr('cierre.viewGlobal')}</p>
+                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">{tr('cierre.viewGlobalDesc')}</p>
                   </div>
                 </button>
                 {/* Por productor */}
@@ -4574,8 +4593,8 @@ export function ReportingPage() {
                     <Users className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">Por productor</p>
-                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">Informe individual · PDF y Excel por productor</p>
+                    <p className="text-sm font-semibold text-slate-900">{tr('cierre.viewProducer')}</p>
+                    <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">{tr('cierre.viewProducerDesc')}</p>
                   </div>
                 </button>
               </div>
@@ -4586,18 +4605,19 @@ export function ReportingPage() {
 
                   <LiquidacionFinalModule
                     reportData={reportData}
-                    summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
+                    summaryNote={reportPaginationNote(reportData.producerSettlementSummary, tr)}
                     expandProducerIdRequest={producerRowExpandRequest}
                     onExpandProducerHandled={() => setProducerRowExpandRequest(null)}
                     packingTariffsManualMode={!!cierrePackingManualMode}
                     liquidacionAudit={liquidacionAudit}
+                    tr={tr}
                   />
 
                   {/* Exportaciones */}
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex sm:items-center sm:justify-between">
-                      <p className="text-sm font-semibold text-slate-900">Exportaciones</p>
-                      <p className="mt-0.5 text-xs text-slate-500">Dataset completo del período generado</p>
+                      <p className="text-sm font-semibold text-slate-900">{tr('cierre.exports')}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{tr('cierre.exportsDesc')}</p>
                     </div>
                     <div className="flex flex-wrap gap-2 px-5 py-4">
                       <Button
@@ -4727,8 +4747,8 @@ export function ReportingPage() {
                           <Users className="h-4 w-4" aria-hidden />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900">Análisis por cliente</p>
-                          <p className="text-xs text-slate-500">Margen y ventas prorrateadas por cliente comercial</p>
+                          <p className="text-sm font-semibold text-slate-900">{tr('cierre.clientAnalysis')}</p>
+                          <p className="text-xs text-slate-500">{tr('cierre.clientAnalysisDesc')}</p>
                         </div>
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
@@ -4747,8 +4767,8 @@ export function ReportingPage() {
                           <Layers className="h-4 w-4" aria-hidden />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900">Análisis por formato</p>
-                          <p className="text-xs text-slate-500">Costo de materiales y packing por código de formato</p>
+                          <p className="text-sm font-semibold text-slate-900">{tr('cierre.formatAnalysis')}</p>
+                          <p className="text-xs text-slate-500">{tr('cierre.formatAnalysisDesc')}</p>
                         </div>
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
@@ -4756,20 +4776,20 @@ export function ReportingPage() {
                     <div id="rep-cierre-costos" className="space-y-4 overflow-x-auto border-t border-slate-100 px-5 py-5">
                       {reportData.formatCostConfig?.packing_source ? (
                         <p className="text-xs text-slate-500">
-                          Fuente costo packing: <strong className="text-slate-700">
-                            {reportData.formatCostConfig.packing_source === 'manual_filter' ? 'filtro manual' : 'tabla por especie'}
+                          {tr('margenCliente.fuenteCostoPacking')} <strong className="text-slate-700">
+                            {reportData.formatCostConfig.packing_source === 'manual_filter' ? tr('margenCliente.fuenteManual') : tr('margenCliente.fuenteTabla')}
                           </strong>
                         </p>
                       ) : null}
                       <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                         <label className="flex cursor-pointer items-center gap-2 text-slate-600">
                           <input type="checkbox" className="h-4 w-4 rounded border-input" checked={showAllFormatCostRows} onChange={(e) => setShowAllFormatCostRows(e.target.checked)} />
-                          Incluir formatos con cajas = 0 en el período
+                          {tr('cierre.includeZeroBoxes')}
                         </label>
                       </div>
                       {hasFormatCostOnlyZeros ? (
                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                          Todas las filas tienen cajas = 0. Activá la opción de arriba para ver líneas sin volumen.
+                          {tr('cierre.allZeroBoxes')}
                         </p>
                       ) : null}
                       <FormatCostOperational summary={formatCostSummaryForDisplay} />
@@ -4785,14 +4805,14 @@ export function ReportingPage() {
                           <FileText className="h-4 w-4" aria-hidden />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900">Ventas por despacho</p>
-                          <p className="text-xs text-slate-500">Cruce de ventas y costos por despacho en el período</p>
+                          <p className="text-sm font-semibold text-slate-900">{tr('colapsables.ventasDespacho')}</p>
+                          <p className="text-xs text-slate-500">{tr('colapsables.ventasDespachoDesc')}</p>
                         </div>
                         <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                       </div>
                     </summary>
                     <div className="overflow-x-auto border-t border-slate-100 px-5 py-5">
-                      <SectionTable title="Ventas y márgenes por despacho" section={reportData.salesAndCostsByDispatch} dense subtitle="Cruce por despacho con el mismo período filtrado." />
+                      <SectionTable title={tr('colapsables.ventasDespachoTitle')} section={reportData.salesAndCostsByDispatch} dense subtitle={tr('colapsables.ventasDespachoSubtitle')} />
                     </div>
                   </details>
 
@@ -4805,8 +4825,8 @@ export function ReportingPage() {
                             <Info className="h-4 w-4" aria-hidden />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-600">Diagnóstico técnico</p>
-                            <p className="text-xs text-slate-400">Admin / uso interno</p>
+                            <p className="text-sm font-semibold text-slate-600">{tr('colapsables.diagnostico')}</p>
+                            <p className="text-xs text-slate-400">{tr('colapsables.diagnosticoDesc')}</p>
                           </div>
                           <ChevronDown className="h-4 w-4 text-slate-400 transition-transform [[open]_&]:rotate-180" />
                         </div>
@@ -4827,8 +4847,8 @@ export function ReportingPage() {
 
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4">
-                      <p className="text-sm font-semibold text-slate-900">Seleccioná un productor</p>
-                      <p className="mt-0.5 text-xs text-slate-500">Solo productores presentes en esta liquidación</p>
+                      <p className="text-sm font-semibold text-slate-900">{tr('productor.selectTitle')}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{tr('productor.selectDesc')}</p>
                     </div>
                     <div className="px-5 py-4 space-y-4">
                       <div className="grid gap-2 sm:max-w-sm">
@@ -4871,7 +4891,7 @@ export function ReportingPage() {
                             <Button type="button" size="sm" variant="default" className="gap-1.5 justify-center"
                               disabled={!reportFiltersForPdf}
                               onClick={() => { if (!reportFiltersForPdf || cierreInformeProducerId == null) { toast.error('Elegí un productor.'); return; } void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { productor_id: cierreInformeProducerId, lang: docLang }); }}>
-                              <FileDown className="h-3.5 w-3.5" />PDF productor
+                              <FileDown className="h-3.5 w-3.5" />{tr('productor.pdfProductor')}
                             </Button>
                             <Button
                               type="button"
@@ -4887,7 +4907,7 @@ export function ReportingPage() {
                               }
                             >
                               <FileText className="h-3.5 w-3.5" />
-                              PDF ejecutivo
+                              {tr('productor.pdfEjecutivo')}
                             </Button>
                             <Button type="button" size="sm" variant="outline" className="gap-1.5 justify-center"
                               disabled={!reportFiltersForPdf}
@@ -4962,11 +4982,11 @@ export function ReportingPage() {
                                   toast.success('Excel productor generado.');
                                 } catch (e) { toast.error(e instanceof Error ? e.message : 'Error al generar Excel'); }
                               }}>
-                              <Download className="h-3.5 w-3.5" />Excel productor
+                              <Download className="h-3.5 w-3.5" />{tr('productor.excelProductor')}
                             </Button>
                             <Button type="button" size="sm" variant="outline" className="justify-center"
                               onClick={() => { if (cierreInformeProducerId == null) return; setProducerRowExpandRequest(cierreInformeProducerId); setCierreView('global'); }}>
-                              Ver en global
+                              {tr('productor.verEnGlobal')}
                             </Button>
                           </div>
                         </>
@@ -4989,11 +5009,12 @@ export function ReportingPage() {
                             }
                           : reportData.producerSettlementSummary,
                       }}
-                      summaryNote={reportPaginationNote(reportData.producerSettlementSummary)}
+                      summaryNote={reportPaginationNote(reportData.producerSettlementSummary, tr)}
                       expandProducerIdRequest={cierreInformeProducerId}
                       onExpandProducerHandled={() => {}}
                       packingTariffsManualMode={!!cierrePackingManualMode}
                       liquidacionAudit={liquidacionAudit}
+                      tr={tr}
                     />
                   ) : null}
 
@@ -5008,29 +5029,28 @@ export function ReportingPage() {
               <Card className="border-slate-200/90 bg-white shadow-sm">
                 <CardHeader className="pb-2">
                   <ReportCategoryBadge kind="entregable" />
-                  <CardTitle className="text-base text-slate-900">Documentos</CardTitle>
-                  <CardDescription>¿Cómo exporto? Mirá el resumen del período y descargá el libro o PDFs con los mismos filtros.</CardDescription>
+                  <CardTitle className="text-base text-slate-900">{tr('documentos.title')}</CardTitle>
+                  <CardDescription>{tr('documentos.subtitle')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 border-t border-border/60 pt-3">
                   <div className="rounded-md bg-sky-50/70 px-3 py-2 text-sm text-sky-950">
-                    <strong className="font-medium">Antes de exportar:</strong> pulsá «Actualizar datos» arriba. Cada archivo refleja el último período
-                    que generaste con esos filtros.
+                    <strong className="font-medium">{tr('documentos.beforeExport')}</strong> {tr('documentos.beforeExportHint')}
                   </div>
 
                   <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
-                    <p className={sectionTitle}>Vista del período generado</p>
-                    <p className={sectionHint}>Siempre muestra datos reales del último generado (no queda vacío cuando ya cargaste).</p>
+                    <p className={sectionTitle}>{tr('documentos.periodView')}</p>
+                    <p className={sectionHint}>{tr('documentos.periodViewHint')}</p>
                     {reportData && executiveKpis ? (
                       <div className="mt-3 space-y-4">
                         <div className={kpiGrid3}>
-                          <KpiTile label="Cajas PT (período)" value={fmtQty(executiveKpis.cajasPtTotal, 0)} />
-                          <KpiTile label="Cajas despachadas" value={fmtQty(executiveKpis.cajasDespachadasTotal, 2)} />
-                          <KpiTile label="Diferencia PT − despacho" value={fmtQty(executiveKpis.cajasPtTotal - executiveKpis.cajasDespachadasTotal, 2)} />
+                          <KpiTile label={tr('documentos.boxesPt')} value={fmtQty(executiveKpis.cajasPtTotal, 0)} />
+                          <KpiTile label={tr('documentos.boxesDispatched')} value={fmtQty(executiveKpis.cajasDespachadasTotal, 2)} />
+                          <KpiTile label={tr('documentos.boxesDiff')} value={fmtQty(executiveKpis.cajasPtTotal - executiveKpis.cajasDespachadasTotal, 2)} />
                         </div>
                         <ReportPreviewStrip data={reportData} />
                         <details className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-2">
                           <summary className="cursor-pointer text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                            Dataset técnico (vista normalizada)
+                            {tr('documentos.datasetTech')}
                           </summary>
                           <div className="mt-3 border-t pt-3">
                             <UnifiedDatasetTechPreview data={reportData} />
@@ -5039,8 +5059,7 @@ export function ReportingPage() {
                       </div>
                     ) : (
                       <p className="mt-3 text-sm text-muted-foreground">
-                        Todavía no hay generado en memoria. Pulsá <strong>Actualizar datos</strong> y volvé acá: vas a ver totales y la tabla de
-                        muestra automáticamente.
+                        {tr('documentos.noData')}
                       </p>
                     )}
                   </div>
@@ -5054,16 +5073,16 @@ export function ReportingPage() {
                       onClick={() => downloadExport('xlsx')}
                     >
                       <Download className="h-4 w-4" />
-                      Exportar TODO (Excel)
+                      {tr('documentos.exportAll')}
                     </Button>
                     <div className="flex flex-1 flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm" className="h-9 gap-2" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
                         <FileDown className="h-4 w-4" />
-                        PDF interno
+                        {tr('documentos.pdfInterno')}
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-9 gap-2" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'external' })}>
                         <FileDown className="h-4 w-4" />
-                        PDF resumen
+                        {tr('documentos.pdfResumen')}
                       </Button>
                       <Button
                         type="button"
@@ -5073,48 +5092,48 @@ export function ReportingPage() {
                         disabled={!reportFiltersForPdf}
                         onClick={() => {
                           if (!reportFiltersForPdf) {
-                            toast.error('Generá primero.');
+                            toast.error(tr('documentos.generateFirst'));
                             return;
                           }
                           void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { lang: docLang });
                         }}
                       >
                         <FileDown className="h-4 w-4" />
-                        PDF liquidación productor
+                        {tr('documentos.pdfLiquidacion')}
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-9" disabled={!reportData} onClick={() => downloadExport('csv')}>
-                        CSV
+                        {tr('documentos.csv')}
                       </Button>
                       {canSave ? (
                         <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
                           <DialogTrigger asChild>
                             <Button type="button" variant="secondary" size="sm" className="h-9 gap-2" disabled={!reportData}>
                               <Save className="h-4 w-4" />
-                              Guardar vista
+                              {tr('documentos.saveView')}
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Guardar reporte</DialogTitle>
+                              <DialogTitle>{tr('documentos.saveReport')}</DialogTitle>
                             </DialogHeader>
                             <div className="grid gap-2 py-2">
-                              <Label>Nombre</Label>
-                              <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Ej. Semana 15 productor 3" />
+                              <Label>{tr('documentos.saveName')}</Label>
+                              <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder={tr('documentos.saveNamePlaceholder')} />
                             </div>
                             <DialogFooter>
                               <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>
-                                Cancelar
+                                {tr('documentos.cancel')}
                               </Button>
                               <Button type="button" disabled={!saveName.trim() || saveMut.isPending} onClick={() => saveMut.mutate()}>
-                                {saveMut.isPending ? 'Guardando…' : 'Guardar'}
+                                {saveMut.isPending ? tr('documentos.saving') : tr('documentos.save')}
                               </Button>
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
                       ) : (
-                        <Button type="button" variant="secondary" size="sm" className="h-9 gap-2" disabled title="Disponible con permisos de guardado">
+                        <Button type="button" variant="secondary" size="sm" className="h-9 gap-2" disabled title={tr('documentos.savePermission')}>
                           <Save className="h-4 w-4" />
-                          Guardar vista
+                          {tr('documentos.saveView')}
                         </Button>
                       )}
                     </div>
@@ -5207,8 +5226,7 @@ export function ReportingPage() {
 
       {!reportData && !generateMut.isPending && reportTab === 'cierre' && (
         <div className={cn(emptyStateInset, 'py-8 text-center text-sm')}>
-          Esta pantalla muestra solo liquidación económica. Configurá el período en <strong>Filtros del período</strong> (arriba) y pulsá{' '}
-          <strong>Actualizar cierre</strong>.
+          {tr('cierre.emptyCierre')}
         </div>
       )}
 
@@ -5221,14 +5239,13 @@ export function ReportingPage() {
               <div className="mb-2">
                 <ReportCategoryBadge kind="financiero" />
               </div>
-              <CardTitle className="text-base text-slate-900">Costo por formato sin filas visibles</CardTitle>
+              <CardTitle className="text-base text-slate-900">{tr('cierre.noFormatRows')}</CardTitle>
               <CardDescription>
-                No hay formatos con cajas facturadas &gt; 0, o el filtro dejó la vista vacía.
+                {tr('cierre.noFormatRowsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Marcá «Incluir formatos con cajas = 0» en costo por formato si necesitás ver líneas sin volumen. Verificá
-              receta y facturas del período; probá sin filtro de formato.
+              {tr('cierre.noFormatRowsHint')}
             </CardContent>
           </Card>
         )}
