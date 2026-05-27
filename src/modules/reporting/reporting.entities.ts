@@ -63,3 +63,36 @@ export class PackingFormatSurcharge {
   @CreateDateColumn()
   created_at: Date;
 }
+
+@Entity('material_cost_adjustments')
+export class MaterialCostAdjustment {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'varchar', length: 100 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 20 })
+  adjustment_type: 'per_box' | 'per_lb' | 'percent';
+
+  @Column({ type: 'decimal', precision: 12, scale: 6 })
+  value: string;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  format_code: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  producer_id: number | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  season: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  notes: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @CreateDateColumn()
+  created_at: Date;
+}

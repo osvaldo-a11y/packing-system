@@ -45,3 +45,14 @@ export class UpsertPackingFormatSurchargeDto {
   @IsOptional() @IsBoolean() active?: boolean;
   @IsOptional() @IsString() notes?: string | null;
 }
+
+export class UpsertMaterialCostAdjustmentDto {
+  @IsString() name!: string;
+  @IsIn(['per_box', 'per_lb', 'percent']) adjustment_type!: 'per_box' | 'per_lb' | 'percent';
+  @Type(() => Number) @IsNumber() value!: number;
+  @IsOptional() @IsString() format_code?: string | null;
+  @IsOptional() @Type(() => Number) @IsInt() producer_id?: number | null;
+  @IsOptional() @IsString() season?: string | null;
+  @IsOptional() @IsString() notes?: string | null;
+  @IsOptional() @IsBoolean() active?: boolean;
+}

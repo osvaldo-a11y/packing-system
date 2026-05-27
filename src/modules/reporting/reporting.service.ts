@@ -3,8 +3,14 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { PlantService } from '../plant/plant.service';
 import { ProcessService } from '../process/process.service';
-import { ReportFilterDto, SaveReportDto, UpsertPackingCostDto, UpsertPackingFormatSurchargeDto } from './reporting.dto';
-import { PackingCost, PackingFormatSurcharge, ReportSnapshot } from './reporting.entities';
+import {
+  ReportFilterDto,
+  SaveReportDto,
+  UpsertMaterialCostAdjustmentDto,
+  UpsertPackingCostDto,
+  UpsertPackingFormatSurchargeDto,
+} from './reporting.dto';
+import { MaterialCostAdjustment, PackingCost, PackingFormatSurcharge, ReportSnapshot } from './reporting.entities';
 
 type Paginated<T> = { rows: T[]; total: number; page: number; limit: number };
 
@@ -16,6 +22,8 @@ export class ReportingService {
     @InjectRepository(PackingCost) private readonly packingCostRepo: Repository<PackingCost>,
     @InjectRepository(PackingFormatSurcharge)
     private readonly packingFormatSurchargeRepo: Repository<PackingFormatSurcharge>,
+    @InjectRepository(MaterialCostAdjustment)
+    private readonly materialCostAdjRepo: Repository<MaterialCostAdjustment>,
     private readonly plantService: PlantService,
     private readonly processService: ProcessService,
   ) {}
@@ -380,6 +388,8 @@ export class ReportingService {
       }
     }
 
+    const materialAdjustments = await this.materialCostAdjRepo.find({ where: { active: true } });
+
     const items = (await this.dataSource.query(
       `
       SELECT i.id, i.recipe_id, i.material_id, i.qty_per_unit, i.base_unidad, i.cost_type,
@@ -508,7 +518,22 @@ export class ReportingService {
       const surchargePerLb = surchargeByFormat.get(formatKey) ?? 0;
       const effectivePacking = pricePacking + surchargePerLb;
       const costoPacking = agg.lb_totales * effectivePacking;
-      const costoTotal = subtotalMateriales + costoPacking;
+      // Aplicar ajuste de escenario por formato
+      let materialAdjustment = 0;
+      for (const adj of materialAdjustments) {
+        const adjFormatKey = adj.format_code?.trim().toLowerCase() ?? null;
+        if (adjFormatKey !== null && adjFormatKey !== formatKey) continue;
+        const v = Number(adj.value);
+        if (adj.adjustment_type === 'per_box') {
+          materialAdjustment += agg.cajas * v;
+        } else if (adj.adjustment_type === 'per_lb') {
+          materialAdjustment += agg.lb_totales * v;
+        } else if (adj.adjustment_type === 'percent') {
+          materialAdjustment += subtotalMateriales * (v / 100);
+        }
+      }
+      const costoMaterialesAjustado = subtotalMateriales + materialAdjustment;
+      const costoTotal = costoMaterialesAjustado + costoPacking;
       const costoPorCaja = agg.cajas > 0 ? costoTotal / agg.cajas : 0;
       const costoPorLb = agg.lb_totales > 0 ? costoTotal / agg.lb_totales : 0;
       const deltaPorCaja = agg.precio_cliente != null ? agg.precio_cliente - costoPorCaja : null;
@@ -528,8 +553,10 @@ export class ReportingService {
         precio_packing_efectivo: Number(effectivePacking.toFixed(6)),
         total_directo: Number(totalDirecto.toFixed(2)),
         total_tripaje: Number(totalTripaje.toFixed(2)),
-        costo_materiales: Number(subtotalMateriales.toFixed(2)),
-        subtotal_materiales: Number(subtotalMateriales.toFixed(2)),
+        costo_materiales: Number(costoMaterialesAjustado.toFixed(2)),
+        subtotal_materiales: Number(costoMaterialesAjustado.toFixed(2)),
+        costo_materiales_real: Number(subtotalMateriales.toFixed(2)),
+        material_adjustment: Number(materialAdjustment.toFixed(2)),
         costo_packing: Number(costoPacking.toFixed(2)),
         costo_total: Number(costoTotal.toFixed(2)),
         costo_por_caja: Number(costoPorCaja.toFixed(4)),
@@ -1641,6 +1668,28 @@ export class ReportingService {
       active: !!r.active,
       created_at: r.created_at,
     }));
+  }
+
+  async getMaterialCostAdjustments(): Promise<MaterialCostAdjustment[]> {
+    return this.materialCostAdjRepo.find({ order: { created_at: 'DESC' } });
+  }
+
+  async upsertMaterialCostAdjustment(dto: UpsertMaterialCostAdjustmentDto): Promise<MaterialCostAdjustment> {
+    const entity = this.materialCostAdjRepo.create({
+      name: dto.name.trim(),
+      adjustment_type: dto.adjustment_type,
+      value: String(dto.value),
+      format_code: dto.format_code?.trim() || null,
+      producer_id: dto.producer_id ?? null,
+      season: dto.season?.trim() || null,
+      notes: dto.notes?.trim() || null,
+      active: dto.active ?? true,
+    });
+    return this.materialCostAdjRepo.save(entity);
+  }
+
+  async deleteMaterialCostAdjustment(id: number): Promise<void> {
+    await this.materialCostAdjRepo.delete(id);
   }
 
   async getPackingFormatSurcharges(): Promise<PackingFormatSurcharge[]> {

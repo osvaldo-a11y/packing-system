@@ -207,6 +207,19 @@ interface PackingFormatSurcharge {
   created_at: string;
 }
 
+interface MaterialCostAdjustment {
+  id: number;
+  name: string;
+  adjustment_type: 'per_box' | 'per_lb' | 'percent';
+  value: string;
+  format_code: string | null;
+  producer_id: number | null;
+  season: string | null;
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+}
+
 type SavedReportRow = {
   id: number;
   report_name: string;
@@ -3169,6 +3182,15 @@ export function ReportingPage() {
   const [surchargeSeason, setSurchargeSeason] = useState('');
   const [surchargeActive, setSurchargeActive] = useState(true);
   const [surchargeNotes, setSurchargeNotes] = useState('');
+  const [adjName, setAdjName] = useState('');
+  const [adjType, setAdjType] = useState<'per_box' | 'per_lb' | 'percent'>('per_box');
+  const [adjValue, setAdjValue] = useState('');
+  const [adjFormatCode, setAdjFormatCode] = useState('');
+  const [adjProducerId, setAdjProducerId] = useState<number>(0);
+  const [adjSeason, setAdjSeason] = useState('');
+  const [adjNotes, setAdjNotes] = useState('');
+  const [adjActive, setAdjActive] = useState(true);
+  const [useAdjustedCost, setUseAdjustedCost] = useState(false);
   const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
   /** Tarifas packing: abierto por defecto en Cierre para configurar antes de generar liquidación. */
   const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(true);
@@ -3250,6 +3272,15 @@ export function ReportingPage() {
   const { data: formatSurcharges, isLoading: formatSurchargesLoading, refetch: refetchFormatSurcharges } = useQuery({
     queryKey: ['reporting', 'packing-format-surcharges'],
     queryFn: () => apiJson<PackingFormatSurcharge[]>('/api/reporting/packing-format-surcharges'),
+  });
+
+  const {
+    data: materialAdjustments,
+    isLoading: materialAdjustmentsLoading,
+    refetch: refetchMaterialAdjustments,
+  } = useQuery<MaterialCostAdjustment[]>({
+    queryKey: ['reporting', 'material-cost-adjustments'],
+    queryFn: () => apiJson<MaterialCostAdjustment[]>('/api/reporting/material-cost-adjustments'),
   });
 
   const { data: presentationFormatsForSurcharge } = useQuery({
@@ -3491,6 +3522,48 @@ export function ReportingPage() {
       setSurchargeSeason('');
       setSurchargeActive(true);
       setSurchargeNotes('');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const upsertMaterialAdjMut = useMutation({
+    mutationFn: (body: {
+      name: string;
+      adjustment_type: 'per_box' | 'per_lb' | 'percent';
+      value: number;
+      format_code?: string | null;
+      producer_id?: number | null;
+      season?: string | null;
+      notes?: string | null;
+      active: boolean;
+    }) =>
+      apiJson<MaterialCostAdjustment>('/api/reporting/material-cost-adjustments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toast.success('Ajuste de materiales guardado');
+      void refetchMaterialAdjustments();
+      setAdjName('');
+      setAdjType('per_box');
+      setAdjValue('');
+      setAdjFormatCode('');
+      setAdjProducerId(0);
+      setAdjSeason('');
+      setAdjNotes('');
+      setAdjActive(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMaterialAdjMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiFetch(`/api/reporting/material-cost-adjustments/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar ajuste');
+    },
+    onSuccess: () => {
+      toast.success('Ajuste eliminado');
+      void refetchMaterialAdjustments();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -4091,6 +4164,232 @@ export function ReportingPage() {
                     </Table>
                   </div>
                 )}
+              </div>
+
+              {/* ── Ajustes de escenario — materiales ── */}
+              <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Ajustes de escenario — materiales</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Costo adicional por caja, lb o % sobre materiales. Activo = se aplica al cierre.
+                      El PDF interno siempre muestra el costo real; el PDF productor usa el ajuste activo.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-xs text-slate-500">Vista liquidación:</span>
+                    <button
+                      type="button"
+                      onClick={() => setUseAdjustedCost(false)}
+                      className={cn(
+                        'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                        !useAdjustedCost
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-500 hover:text-slate-800',
+                      )}
+                    >
+                      Real (interno)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUseAdjustedCost(true)}
+                      className={cn(
+                        'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                        useAdjustedCost
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-500 hover:text-slate-800',
+                      )}
+                    >
+                      Ajustado (productor)
+                    </button>
+                  </div>
+                </div>
+
+                {canManagePackingCosts ? (
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
+                    <div className="grid gap-1.5 md:col-span-2">
+                      <Label className="text-xs text-slate-500">Nombre del escenario</Label>
+                      <Input
+                        className="h-9"
+                        value={adjName}
+                        onChange={(e) => setAdjName(e.target.value)}
+                        placeholder="Ej. Temporada alta +15%"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Tipo de ajuste</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={adjType}
+                        onChange={(e) => setAdjType(e.target.value as 'per_box' | 'per_lb' | 'percent')}
+                      >
+                        <option value="per_box">Por caja ($/caja)</option>
+                        <option value="per_lb">Por lb ($/lb)</option>
+                        <option value="percent">Porcentaje (% sobre mat.)</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Valor</Label>
+                      <Input
+                        className="h-9 font-mono"
+                        type="number"
+                        step="0.000001"
+                        min={0}
+                        value={adjValue}
+                        onChange={(e) => setAdjValue(e.target.value)}
+                        placeholder={adjType === 'percent' ? 'Ej. 15' : 'Ej. 0.50'}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Formato (vacío = todos)</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={adjFormatCode}
+                        onChange={(e) => setAdjFormatCode(e.target.value)}
+                      >
+                        <option value="">Todos los formatos</option>
+                        {(activePresFormats ?? []).map((f) => (
+                          <option key={f.format_code} value={f.format_code}>
+                            {f.format_code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Productor (vacío = todos)</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={adjProducerId}
+                        onChange={(e) => setAdjProducerId(Number(e.target.value))}
+                      >
+                        <option value={0}>Todos los productores</option>
+                        {(producersSorted ?? []).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={adjSeason}
+                        onChange={(e) => setAdjSeason(e.target.value)}
+                        placeholder="2026-2027"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={adjNotes}
+                        onChange={(e) => setAdjNotes(e.target.value)}
+                        placeholder="Descripción del escenario"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={adjActive ? '1' : '0'}
+                        onChange={(e) => setAdjActive(e.target.value === '1')}
+                      >
+                        <option value="1">Sí</option>
+                        <option value="0">No</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={upsertMaterialAdjMut.isPending || !adjName.trim() || !adjValue.trim()}
+                        onClick={() =>
+                          upsertMaterialAdjMut.mutate({
+                            name: adjName,
+                            adjustment_type: adjType,
+                            value: Number(adjValue),
+                            format_code: adjFormatCode || null,
+                            producer_id: adjProducerId > 0 ? adjProducerId : null,
+                            season: adjSeason.trim() || null,
+                            notes: adjNotes.trim() || null,
+                            active: adjActive,
+                          })
+                        }
+                      >
+                        {upsertMaterialAdjMut.isPending ? 'Guardando…' : 'Guardar ajuste'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {materialAdjustmentsLoading ? (
+                  <Skeleton className="h-20 w-full" />
+                ) : (materialAdjustments ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-400">Sin ajustes de escenario configurados.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Escenario</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tipo</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Valor</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Productor</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 w-[60px]" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(materialAdjustments ?? []).map((r, i) => (
+                          <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                            <TableCell className="py-2.5 text-sm font-semibold text-slate-900">{r.name}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-600">
+                              {r.adjustment_type === 'per_box' ? '$/caja' : r.adjustment_type === 'per_lb' ? '$/lb' : '% mat.'}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
+                              {r.adjustment_type === 'percent'
+                                ? `${formatTechnical(Number(r.value), 2)}%`
+                                : `+${formatMoney(Number(r.value))}`}
+                            </TableCell>
+                            <TableCell className="py-2.5 font-mono text-xs text-slate-700">{r.format_code ?? 'Todos'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-600">
+                              {r.producer_id != null
+                                ? producersSorted.find((p) => p.id === r.producer_id)?.nombre ?? `#${r.producer_id}`
+                                : 'Todos'}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              {r.active
+                                ? <span className="font-medium text-emerald-600">✓ Activo</span>
+                                : <span className="text-slate-400">Inactivo</span>}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[11px] text-rose-500 hover:text-rose-700"
+                                disabled={deleteMaterialAdjMut.isPending}
+                                onClick={() => deleteMaterialAdjMut.mutate(r.id)}
+                              >
+                                Quitar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {useAdjustedCost && (materialAdjustments ?? []).filter((a) => a.active).length > 0 ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    <span className="font-semibold">Vista ajustada activa:</span>
+                    {(materialAdjustments ?? []).filter((a) => a.active).map((a) => a.name).join(', ')}
+                    {' '}· Presioná «Actualizar cierre» para aplicar.
+                  </div>
+                ) : null}
               </div>
             </div>
           </details>

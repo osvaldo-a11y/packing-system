@@ -843,17 +843,17 @@ export class ProcessService {
         return ((lb / entradaLb) * 100).toFixed(2);
       };
       return {
-        id: r.id,
+      id: r.id,
         csv_process_ref: r.csv_process_ref != null ? Number(r.csv_process_ref) : null,
-        recepcion_id: Number(r.recepcion_id),
+      recepcion_id: Number(r.recepcion_id),
         reception_line_id: r.reception_line_id != null ? Number(r.reception_line_id) : null,
         process_machine_id: r.process_machine_id != null ? Number(r.process_machine_id) : null,
         process_machine_codigo: r.process_machine?.codigo ?? null,
         process_machine_nombre: r.process_machine?.nombre ?? null,
         process_machine_kind: r.process_machine?.kind ?? null,
-        fecha_proceso: r.fecha_proceso,
-        productor_id: Number(r.productor_id),
-        variedad_id: Number(r.variedad_id),
+      fecha_proceso: r.fecha_proceso,
+      productor_id: Number(r.productor_id),
+      variedad_id: Number(r.variedad_id),
         especie_id: (lineSp?.id ?? headerSp?.id) ?? null,
         especie_nombre: (lineSp?.nombre ?? headerSp?.nombre) ?? null,
         productor_nombre: r.reception?.producer?.nombre ?? null,
@@ -892,11 +892,11 @@ export class ProcessService {
           };
         }),
         balance_closed: r.balance_closed ?? false,
-        peso_procesado_lb: r.peso_procesado_lb,
-        merma_lb: r.merma_lb,
+      peso_procesado_lb: r.peso_procesado_lb,
+      merma_lb: r.merma_lb,
         porcentaje_procesado: porcentajePackoutSobreEntrada,
-        resultado: r.resultado,
-        tarja_id: r.tarja_id != null ? Number(r.tarja_id) : null,
+      resultado: r.resultado,
+      tarja_id: r.tarja_id != null ? Number(r.tarja_id) : null,
         puede_nueva_unidad_pt,
         /** Lb de entrada ya imputadas a unidades PT (Σ cajas × lb/caja por formato de cada tarja). */
         lb_pt_asignadas: allocatedPtLb > BALANCE_EPS ? allocatedPtLb.toFixed(3) : '0.000',
@@ -905,7 +905,7 @@ export class ProcessService {
         received_at: rec?.received_at?.toISOString?.() ?? null,
         reception_ref_suggestion,
         reception_ref_for_pallet,
-        created_at: r.created_at,
+      created_at: r.created_at,
       };
     });
   }
@@ -1037,25 +1037,25 @@ export class ProcessService {
       bol: t.bol ?? null,
       net_weight_lb: t.net_weight_lb ?? null,
       items: (itemsByTarjaId.get(Number(t.id)) ?? []).map((i) => {
-        const proc = procById.get(Number(i.process_id));
-        return {
-          id: i.id,
-          tarja_id: Number(i.tarja_id),
-          process_id: Number(i.process_id),
-          productor_id: Number(i.productor_id),
-          cajas_generadas: i.cajas_generadas,
-          pallets_generados: i.pallets_generados,
-          process: proc
-            ? {
-                id: proc.id,
-                peso_procesado_lb: proc.peso_procesado_lb,
-                merma_lb: proc.merma_lb,
-                resultado: proc.resultado,
-                fecha_proceso: proc.fecha_proceso,
-              }
-            : null,
-        };
-      }),
+          const proc = procById.get(Number(i.process_id));
+          return {
+            id: i.id,
+            tarja_id: Number(i.tarja_id),
+            process_id: Number(i.process_id),
+            productor_id: Number(i.productor_id),
+            cajas_generadas: i.cajas_generadas,
+            pallets_generados: i.pallets_generados,
+            process: proc
+              ? {
+                  id: proc.id,
+                  peso_procesado_lb: proc.peso_procesado_lb,
+                  merma_lb: proc.merma_lb,
+                  resultado: proc.resultado,
+                  fecha_proceso: proc.fecha_proceso,
+                }
+              : null,
+          };
+        }),
     }));
   }
 
@@ -1631,7 +1631,7 @@ export class ProcessService {
       const fp = await em.save(
         em.create(FruitProcess, {
           recepcion_id: recepcionId,
-          fecha_proceso: new Date(dto.fecha_proceso),
+      fecha_proceso: new Date(dto.fecha_proceso),
           productor_id: producerId,
           variedad_id: variedadId,
           reception_line_id: receptionLineId,
@@ -1816,13 +1816,13 @@ export class ProcessService {
 
       await em.save(
         em.create(PtTagItem, {
-          tarja_id: tagId,
+        tarja_id: tagId,
           process_id: procEnt.id,
           productor_id: procEnt.productor_id,
-          cajas_generadas: cajas,
-          pallets_generados: pallets,
-        }),
-      );
+        cajas_generadas: cajas,
+        pallets_generados: pallets,
+      }),
+    );
 
       const items = await em.find(PtTagItem, { where: { tarja_id: tagId } });
       tagEnt.total_cajas = items.reduce((a, i) => a + i.cajas_generadas, 0);

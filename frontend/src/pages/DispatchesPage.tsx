@@ -1485,7 +1485,7 @@ export function DispatchesPage() {
             <p className={kpiLabel}>{t('dispatch.kpi.total')}</p>
             <p className={kpiValueLg}>{formatCount(dispatchKpis.totalDespachos)}</p>
             <p className={kpiFootnote}>{t('dispatch.kpi.totalNote')}</p>
-          </div>
+                    </div>
           <div className={cn(kpiCard, dispatchKpis.pendientes > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
             <p className={kpiLabel}>{t('dispatch.kpi.pending')}</p>
             <p className={cn(kpiValueLg, dispatchKpis.pendientes > 0 ? 'text-amber-700' : 'text-green-700')}>
@@ -1561,7 +1561,7 @@ export function DispatchesPage() {
                   <li key={name} className="flex justify-between gap-2 border-b border-slate-100/90 pb-1.5 last:border-0 last:pb-0">
                     <span className="min-w-0 truncate text-xs font-medium" title={name}>
                       {i + 1}. {name}
-                    </span>
+                        </span>
                     <span className="shrink-0 tabular-nums text-xs text-slate-500">{formatCount(cajas)}</span>
                   </li>
                 ))
@@ -1584,8 +1584,8 @@ export function DispatchesPage() {
                 ))
               )}
             </ol>
-          </div>
-        </div>
+                    </div>
+                  </div>
       </section>
 
       <div className={filterPanel}>
@@ -1690,16 +1690,16 @@ export function DispatchesPage() {
                 onClick={() => setViewMode('compact')}
               >
                 {t('dispatch.table.viewCompact')}
-              </Button>
-              <Button
-                type="button"
+                    </Button>
+                    <Button
+                      type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
-                size="sm"
+                      size="sm"
                 className="h-8 rounded-md px-3 text-xs"
                 onClick={() => setViewMode('detailed')}
-              >
+                    >
                 {t('dispatch.table.viewDetailed')}
-              </Button>
+                    </Button>
             </div>
             <details className="group">
               <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">

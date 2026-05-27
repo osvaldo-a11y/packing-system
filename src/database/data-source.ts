@@ -41,7 +41,12 @@ import {
   PackagingRecipe,
   PackagingRecipeItem,
 } from '../modules/packaging/packaging.entities';
-import { PackingCost, PackingFormatSurcharge, ReportSnapshot } from '../modules/reporting/reporting.entities';
+import {
+  MaterialCostAdjustment,
+  PackingCost,
+  PackingFormatSurcharge,
+  ReportSnapshot,
+} from '../modules/reporting/reporting.entities';
 import { PlantSettings } from '../modules/plant/plant.entities';
 import { ImportLog } from '../modules/import/import-log.entity';
 import {
@@ -120,6 +125,7 @@ const entities = [
   ReportSnapshot,
   PackingCost,
   PackingFormatSurcharge,
+  MaterialCostAdjustment,
   PlantSettings,
   ImportLog,
   Species,
