@@ -414,7 +414,7 @@ function fetchEligibleLines(producerId: number) {
 }
 
 export function ProcessesPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   /** Cerrar y reabrir a borrador vía PATCH; el resto de transiciones sigue siendo solo admin. */
@@ -1353,7 +1353,7 @@ export function ProcessesPage() {
                 className="h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900"
                 onClick={async () => {
                   try {
-                    await downloadPdf(`/api/documents/processes/${row.original.id}/pdf`, `proceso-${row.original.id}.pdf`);
+                    await downloadPdf(`/api/documents/processes/${row.original.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `proceso-${row.original.id}.pdf`);
                     toast.success(t('process.toast.pdfReady'));
                   } catch (e) {
                     toast.error(e instanceof Error ? e.message : t('process.toast.downloadError'));
@@ -2977,7 +2977,7 @@ export function ProcessesPage() {
                                       className="h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900"
                                       onClick={async () => {
                                         try {
-                                          await downloadPdf(`/api/documents/processes/${r.id}/pdf`, `proceso-${r.id}.pdf`);
+                                          await downloadPdf(`/api/documents/processes/${r.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `proceso-${r.id}.pdf`);
                                           toast.success(t('process.toast.pdfReady'));
                                         } catch (e) {
                                           toast.error(e instanceof Error ? e.message : t('process.toast.downloadError'));

@@ -1151,6 +1151,7 @@ function computeLiquidacionAudit(
   reportData: GenerateResponse,
   packingManual: boolean,
   speciesMissingTariffIds: Set<number>,
+  tr: (k: string) => string = (k) => k,
 ): {
   packing: {
     severity: AuditSeverity;
@@ -1323,12 +1324,12 @@ function computeLiquidacionAudit(
     packingTable.length === 0
       ? packingManual
         ? 'Período con precio packing manual — no se audita tarifa por especie en líneas.'
-        : 'Packing calculado en todas las líneas de detalle visibles.'
+        : tr('auditor.packingOk')
       : `Hay ${packingTable.length} línea(s) con packing en $0 y LB > 0. La liquidación puede sobrepagar productores.`;
 
   const matSummary =
     materialsTable.length === 0
-      ? 'Materiales distintos de $0 en todas las líneas con cajas > 0 (según detalle cargado).'
+      ? tr('auditor.materialesOk')
       : `Hay formatos/líneas sin costo material. El neto productor puede estar inflado.`;
 
   const traceSummary =
@@ -1338,11 +1339,11 @@ function computeLiquidacionAudit(
         : 'Hay trazabilidad incompleta o sin asignar — revisar antes de cerrar.'
       : traceSev === 'warn'
         ? `Hay ${producersSinDetalle.length} productor(es) sin detalle operativo o notas faltantes en líneas.`
-        : 'Trazabilidad completa en el alcance de esta página.';
+        : tr('auditor.trazabilidadOk');
 
   let exportSev: AuditSeverity = 'ok';
-  let exportHead = 'Listo para enviar';
-  let exportSub = 'No se detectaron faltantes críticos en packing, materiales ni trazabilidad (detalle cargado).';
+  let exportHead = tr('auditor.listoEnviar');
+  let exportSub = tr('auditor.sinFaltantes');
   if (traceSev === 'crit') {
     exportSev = 'crit';
     exportHead = 'No recomendado exportar todavía';
@@ -2067,7 +2068,7 @@ function ComoSeCalculaElCostoCierreBlock({
           {tr('costoCalculo.materialesDesc')}
         </li>
         <li>
-          <strong>{tr('costoCalculo.packing')}</strong>: tarifa <span className="font-mono">$/lb</span> de la especie del formato
+          <strong>{tr('costoCalculo.packing')}</strong>: {tr('costoCalculo.packingTarifaDesc')}
           {manual ? ` ${tr('costoCalculo.packingManualNote')}` : ` ${tr('costoCalculo.packingMaestroNote')}`}
         </li>
         <li>
@@ -2257,7 +2258,7 @@ function LiquidacionFinalModule({
   const audit = useMemo(
     () =>
       liquidacionAudit ??
-      computeLiquidacionAudit(reportData, packingTariffsManualMode, new Set<number>()),
+      computeLiquidacionAudit(reportData, packingTariffsManualMode, new Set<number>(), tr),
     [liquidacionAudit, reportData, packingTariffsManualMode],
   );
   const summary = reportData.producerSettlementSummary;
@@ -3431,7 +3432,7 @@ export function ReportingPage() {
 
   const liquidacionAudit = useMemo(() => {
     if (!reportData) return null;
-    return computeLiquidacionAudit(reportData, !!cierrePackingManualMode, cierreMissingSpeciesIdSet);
+    return computeLiquidacionAudit(reportData, !!cierrePackingManualMode, cierreMissingSpeciesIdSet, tr);
   }, [reportData, cierrePackingManualMode, cierreMissingSpeciesIdSet]);
 
   const informeExportVisual = useMemo(() => {
@@ -4160,7 +4161,7 @@ export function ReportingPage() {
                           })
                         }
                       >
-                        {upsertFormatSurchargeMut.isPending ? 'Guardando…' : 'Guardar recargo'}
+                        {upsertFormatSurchargeMut.isPending ? 'Guardando…' : tr('cierre.guardarRecargo')}
                       </Button>
                     </div>
                   </div>

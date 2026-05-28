@@ -20,6 +20,12 @@
     "unauthorized": "You do not have permission for this action.",
     "notFound": "The requested resource was not found."
   },
+  "documentStatus": {
+    "borrador": "Draft",
+    "confirmado": "Confirmed",
+    "cerrado": "Closed",
+    "anulado": "Voided"
+  },
   "login": {
     "subtitle": "Access to the operations panel",
     "cardTitle": "Sign in",
@@ -1542,6 +1548,7 @@
     "status": {
       "borrador": "Draft",
       "confirmado": "Confirmed",
+      "cerrado": "Closed",
       "anulado": "Voided"
     },
     "condicion": {
@@ -2658,6 +2665,7 @@
       "format": "Format",
       "chooseFormat": "Choose format…",
       "surchargePerLb": "Surcharge / lb",
+      "guardarRecargo": "Save surcharge",
       "viewGlobal": "Global settlement",
       "viewGlobalDesc": "Period totals · all producers · exports",
       "viewProducer": "By producer",
@@ -2709,6 +2717,11 @@
       "readyToExport": "Ready to export",
       "viewIssues": "View detected issues",
       "noIssues": "No critical issues detected.",
+      "packingOk": "Packing calculated on all visible detail lines.",
+      "materialesOk": "Materials other than $0 on all lines with boxes > 0 (per loaded detail).",
+      "trazabilidadOk": "Full traceability within the scope of this page.",
+      "listoEnviar": "Ready to send",
+      "sinFaltantes": "No critical issues detected in packing, materials or traceability (detail loaded).",
       "packingIssues": "Packing issues",
       "materialIssues": "Material issues",
       "traceIssues": "Traceability issues",
@@ -2851,6 +2864,7 @@
       "materiales": "Materials",
       "materialesDesc": ": from packaging recipes per format (system consumptions; not a manual amount per producer).",
       "packing": "Packing",
+      "packingTarifaDesc": "rate $/lb for the species of the format",
       "packingManualNote": "(this period uses a manual packing price filter, overriding the species master).",
       "packingMaestroNote": "(packing rate master by species).",
       "formato": "Format",

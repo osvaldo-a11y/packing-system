@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
 import { In, Repository } from 'typeorm';
 import { groupFinalPalletsForCommercialInvoice } from '../dispatch/commercial-invoice-lines';
 import {
@@ -22,9 +23,13 @@ import { PlantService } from '../plant/plant.service';
 import { ProcessService } from '../process/process.service';
 import { TraceabilityService } from '../traceability/traceability.service';
 
-function pdfToBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
+function pdfToBuffer(
+  doc: InstanceType<typeof PDFDocument>,
+  footerFn?: (doc: InstanceType<typeof PDFDocument>) => void,
+): Promise<Buffer> {
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
+  if (footerFn) footerFn(doc);
   doc.end();
   return new Promise((resolve, reject) => {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -35,6 +40,164 @@ function pdfToBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
 @Injectable()
 export class DocumentsPdfService {
   private companyDisplayName = process.env.COMPANY_DISPLAY_NAME?.trim() || 'PINEBLOOM PACKING';
+  private static readonly T: Record<'es' | 'en', {
+    // Recepción
+    recTitle: string; recSubtitle: string;
+    recCtx: string; recDetail: string; recDetailSub: string;
+    recColVariedad: string; recColTipoFruta: string;
+    recColPesoNeto: string; recColObs: string;
+    recSinLineas: string; recTotalLb: string;
+    recFooter: string;
+    recProductor: string; recFecha: string;
+    recReferencia: string; recDocumento: string; recMercado: string;
+    recEstado: string; recTipoRecepcion: string;
+    recTotalesCabecera: string; recBruto: string;
+    recNeto: string; recObservaciones: string;
+    recCalidad: string; recLote: string;
+    // Proceso
+    procTitle: string; procSubtitle: string;
+    procIdTitle: string; procEnCurso: string;
+    procResumenTitle: string; procResumenSub: string;
+    procColConcepto: string; procColLb: string; procColPct: string;
+    procEntrada: string; procPt: string; procMerma: string;
+    procJugo: string; procDesecho: string; procOtros: string;
+    procTotalDist: string; procDiff: string;
+    procDetCompTitle: string;
+    procColComp: string;
+    procTarjaVinculada: string;
+    procExistencias: string;
+    procNota: string;
+    procFooter: string;
+    procCerrado: string; procAbierto: string;
+    // Tag detalle
+    tagTitle: string; tagSubtitle: string;
+    tagProdLog: string;
+    tagOrigenProc: string; tagOrigenProcCont: string;
+    tagOrigenSub: string;
+    tagColProceso: string; tagColProductor: string;
+    tagColCajas: string; tagColPallets: string; tagColNota: string;
+    tagSinProcesos: string; tagSinCliente: string;
+    tagFooter: string;
+    // Tag etiqueta
+    tagLabelTitle: string;
+    tagLabelFormato: string; tagLabelCajas: string;
+    tagLabelCliente: string; tagLabelQr: string;
+  }> = {
+    es: {
+      recTitle: 'Acta de recepción de fruta',
+      recSubtitle: 'Documento técnico-operativo — verificación de ingreso',
+      recCtx: 'Contexto operativo',
+      recDetail: 'Detalle por línea',
+      recDetailSub: 'Peso neto por variedad y envase',
+      recColVariedad: 'Variedad', recColTipoFruta: 'Tipo fruta / envase',
+      recColPesoNeto: 'Peso neto (lb)', recColObs: 'Observaciones',
+      recSinLineas: 'Sin líneas en este documento',
+      recTotalLb: 'Total lb netas recepcionadas',
+      recFooter: 'Documento generado desde el sistema de trazabilidad. Los pesos netos por línea son los registrados en planta al momento de la recepción.',
+      recProductor: 'Productor', recFecha: 'Fecha y hora',
+      recReferencia: 'Referencia', recDocumento: 'Documento', recMercado: 'Mercado',
+      recEstado: 'Estado', recTipoRecepcion: 'Tipo recepción',
+      recTotalesCabecera: 'Totales cabecera',
+      recBruto: 'Bruto', recNeto: 'Neto',
+      recObservaciones: 'Observaciones', recCalidad: 'Cal.',
+      recLote: 'Lote',
+      procTitle: 'Liquidación técnica de proceso',
+      procSubtitle: 'Análisis de distribución — 100% lb de entrada',
+      procIdTitle: 'Identificación del proceso',
+      procEnCurso: 'Proceso en curso: distribución aún no completada',
+      procResumenTitle: 'Resumen de liquidación (lb)',
+      procResumenSub: 'Porcentajes sobre lb de entrada',
+      procColConcepto: 'Concepto', procColLb: 'Libras',
+      procColPct: '% sobre entrada',
+      procEntrada: 'Total fruta ingresada (100%)',
+      procPt: 'Producto terminado (lb)',
+      procMerma: 'Lb merma (operativa + cierre de balance si aplica)',
+      procJugo: 'Lb jugo', procDesecho: 'Lb desecho',
+      procOtros: 'Otros registros (sobrante / legacy)',
+      procTotalDist: 'TOTAL distribuido (suma de conceptos)',
+      procDiff: 'Diferencia vs entrada (debe tender a 0 al cerrar)',
+      procDetCompTitle: 'Detalle por componente (especie)',
+      procColComp: 'Componente',
+      procTarjaVinculada: 'Unidad PT vinculada',
+      procExistencias: 'Existencias PT que consumen este proceso:',
+      procNota: 'Nota',
+      procFooter: 'Documento técnico generado desde el sistema de trazabilidad. Conservar junto con la documentación de recepción y despacho correspondiente.',
+      procCerrado: 'cerrado', procAbierto: 'abierto',
+      tagTitle: 'Certificado de trazabilidad — Unidad PT',
+      tagSubtitle: 'Datos de producto y origen por proceso',
+      tagProdLog: 'Producto y logística',
+      tagOrigenProc: 'Origen por proceso',
+      tagOrigenProcCont: 'Origen por proceso (continúa)',
+      tagOrigenSub: 'Cajas y pallets por línea de proceso',
+      tagColProceso: 'Proceso', tagColProductor: 'Productor',
+      tagColCajas: 'Cajas', tagColPallets: 'Pallets línea',
+      tagColNota: 'Nota',
+      tagSinProcesos: 'Sin procesos vinculados',
+      tagSinCliente: 'Sin cliente asignado',
+      tagFooter: 'Documento de trazabilidad generado desde el sistema. Conservar para auditoría y despacho.',
+      tagLabelTitle: 'UNIDAD PT',
+      tagLabelFormato: 'Formato', tagLabelCajas: 'Cajas',
+      tagLabelCliente: 'Cliente',
+      tagLabelQr: 'Espacio QR\n(próximamente)',
+    },
+    en: {
+      recTitle: 'Fruit reception record',
+      recSubtitle: 'Technical-operative document — intake verification',
+      recCtx: 'Operative context',
+      recDetail: 'Line detail',
+      recDetailSub: 'Net weight per variety and container',
+      recColVariedad: 'Variety', recColTipoFruta: 'Fruit type / container',
+      recColPesoNeto: 'Net weight (lb)', recColObs: 'Observations',
+      recSinLineas: 'No lines in this document',
+      recTotalLb: 'Total net lbs received',
+      recFooter: 'Document generated from the traceability system. Net weights per line are those recorded at the plant at the time of reception.',
+      recProductor: 'Producer', recFecha: 'Date and time',
+      recReferencia: 'Reference', recDocumento: 'Document', recMercado: 'Market',
+      recEstado: 'Status', recTipoRecepcion: 'Reception type',
+      recTotalesCabecera: 'Header totals',
+      recBruto: 'Gross', recNeto: 'Net',
+      recObservaciones: 'Observations', recCalidad: 'Qual.',
+      recLote: 'Lot',
+      procTitle: 'Process technical settlement',
+      procSubtitle: 'Distribution analysis — 100% input lbs',
+      procIdTitle: 'Process identification',
+      procEnCurso: 'Process in progress: distribution not yet completed',
+      procResumenTitle: 'Settlement summary (lbs)',
+      procResumenSub: 'Percentages over input lbs',
+      procColConcepto: 'Concept', procColLb: 'Pounds',
+      procColPct: '% over input',
+      procEntrada: 'Total fruit intake (100%)',
+      procPt: 'Finished product (lbs)',
+      procMerma: 'Waste lbs (operative + balance close if applicable)',
+      procJugo: 'Juice lbs', procDesecho: 'Waste lbs',
+      procOtros: 'Other records (surplus / legacy)',
+      procTotalDist: 'TOTAL distributed (sum of concepts)',
+      procDiff: 'Difference vs intake (should tend to 0 at close)',
+      procDetCompTitle: 'Detail by component (species)',
+      procColComp: 'Component',
+      procTarjaVinculada: 'Linked PT unit',
+      procExistencias: 'PT stock consuming this process:',
+      procNota: 'Note',
+      procFooter: 'Technical document generated from the traceability system. Keep together with the corresponding reception and dispatch documentation.',
+      procCerrado: 'closed', procAbierto: 'open',
+      tagTitle: 'Traceability certificate — PT Unit',
+      tagSubtitle: 'Product and origin data by process',
+      tagProdLog: 'Product and logistics',
+      tagOrigenProc: 'Origin by process',
+      tagOrigenProcCont: 'Origin by process (continued)',
+      tagOrigenSub: 'Boxes and pallets per process line',
+      tagColProceso: 'Process', tagColProductor: 'Producer',
+      tagColCajas: 'Boxes', tagColPallets: 'Pallet lines',
+      tagColNota: 'Note',
+      tagSinProcesos: 'No linked processes',
+      tagSinCliente: 'No client assigned',
+      tagFooter: 'Traceability document generated from the system. Keep for audit and dispatch.',
+      tagLabelTitle: 'PT UNIT',
+      tagLabelFormato: 'Format', tagLabelCajas: 'Boxes',
+      tagLabelCliente: 'Client',
+      tagLabelQr: 'QR space\n(coming soon)',
+    },
+  };
   private static qtyAr(n: number): string {
     return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
@@ -551,41 +714,154 @@ export class DocumentsPdfService {
     return { boxes, pounds };
   }
 
-  async buildReceptionPdf(id: number): Promise<Buffer> {
+  private drawFooter(
+    doc: InstanceType<typeof PDFDocument>,
+    x0: number,
+    w: number,
+    footerText: string,
+    emission: string,
+    muted: string,
+  ): void {
+    const margin = DocumentsPdfService.PDF_MARGIN;
+    const fy = doc.page.height - margin - 18;
+    doc.save();
+    doc.moveTo(x0, fy - 8).lineTo(x0 + w, fy - 8)
+      .lineWidth(0.5).strokeColor('#dddddd').stroke();
+    doc.font('Helvetica').fontSize(7.5).fillColor(muted)
+      .text(footerText, x0, fy, { width: w * 0.72, align: 'left', lineBreak: false });
+    doc.font('Helvetica').fontSize(7.5).fillColor(muted)
+      .text(`${emission}  ·  1/1`, x0, fy, { width: w, align: 'right', lineBreak: false });
+    doc.restore();
+  }
+
+  async buildReceptionPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
     await this.resolveCompanyLine();
     const r = await this.traceability.getReception(id);
+    const L = DocumentsPdfService.T[lang];
+
+    const translateDocState = (codigo: string | undefined, nombre: string | undefined): string => {
+      if (!codigo) return nombre ?? '—';
+      const map: Record<string, Record<'es' | 'en', string>> = {
+        borrador: { es: 'Borrador', en: 'Draft' },
+        confirmado: { es: 'Confirmado', en: 'Confirmed' },
+        cerrado: { es: 'Cerrado', en: 'Closed' },
+        anulado: { es: 'Anulado', en: 'Voided' },
+      };
+      return map[codigo.toLowerCase()]?.[lang] ?? nombre ?? codigo;
+    };
+
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    const fmtDate = (d: Date | string | undefined): string => {
+      if (!d) return '—';
+      const x = d instanceof Date ? d : new Date(d as string);
+      if (Number.isNaN(x.getTime())) return String(d);
+      return x.toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
+    };
+
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
+
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = this.renderCorporateHeader(
-      doc,
-      x0,
-      DocumentsPdfService.PDF_MARGIN,
-      w,
-      'Acta de recepción de fruta',
-      'Documento técnico-operativo — verificación de ingreso',
-    );
-    const fecha = DocumentsPdfService.pdfDateEs(r.received_at as Date);
-    const ctxLines = [
-      `${this.companyLine()} · Planta ${r.plant_code ?? '—'}`,
-      `Productor: ${r.producer?.nombre ?? String(r.producer_id ?? '—')}`,
-      `Fecha y hora: ${fecha}`,
-      `Referencia: ${r.reference_code ?? '—'} · Documento: ${r.document_number ?? '—'}`,
-      `Mercado: ${r.mercado?.nombre ?? '—'} · Estado: ${r.document_state?.nombre ?? '—'} · Tipo recepción: ${r.reception_type?.nombre ?? '—'}`,
+    const ACCENT = '#1a3a5c';
+    const MUTED = '#555555';
+
+    // Encabezado
+    // Linea de acento superior
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+
+    let y = DocumentsPdfService.PDF_MARGIN;
+
+    // Empresa
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+      .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+
+    // Titulo principal
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(ACCENT)
+      .text(L.recTitle, x0, y, { width: w, align: 'center' });
+    y += 24;
+
+    // Subtitulo
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+      .text(L.recSubtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+
+    // Linea separadora
+    doc.moveTo(x0, y + 8).lineTo(x0 + w, y + 8).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 20;
+
+    // Bloque de metadatos en dos columnas
+    const colL = w * 0.5 - 8;
+    const colR = w * 0.5 + 8;
+    const xR = x0 + w * 0.5 + 8;
+
+    const fecha = fmtDate(r.received_at as Date);
+    const estado = translateDocState(r.document_state?.codigo, r.document_state?.nombre);
+
+    const metaLeft = [
+      { label: L.recProductor, value: r.producer?.nombre ?? String(r.producer_id ?? '—') },
+      { label: L.recFecha, value: fecha },
+      { label: L.recMercado, value: r.mercado?.nombre ?? '—' },
     ];
+    const metaRight = [
+      { label: L.recReferencia, value: r.reference_code ?? '—' },
+      { label: L.recDocumento, value: r.document_number ?? '—' },
+      { label: L.recEstado, value: estado },
+      { label: L.recTipoRecepcion, value: r.reception_type?.nombre ?? '—' },
+    ];
+
+    const metaStartY = y;
+    const renderMetaCol = (items: { label: string; value: string }[], x: number, maxW: number) => {
+      let cy = metaStartY;
+      for (const item of items) {
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED)
+          .text(item.label.toUpperCase(), x, cy, { width: maxW });
+        cy += 10;
+        doc.font('Helvetica').fontSize(9).fillColor('#111111')
+          .text(item.value, x, cy, { width: maxW });
+        cy += 14;
+      }
+      return cy;
+    };
+
+    const endL = renderMetaCol(metaLeft, x0, colL);
+    const endR = renderMetaCol(metaRight, xR, colR);
+    y = Math.max(endL, endR) + 8;
+
+    // Totales cabecera (si existen)
     const grossStr = r.gross_weight_lb != null ? String(r.gross_weight_lb).trim() : '';
     const netStr = r.net_weight_lb != null ? String(r.net_weight_lb).trim() : '';
     const totParts: string[] = [];
-    if (grossStr !== '') totParts.push(`Bruto ${grossStr} lb`);
-    if (netStr !== '') totParts.push(`Neto ${netStr} lb`);
-    if (totParts.length) ctxLines.push(`Totales cabecera: ${totParts.join(' · ')}`);
-    if (r.notes?.trim()) ctxLines.push(`Observaciones: ${r.notes.trim()}`);
-    y = DocumentsPdfService.renderMutedContextBlock(doc, x0, y, w, 'Contexto operativo', ctxLines);
-    y = DocumentsPdfService.renderSectionTitle(doc, x0, y, 'Detalle por línea', 'Peso neto por variedad y envase');
+    if (grossStr !== '') totParts.push(`${L.recBruto} ${grossStr} lb`);
+    if (netStr !== '') totParts.push(`${L.recNeto} ${netStr} lb`);
+    if (totParts.length) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
+        .text(`${L.recTotalesCabecera}: ${totParts.join(' · ')}`, x0, y, { width: w });
+      y += 14;
+    }
+    if (r.notes?.trim()) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
+        .text(`${L.recObservaciones}: ${r.notes.trim()}`, x0, y, { width: w });
+      y += 14;
+    }
+
+    doc.moveTo(x0, y + 4).lineTo(x0 + w, y + 4).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 16;
+
+    // Titulo de seccion
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(L.recDetail, x0, y);
+    y += 14;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.recDetailSub, x0, y);
+    y += 14;
+
+    // Tabla de lineas
     const lines = r.lines ?? [];
     const colW = [w * 0.22, w * 0.2, w * 0.14, w * 0.44];
     const tableRows: string[][] = [];
     let sumNet = 0;
+
     for (const ln of lines) {
       const variedad = ln.variety?.nombre ?? String(ln.variety_id);
       let tipoFruta = '—';
@@ -600,96 +876,212 @@ export class DocumentsPdfService {
       if (Number.isFinite(net)) sumNet += net;
       const obs = [
         ln.multivariety_note?.trim(),
-        ln.quality_grade?.nombre ? `Cal. ${ln.quality_grade.nombre}` : null,
-        `Lote ${ln.lot_code ?? '—'}`,
-      ]
-        .filter(Boolean)
-        .join(' · ');
+        ln.quality_grade?.nombre ? `${L.recCalidad} ${ln.quality_grade.nombre}` : null,
+        `${L.recLote} ${ln.lot_code ?? '—'}`,
+      ].filter(Boolean).join(' · ');
       tableRows.push([variedad, tipoFruta, `${DocumentsPdfService.qtyAr(net)} lb`, obs]);
     }
+
     if (!tableRows.length) {
-      tableRows.push(['—', '—', '0 lb', 'Sin líneas en este documento']);
+      tableRows.push(['—', '—', '0 lb', L.recSinLineas]);
     }
+
     y = DocumentsPdfService.renderReceptionLinesTable(
-      doc,
-      x0,
-      y,
-      w,
-      colW,
-      ['Variedad', 'Tipo fruta / envase', 'Peso neto (lb)', 'Observaciones'],
+      doc, x0, y, w, colW,
+      [L.recColVariedad, L.recColTipoFruta, L.recColPesoNeto, L.recColObs],
       tableRows as [string, string, string, string][],
       8,
     );
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111111').text(`Total lb netas recepcionadas: ${DocumentsPdfService.qtyAr(sumNet)} lb`, x0, y);
-    y += 22;
-    DocumentsPdfService.renderDocumentFooter(
-      doc,
-      x0,
-      y,
-      w,
-      'Documento generado desde el sistema de trazabilidad. Los pesos netos por línea son los registrados en planta al momento de la recepción.',
-    );
-    return pdfToBuffer(doc);
+
+    // Total
+    y += 4;
+    // Caja con fondo acento
+    const totalH = 28;
+    doc.save();
+    doc.rect(x0, y, w, totalH).fill(ACCENT);
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#ffffff')
+      .text(`${L.recTotalLb}: ${DocumentsPdfService.qtyAr(sumNet)} lb`, x0 + 10, y + 8, { width: w - 20 });
+    y += totalH + 16;
+
+    const emission = lang === 'en'
+      ? new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })
+      : new Date().toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
+    return pdfToBuffer(doc, (d) => this.drawFooter(d, x0, w, L.recFooter, emission, MUTED));
   }
 
-  async buildProcessPdf(id: number): Promise<Buffer> {
+  async buildProcessPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
     await this.resolveCompanyLine();
     const row = await this.processService.getProcessRowForReport(id);
     const raw = await this.processRepo.findOne({ where: { id } });
+    const L = DocumentsPdfService.T[lang];
+    const ACCENT = '#1a3a5c';
+    const MUTED = '#555555';
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    const fmtDate = (d: Date | string | undefined): string => {
+      if (!d) return '—';
+      const x = d instanceof Date ? d : new Date(d as string);
+      if (Number.isNaN(x.getTime())) return String(d);
+      return x.toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
+    };
+
+    // Cargar unidades PT generadas en este proceso
+    const ptItems = await this.tagItemRepo.find({ where: { process_id: id } });
+    const tarjaIds = [...new Set(ptItems.map((i) => Number(i.tarja_id)).filter((x) => x > 0))];
+    const ptTags = tarjaIds.length > 0
+      ? await this.tagRepo.find({ where: { id: In(tarjaIds) }, select: ['id', 'tag_code', 'format_code', 'total_cajas'] })
+      : [];
+    const tagById = new Map(ptTags.map((t) => [t.id, t]));
+
+    // Agrupar cajas por formato
+    const fmtMap = new Map<string, { cajas: number; tags: string[] }>();
+    for (const item of ptItems) {
+      const tag = tagById.get(Number(item.tarja_id));
+      if (!tag) continue;
+      const fmt = tag.format_code?.trim() || '—';
+      const cur = fmtMap.get(fmt) ?? { cajas: 0, tags: [] };
+      cur.cajas += item.cajas_generadas;
+      if (!cur.tags.includes(tag.tag_code)) cur.tags.push(tag.tag_code);
+      fmtMap.set(fmt, cur);
+    }
+    const totalCajasPt = [...fmtMap.values()].reduce((s, v) => s + v.cajas, 0);
+
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = this.renderCorporateHeader(
-      doc,
-      x0,
-      DocumentsPdfService.PDF_MARGIN,
-      w,
-      'Liquidación técnica de proceso',
-      'Análisis de distribución — 100% lb de entrada',
-    );
-    const fs = DocumentsPdfService.pdfDateEs(row.fecha_proceso as Date | string);
-    const idLines = [
-      `${this.companyLine()}`,
-      `Fecha y hora: ${fs}`,
-      `Productor: ${row.productor_nombre ?? String(row.productor_id ?? '—')} · Recepción vinculada: ${row.recepcion_id ?? '—'}`,
-      `Especie / variedad: ${row.especie_nombre ?? '—'} / ${row.variedad_nombre ?? '—'}`,
-      `Estado proceso: ${row.process_status ?? '—'} · Balance de liquidación: ${row.balance_closed ? 'cerrado' : 'abierto'}`,
+
+    // Encabezado
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+    let y = DocumentsPdfService.PDF_MARGIN;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+      .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(ACCENT)
+      .text(L.procTitle, x0, y, { width: w, align: 'center' });
+    y += 24;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+      .text(L.procSubtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 8).lineTo(x0 + w, y + 8).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 20;
+
+    // Metadatos en dos columnas
+    const colL = w * 0.5 - 8;
+    const colR = w * 0.5 - 8;
+    const xR = x0 + w * 0.5 + 8;
+    const metaLeft = [
+      {
+        label: lang === 'en' ? 'PRODUCER' : 'PRODUCTOR',
+        value: row.productor_nombre ?? String(row.productor_id ?? '—'),
+      },
+      {
+        label: lang === 'en' ? 'DATE AND TIME' : 'FECHA Y HORA',
+        value: fmtDate(row.fecha_proceso as Date | string),
+      },
+      {
+        label: lang === 'en' ? 'SPECIES / VARIETY' : 'ESPECIE / VARIEDAD',
+        value: `${row.especie_nombre ?? '—'} / ${row.variedad_nombre ?? '—'}`,
+      },
     ];
-    y = DocumentsPdfService.renderMutedContextBlock(doc, x0, y, w, 'Identificación del proceso', idLines);
+    const metaRight = [
+      {
+        label: lang === 'en' ? 'LINKED RECEPTION' : 'RECEPCIÓN VINCULADA',
+        value: String(row.recepcion_id ?? '—'),
+      },
+      {
+        label: lang === 'en' ? 'PROCESS STATUS' : 'ESTADO PROCESO',
+        value: row.process_status ?? '—',
+      },
+      {
+        label: lang === 'en' ? 'SETTLEMENT BALANCE' : 'BALANCE LIQUIDACIÓN',
+        value: row.balance_closed ? L.procCerrado : L.procAbierto,
+      },
+    ];
+    const metaStartY = y;
+    const renderMetaCol = (items: { label: string; value: string }[], x: number, maxW: number) => {
+      let cy = metaStartY;
+      for (const item of items) {
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED)
+          .text(item.label, x, cy, { width: maxW });
+        cy += 10;
+        doc.font('Helvetica').fontSize(9).fillColor('#111111')
+          .text(item.value, x, cy, { width: maxW });
+        cy += 14;
+      }
+      return cy;
+    };
+    const endL = renderMetaCol(metaLeft, x0, colL);
+    const endR = renderMetaCol(metaRight, xR, colR);
+    y = Math.max(endL, endR) + 4;
+
     if (!row.balance_closed) {
-      doc.font('Helvetica-Oblique').fontSize(9).fillColor('#555555').text(
-        'Proceso en curso: distribución aún no completada',
-        x0,
-        y,
-        { width: w },
-      );
-      y += 16;
+      doc.save();
+      doc.rect(x0, y, w, 22).fill('#fff8e1');
+      doc.restore();
+      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#7a5c00')
+        .text(L.procEnCurso, x0 + 8, y + 6, { width: w - 16 });
+      y += 28;
     }
-    y = DocumentsPdfService.renderSectionTitle(doc, x0, y, 'Resumen de liquidación (lb)', 'Porcentajes sobre lb de entrada');
-    y += 4;
+
+    doc.moveTo(x0, y + 4).lineTo(x0 + w, y + 4).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 16;
+
+    // KPIs de packout
     const ent = Number(row.entrada_lb_basis ?? row.lb_entrada ?? row.peso_procesado_lb) || 0;
     const emp = Number(row.lb_packout_planned ?? 0);
+    const packoutPct = ent > 0 ? (emp / ent * 100) : 0;
     const mermaPlanta = Number(row.merma_lb ?? raw?.merma_lb ?? 0);
     const mermaBal = raw?.lb_merma_balance != null ? Number(raw.lb_merma_balance) : 0;
     const mermaTot = mermaPlanta + mermaBal;
+    const mermaPct = ent > 0 ? (mermaTot / ent * 100) : 0;
+
+    const kpiW = (w - 16) / 3;
+    const kpiH = 52;
+    const kpis = [
+      { label: lang === 'en' ? 'INPUT (LBS)' : 'ENTRADA (LBS)', value: `${DocumentsPdfService.qtyAr(ent)} lb`, sub: '100%' },
+      { label: lang === 'en' ? 'PACKOUT' : 'PACKOUT PT', value: `${DocumentsPdfService.qtyAr(emp)} lb`, sub: `${packoutPct.toFixed(1).replace('.', ',')}%` },
+      { label: lang === 'en' ? 'WASTE' : 'MERMA', value: `${DocumentsPdfService.qtyAr(mermaTot)} lb`, sub: `${mermaPct.toFixed(1).replace('.', ',')}%` },
+    ];
+    for (let ki = 0; ki < kpis.length; ki++) {
+      const kx = x0 + ki * (kpiW + 8);
+      doc.save();
+      doc.rect(kx, y, kpiW, kpiH).fill(ki === 1 ? ACCENT : '#f0f4f8');
+      doc.restore();
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(ki === 1 ? '#ffffff' : MUTED)
+        .text(kpis[ki].label, kx + 8, y + 8, { width: kpiW - 16 });
+      doc.font('Helvetica-Bold').fontSize(14).fillColor(ki === 1 ? '#ffffff' : ACCENT)
+        .text(kpis[ki].sub, kx + 8, y + 18, { width: kpiW - 16 });
+      doc.font('Helvetica').fontSize(8).fillColor(ki === 1 ? '#c8d8e8' : MUTED)
+        .text(kpis[ki].value, kx + 8, y + 36, { width: kpiW - 16 });
+    }
+    y += kpiH + 16;
+
+    // Tabla distribucion
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(L.procResumenTitle, x0, y);
+    y += 14;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.procResumenSub, x0, y);
+    y += 14;
+
     const jugo = Number(row.lb_jugo ?? raw?.lb_jugo ?? 0);
     const desecho = Number(row.lb_desecho ?? raw?.lb_desecho ?? 0);
     const otrosReg = Number(row.lb_sobrante ?? raw?.lb_sobrante ?? 0);
-    const colW = [w * 0.48, w * 0.26, w * 0.24];
+    const colW = [w * 0.52, w * 0.24, w * 0.24];
     const mainRows: string[][] = [
-      ['Total fruta ingresada (100%)', `${DocumentsPdfService.qtyAr(ent)} lb`, '100,00'],
-      ['Producto terminado (lb)', `${DocumentsPdfService.qtyAr(emp)} lb`, DocumentsPdfService.pctOf(ent, emp)],
-      ['Lb merma (operativa + cierre de balance si aplica)', `${DocumentsPdfService.qtyAr(mermaTot)} lb`, DocumentsPdfService.pctOf(ent, mermaTot)],
-      ['Lb jugo', `${DocumentsPdfService.qtyAr(jugo)} lb`, DocumentsPdfService.pctOf(ent, jugo)],
-      ['Lb desecho', `${DocumentsPdfService.qtyAr(desecho)} lb`, DocumentsPdfService.pctOf(ent, desecho)],
+      [L.procEntrada, `${DocumentsPdfService.qtyAr(ent)} lb`, '100,00 %'],
+      [L.procPt, `${DocumentsPdfService.qtyAr(emp)} lb`, `${packoutPct.toFixed(2).replace('.', ',')} %`],
+      [L.procMerma, `${DocumentsPdfService.qtyAr(mermaTot)} lb`, `${mermaPct.toFixed(2).replace('.', ',')} %`],
     ];
+    if (jugo > 0) mainRows.push([L.procJugo, `${DocumentsPdfService.qtyAr(jugo)} lb`, `${DocumentsPdfService.pctOf(ent, jugo)} %`]);
+    if (desecho > 0) mainRows.push([L.procDesecho, `${DocumentsPdfService.qtyAr(desecho)} lb`, `${DocumentsPdfService.pctOf(ent, desecho)} %`]);
     if (Math.abs(otrosReg) > 0.001) {
-      mainRows.push(['Otros registros (sobrante / legacy)', `${DocumentsPdfService.qtyAr(otrosReg)} lb`, DocumentsPdfService.pctOf(ent, otrosReg)]);
+      mainRows.push([L.procOtros, `${DocumentsPdfService.qtyAr(otrosReg)} lb`, `${DocumentsPdfService.pctOf(ent, otrosReg)} %`]);
     }
     const sumMain = emp + mermaTot + jugo + desecho + (Math.abs(otrosReg) > 0.001 ? otrosReg : 0);
     const diff = ent - sumMain;
-    mainRows.push(['TOTAL distribuido (suma de conceptos)', `${DocumentsPdfService.qtyAr(sumMain)} lb`, DocumentsPdfService.pctOf(ent, sumMain)]);
-    mainRows.push(['Diferencia vs entrada (debe tender a 0 al cerrar)', `${DocumentsPdfService.qtyAr(diff)} lb`, DocumentsPdfService.pctOf(ent, diff)]);
+    mainRows.push([L.procTotalDist, `${DocumentsPdfService.qtyAr(sumMain)} lb`, `${DocumentsPdfService.pctOf(ent, sumMain)} %`]);
+    mainRows.push([L.procDiff, `${DocumentsPdfService.qtyAr(diff)} lb`, `${DocumentsPdfService.pctOf(ent, diff)} %`]);
     const rowStyles: Array<{ bold?: boolean; fillColor?: string } | undefined> = mainRows.map(() => undefined);
     rowStyles[mainRows.length - 1] = {
       bold: true,
@@ -701,81 +1093,61 @@ export class DocumentsPdfService {
       y,
       w,
       colW,
-      ['Concepto', 'Libras', '% sobre entrada'],
+      [L.procColConcepto, L.procColLb, L.procColPct],
       mainRows,
       { fs: 8, rowHeight: 16, rowStyles },
     );
-    doc.font('Helvetica').fontSize(7).fillColor('#666666').text(
-      'Los porcentajes se calculan sobre lb de entrada. El desglose por componente de especie (si existe) aparece abajo y complementa el detalle técnico.',
-      x0,
-      y,
-      { width: w },
-    );
-    y += 22;
+
+    // Componentes (solo si existen)
     const comps = row.components ?? [];
     if (comps.length) {
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#111111').text('Detalle por componente (especie)', x0, y);
-      y += 14;
-      const crRows: string[][] = [];
-      for (const c of comps) {
-        const lbv = Number(c.lb_value);
-        crRows.push([c.nombre, `${DocumentsPdfService.qtyAr(lbv)} lb`, c.pct_of_entrada != null ? `${c.pct_of_entrada}%` : '—']);
-      }
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, colW, ['Componente', 'Libras', '% sobre entrada'], crRows, { fs: 8, rowHeight: 14 });
-    }
-    doc.fillColor('#111111').fontSize(10);
-    let tarjaLabel = '—';
-    if (row.tarja_id != null && Number(row.tarja_id) > 0) {
-      const pt = await this.tagRepo.findOne({ where: { id: Number(row.tarja_id) }, select: ['id', 'tag_code'] });
-      tarjaLabel = pt?.tag_code?.trim() ? pt.tag_code.trim() : '—';
-    }
-    doc.font('Helvetica-Bold').fontSize(10).text(`Unidad PT vinculada: ${tarjaLabel}`, x0, y);
-    y += 16;
-    const fpLines = await this.fplLineRepo.find({
-      where: { fruit_process_id: id },
-      relations: ['final_pallet'],
-      order: { id: 'ASC' },
-    });
-    const fpIdsForTrace = [
-      ...new Set(
-        fpLines
-          .map((ln) => ln.final_pallet?.id)
-          .filter((x): x is number => x != null && Number(x) > 0)
-          .map(Number),
-      ),
-    ];
-    const fpTrace =
-      fpIdsForTrace.length > 0
-        ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(fpIdsForTrace)
-        : new Map();
-    if (fpLines.length) {
-      doc.text('Existencias PT que consumen este proceso:', x0, y);
-      y += 14;
-      const seen = new Set<number>();
-      for (const ln of fpLines) {
-        const fp = ln.final_pallet;
-        const fid = fp?.id ?? 0;
-        if (fid && seen.has(fid)) continue;
-        if (fid) seen.add(fid);
-        const tr = fpTrace.get(Number(fid));
-        const code =
-          tr?.codigo_unidad_pt_display?.trim() ?? fp?.corner_board_code?.trim() ?? `PF-${fid}`;
-        doc.font('Helvetica').fontSize(8).text(` · ${code} · cajas línea ${ln.amount} · lb ${ln.pounds}`, x0 + 4, y, { width: w - 8 });
-        y += 12;
-      }
       y += 4;
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(ACCENT).text(L.procDetCompTitle, x0, y);
+      y += 14;
+      const crRows: string[][] = comps.map((c: { nombre: string; lb_value: unknown; pct_of_entrada: unknown }) => [
+        c.nombre,
+        `${DocumentsPdfService.qtyAr(Number(c.lb_value))} lb`,
+        c.pct_of_entrada != null ? `${c.pct_of_entrada} %` : '—',
+      ]);
+      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, colW,
+        [L.procColComp, L.procColLb, L.procColPct], crRows, { fs: 8, rowHeight: 14 });
     }
-    const notaTxt = row.nota?.trim() ? row.nota.trim() : '—';
-    doc.font('Helvetica').fontSize(9).fillColor('#333333').text(`Nota: ${notaTxt}`, x0, y, { width: w });
-    y += Math.max(20, doc.heightOfString(`Nota: ${notaTxt}`, { width: w }) + 8);
-    DocumentsPdfService.renderDocumentFooter(
-      doc,
-      x0,
-      y,
-      w,
-      'Documento técnico generado desde el sistema de trazabilidad. Conservar junto con la documentación de recepción y despacho correspondiente.',
-    );
-    return pdfToBuffer(doc);
+
+    // PT generado por formato
+    if (fmtMap.size > 0) {
+      y += 8;
+      doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+      y += 12;
+      const ptTitle = lang === 'en' ? 'PT generated by format' : 'PT generado por formato';
+      const ptSub = lang === 'en'
+        ? `${totalCajasPt} boxes total across ${ptTags.length} PT unit(s)`
+        : `${totalCajasPt} cajas totales en ${ptTags.length} unidad(es) PT`;
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(ptTitle, x0, y);
+      y += 14;
+      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(ptSub, x0, y);
+      y += 12;
+      const ptColW = [w * 0.28, w * 0.16, w * 0.56];
+      const ptHeader = lang === 'en'
+        ? ['Format', 'Boxes', 'PT units']
+        : ['Formato', 'Cajas', 'Unidades PT'];
+      const ptRows: string[][] = [...fmtMap.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([fmt, val]) => [fmt, DocumentsPdfService.qtyAr(val.cajas), val.tags.join(', ')]);
+      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, ptColW, ptHeader, ptRows,
+        { fs: 8, rowHeight: 14, wrap: true });
+    }
+
+    // Nota
+    const notaTxt = row.nota?.trim() || '—';
+    y += 8;
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(MUTED).text(`${L.procNota}:`, x0, y);
+    y += 11;
+    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+      .text(notaTxt, x0 + 4, y, { width: w - 4 });
+    y += Math.max(16, doc.heightOfString(notaTxt, { width: w - 4 }) + 6);
+
+    const emission = new Date().toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
+    return pdfToBuffer(doc, (d) => this.drawFooter(d, x0, w, L.procFooter, emission, MUTED));
   }
 
   /** Bloque resumen: código de unidad PT (protagonista visual). */
@@ -799,116 +1171,226 @@ export class DocumentsPdfService {
   }
 
   /** PDF detalle (A4) — trazabilidad y tablas. */
-  async buildTagDetailPdf(id: number): Promise<Buffer> {
+  async buildTagDetailPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
     await this.resolveCompanyLine();
-    const t = await this.tagRepo.findOne({
-      where: { id },
-      relations: ['client', 'brand'],
-    });
+    const t = await this.tagRepo.findOne({ where: { id }, relations: ['client', 'brand'] });
     if (!t) throw new NotFoundException('Unidad PT no encontrada');
     const items = await this.tagItemRepo.find({ where: { tarja_id: id } });
     const producerIds = Array.from(new Set(items.map((it) => Number(it.productor_id)).filter((v) => Number.isFinite(v) && v > 0)));
     const producers = producerIds.length > 0 ? await this.producerRepo.find({ where: { id: In(producerIds) } }) : [];
-    const producerById = new Map(
-      producers.map((p) => [
-        p.id,
-        p.nombre?.trim() || p.codigo?.trim() || String(p.id),
-      ]),
-    );
+    const producerById = new Map(producers.map((p) => [p.id, p.nombre?.trim() || p.codigo?.trim() || String(p.id)]));
+
+    const L = DocumentsPdfService.T[lang];
+    const ACCENT = '#1a3a5c';
+    const MUTED = '#555555';
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
     const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    let y = this.renderCorporateHeader(
-      doc,
-      x0,
-      DocumentsPdfService.PDF_MARGIN,
-      w,
-      'Certificado de trazabilidad — Unidad PT',
-      'Datos de producto y origen por proceso',
-    );
-    const clientLabel = t.client?.nombre?.trim() ? t.client.nombre : 'Sin cliente asignado';
-    const brandLabel = t.brand?.nombre?.trim() ? t.brand.nombre : '—';
+
+    // Encabezado
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+    let y = DocumentsPdfService.PDF_MARGIN;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+      .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(ACCENT)
+      .text(L.tagTitle, x0, y, { width: w, align: 'center' });
+    y += 24;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+      .text(L.tagSubtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 8).lineTo(x0 + w, y + 8).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 20;
+
+    // Hero block (codigo unidad PT)
+    const clientLabel = t.client?.nombre?.trim() ? t.client.nombre : L.tagSinCliente;
+    const heroH = 64;
+    doc.save();
+    doc.rect(x0, y, w, heroH).fill('#f0f4f8');
+    doc.strokeColor('#c8d8e8').lineWidth(0.5).rect(x0, y, w, heroH).stroke();
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(22).fillColor(ACCENT)
+      .text(t.tag_code, x0 + 14, y + 10, { width: w - 28 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(MUTED)
+      .text(`${clientLabel} · ${t.total_cajas} ${lang === 'en' ? 'boxes' : 'cajas'} · ${t.format_code}`, x0 + 14, y + 40, { width: w - 28 });
+    y += heroH + 14;
+
+    // Metadatos en dos columnas
+    const colL = w * 0.5 - 8;
+    const colR = w * 0.5 - 8;
+    const xR = x0 + w * 0.5 + 8;
     const bolLabel = t.bol?.trim() ? t.bol.trim() : '—';
-    y = DocumentsPdfService.renderTagHeroBlock(
-      doc,
-      x0,
-      y,
-      w,
-      t.tag_code,
-      `${clientLabel} · ${t.total_cajas} cajas · ${t.format_code} · Resultado ${t.resultado}`,
-    );
-    const prodLines = [
-      `Fecha: ${DocumentsPdfService.pdfDateEs(t.fecha)}`,
-      `Pallets: ${t.total_pallets} · Cajas por pallet: ${t.cajas_por_pallet}`,
-      `Marca: ${brandLabel} · BOL / referencia: ${bolLabel}`,
-      `Peso neto (lb): ${t.net_weight_lb ?? '—'}`,
+    const brandLabel = t.brand?.nombre?.trim() ? t.brand.nombre : '—';
+    const metaLeft = [
+      { label: lang === 'en' ? 'DATE' : 'FECHA', value: new Date(t.fecha).toLocaleString(locale, { dateStyle: 'long' }) },
+      { label: lang === 'en' ? 'CLIENT' : 'CLIENTE', value: clientLabel },
+      { label: lang === 'en' ? 'FORMAT' : 'FORMATO', value: t.format_code },
     ];
-    y = DocumentsPdfService.renderMutedContextBlock(doc, x0, y, w, 'Producto y logística', prodLines);
+    const metaRight = [
+      {
+        label: lang === 'en' ? 'BOXES / PALLETS' : 'CAJAS / PALLETS',
+        value: `${t.total_cajas} / ${t.total_pallets}`,
+      },
+      { label: lang === 'en' ? 'BOL / REFERENCE' : 'BOL / REFERENCIA', value: bolLabel },
+      { label: lang === 'en' ? 'BRAND' : 'MARCA', value: brandLabel },
+      { label: lang === 'en' ? 'NET WEIGHT (LB)' : 'PESO NETO (LB)', value: String(t.net_weight_lb ?? '—') },
+    ];
+    const metaStartY = y;
+    const renderMetaCol = (itms: { label: string; value: string }[], x: number, maxW: number) => {
+      let cy = metaStartY;
+      for (const item of itms) {
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED).text(item.label, x, cy, { width: maxW });
+        cy += 10;
+        doc.font('Helvetica').fontSize(9).fillColor('#111111').text(item.value, x, cy, { width: maxW });
+        cy += 14;
+      }
+      return cy;
+    };
+    const endL = renderMetaCol(metaLeft, x0, colL);
+    const endR = renderMetaCol(metaRight, xR, colR);
+    y = Math.max(endL, endR) + 4;
+
+    doc.moveTo(x0, y + 4).lineTo(x0 + w, y + 4).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 16;
+
+    // Tabla origen por proceso
     const tw = [w * 0.12, w * 0.2, w * 0.15, w * 0.15, w * 0.38];
-    const headerOrig = ['Proceso', 'Productor', 'Cajas', 'Pallets línea', 'Nota'];
-    const origRowsAll: string[][] =
-      items.length > 0
-        ? items.map((it) => [
-            String(it.process_id),
-            producerById.get(Number(it.productor_id)) ?? String(it.productor_id ?? '—'),
-            String(it.cajas_generadas),
-            String(it.pallets_generados),
-            '—',
-          ])
-        : [['—', '—', '—', '—', 'Sin procesos vinculados']];
+    const headerOrig = [L.tagColProceso, L.tagColProductor, L.tagColCajas, L.tagColPallets, L.tagColNota];
+    const origRowsAll: string[][] = items.length > 0
+      ? items.map((it) => [
+        String(it.process_id),
+        producerById.get(Number(it.productor_id)) ?? String(it.productor_id ?? '—'),
+        String(it.cajas_generadas),
+        String(it.pallets_generados),
+        '—',
+      ])
+      : [['—', '—', '—', '—', L.tagSinProcesos]];
+
     const chunkSize = 24;
     for (let i = 0; i < origRowsAll.length; i += chunkSize) {
-      if (i > 0) {
-        doc.addPage();
-        y = DocumentsPdfService.PDF_MARGIN;
-      }
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .fillColor('#111111')
-        .text(
-          i === 0 ? 'Origen por proceso' : 'Origen por proceso (continúa)',
-          x0,
-          y,
-        );
-      doc.font('Helvetica').fontSize(8).fillColor('#555555').text('Cajas y pallets por línea de proceso', x0, y + 14);
+      if (i > 0) { doc.addPage(); y = DocumentsPdfService.PDF_MARGIN; }
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT)
+        .text(i === 0 ? L.tagOrigenProc : L.tagOrigenProcCont, x0, y);
+      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.tagOrigenSub, x0, y + 14);
       y += 30;
       const chunk = origRowsAll.slice(i, i + chunkSize);
       y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, tw, headerOrig, chunk, { fs: 8, rowHeight: 14, wrap: true });
     }
-    y += 8;
-    DocumentsPdfService.renderDocumentFooter(
-      doc,
-      x0,
-      y,
-      w,
-      'Documento de trazabilidad generado desde el sistema. Conservar para auditoría y despacho.',
-    );
-    return pdfToBuffer(doc);
+
+    const emission = new Date().toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
+    return pdfToBuffer(doc, (d) => this.drawFooter(d, x0, w, L.tagFooter, emission, MUTED));
   }
 
-  /** Etiqueta operativa (4×6 in aprox.) — QR reservado. */
-  async buildTagLabelPdf(id: number): Promise<Buffer> {
+  /** Etiqueta operativa (4×6 in aprox.) — QR con BOL o código de unidad. */
+  async buildTagLabelPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
     await this.resolveCompanyLine();
     const t = await this.tagRepo.findOne({
       where: { id },
       relations: ['client', 'brand'],
     });
     if (!t) throw new NotFoundException('Unidad PT no encontrada');
-    const doc = new PDFDocument({ margin: 24, size: [288, 432] });
-    const w = 240;
-    doc.fontSize(11).font('Helvetica-Bold').text(this.companyLine(), 24, 24, { width: w, align: 'center' });
-    doc.fontSize(20).text('UNIDAD PT', 24, 42, { width: w, align: 'center' });
-    doc.fontSize(22).text(t.tag_code, 24, 72, { width: w, align: 'center' });
-    doc.font('Helvetica').fontSize(14);
-    doc.text(`Formato: ${t.format_code}`, 24, 112, { width: w, align: 'center' });
-    doc.text(`Cajas: ${t.total_cajas}`, 24, 132, { width: w, align: 'center' });
-    doc
-      .fontSize(12)
-      .text(`Cliente: ${t.client?.nombre?.trim() ? t.client.nombre : 'Sin cliente asignado'}`, 24, 156, { width: w, align: 'center' });
-    doc.rect(84, 210, 120, 120).stroke('#333333');
-    doc.fontSize(9).fillColor('#666666').text('Espacio QR\n(próximamente)', 84, 248, { width: 120, align: 'center' });
-    doc.fillColor('#000000');
+
+    const L = DocumentsPdfService.T[lang];
+    const clientName = t.client?.nombre?.trim() ? t.client.nombre : L.tagSinCliente;
+    const brandName = t.brand?.nombre?.trim() ? t.brand.nombre : null;
+    const bolValue = t.bol?.trim() || null;
+
+    // Generar QR del BOL (o tag_code si no hay BOL)
+    const qrContent = bolValue ?? t.tag_code;
+    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+      width: 160, margin: 1, errorCorrectionLevel: 'M',
+    });
+    const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
+
+    // Etiqueta 4×6 in = 288×432 pt
+    const doc = new PDFDocument({ margin: 16, size: [288, 432] });
+    const PW = 256; // ancho útil
+    const x0 = 16;
+
+    // Franja superior de acento
+    const ACCENT = '#1a3a5c';
+    doc.save();
+    doc.rect(0, 0, 288, 6).fill(ACCENT);
+    doc.restore();
+
+    let y = 18;
+
+    // Empresa
+    doc.font('Helvetica').fontSize(7).fillColor('#555555')
+      .text(this.companyLine(), x0, y, { width: PW, align: 'center' });
+    y += 12;
+
+    // Titulo PT UNIT
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT)
+      .text(L.tagLabelTitle, x0, y, { width: PW, align: 'center' });
+    y += 16;
+
+    // Codigo de unidad PT (protagonista)
+    doc.font('Helvetica-Bold').fontSize(20).fillColor('#111111')
+      .text(t.tag_code, x0, y, { width: PW, align: 'center' });
+    y += 28;
+
+    // Separador
+    doc.moveTo(x0, y).lineTo(x0 + PW, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 8;
+
+    // Datos en dos columnas
+    const colW2 = PW / 2 - 4;
+    const renderField = (label: string, value: string, x: number, startY: number): number => {
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#555555')
+        .text(label.toUpperCase(), x, startY, { width: colW2, lineBreak: false });
+      doc.font('Helvetica').fontSize(9).fillColor('#111111')
+        .text(value, x, startY + 9, { width: colW2 });
+      return startY + 24;
+    };
+
+    const fieldStartY = y;
+    renderField(L.tagLabelFormato, t.format_code, x0, fieldStartY);
+    renderField(L.tagLabelCajas, String(t.total_cajas), x0 + colW2 + 8, fieldStartY);
+    y = fieldStartY + 26;
+
+    renderField(L.tagLabelCliente, clientName, x0, y);
+    y += 26;
+
+    if (brandName) {
+      const brandLabel = lang === 'en' ? 'BRAND' : 'MARCA';
+      renderField(brandLabel, brandName, x0, y);
+      y += 26;
+    }
+
+    if (bolValue) {
+      const bolLabel = 'BOL';
+      renderField(bolLabel, bolValue, x0, y);
+      y += 26;
+    }
+
+    // Separador
+    doc.moveTo(x0, y).lineTo(x0 + PW, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 10;
+
+    // QR centrado
+    const qrSize = 110;
+    const qrX = x0 + (PW - qrSize) / 2;
+    doc.image(qrBuffer, qrX, y, { width: qrSize, height: qrSize });
+    y += qrSize + 6;
+
+    // Texto bajo QR
+    doc.font('Helvetica').fontSize(7).fillColor('#555555')
+      .text(bolValue ?? t.tag_code, x0, y, { width: PW, align: 'center' });
+    y += 12;
+    doc.font('Helvetica').fontSize(6.5).fillColor('#888888')
+      .text(lang === 'en' ? 'Scan to verify BOL / PT unit' : 'Escanear para verificar BOL / unidad PT',
+        x0, y, { width: PW, align: 'center' });
+
+    // Franja inferior
+    doc.save();
+    doc.rect(0, 420, 288, 12).fill(ACCENT);
+    doc.restore();
+
     return pdfToBuffer(doc);
   }
 

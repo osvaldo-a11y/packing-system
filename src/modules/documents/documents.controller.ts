@@ -27,8 +27,12 @@ export class DocumentsController {
 
   @Get('receptions/:id/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async receptionPdf(@Param('id', ParseIntPipe) id: number) {
-    const buffer = await this.pdf.buildReceptionPdf(id);
+  async receptionPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('lang') lang?: string,
+  ) {
+    const l = lang === 'en' ? 'en' : 'es';
+    const buffer = await this.pdf.buildReceptionPdf(id, l);
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="recepcion-${id}.pdf"`,
@@ -37,8 +41,12 @@ export class DocumentsController {
 
   @Get('processes/:id/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async processPdf(@Param('id', ParseIntPipe) id: number) {
-    const buffer = await this.pdf.buildProcessPdf(id);
+  async processPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('lang') lang?: string,
+  ) {
+    const l = lang === 'en' ? 'en' : 'es';
+    const buffer = await this.pdf.buildProcessPdf(id, l);
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="proceso-${id}.pdf"`,
@@ -47,12 +55,17 @@ export class DocumentsController {
 
   @Get('pt-tags/:id/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async tagPdf(@Param('id', ParseIntPipe) id: number, @Query('variant') variant?: string) {
+  async tagPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('variant') variant?: string,
+    @Query('lang') lang?: string,
+  ) {
+    const l = lang === 'en' ? 'en' : 'es';
     const v = (variant ?? '').toLowerCase();
     const buffer =
       v === 'etiqueta' || v === 'label'
-        ? await this.pdf.buildTagLabelPdf(id)
-        : await this.pdf.buildTagDetailPdf(id);
+        ? await this.pdf.buildTagLabelPdf(id, l)
+        : await this.pdf.buildTagDetailPdf(id, l);
     const suffix = v === 'etiqueta' || v === 'label' ? '-etiqueta' : '';
     return new StreamableFile(buffer, {
       type: 'application/pdf',

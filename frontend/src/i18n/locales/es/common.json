@@ -20,6 +20,12 @@
     "unauthorized": "No tenés permiso para esta acción.",
     "notFound": "No se encontró el recurso solicitado."
   },
+  "documentStatus": {
+    "borrador": "Borrador",
+    "confirmado": "Confirmado",
+    "cerrado": "Cerrado",
+    "anulado": "Anulado"
+  },
   "login": {
     "subtitle": "Acceso al panel de operaciones",
     "cardTitle": "Iniciar sesión",
@@ -2658,6 +2664,7 @@
       "format": "Formato",
       "chooseFormat": "Elegir formato…",
       "surchargePerLb": "Recargo / lb",
+      "guardarRecargo": "Guardar recargo",
       "viewGlobal": "Liquidación global",
       "viewGlobalDesc": "Totales del período · todos los productores · exportaciones",
       "viewProducer": "Por productor",
@@ -2709,6 +2716,11 @@
       "readyToExport": "Listo para exportar",
       "viewIssues": "Ver problemas detectados",
       "noIssues": "No se detectaron problemas críticos.",
+      "packingOk": "Packing calculado en todas las líneas de detalle visibles.",
+      "materialesOk": "Materiales distintos de $0 en todas las líneas con cajas > 0 (según detalle cargado).",
+      "trazabilidadOk": "Trazabilidad completa en el alcance de esta página.",
+      "listoEnviar": "Listo para enviar",
+      "sinFaltantes": "No se detectaron faltantes críticos en packing, materiales ni trazabilidad (detalle cargado).",
       "packingIssues": "Problemas de packing",
       "materialIssues": "Problemas de materiales",
       "traceIssues": "Problemas de trazabilidad",
@@ -2851,6 +2863,7 @@
       "materiales": "Materiales",
       "materialesDesc": ": desde recetas de embalaje por formato (consumos del sistema; no es un importe manual por productor).",
       "packing": "Packing",
+      "packingTarifaDesc": "tarifa $/lb de la especie del formato",
       "packingManualNote": "(en este período el filtro usa precio packing manual y reemplaza el maestro por especie).",
       "packingMaestroNote": "(maestro de tarifas packing por especie).",
       "formato": "Formato",

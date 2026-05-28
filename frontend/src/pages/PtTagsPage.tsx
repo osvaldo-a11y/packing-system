@@ -420,7 +420,7 @@ function CommercialStatusBadge({
 }
 
 export function PtTagsPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
   const canEditTag = role === 'admin' || role === 'supervisor';
@@ -1113,10 +1113,12 @@ export function PtTagsPage() {
 
   async function downloadPtPdf(tag: PtTagApi, variant: 'detalle' | 'etiqueta') {
     const q = variant === 'etiqueta' ? '?variant=etiqueta' : '';
+    const langParam = i18n.language.startsWith('en') ? 'en' : 'es';
+    const separator = q.startsWith('?') ? '&' : '?';
     const name =
       variant === 'etiqueta' ? `unidad-pt-${tag.id}-etiqueta.pdf` : `unidad-pt-${tag.id}-detalle.pdf`;
     try {
-      await downloadPdf(`/api/documents/pt-tags/${tag.id}/pdf${q}`, name);
+      await downloadPdf(`/api/documents/pt-tags/${tag.id}/pdf${q}${separator}lang=${langParam}`, name);
       toast.success(variant === 'etiqueta' ? t('ptTag.toast.pdfLabelReady') : t('ptTag.toast.pdfDetailReady'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('ptTag.toast.pdfDetailReady'));

@@ -67,16 +67,23 @@ import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 function DocumentStateBadge({ codigo, nombre }: { codigo?: string | null; nombre?: string | null }) {
+  const { t } = useTranslation('common');
   const c = String(codigo ?? '').toLowerCase();
   const map: Record<string, string> = {
-    borrador: 'border-amber-200 bg-amber-50 text-amber-700',
+    borrador:   'border-amber-200 bg-amber-50 text-amber-700',
     confirmado: 'border-green-200 bg-green-50 text-green-700',
-    cerrado: 'border-gray-200 bg-gray-100 text-gray-600',
-    anulado: 'border-red-200 bg-red-50 text-red-700',
+    cerrado:    'border-gray-200 bg-gray-100 text-gray-600',
+    anulado:    'border-red-200 bg-red-50 text-red-700',
   };
-  const label = nombre?.trim() || codigo || '—';
+  const knownCodes = ['borrador', 'confirmado', 'cerrado', 'anulado'];
+  const label = knownCodes.includes(c)
+    ? t(`documentStatus.${c}`)
+    : (nombre?.trim() || codigo || '—');
   return (
-    <span className={cn(badgePill, 'px-2 py-0.5 text-[10px]', map[c] ?? 'border-slate-200 bg-slate-50 text-slate-800')} title={label}>
+    <span
+      className={cn(badgePill, 'px-2 py-0.5 text-[10px]', map[c] ?? 'border-slate-200 bg-slate-50 text-slate-800')}
+      title={label}
+    >
       {label}
     </span>
   );
@@ -360,7 +367,7 @@ function lineDraftsFromReception(r: ReceptionRow): LineDraft[] {
 }
 
 export function ReceptionPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const queryClient = useQueryClient();
   const { role } = useAuth();
   const isAdmin = role === 'admin';
@@ -1992,7 +1999,7 @@ export function ReceptionPage() {
                                     className="h-6 gap-1 px-1.5 text-xs"
                                     onClick={async () => {
                                       try {
-                                        await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
+                                        await downloadPdf(`/api/documents/receptions/${r.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `informe-recepcion-${r.id}.pdf`);
                                         toast.success(t('reception.toast.reportReady'));
                                       } catch (e) {
                                         toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
@@ -2132,7 +2139,7 @@ export function ReceptionPage() {
                               className="h-6 gap-1 px-1.5 text-xs"
                               onClick={async () => {
                                 try {
-                                  await downloadPdf(`/api/documents/receptions/${r.id}/pdf`, `informe-recepcion-${r.id}.pdf`);
+                                  await downloadPdf(`/api/documents/receptions/${r.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `informe-recepcion-${r.id}.pdf`);
                                   toast.success(t('reception.toast.reportReady'));
                                 } catch (e) {
                                   toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
