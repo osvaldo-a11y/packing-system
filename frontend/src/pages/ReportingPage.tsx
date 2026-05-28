@@ -227,6 +227,16 @@ interface MaterialCostAdjustment {
   created_at: string;
 }
 
+interface MachineProcessingRate {
+  id: number;
+  rate_per_lb: string;
+  species_id: number | null;
+  season: string | null;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
 type SavedReportRow = {
   id: number;
   report_name: string;
@@ -3254,6 +3264,11 @@ export function ReportingPage() {
   const [adjSeason, setAdjSeason] = useState('');
   const [adjNotes, setAdjNotes] = useState('');
   const [adjActive, setAdjActive] = useState(true);
+  const [machineRatePerLb, setMachineRatePerLb] = useState('');
+  const [machineRateSpeciesId, setMachineRateSpeciesId] = useState<number>(0);
+  const [machineRateSeason, setMachineRateSeason] = useState('');
+  const [machineRateNotes, setMachineRateNotes] = useState('');
+  const [machineRateActive, setMachineRateActive] = useState(true);
   const [useAdjustedCost, setUseAdjustedCost] = useState(false);
   const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
   /** Tarifas packing: abierto por defecto en Cierre para configurar antes de generar liquidación. */
@@ -3345,6 +3360,15 @@ export function ReportingPage() {
   } = useQuery<MaterialCostAdjustment[]>({
     queryKey: ['reporting', 'material-cost-adjustments'],
     queryFn: () => apiJson<MaterialCostAdjustment[]>('/api/reporting/material-cost-adjustments'),
+  });
+
+  const {
+    data: machineRates,
+    isLoading: machineRatesLoading,
+    refetch: refetchMachineRates,
+  } = useQuery<MachineProcessingRate[]>({
+    queryKey: ['reporting', 'machine-processing-rates'],
+    queryFn: () => apiJson<MachineProcessingRate[]>('/api/reporting/machine-processing-rates'),
   });
 
   const { data: presentationFormatsForSurcharge } = useQuery({
@@ -3617,6 +3641,30 @@ export function ReportingPage() {
       setAdjSeason('');
       setAdjNotes('');
       setAdjActive(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const upsertMachineRateMut = useMutation({
+    mutationFn: (body: {
+      rate_per_lb: number;
+      species_id?: number | null;
+      season?: string | null;
+      active: boolean;
+      notes?: string | null;
+    }) =>
+      apiJson<MachineProcessingRate>('/api/reporting/machine-processing-rates', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toast.success('Tarifa de procesado máquina guardada');
+      void refetchMachineRates();
+      setMachineRatePerLb('');
+      setMachineRateSpeciesId(0);
+      setMachineRateSeason('');
+      setMachineRateNotes('');
+      setMachineRateActive(true);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -3948,7 +3996,7 @@ export function ReportingPage() {
 
       {reportTab === 'cierre' ? (
         <div className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[3fr_2fr]">
+        <div className="grid gap-4 sm:grid-cols-2">
 
           {/* Tarjeta TARIFAS */}
           <details
@@ -4197,6 +4245,135 @@ export function ReportingPage() {
                                 ? <span className="font-medium text-emerald-600">✓ Activo</span>
                                 : <span className="text-slate-400">Inactivo</span>
                               }
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Procesado máquina ── */}
+              <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Rate procesado máquina</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Cargo adicional USD/lb para fruta de cosecha máquina (<strong className="text-slate-700">machine_picking</strong>).
+                    Se suma al costo de packing en la liquidación.
+                  </p>
+                </div>
+
+                {canManagePackingCosts ? (
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Rate / lb</Label>
+                      <Input
+                        className="h-9 font-mono"
+                        type="number"
+                        step="0.000001"
+                        min={0}
+                        value={machineRatePerLb}
+                        onChange={(e) => setMachineRatePerLb(e.target.value)}
+                        placeholder="0.0500"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Especie (vacío = todas)</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={machineRateSpeciesId}
+                        onChange={(e) => setMachineRateSpeciesId(Number(e.target.value))}
+                      >
+                        <option value={0}>Todas las especies</option>
+                        {(species ?? []).map((s) => (
+                          <option key={s.id} value={s.id}>{s.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={machineRateSeason}
+                        onChange={(e) => setMachineRateSeason(e.target.value)}
+                        placeholder="2026-2027"
+                      />
+                    </div>
+                    <div className="grid gap-1.5 md:col-span-2">
+                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Input
+                        className="h-9"
+                        value={machineRateNotes}
+                        onChange={(e) => setMachineRateNotes(e.target.value)}
+                        placeholder="Ej. IQF temporada alta"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={machineRateActive ? '1' : '0'}
+                        onChange={(e) => setMachineRateActive(e.target.value === '1')}
+                      >
+                        <option value="1">Sí</option>
+                        <option value="0">No</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={upsertMachineRateMut.isPending || !machineRatePerLb.trim()}
+                        onClick={() =>
+                          upsertMachineRateMut.mutate({
+                            rate_per_lb: Number(machineRatePerLb),
+                            species_id: machineRateSpeciesId > 0 ? machineRateSpeciesId : null,
+                            season: machineRateSeason.trim() || null,
+                            active: machineRateActive,
+                            notes: machineRateNotes.trim() || null,
+                          })
+                        }
+                      >
+                        {upsertMachineRateMut.isPending ? 'Guardando…' : 'Guardar rate máquina'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {machineRatesLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (machineRates ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-400">Sin rates de máquina configurados.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Especie</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rate/lb</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notas</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(machineRates ?? []).map((r, i) => (
+                          <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                            <TableCell className="py-2.5 text-sm text-slate-700">
+                              {r.species_id != null
+                                ? (species ?? []).find((s) => s.id === r.species_id)?.nombre ?? `#${r.species_id}`
+                                : 'Todas'}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
+                              +{formatMoney(Number(r.rate_per_lb))}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-sm text-slate-600">{r.season ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-500">{r.notes ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              {r.active
+                                ? <span className="font-medium text-emerald-600">✓ Activa</span>
+                                : <span className="text-slate-400">Inactiva</span>}
                             </TableCell>
                           </TableRow>
                         ))}

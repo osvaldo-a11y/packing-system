@@ -42,6 +42,7 @@ import {
   PackagingRecipeItem,
 } from '../modules/packaging/packaging.entities';
 import {
+  MachineProcessingRate,
   MaterialCostAdjustment,
   PackingCost,
   PackingFormatSurcharge,
@@ -126,6 +127,7 @@ const entities = [
   PackingCost,
   PackingFormatSurcharge,
   MaterialCostAdjustment,
+  MachineProcessingRate,
   PlantSettings,
   ImportLog,
   Species,

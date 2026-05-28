@@ -6,11 +6,18 @@ import { ProcessService } from '../process/process.service';
 import {
   ReportFilterDto,
   SaveReportDto,
+  UpsertMachineProcessingRateDto,
   UpsertMaterialCostAdjustmentDto,
   UpsertPackingCostDto,
   UpsertPackingFormatSurchargeDto,
 } from './reporting.dto';
-import { MaterialCostAdjustment, PackingCost, PackingFormatSurcharge, ReportSnapshot } from './reporting.entities';
+import {
+  MachineProcessingRate,
+  MaterialCostAdjustment,
+  PackingCost,
+  PackingFormatSurcharge,
+  ReportSnapshot,
+} from './reporting.entities';
 
 type Paginated<T> = { rows: T[]; total: number; page: number; limit: number };
 
@@ -24,6 +31,8 @@ export class ReportingService {
     private readonly packingFormatSurchargeRepo: Repository<PackingFormatSurcharge>,
     @InjectRepository(MaterialCostAdjustment)
     private readonly materialCostAdjRepo: Repository<MaterialCostAdjustment>,
+    @InjectRepository(MachineProcessingRate)
+    private readonly machineRateRepo: Repository<MachineProcessingRate>,
     private readonly plantService: PlantService,
     private readonly processService: ProcessService,
   ) {}
@@ -300,10 +309,10 @@ export class ReportingService {
   /** Costo total por formato en el período (mismo origen que liquidación / costo por formato en pantalla). */
   private costMapFromFormatSummary(
     summaryRows: Record<string, unknown>[],
-  ): Map<string, { costo_materiales: number; costo_packing: number; costo_total: number; cajas_periodo: number }> {
+  ): Map<string, { costo_materiales: number; costo_packing: number; costo_total: number; cajas_periodo: number; lb_periodo: number }> {
     const costByFormat = new Map<
       string,
-      { costo_materiales: number; costo_packing: number; costo_total: number; cajas_periodo: number }
+      { costo_materiales: number; costo_packing: number; costo_total: number; cajas_periodo: number; lb_periodo: number }
     >();
     for (const row of summaryRows) {
       const fk = String((row as { format_code?: string }).format_code ?? '')
@@ -315,6 +324,7 @@ export class ReportingService {
         costo_packing: Number((row as { costo_packing?: number }).costo_packing ?? 0),
         costo_total: Number((row as { costo_total?: number }).costo_total ?? 0),
         cajas_periodo: Number((row as { cajas?: number }).cajas ?? 0),
+        lb_periodo: Number((row as { lb_totales?: number }).lb_totales ?? (row as { lb?: number }).lb ?? 0),
       });
     }
     return costByFormat;
@@ -389,6 +399,16 @@ export class ReportingService {
     }
 
     const materialAdjustments = await this.materialCostAdjRepo.find({ where: { active: true } });
+
+    const machineRates = await this.machineRateRepo.find({ where: { active: true } });
+    // Mapa: species_id (null = todas) → rate_per_lb
+    const machineRateBySpecies = new Map<number | null, number>();
+    for (const mr of machineRates) {
+      const sid = mr.species_id != null ? Number(mr.species_id) : null;
+      if (!machineRateBySpecies.has(sid)) {
+        machineRateBySpecies.set(sid, Number(mr.rate_per_lb));
+      }
+    }
 
     const items = (await this.dataSource.query(
       `
@@ -469,6 +489,87 @@ export class ReportingService {
     for (const recipe of recipes) {
       const formatKey = recipe.format_code.trim().toLowerCase();
       const agg = aggByFormat.get(formatKey) ?? { cajas: 0, lb_totales: 0, precio_cliente: null };
+
+      // Lb de máquina para este formato en el período
+      const machineLbRows = (await this.dataSource.query(
+        `
+    SELECT COALESCE(SUM(lb_val), 0)::numeric AS lb_machine
+    FROM (
+      -- Ruta 1: via tarja_id → pt_tag_items → fruit_processes
+      SELECT
+        CASE
+          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+          THEN BTRIM(ii.pounds::text)::numeric
+          ELSE 0
+        END AS lb_val
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      JOIN pt_tag_items pti ON pti.tarja_id = ii.tarja_id
+      JOIN fruit_processes fp ON fp.id = pti.process_id
+      JOIN receptions r ON r.id = fp.recepcion_id
+      JOIN reception_types rt ON rt.id = r.reception_type_id
+      WHERE ii.tarja_id IS NOT NULL
+        AND ii.fruit_process_id IS NULL
+        AND rt.codigo = 'machine_picking'
+        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        ${this.withDate('d.fecha_despacho', filter)}
+
+      UNION ALL
+
+      -- Ruta 2: via fruit_process_id directo
+      SELECT
+        CASE
+          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+          THEN BTRIM(ii.pounds::text)::numeric
+          ELSE 0
+        END AS lb_val
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      JOIN fruit_processes fp ON fp.id = ii.fruit_process_id
+      JOIN receptions r ON r.id = fp.recepcion_id
+      JOIN reception_types rt ON rt.id = r.reception_type_id
+      WHERE ii.fruit_process_id IS NOT NULL
+        AND rt.codigo = 'machine_picking'
+        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        ${this.withDate('d.fecha_despacho', filter)}
+
+      UNION ALL
+
+      -- Ruta 3: via final_pallet_id → fruit_processes
+      SELECT
+        CASE
+          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+          THEN BTRIM(ii.pounds::text)::numeric
+          ELSE 0
+        END AS lb_val
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      JOIN fruit_processes fp ON fp.id = ii.final_pallet_id
+      JOIN receptions r ON r.id = fp.recepcion_id
+      JOIN reception_types rt ON rt.id = r.reception_type_id
+      WHERE ii.final_pallet_id IS NOT NULL
+        AND ii.tarja_id IS NULL
+        AND ii.fruit_process_id IS NULL
+        AND rt.codigo = 'machine_picking'
+        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        ${this.withDate('d.fecha_despacho', filter)}
+    ) sub
+    `,
+        [recipe.format_code],
+      )) as Array<{ lb_machine: string }>;
+      const lbMachine = Number(machineLbRows[0]?.lb_machine ?? 0);
+
+      // Rate de máquina: buscar por especie primero, luego global
+      const speciesId = recipe.species_id != null ? Number(recipe.species_id) : null;
+      const machineRate =
+        machineRateBySpecies.get(speciesId) ??
+        machineRateBySpecies.get(null) ??
+        0;
+      const costoMaquina = lbMachine * machineRate;
+
       const cajasPorPallet = Number(formatMeta.get(formatKey)?.max_boxes_per_pallet ?? 0);
       const recipeItems = items.filter((x) => Number(x.recipe_id) === Number(recipe.id));
       /** `species_id` viene del formato de presentación (JOIN); sin él no hay precio por lb en packing_costs. */
@@ -533,7 +634,7 @@ export class ReportingService {
         }
       }
       const costoMaterialesAjustado = subtotalMateriales + materialAdjustment;
-      const costoTotal = costoMaterialesAjustado + costoPacking;
+      const costoTotal = costoMaterialesAjustado + costoPacking + costoMaquina;
       const costoPorCaja = agg.cajas > 0 ? costoTotal / agg.cajas : 0;
       const costoPorLb = agg.lb_totales > 0 ? costoTotal / agg.lb_totales : 0;
       const deltaPorCaja = agg.precio_cliente != null ? agg.precio_cliente - costoPorCaja : null;
@@ -558,6 +659,9 @@ export class ReportingService {
         costo_materiales_real: Number(subtotalMateriales.toFixed(2)),
         material_adjustment: Number(materialAdjustment.toFixed(2)),
         costo_packing: Number(costoPacking.toFixed(2)),
+        lb_machine: Number(lbMachine.toFixed(3)),
+        machine_rate: Number(machineRate.toFixed(6)),
+        costo_maquina: Number(costoMaquina.toFixed(2)),
         costo_total: Number(costoTotal.toFixed(2)),
         costo_por_caja: Number(costoPorCaja.toFixed(4)),
         costo_por_lb: Number(costoPorLb.toFixed(6)),
@@ -717,6 +821,64 @@ export class ReportingService {
       }
     }
 
+    const machineRates = await this.machineRateRepo.find({ where: { active: true } });
+    const machineRateBySpecies = new Map<number | null, number>();
+    for (const mr of machineRates) {
+      const sid = mr.species_id != null ? Number(mr.species_id) : null;
+      if (!machineRateBySpecies.has(sid)) {
+        machineRateBySpecies.set(sid, Number(mr.rate_per_lb));
+      }
+    }
+
+    const machineLbByProducerRows = (await this.dataSource.query(
+      `
+      SELECT productor_id, COALESCE(SUM(lb_val), 0)::numeric AS lb_machine
+      FROM (
+        SELECT fp.productor_id,
+          CASE
+            WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+            THEN BTRIM(ii.pounds::text)::numeric
+            ELSE 0
+          END AS lb_val
+        FROM invoice_items ii
+        JOIN invoices inv ON inv.id = ii.invoice_id
+        JOIN dispatches d ON d.id = inv.dispatch_id
+        JOIN pt_tag_items pti ON pti.tarja_id = ii.tarja_id
+        JOIN fruit_processes fp ON fp.id = pti.process_id
+        JOIN receptions r ON r.id = fp.recepcion_id
+        JOIN reception_types rt ON rt.id = r.reception_type_id
+        WHERE ii.tarja_id IS NOT NULL
+          AND ii.fruit_process_id IS NULL
+          AND rt.codigo = 'machine_picking'
+          ${this.withDate('d.fecha_despacho', filter)}
+
+        UNION ALL
+
+        SELECT fp.productor_id,
+          CASE
+            WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+            THEN BTRIM(ii.pounds::text)::numeric
+            ELSE 0
+          END AS lb_val
+        FROM invoice_items ii
+        JOIN invoices inv ON inv.id = ii.invoice_id
+        JOIN dispatches d ON d.id = inv.dispatch_id
+        JOIN fruit_processes fp ON fp.id = ii.fruit_process_id
+        JOIN receptions r ON r.id = fp.recepcion_id
+        JOIN reception_types rt ON rt.id = r.reception_type_id
+        WHERE ii.fruit_process_id IS NOT NULL
+          AND rt.codigo = 'machine_picking'
+          ${this.withDate('d.fecha_despacho', filter)}
+      ) sub
+      WHERE productor_id IS NOT NULL AND productor_id > 0
+      GROUP BY productor_id
+      `,
+    )) as Array<{ productor_id: string; lb_machine: string }>;
+    const machineLbByProducer = new Map<number, number>();
+    for (const r of machineLbByProducerRows) {
+      machineLbByProducer.set(Number(r.productor_id), Number(r.lb_machine ?? 0));
+    }
+
     const applyCost = (pid: number | null) => {
       let cm = 0;
       let cp = 0;
@@ -726,12 +888,37 @@ export class ReportingService {
         const fk = agg.format_key;
         if (!fk) continue;
         const c = costByFormat.get(fk);
-        if (!c || c.cajas_periodo <= 0) continue;
-        const share = agg.cajas / c.cajas_periodo;
+        if (!c || c.lb_periodo <= 0) continue;
+        const share = agg.lb / c.lb_periodo;
         if (share <= 0) continue;
         cm += c.costo_materiales * share;
         cp += c.costo_packing * share;
         ct += c.costo_total * share;
+      }
+      // Costo máquina por productor (lb reales de machine_picking)
+      if (pid != null) {
+        const lbMach = machineLbByProducer.get(pid) ?? 0;
+        if (lbMach > 0) {
+          const prodFormats = [...byProdFormat.values()].filter((a) => a.productor_id === pid && a.format_key != null);
+          const speciesIds = new Set(
+            prodFormats
+              .map((a) => {
+                const row = inner.summaryRows.find(
+                  (r) =>
+                    String((r as Record<string, unknown>).format_code ?? '')
+                      .trim()
+                      .toLowerCase() === a.format_key,
+                );
+                return row ? Number((row as Record<string, unknown>).species_id ?? 0) : 0;
+              })
+              .filter((s) => s > 0),
+          );
+          const speciesId = speciesIds.size > 0 ? [...speciesIds][0] : null;
+          const machRate = machineRateBySpecies.get(speciesId) ?? machineRateBySpecies.get(null) ?? 0;
+          const costoMaquina = lbMach * machRate;
+          cp += costoMaquina;
+          ct += costoMaquina;
+        }
       }
       return { costo_materiales: cm, costo_packing: cp, costo_total: ct };
     };
@@ -1691,6 +1878,35 @@ export class ReportingService {
       active: !!r.active,
       created_at: r.created_at,
     }));
+  }
+
+  async getMachineProcessingRates(): Promise<MachineProcessingRate[]> {
+    return this.machineRateRepo.find({ order: { id: 'DESC' } });
+  }
+
+  async upsertMachineProcessingRate(dto: UpsertMachineProcessingRateDto): Promise<MachineProcessingRate> {
+    const seasonKey = dto.season?.trim() || null;
+    const existing = await this.machineRateRepo
+      .createQueryBuilder('r')
+      .where('COALESCE(r.species_id::text, \'all\') = COALESCE(:sid::text, \'all\')', {
+        sid: dto.species_id ?? null,
+      })
+      .andWhere('COALESCE(r.season, \'\') = COALESCE(:sk, \'\')', { sk: seasonKey })
+      .getOne();
+    if (existing) {
+      existing.rate_per_lb = String(dto.rate_per_lb);
+      if (dto.active !== undefined) existing.active = dto.active;
+      if (dto.notes !== undefined) existing.notes = dto.notes ?? null;
+      return this.machineRateRepo.save(existing);
+    }
+    const entity = this.machineRateRepo.create({
+      rate_per_lb: String(dto.rate_per_lb),
+      species_id: dto.species_id ?? null,
+      season: seasonKey,
+      active: dto.active ?? true,
+      notes: dto.notes ?? null,
+    });
+    return this.machineRateRepo.save(entity);
   }
 
   async getMaterialCostAdjustments(): Promise<MaterialCostAdjustment[]> {

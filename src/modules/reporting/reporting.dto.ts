@@ -60,3 +60,20 @@ export class UpsertMaterialCostAdjustmentDto {
   @IsOptional() @IsString() notes?: string | null;
   @IsOptional() @IsBoolean() active?: boolean;
 }
+
+export class UpsertMachineProcessingRateDto {
+  @IsNumber() @Min(0) @Type(() => Number)
+  rate_per_lb!: number;
+
+  @IsOptional() @IsInt() @Type(() => Number)
+  species_id?: number | null;
+
+  @IsOptional() @IsString()
+  season?: string | null;
+
+  @IsOptional() @IsBoolean() @Type(() => Boolean)
+  active?: boolean;
+
+  @IsOptional() @IsString()
+  notes?: string | null;
+}

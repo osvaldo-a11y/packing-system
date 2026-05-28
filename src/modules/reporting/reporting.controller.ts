@@ -20,6 +20,7 @@ import {
   ReportExportQueryDto,
   ReportFilterDto,
   SaveReportDto,
+  UpsertMachineProcessingRateDto,
   UpsertPackingCostDto,
   UpsertMaterialCostAdjustmentDto,
   UpsertPackingFormatSurchargeDto,
@@ -122,6 +123,19 @@ export class ReportingController {
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   upsertMaterialCostAdjustment(@Body() dto: UpsertMaterialCostAdjustmentDto) {
     return this.service.upsertMaterialCostAdjustment(dto);
+  }
+
+  @Get('machine-processing-rates')
+  @UseGuards(JwtAuthGuard)
+  getMachineProcessingRates() {
+    return this.service.getMachineProcessingRates();
+  }
+
+  @Post('machine-processing-rates')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  upsertMachineProcessingRate(@Body() dto: UpsertMachineProcessingRateDto) {
+    return this.service.upsertMachineProcessingRate(dto);
   }
 
   @Delete('material-cost-adjustments/:id')

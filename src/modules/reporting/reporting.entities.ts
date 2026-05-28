@@ -96,3 +96,27 @@ export class MaterialCostAdjustment {
   @CreateDateColumn()
   created_at: Date;
 }
+
+@Entity('machine_processing_rates')
+export class MachineProcessingRate {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 6 })
+  rate_per_lb: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  species_id: number | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  season: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  notes: string | null;
+
+  @CreateDateColumn()
+  created_at: Date;
+}
