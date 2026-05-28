@@ -41,6 +41,7 @@ import {
   PtTagMergeSource,
   RawMaterialMovement,
 } from './process.entities';
+import { findMermaResultComponent, isMermaResultComponent } from './process-waste-component.util';
 
 const BALANCE_EPS = 0.02;
 
@@ -281,7 +282,7 @@ export class ProcessService {
     freshValues: FruitProcessComponentValue[],
     activeComponents: Array<{ id: number; codigo: string }>,
   ): number {
-    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaComp = findMermaResultComponent(activeComponents);
     const mermaRowVal = mermaComp
       ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
       : 0;
@@ -305,7 +306,7 @@ export class ProcessService {
     freshValues: FruitProcessComponentValue[],
     activeComponents: Array<{ id: number; codigo: string }>,
   ): number {
-    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaComp = findMermaResultComponent(activeComponents);
     const mermaRowVal = mermaComp
       ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
       : 0;
@@ -343,7 +344,7 @@ export class ProcessService {
     const active = await this.listActiveComponentsForSpecies(speciesId);
     const activeIds = new Set(active.map((c) => Number(c.id)));
     const iqf = active.find((c) => c.codigo.toUpperCase() === 'IQF');
-    const merma = active.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const merma = findMermaResultComponent(active);
 
     if (dto.components != null && dto.components.length > 0) {
       for (const c of dto.components) {
@@ -822,7 +823,7 @@ export class ProcessService {
         if (raw != null && Math.abs(Number(raw)) > BALANCE_EPS) return String(raw);
         const code = comp.codigo.toUpperCase();
         if (code === 'IQF' && r.lb_iqf != null && Math.abs(Number(r.lb_iqf)) > BALANCE_EPS) return String(r.lb_iqf);
-        if (code === 'MERMA' && r.lb_sobrante != null && Math.abs(Number(r.lb_sobrante)) > BALANCE_EPS) {
+        if (isMermaResultComponent({ codigo: code }) && r.lb_sobrante != null && Math.abs(Number(r.lb_sobrante)) > BALANCE_EPS) {
           return String(r.lb_sobrante);
         }
         return raw ?? '0.000';
@@ -1505,7 +1506,7 @@ export class ProcessService {
       .reduce((s, v) => s + Number(v.lb_value), 0);
 
     const iqfComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'IQF');
-    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaComp = findMermaResultComponent(activeComponents);
     if (iqfComp) {
       const row = freshValues.find((v) => Number(v.component_id) === Number(iqfComp.id));
       proc.lb_iqf = (row ? Number(row.lb_value) : 0).toFixed(3);
@@ -2254,7 +2255,7 @@ export class ProcessService {
       );
     }
 
-    const mermaComp = activeComponents.find((c) => c.codigo.toUpperCase() === 'MERMA');
+    const mermaComp = findMermaResultComponent(activeComponents);
     const mermaRowVal = mermaComp
       ? Number(freshValues.find((v) => Number(v.component_id) === Number(mermaComp.id))?.lb_value ?? 0)
       : 0;

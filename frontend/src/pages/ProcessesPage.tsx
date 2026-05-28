@@ -348,11 +348,17 @@ function mermaRegistradaLb(r: FruitProcessRow): number {
   return Number(r.merma_lb ?? 0);
 }
 
-/** Suma lb del componente resultado MERMA en el borrador (evita doble resta si ya va en `components`). */
+function isMermaResultComponent(c: { codigo?: string | null; nombre?: string | null }): boolean {
+  const cod = (c.codigo ?? '').trim().toUpperCase();
+  const nom = (c.nombre ?? '').trim().toLowerCase();
+  return cod === 'MERMA' || cod === 'WASTE' || nom.includes('merma') || nom.includes('waste');
+}
+
+/** Suma lb del componente merma/desperdicio en el borrador (evita doble resta si ya va en `components`). */
 function sumMermaComponentDraft(row: FruitProcessRow, draft: Record<number, number>): number {
   let s = 0;
   for (const c of row.components ?? []) {
-    if ((c.codigo ?? '').toUpperCase() === 'MERMA') {
+    if (isMermaResultComponent(c)) {
       s += Number(draft[c.id] ?? 0);
     }
   }
@@ -387,7 +393,7 @@ const ALLOC_EPS = 0.02;
 function initialMermaLbFormValue(row: FruitProcessRow): number {
   let mermaRowSum = 0;
   for (const c of row.components ?? []) {
-    if ((c.codigo ?? '').toUpperCase() === 'MERMA') {
+    if (isMermaResultComponent(c)) {
       mermaRowSum += Number(c.lb_value ?? 0);
     }
   }
@@ -712,12 +718,9 @@ export function ProcessesPage() {
               if (Number.isFinite(w)) return w;
               return Number(weightsRow.merma_lb ?? 0);
             })();
-    /** Merma fuera de tabla: legacy + implícita (entrada − PT − componentes) si `merma_lb` quedó baja. */
-    const impliedMermaLb = Math.max(0, entrada - packoutProductLb - components);
+    /** Merma fuera de la tabla de componentes (campo Waste / legacy), solo lo registrado — no implícito. */
     const mermaFueraDeComponentes =
-      mermaEnComponentes > ALLOC_EPS
-        ? 0
-        : Math.max(mermaReg - mermaEnComponentes, impliedMermaLb);
+      mermaEnComponentes > ALLOC_EPS ? 0 : Math.max(0, mermaReg - mermaEnComponentes);
     const pendiente = entrada - packoutProductLb - components - mermaFueraDeComponentes;
     const ok = Math.abs(pendiente) < ALLOC_EPS;
     return {
@@ -1174,7 +1177,7 @@ export function ProcessesPage() {
         const v = Number(c.lb_value);
         if (!Number.isFinite(v)) continue;
         if (cod.includes('JUGO') || nom.includes('jugo')) lbJugo += v;
-        else if (cod.includes('MERMA') || nom.includes('merma')) lbMerma += v;
+        else if (isMermaResultComponent(c)) lbMerma += v;
         else if (!(Number.isFinite(directDes) && directDes > 0) && (cod.includes('DESECH') || nom.includes('desecho')))
           lbDesecho += v;
       }
