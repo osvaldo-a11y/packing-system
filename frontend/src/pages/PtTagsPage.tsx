@@ -1136,6 +1136,13 @@ export function PtTagsPage() {
       if (result.mode === 'sent_to_local_service') {
         return;
       }
+      if (result.mode === 'queued_remote') {
+        toast.success(t('ptTag.toast.printQueued'), {
+          description: result.message,
+          duration: 10_000,
+        });
+        return;
+      }
       const archivo = result.filename;
       const descRespaldo = `Se descargó ${archivo} como respaldo. Podés imprimirlo manualmente desde el equipo de planta.`;
       const sinBrowserPrint =

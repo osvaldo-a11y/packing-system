@@ -8,7 +8,8 @@
     "start": "node print-server.js",
     "dev": "node print-server.js",
     "install-service": "node install-service.js install",
-    "uninstall-service": "node install-service.js uninstall"
+    "uninstall-service": "node install-service.js uninstall",
+    "plant-agent": "node plant-agent.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import { PlantService } from '../plant/plant.service';
 import { ReportExportQueryDto, ReportFilterDto } from './reporting.dto';
 import { ReportingService } from './reporting.service';
 
@@ -72,9 +73,12 @@ export class ReportingExportService {
     },
   };
 
+  private static readonly PDF_ACCENT = '#1a3a5c';
+  private static readonly PDF_MUTED = '#555555';
+
   private static readonly PDF_TEXT: Record<'es' | 'en', {
-    title: string; summary: string; detailSales: string;
-    detailCosts: string; fmtSummary: string; footer: string;
+    title: string; subtitle: string; summary: string; detailSales: string;
+    detailCosts: string; fmtSummary: string; footer: string; costNote: string;
     period: string; emission: string; producer: string;
     colProducer: string; colBoxes: string; colLb: string;
     colSales: string; colCosts: string; colNet: string;
@@ -83,14 +87,19 @@ export class ReportingExportService {
     colMatBox: string; colPackBox: string; colCostBox: string;
     colMatTot: string; colPackTot: string; colCostTot: string;
     colTotal: string; note: string; scope: string;
+    totalNet: string; speciesLabel: string; formatLabel: string;
+    noData: string; noDetail: string; pageFooter: string;
   }> = {
     es: {
       title: 'LIQUIDACIÓN AL PRODUCTOR',
+      subtitle: 'Documento de liquidación comercial — período facturado',
       summary: 'Resumen por productor',
       detailSales: 'Detalle por despacho — ventas y neto',
       detailCosts: 'Detalle por despacho — costos abiertos',
       fmtSummary: 'Resumen de costos por formato',
       footer: 'Documento emitido para fines de liquidación comercial. Ante consultas, coordinar con la administración de la empresa.',
+      costNote:
+        'Los costos se componen de materiales de empaque según receta y servicio de packing calculado por libra de acuerdo a la especie/formato.',
       period: 'Período (fechas de despacho facturado)',
       emission: 'Fecha de emisión',
       producer: 'Productor',
@@ -104,14 +113,23 @@ export class ReportingExportService {
       colMatTot: 'Material total', colPackTot: 'Packing total',
       colCostTot: 'Costo total', colTotal: 'TOTAL', note: 'Nota',
       scope: 'Alcance: todos los productores incluidos en esta liquidación.',
+      totalNet: 'Neto productor',
+      speciesLabel: 'Especie / variedad',
+      formatLabel: 'Formato considerado',
+      noData: 'No hay datos para los filtros seleccionados.',
+      noDetail: 'Sin líneas de detalle para estos filtros.',
+      pageFooter: 'Liquidación al productor',
     },
     en: {
       title: 'PRODUCER SETTLEMENT',
+      subtitle: 'Commercial settlement document — invoiced period',
       summary: 'Producer summary',
       detailSales: 'Dispatch detail — sales & net',
       detailCosts: 'Dispatch detail — cost breakdown',
       fmtSummary: 'Cost summary by format',
       footer: 'Document issued for commercial settlement purposes. For inquiries, please contact company administration.',
+      costNote:
+        'Costs consist of packaging materials per recipe and packing service calculated per pound by species/format.',
       period: 'Period (invoiced dispatch dates)',
       emission: 'Issue date',
       producer: 'Producer',
@@ -125,14 +143,41 @@ export class ReportingExportService {
       colMatTot: 'Material total', colPackTot: 'Packing total',
       colCostTot: 'Total cost', colTotal: 'TOTAL', note: 'Note',
       scope: 'Scope: all producers included in this settlement.',
+      totalNet: 'Producer net',
+      speciesLabel: 'Species / variety',
+      formatLabel: 'Format in scope',
+      noData: 'No data for the selected filters.',
+      noDetail: 'No detail lines for these filters.',
+      pageFooter: 'Producer settlement',
     },
   };
+
+  private companyDisplayName = 'PINEBLOOM PACKING';
 
   private static translateHeader(key: string, lang: 'es' | 'en'): string {
     return ReportingExportService.COL_HEADERS[lang][key] ?? key;
   }
 
-  constructor(private readonly reporting: ReportingService) {}
+  constructor(
+    private readonly reporting: ReportingService,
+    private readonly plantService: PlantService,
+  ) {}
+
+  private async resolveCompanyDisplayName(): Promise<string> {
+    const fromEnv = process.env.COMPANY_DISPLAY_NAME?.trim();
+    if (fromEnv) {
+      this.companyDisplayName = fromEnv;
+      return this.companyDisplayName;
+    }
+    try {
+      const st = await this.plantService.getOrCreate();
+      const candidate = (st as { plant_name?: string | null })?.plant_name?.trim();
+      this.companyDisplayName = candidate || 'PINEBLOOM PACKING';
+    } catch {
+      this.companyDisplayName = 'PINEBLOOM PACKING';
+    }
+    return this.companyDisplayName;
+  }
 
   async build(format: ExportFormat, query: ReportExportQueryDto) {
     const data = await this.reporting.generateFullExport(query);
@@ -675,18 +720,18 @@ export class ReportingExportService {
     doc.fontSize(10).font('Helvetica-Bold').text(L.title, { width });
     doc.moveDown(0.25);
     doc.font('Helvetica');
-    this.drawPdfPackingLine(doc, L.servicio, ReportingExportService.moneyAr(base), width);
+    this.drawPdfPackingLine(doc, L.servicio, ReportingExportService.moneyUsd(base), width);
     if (recargo > 0.005) {
-      this.drawPdfPackingLine(doc, L.recargo, ReportingExportService.moneyAr(recargo), width);
+      this.drawPdfPackingLine(doc, L.recargo, ReportingExportService.moneyUsd(recargo), width);
     }
     if (maquina > 0.005) {
-      this.drawPdfPackingLine(doc, L.maquina, ReportingExportService.moneyAr(maquina), width);
+      this.drawPdfPackingLine(doc, L.maquina, ReportingExportService.moneyUsd(maquina), width);
     }
     const left = doc.page.margins.left;
     const y = doc.y;
     this.pdfHLineDark(doc, left, y, left + width);
     doc.y = y + 4;
-    this.drawPdfPackingLine(doc, L.total, ReportingExportService.moneyAr(total), width, { boldValue: true });
+    this.drawPdfPackingLine(doc, L.total, ReportingExportService.moneyUsd(total), width, { boldValue: true });
   }
 
   private drawInternalPackingBreakdown(
@@ -744,6 +789,14 @@ export class ReportingExportService {
     return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  private static moneyUsd(n: number): string {
+    return `$ ${ReportingExportService.moneyAr(n)}`;
+  }
+
+  private static precioUsd(n: number): string {
+    return `$ ${ReportingExportService.precioCajaAr(n)}`;
+  }
+
   /** Cajas / lb — no usar formato monetario. */
   private static qtyAr(n: number): string {
     return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -759,11 +812,118 @@ export class ReportingExportService {
     return t.length <= max ? t : `${t.slice(0, Math.max(0, max - 1))}…`;
   }
 
-  private static fmtFecha(v: unknown): string {
+  private static fmtFecha(v: unknown, lang: 'es' | 'en' = 'es'): string {
     if (!v) return '—';
     const d = new Date(String(v));
     if (isNaN(d.getTime())) return String(v).slice(0, 10);
-    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  private drawSettlementBrandedHeader(
+    doc: InstanceType<typeof PDFDocument>,
+    opts: {
+      company: string;
+      title: string;
+      subtitle: string;
+      metaLeft: Array<{ label: string; value: string }>;
+      metaRight: Array<{ label: string; value: string }>;
+      costNote?: string;
+    },
+  ): number {
+    const x0 = doc.page.margins.left;
+    const w = this.pdfContentWidth(doc);
+    const ACCENT = ReportingExportService.PDF_ACCENT;
+    const MUTED = ReportingExportService.PDF_MUTED;
+
+    doc.save();
+    doc.rect(x0, doc.page.margins.top - 16, w, 3).fill(ACCENT);
+    doc.restore();
+
+    let y = doc.page.margins.top;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(opts.company, x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(ACCENT).text(opts.title, x0, y, { width: w, align: 'center' });
+    y += 24;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED).text(opts.subtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 8).lineTo(x0 + w, y + 8).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 20;
+
+    const colW = w * 0.5 - 8;
+    const xR = x0 + w * 0.5 + 8;
+    const metaStartY = y;
+    const renderMetaCol = (items: Array<{ label: string; value: string }>, x: number, maxW: number) => {
+      let cy = metaStartY;
+      for (const item of items) {
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED).text(item.label.toUpperCase(), x, cy, {
+          width: maxW,
+        });
+        cy += 10;
+        doc.font('Helvetica').fontSize(9).fillColor('#111111').text(item.value, x, cy, { width: maxW });
+        cy += 14;
+      }
+      return cy;
+    };
+    const endL = renderMetaCol(opts.metaLeft, x0, colW);
+    const endR = renderMetaCol(opts.metaRight, xR, colW);
+    y = Math.max(endL, endR) + 8;
+
+    if (opts.costNote?.trim()) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(MUTED).text(opts.costNote.trim(), x0, y, { width: w });
+      y += 14;
+    }
+    doc.moveTo(x0, y + 4).lineTo(x0 + w, y + 4).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 16;
+    doc.y = y;
+    doc.fillColor('#000000');
+    return y;
+  }
+
+  private drawSettlementTotalBar(
+    doc: InstanceType<typeof PDFDocument>,
+    label: string,
+    value: string,
+  ): void {
+    const x0 = doc.page.margins.left;
+    const w = this.pdfContentWidth(doc);
+    const y = doc.y;
+    const totalH = 28;
+    doc.save();
+    doc.rect(x0, y, w, totalH).fill(ReportingExportService.PDF_ACCENT);
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#ffffff').text(`${label}: ${value}`, x0 + 10, y + 8, {
+      width: w - 20,
+    });
+    doc.y = y + totalH + 12;
+    doc.fillColor('#000000');
+  }
+
+  private drawSettlementDocumentFooters(
+    doc: InstanceType<typeof PDFDocument>,
+    opts: { company: string; footerText: string; emission: string; pageLabel: string; lang: 'es' | 'en' },
+  ): void {
+    const w = this.pdfContentWidth(doc);
+    const left = doc.page.margins.left;
+    const MUTED = ReportingExportService.PDF_MUTED;
+    const range = doc.bufferedPageRange();
+    const pageWord = opts.lang === 'en' ? 'Page' : 'Pág.';
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      const footerY = this.pdfBottomY(doc) - 18;
+      doc.save();
+      doc.moveTo(left, footerY - 8).lineTo(left + w, footerY - 8).lineWidth(0.5).strokeColor('#dddddd').stroke();
+      doc.restore();
+      doc.fontSize(7.5).fillColor(MUTED);
+      doc.text(opts.footerText, left, footerY, { width: w * 0.72, align: 'left', lineBreak: false });
+      doc.text(
+        `${opts.emission}  ·  ${pageWord} ${i - range.start + 1}/${range.count}`,
+        left,
+        footerY,
+        { width: w, align: 'right', lineBreak: false },
+      );
+      doc.fillColor('#000000');
+    }
   }
 
   /** Ancho útil entre márgenes del documento. */
@@ -940,14 +1100,11 @@ export class ReportingExportService {
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
-    const company = process.env.COMPANY_DISPLAY_NAME?.trim() || 'Empresa emisora';
+    const company = await this.resolveCompanyDisplayName();
     const period = this.formatSettlementPeriod(filter, lang);
     const emission = new Date().toLocaleString(lang === 'en' ? 'en-US' : 'es-AR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      dateStyle: 'long',
+      timeStyle: 'short',
     });
 
     const w = this.pdfContentWidth(doc);
@@ -963,35 +1120,34 @@ export class ReportingExportService {
       return '—';
     };
 
-    doc.fontSize(16).font('Helvetica-Bold').text(T.title, { align: 'center', width: w });
-    doc.moveDown(0.35);
-    doc.fontSize(11).text(company, { align: 'center', width: w });
-    doc.font('Helvetica');
-    doc.moveDown(0.85);
+    const producerValue = meta.productorNombre
+      ? meta.productorNombre
+      : filter.productor_id != null && Number(filter.productor_id) > 0
+        ? `(ID ${filter.productor_id})`
+        : T.scope;
 
-    doc.fontSize(10).fillColor('#111111');
-    if (meta.productorNombre) {
-      doc.text(`${T.producer}: ${meta.productorNombre}`, { width: w });
-    } else if (filter.productor_id != null && Number(filter.productor_id) > 0) {
-      doc.text(`${T.producer}: (referencia ${filter.productor_id})`, { width: w });
-    } else {
-      doc.text(T.scope, { width: w });
-    }
-    doc.text(`${T.period}: ${period}`, { width: w });
-    doc.text(`${T.emission}: ${emission}`, { width: w });
+    const metaLeft: Array<{ label: string; value: string }> = [
+      { label: T.producer, value: producerValue },
+      { label: T.period, value: period },
+    ];
+    const metaRight: Array<{ label: string; value: string }> = [
+      { label: T.emission, value: emission },
+    ];
     if (meta.especieLabel) {
-      doc.text(`Especie / variedad: ${meta.especieLabel}`, { width: w });
+      metaRight.push({ label: T.speciesLabel, value: meta.especieLabel });
     } else if (meta.formatoCodigo) {
-      doc.text(`Formato considerado en el informe: ${meta.formatoCodigo}`, { width: w });
+      metaRight.push({ label: T.formatLabel, value: meta.formatoCodigo });
     }
-    doc.moveDown(0.5);
-    doc.fontSize(8);
-    doc.fillColor('#444444').text(
-      'Los costos se componen de materiales de empaque según receta y servicio de packing calculado por libra de acuerdo a la especie/formato.',
-      { width: w, align: 'left' },
-    );
-    doc.fillColor('#000000');
-    doc.moveDown(0.9);
+
+    this.drawSettlementBrandedHeader(doc, {
+      company,
+      title: T.title,
+      subtitle: T.subtitle,
+      metaLeft,
+      metaRight,
+      costNote: T.costNote,
+    });
+    doc.moveDown(0.35);
 
     let sumCajas = 0;
     let sumLb = 0;
@@ -1009,7 +1165,7 @@ export class ReportingExportService {
     ];
 
     if (!summaryRows.length) {
-      doc.fontSize(10).font('Helvetica').fillColor('#666666').text('No hay datos para los filtros seleccionados.', {
+      doc.fontSize(10).font('Helvetica').fillColor('#666666').text(T.noData, {
         width: w,
       });
       doc.fillColor('#000000');
@@ -1034,23 +1190,25 @@ export class ReportingExportService {
           name,
           ReportingExportService.qtyAr(cajas),
           ReportingExportService.qtyAr(lb),
-          ReportingExportService.moneyAr(ventas),
-          ReportingExportService.moneyAr(ct),
-          ReportingExportService.moneyAr(neto),
+          ReportingExportService.moneyUsd(ventas),
+          ReportingExportService.moneyUsd(ct),
+          ReportingExportService.moneyUsd(neto),
         ]);
       }
       const totalRow = [
         T.colTotal,
         ReportingExportService.qtyAr(sumCajas),
         ReportingExportService.qtyAr(sumLb),
-        ReportingExportService.moneyAr(sumVentas),
-        ReportingExportService.moneyAr(sumCosto),
-        ReportingExportService.moneyAr(sumNeto),
+        ReportingExportService.moneyUsd(sumVentas),
+        ReportingExportService.moneyUsd(sumCosto),
+        ReportingExportService.moneyUsd(sumNeto),
       ];
       this.pdfDrawDataTable(doc, T.summary, summaryCols, summaryBody, totalRow, {
         titleSize: 14,
       });
       this.drawProducerPackingBreakdown(doc, w, summaryRows, lang);
+      if (doc.y + 40 > this.pdfBottomY(doc)) doc.addPage();
+      this.drawSettlementTotalBar(doc, T.totalNet, ReportingExportService.moneyUsd(sumNeto));
     }
 
     doc.moveDown(0.5);
@@ -1079,7 +1237,7 @@ export class ReportingExportService {
     ];
 
     if (!detailRows.length) {
-      doc.fontSize(10).font('Helvetica').fillColor('#666666').text('Sin líneas de detalle para estos filtros.', {
+      doc.fontSize(10).font('Helvetica').fillColor('#666666').text(T.noDetail, {
         width: w,
       });
       doc.fillColor('#000000');
@@ -1107,24 +1265,24 @@ export class ReportingExportService {
 
         detailBodyA.push([
           String((r as Record<string, unknown>).dispatch_number ?? (r as Record<string, unknown>).dispatch_id ?? '—'),
-          ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho),
+          ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho, lang),
           ReportingExportService.clipText(String((r as Record<string, unknown>).numero_bol ?? '—'), 16),
           ReportingExportService.clipText(fc, 24),
           ReportingExportService.qtyAr(cajas),
           ReportingExportService.qtyAr(lb),
-          ReportingExportService.precioCajaAr(precio),
-          ReportingExportService.moneyAr(ventas),
-          ReportingExportService.moneyAr(neto),
+          ReportingExportService.precioUsd(precio),
+          ReportingExportService.moneyUsd(ventas),
+          ReportingExportService.moneyUsd(neto),
         ]);
         detailBodyB.push([
           did,
           ReportingExportService.clipText(fc, 24),
-          ReportingExportService.precioCajaAr(matCaja),
-          ReportingExportService.precioCajaAr(packCaja),
-          ReportingExportService.precioCajaAr(totalCaja),
-          ReportingExportService.moneyAr(cm),
-          ReportingExportService.moneyAr(cp),
-          ReportingExportService.moneyAr(ct),
+          ReportingExportService.precioUsd(matCaja),
+          ReportingExportService.precioUsd(packCaja),
+          ReportingExportService.precioUsd(totalCaja),
+          ReportingExportService.moneyUsd(cm),
+          ReportingExportService.moneyUsd(cp),
+          ReportingExportService.moneyUsd(ct),
         ]);
 
         const key = String((r as { format_code?: string }).format_code ?? '').trim().toLowerCase() || '(sin formato)';
@@ -1168,12 +1326,12 @@ export class ReportingExportService {
           ReportingExportService.clipText(fmt, 30),
           ReportingExportService.qtyAr(val.cajas),
           ReportingExportService.qtyAr(val.lb),
-          ReportingExportService.precioCajaAr(matCaja),
-          ReportingExportService.precioCajaAr(packCaja),
-          ReportingExportService.precioCajaAr(totalCaja),
-          ReportingExportService.moneyAr(val.material),
-          ReportingExportService.moneyAr(val.packing),
-          ReportingExportService.moneyAr(val.total),
+          ReportingExportService.precioUsd(matCaja),
+          ReportingExportService.precioUsd(packCaja),
+          ReportingExportService.precioUsd(totalCaja),
+          ReportingExportService.moneyUsd(val.material),
+          ReportingExportService.moneyUsd(val.packing),
+          ReportingExportService.moneyUsd(val.total),
         ]);
       }
       this.pdfDrawDataTable(doc, T.fmtSummary, fmtCols, fmtBody, null, {
@@ -1183,36 +1341,20 @@ export class ReportingExportService {
       });
     }
 
-    // Asegurar espacio antes del pie
     if (doc.y + 50 > this.pdfBottomY(doc)) {
       doc.addPage();
     }
-    doc.moveDown(1);
-    doc.fontSize(8).fillColor('#333333').text(
-      T.footer,
-      { width: w, align: 'left' },
-    );
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED).text(T.footer, { width: w, align: 'left' });
+    doc.fillColor('#000000');
 
-    // Números de página en todas las hojas
-    const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.start + range.count; i++) {
-      doc.switchToPage(i);
-      const footerY = this.pdfBottomY(doc) - 14;
-      doc.fontSize(7).fillColor('#888888');
-      doc.text(
-        `${company}  ·  Liquidación al productor`,
-        doc.page.margins.left,
-        footerY,
-        { align: 'left', width: w },
-      );
-      doc.text(
-        `Pág. ${i - range.start + 1} / ${range.count}`,
-        doc.page.margins.left,
-        footerY,
-        { align: 'right', width: w },
-      );
-      doc.fillColor('#000000');
-    }
+    this.drawSettlementDocumentFooters(doc, {
+      company,
+      footerText: `${company}  ·  ${T.pageFooter}`,
+      emission,
+      pageLabel: T.pageFooter,
+      lang,
+    });
 
     return this.pdfBufferAndFinish(
       doc,
@@ -1235,7 +1377,7 @@ export class ReportingExportService {
 
     const period = this.formatSettlementPeriod(filter);
     const filt = this.filterDescription(filter);
-    const company = process.env.COMPANY_DISPLAY_NAME?.trim() || 'Empresa emisora';
+    const company = await this.resolveCompanyDisplayName();
 
     const wInner = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     doc.fontSize(15).font('Helvetica-Bold').text('Liquidación por productor — uso interno', { align: 'center', width: wInner });
@@ -1425,30 +1567,38 @@ export class ReportingExportService {
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
-    const company  = process.env.COMPANY_DISPLAY_NAME?.trim() || 'Empresa emisora';
-    const period   = this.formatSettlementPeriod(filter, lang);
+    const company = await this.resolveCompanyDisplayName();
+    const period = this.formatSettlementPeriod(filter, lang);
     const emission = new Date().toLocaleString(lang === 'en' ? 'en-US' : 'es-AR', {
-      day: 'numeric', month: 'long', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
+      dateStyle: 'long',
+      timeStyle: 'short',
     });
-    const w   = this.pdfContentWidth(doc);
-    const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    const w = this.pdfContentWidth(doc);
+    const num = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
 
-    // ── Encabezado ──
-    doc.fontSize(16).font('Helvetica-Bold').text(T.title, { align: 'center', width: w });
+    const metaLeft: Array<{ label: string; value: string }> = [
+      { label: T.producer, value: meta.productorNombre ?? '—' },
+      { label: T.period, value: period },
+    ];
+    const metaRight: Array<{ label: string; value: string }> = [{ label: T.emission, value: emission }];
+    if (meta.especieLabel) {
+      metaRight.push({ label: T.speciesLabel, value: meta.especieLabel });
+    } else if (meta.formatoCodigo) {
+      metaRight.push({ label: T.formatLabel, value: meta.formatoCodigo });
+    }
+
+    this.drawSettlementBrandedHeader(doc, {
+      company,
+      title: T.title,
+      subtitle: T.subtitle,
+      metaLeft,
+      metaRight,
+      costNote: T.costNote,
+    });
     doc.moveDown(0.35);
-    doc.fontSize(11).text(company, { align: 'center', width: w });
-    doc.font('Helvetica').moveDown(0.85);
-    doc.fontSize(10).fillColor('#111111');
-    if (meta.productorNombre) doc.text(`${T.producer}: ${meta.productorNombre}`, { width: w });
-    doc.text(`${T.period}: ${period}`, { width: w });
-    doc.text(`${T.emission}: ${emission}`, { width: w });
-    doc.moveDown(0.5);
-    doc.fontSize(8).fillColor('#444444').text(
-      'Los costos se componen de materiales de empaque según receta y servicio de packing calculado por libra de acuerdo a la especie/formato.',
-      { width: w },
-    );
-    doc.fillColor('#000000').moveDown(0.9);
 
     // ── Resumen ──
     let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0, sumPack = 0, sumNeto = 0;
@@ -1476,21 +1626,23 @@ export class ReportingExportService {
         name,
         ReportingExportService.qtyAr(cajas),
         ReportingExportService.qtyAr(lb),
-        ReportingExportService.moneyAr(ventas),
-        ReportingExportService.moneyAr(mat),
-        ReportingExportService.moneyAr(pack),
-        ReportingExportService.moneyAr(neto),
+        ReportingExportService.moneyUsd(ventas),
+        ReportingExportService.moneyUsd(mat),
+        ReportingExportService.moneyUsd(pack),
+        ReportingExportService.moneyUsd(neto),
       ]);
     }
     this.pdfDrawDataTable(doc, T.summary, summaryCols, summaryBody, [
       T.colTotal,
       ReportingExportService.qtyAr(sumCajas),
       ReportingExportService.qtyAr(sumLb),
-      ReportingExportService.moneyAr(sumVentas),
-      ReportingExportService.moneyAr(sumMat),
-      ReportingExportService.moneyAr(sumPack),
-      ReportingExportService.moneyAr(sumNeto),
+      ReportingExportService.moneyUsd(sumVentas),
+      ReportingExportService.moneyUsd(sumMat),
+      ReportingExportService.moneyUsd(sumPack),
+      ReportingExportService.moneyUsd(sumNeto),
     ], { titleSize: 13 });
+    if (doc.y + 40 > this.pdfBottomY(doc)) doc.addPage();
+    this.drawSettlementTotalBar(doc, T.totalNet, ReportingExportService.moneyUsd(sumNeto));
 
     doc.moveDown(0.5);
 
@@ -1519,38 +1671,33 @@ export class ReportingExportService {
       const precio = cajas > 0 ? ventas / cajas : 0;
       execBody.push([
         String((r as Record<string, unknown>).dispatch_number ?? (r as Record<string, unknown>).dispatch_id ?? '—'),
-        ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho),
+        ReportingExportService.fmtFecha((r as Record<string, unknown>).fecha_despacho, lang),
         ReportingExportService.clipText(String((r as Record<string, unknown>).numero_bol ?? '—'), 14),
         ReportingExportService.clipText(String((r as { format_code?: string }).format_code ?? '—'), 18),
         ReportingExportService.qtyAr(cajas),
         ReportingExportService.qtyAr(lb),
-        ReportingExportService.precioCajaAr(precio),
-        ReportingExportService.moneyAr(ventas),
-        ReportingExportService.moneyAr(mat),
-        ReportingExportService.moneyAr(pack),
-        ReportingExportService.moneyAr(neto),
+        ReportingExportService.precioUsd(precio),
+        ReportingExportService.moneyUsd(ventas),
+        ReportingExportService.moneyUsd(mat),
+        ReportingExportService.moneyUsd(pack),
+        ReportingExportService.moneyUsd(neto),
       ]);
     }
     this.pdfDrawDataTable(doc, T.detailSales, execCols, execBody, null, {
       titleSize: 12, headerFontSize: 8, bodyFontSize: 7.5,
     });
 
-    // ── Pie ──
     if (doc.y + 50 > this.pdfBottomY(doc)) doc.addPage();
-    doc.moveDown(1);
-    doc.fontSize(8).fillColor('#333333').text(
-      T.footer,
-      { width: w, align: 'left' },
-    );
-    const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.start + range.count; i++) {
-      doc.switchToPage(i);
-      const footerY = this.pdfBottomY(doc) - 14;
-      doc.fontSize(7).fillColor('#888888');
-      doc.text(`${company}  ·  Liquidación al productor`, doc.page.margins.left, footerY, { align: 'left', width: w });
-      doc.text(`Pág. ${i - range.start + 1} / ${range.count}`, doc.page.margins.left, footerY, { align: 'right', width: w });
-      doc.fillColor('#000000');
-    }
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED).text(T.footer, { width: w, align: 'left' });
+    doc.fillColor('#000000');
+    this.drawSettlementDocumentFooters(doc, {
+      company,
+      footerText: `${company}  ·  ${T.pageFooter}`,
+      emission,
+      pageLabel: T.pageFooter,
+      lang,
+    });
     return this.pdfBufferAndFinish(
       doc,
       chunks,

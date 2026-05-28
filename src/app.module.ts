@@ -18,6 +18,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { FinalPalletModule } from './modules/final-pallet/final-pallet.module';
 import { PtPackingListModule } from './modules/pt-packing-list/pt-packing-list.module';
 import { LabelsModule } from './modules/labels/labels.module';
+import { PrintJobsModule } from './modules/print-jobs/print-jobs.module';
 
 const webIndex = join(process.cwd(), 'frontend', 'dist', 'index.html');
 const webImports = existsSync(webIndex)
@@ -44,6 +45,7 @@ const webImports = existsSync(webIndex)
     FinalPalletModule,
     PtPackingListModule,
     LabelsModule,
+    PrintJobsModule,
     PackagingModule,
     PlantModule,
     ReportingModule,

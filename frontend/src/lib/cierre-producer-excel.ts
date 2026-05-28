@@ -190,7 +190,7 @@ const C = {
   borderMd: 'FF8BADD3',  // borde medio
 };
 
-const FMT_MONEY = '#,##0.00';
+const FMT_MONEY = '"$"#,##0.00';
 const FMT_QTY   = '#,##0';
 const FMT_LB    = '#,##0.00';
 const FMT_RATE  = '#,##0.00';
@@ -217,8 +217,8 @@ const T: Record<'es' | 'en', {
     productor: 'Productor', cajas: 'Cajas', lb: 'Libras (LB)',
     ventas: 'Ventas',     costoMat: 'Costo materiales', costoPack: 'Costo packing',
     costoTotal: 'Costo total', neto: 'Neto productor',
-    costoPackingBase: 'costo_packing_base', recargoFormato: 'recargo_formato',
-    costoMaquina: 'costo_maquina', lbMachine: 'lb_machine', totalPacking: 'total_packing',
+    costoPackingBase: 'Packing base', recargoFormato: 'Recargo por formato',
+    costoMaquina: 'Procesado máquina', lbMachine: 'LB máquina', totalPacking: 'Total packing',
     despacho: 'N° Despacho', formato: 'Formato', precioVenta: 'Precio venta/caja',
     matCaja: 'Mat./caja', packCaja: 'Packing/caja', costoCaja: 'Costo/caja',
     matTotal: 'Mat. total', packTotal: 'Packing total', total: 'TOTAL',
@@ -440,29 +440,37 @@ export async function downloadProducerSettlementExcelClient(opts: {
 
     const sr = opts.summaryRow;
     const pack = packingBreakdownFromRow(sr);
-    const entries: Array<{ label: string; value: number | string; fmt?: string }> = [
-      { label: tx.productor,  value: opts.producerName },
-      { label: tx.cajas,      value: toNum(sr.cajas),            fmt: FMT_QTY   },
-      { label: tx.lb,         value: toNum(sr.lb),               fmt: FMT_LB    },
-      { label: tx.ventas,     value: toNum(sr.ventas),           fmt: FMT_MONEY },
-      { label: tx.costoMat,   value: toNum(sr.costo_materiales), fmt: FMT_MONEY },
-      { label: tx.costoPack,  value: pack.total,                 fmt: FMT_MONEY },
-      { label: tx.costoPackingBase, value: pack.base,           fmt: FMT_MONEY },
-      { label: tx.recargoFormato,   value: pack.recargo,        fmt: FMT_MONEY },
-      { label: tx.costoMaquina,     value: pack.maquina,        fmt: FMT_MONEY },
-      { label: tx.lbMachine,        value: pack.lbMach,         fmt: FMT_LB    },
-      { label: tx.totalPacking,     value: pack.total,          fmt: FMT_MONEY },
-      { label: tx.costoTotal, value: toNum(sr.costo_total),      fmt: FMT_MONEY },
-      { label: tx.neto,       value: toNum(sr.neto_productor),   fmt: FMT_MONEY },
+    const entries: Array<{ label: string; value: number | string; fmt?: string; indent?: boolean }> = [
+      { label: tx.productor,        value: opts.producerName },
+      { label: tx.cajas,            value: toNum(sr.cajas),            fmt: FMT_QTY   },
+      { label: tx.lb,               value: toNum(sr.lb),               fmt: FMT_LB    },
+      { label: tx.ventas,           value: toNum(sr.ventas),           fmt: FMT_MONEY },
+      { label: tx.costoMat,         value: toNum(sr.costo_materiales), fmt: FMT_MONEY },
+      { label: tx.costoPackingBase, value: pack.base,                  fmt: FMT_MONEY, indent: true },
+      { label: tx.recargoFormato,   value: pack.recargo,               fmt: FMT_MONEY, indent: true },
+      { label: tx.costoMaquina,     value: pack.maquina,               fmt: FMT_MONEY, indent: true },
+      { label: tx.lbMachine,        value: pack.lbMach,                fmt: FMT_LB,    indent: true },
+      { label: tx.totalPacking,     value: pack.total,                 fmt: FMT_MONEY },
+      { label: tx.costoTotal,       value: toNum(sr.costo_total),      fmt: FMT_MONEY },
+      { label: tx.neto,             value: toNum(sr.neto_productor),   fmt: FMT_MONEY },
     ];
 
     for (const e of entries) {
       const row = ws.addRow([e.label, e.value]);
       row.height = 20;
-      row.getCell(1).font = { size: 10, name: 'Arial' };
+      const labelCell = row.getCell(1);
+      labelCell.font = {
+        size: 9,
+        name: 'Arial',
+        color: { argb: e.indent ? 'FF555555' : 'FF000000' },
+        italic: !!e.indent,
+      };
+      if (e.indent) {
+        labelCell.alignment = { indent: 2 };
+      }
       const valCell = row.getCell(2);
       valCell.alignment = { horizontal: 'right' };
-      valCell.font = { size: 10, name: 'Arial' };
+      valCell.font = { size: e.indent ? 9 : 10, name: 'Arial' };
       if (e.fmt) applyFmt(valCell, e.fmt);
     }
 
@@ -712,8 +720,9 @@ export async function downloadSettlementExcelAll(opts: {
   {
     const ws  = wb.addWorksheet(tx.sheetResumen, { views: [{ state: 'frozen', ySplit: 5 }] });
     const headers = [
-      tx.productor, tx.cajas, tx.lb, tx.ventas, tx.costoMat, tx.costoPack,
-      tx.costoPackingBase, tx.recargoFormato, tx.costoMaquina, tx.lbMachine, tx.totalPacking,
+      tx.productor, tx.cajas, tx.lb, tx.ventas, tx.costoMat,
+      tx.costoPackingBase, tx.recargoFormato, tx.costoMaquina,
+      tx.lbMachine, tx.totalPacking,
       tx.costoTotal, tx.neto,
     ];
     const COL = headers.length;
@@ -722,24 +731,23 @@ export async function downloadSettlementExcelAll(opts: {
     styleHeader(hRow, COL);
     ws.autoFilter = { from: { row: hRow.number, column: 1 }, to: { row: hRow.number, column: COL } };
 
-    let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0, sumPack = 0;
+    let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0;
     let sumPackBase = 0, sumRecargo = 0, sumMaquina = 0, sumLbMach = 0, sumTotalPack = 0;
     let sumCost = 0, sumNeto = 0;
     for (const r of opts.summaryRows) {
       const cajas  = toNum(r.cajas); const lb    = toNum(r.lb);
       const ventas = toNum(r.ventas); const mat  = toNum(r.costo_materiales);
       const pb = packingBreakdownFromRow(r);
-      const pack = pb.total;
       const cost = toNum(r.costo_total);
       const neto   = toNum(r.neto_productor);
       sumCajas += cajas; sumLb += lb; sumVentas += ventas;
-      sumMat += mat; sumPack += pack;
+      sumMat += mat;
       sumPackBase += pb.base; sumRecargo += pb.recargo; sumMaquina += pb.maquina;
       sumLbMach += pb.lbMach; sumTotalPack += pb.total;
       sumCost += cost; sumNeto += neto;
       const row = ws.addRow([
         String(r.productor_nombre ?? ''),
-        cajas, lb, ventas, mat, pack,
+        cajas, lb, ventas, mat,
         pb.base, pb.recargo, pb.maquina, pb.lbMach, pb.total,
         cost, neto,
       ]);
@@ -747,29 +755,27 @@ export async function downloadSettlementExcelAll(opts: {
       row.getCell(1).font = { size: 9, name: 'Arial' };
       applyFmt(row.getCell(2), FMT_QTY);   applyFmt(row.getCell(3), FMT_LB);
       applyFmt(row.getCell(4), FMT_MONEY); applyFmt(row.getCell(5), FMT_MONEY);
-      applyFmt(row.getCell(6), FMT_MONEY);
-      applyFmt(row.getCell(7), FMT_MONEY); applyFmt(row.getCell(8), FMT_MONEY);
-      applyFmt(row.getCell(9), FMT_MONEY); applyFmt(row.getCell(10), FMT_LB);
-      applyFmt(row.getCell(11), FMT_MONEY);
-      applyFmt(row.getCell(12), FMT_MONEY); applyFmt(row.getCell(13), FMT_MONEY);
+      applyFmt(row.getCell(6), FMT_MONEY); applyFmt(row.getCell(7), FMT_MONEY);
+      applyFmt(row.getCell(8), FMT_MONEY); applyFmt(row.getCell(9), FMT_LB);
+      applyFmt(row.getCell(10), FMT_MONEY);
+      applyFmt(row.getCell(11), FMT_MONEY); applyFmt(row.getCell(12), FMT_MONEY);
       for (let i = 2; i <= COL; i++) row.getCell(i).alignment = { horizontal: 'right' };
     }
     const tot = ws.addRow([
-      '', sumCajas, sumLb, sumVentas, sumMat, sumPack,
+      '', sumCajas, sumLb, sumVentas, sumMat,
       sumPackBase, sumRecargo, sumMaquina, sumLbMach, sumTotalPack,
       sumCost, sumNeto,
     ]);
     tot.getCell(1).value = tx.total;
     applyFmt(tot.getCell(2), FMT_QTY);   applyFmt(tot.getCell(3), FMT_LB);
     applyFmt(tot.getCell(4), FMT_MONEY); applyFmt(tot.getCell(5), FMT_MONEY);
-    applyFmt(tot.getCell(6), FMT_MONEY);
-    applyFmt(tot.getCell(7), FMT_MONEY); applyFmt(tot.getCell(8), FMT_MONEY);
-    applyFmt(tot.getCell(9), FMT_MONEY); applyFmt(tot.getCell(10), FMT_LB);
-    applyFmt(tot.getCell(11), FMT_MONEY);
-    applyFmt(tot.getCell(12), FMT_MONEY); applyFmt(tot.getCell(13), FMT_MONEY);
+    applyFmt(tot.getCell(6), FMT_MONEY); applyFmt(tot.getCell(7), FMT_MONEY);
+    applyFmt(tot.getCell(8), FMT_MONEY); applyFmt(tot.getCell(9), FMT_LB);
+    applyFmt(tot.getCell(10), FMT_MONEY);
+    applyFmt(tot.getCell(11), FMT_MONEY); applyFmt(tot.getCell(12), FMT_MONEY);
     styleTotalRow(tot, COL);
     ws.columns = [
-      { width: 28 }, { width: 10 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 28 }, { width: 10 }, { width: 12 }, { width: 14 }, { width: 14 },
       { width: 16 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
       { width: 14 }, { width: 14 },
     ];

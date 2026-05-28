@@ -49,6 +49,7 @@ import {
   ReportSnapshot,
 } from '../modules/reporting/reporting.entities';
 import { PlantSettings } from '../modules/plant/plant.entities';
+import { PrintJob } from '../modules/print-jobs/print-job.entity';
 import { ImportLog } from '../modules/import/import-log.entity';
 import {
   Brand,
@@ -129,6 +130,7 @@ const entities = [
   MaterialCostAdjustment,
   MachineProcessingRate,
   PlantSettings,
+  PrintJob,
   ImportLog,
   Species,
   Producer,

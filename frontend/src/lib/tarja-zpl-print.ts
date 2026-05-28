@@ -157,6 +157,7 @@ export function downloadZplFile(filename: string, zpl: string): void {
 
 export type ZebraPrintAttempt =
   | { mode: 'sent_to_local_service'; printer?: string; jobId?: string }
+  | { mode: 'queued_remote'; jobId?: string; message?: string }
   | {
       mode: 'downloaded_fallback';
       reason: 'service_unavailable' | 'print_failed';
@@ -593,6 +594,36 @@ export async function getLocalPrinters(): Promise<LocalPrintersProbeResult> {
   };
 }
 
+/** Encola impresión en Railway para que el agente de planta la ejecute. */
+export async function enqueueRemotePrintJob(opts: {
+  filename: string;
+  zpl: string;
+  printerName?: string;
+  copies?: number;
+}): Promise<{ ok: boolean; id?: string; message?: string }> {
+  try {
+    const data = await apiJson<{ ok?: boolean; id?: string; message?: string }>('/api/print-jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        filename: opts.filename,
+        zpl: opts.zpl,
+        printerName: opts.printerName,
+        copies: opts.copies ?? 1,
+      }),
+    });
+    return {
+      ok: data.ok !== false,
+      id: data.id != null ? String(data.id) : undefined,
+      message: data.message,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 /** Obtiene ZPL del API, intenta imprimir en localhost y usa `.zpl` como respaldo. */
 export async function printTarjaZplOrDownload(
   tarjaId: number,
@@ -622,15 +653,31 @@ export async function printTarjaZplOrDownload(
       jobId: localPrint.jobId,
     };
   }
-  downloadZplFile(name, applyZplCopies(zplRaw, copies));
   if (localPrint.status === 'unavailable') {
+    const remote = await enqueueRemotePrintJob({
+      filename: name,
+      zpl: zplRaw,
+      printerName: options?.printerName,
+      copies,
+    });
+    if (remote.ok) {
+      return {
+        mode: 'queued_remote',
+        jobId: remote.id,
+        message:
+          remote.message ||
+          'Etiqueta encolada en el servidor. El agente de planta la imprimirá en la Zebra.',
+      };
+    }
+    downloadZplFile(name, applyZplCopies(zplRaw, copies));
     return {
       mode: 'downloaded_fallback',
       reason: 'service_unavailable',
       filename: name,
-      message: localPrint.message,
+      message: remote.message || localPrint.message,
     };
   }
+  downloadZplFile(name, applyZplCopies(zplRaw, copies));
   return {
     mode: 'downloaded_fallback',
     reason: 'print_failed',
