@@ -10,7 +10,24 @@ export type RawRow = Record<string, unknown>;
 
 /** Packing total en liquidación: `costo_packing` ya incluye procesado máquina tras el backend/enrich. */
 export function packingCostTotal(row: RawRow): number {
+  const total = toNum(row.total_packing);
+  if (total > 0) return total;
   return toNum(row.costo_packing);
+}
+
+function packingBreakdownFromRow(row: RawRow): {
+  base: number;
+  recargo: number;
+  maquina: number;
+  lbMach: number;
+  total: number;
+} {
+  const base = toNum(row.costo_packing_base);
+  const recargo = toNum(row.recargo_formato);
+  const maquina = toNum(row.costo_maquina);
+  const lbMach = toNum(row.lb_machine);
+  const total = packingCostTotal(row);
+  return { base, recargo, maquina, lbMach, total };
 }
 
 /**
@@ -184,6 +201,8 @@ const T: Record<'es' | 'en', {
   campo: string; valor: string;
   productor: string; cajas: string; lb: string; ventas: string;
   costoMat: string; costoPack: string; costoTotal: string; neto: string;
+  costoPackingBase: string; recargoFormato: string; costoMaquina: string;
+  lbMachine: string; totalPacking: string;
   despacho: string; formato: string; precioVenta: string;
   matCaja: string; packCaja: string; costoCaja: string;
   matTotal: string; packTotal: string; total: string;
@@ -196,8 +215,10 @@ const T: Record<'es' | 'en', {
     sheetCostos: 'Costos por despacho', sheetFormato: 'Por formato',
     campo: 'Campo', valor: 'Valor',
     productor: 'Productor', cajas: 'Cajas', lb: 'Libras (LB)',
-    ventas: 'Ventas', costoMat: 'Costo materiales', costoPack: 'Costo packing',
+    ventas: 'Ventas',     costoMat: 'Costo materiales', costoPack: 'Costo packing',
     costoTotal: 'Costo total', neto: 'Neto productor',
+    costoPackingBase: 'costo_packing_base', recargoFormato: 'recargo_formato',
+    costoMaquina: 'costo_maquina', lbMachine: 'lb_machine', totalPacking: 'total_packing',
     despacho: 'N° Despacho', formato: 'Formato', precioVenta: 'Precio venta/caja',
     matCaja: 'Mat./caja', packCaja: 'Packing/caja', costoCaja: 'Costo/caja',
     matTotal: 'Mat. total', packTotal: 'Packing total', total: 'TOTAL',
@@ -210,8 +231,10 @@ const T: Record<'es' | 'en', {
     sheetCostos: 'Costs by dispatch', sheetFormato: 'By format',
     campo: 'Field', valor: 'Value',
     productor: 'Producer', cajas: 'Boxes', lb: 'Pounds (LB)',
-    ventas: 'Sales', costoMat: 'Material cost', costoPack: 'Packing cost',
+    ventas: 'Sales',     costoMat: 'Material cost', costoPack: 'Packing cost',
     costoTotal: 'Total cost', neto: 'Producer net',
+    costoPackingBase: 'Packing base', recargoFormato: 'Format surcharge',
+    costoMaquina: 'Machine processing', lbMachine: 'Machine lbs', totalPacking: 'Total packing',
     despacho: 'Dispatch #', formato: 'Format', precioVenta: 'Sale price/box',
     matCaja: 'Mat./box', packCaja: 'Packing/box', costoCaja: 'Cost/box',
     matTotal: 'Mat. total', packTotal: 'Pack. total', total: 'TOTAL',
@@ -416,13 +439,19 @@ export async function downloadProducerSettlementExcelClient(opts: {
     styleHeader(hRow, COL);
 
     const sr = opts.summaryRow;
+    const pack = packingBreakdownFromRow(sr);
     const entries: Array<{ label: string; value: number | string; fmt?: string }> = [
       { label: tx.productor,  value: opts.producerName },
       { label: tx.cajas,      value: toNum(sr.cajas),            fmt: FMT_QTY   },
       { label: tx.lb,         value: toNum(sr.lb),               fmt: FMT_LB    },
       { label: tx.ventas,     value: toNum(sr.ventas),           fmt: FMT_MONEY },
       { label: tx.costoMat,   value: toNum(sr.costo_materiales), fmt: FMT_MONEY },
-      { label: tx.costoPack,  value: packingCostTotal(sr),       fmt: FMT_MONEY },
+      { label: tx.costoPack,  value: pack.total,                 fmt: FMT_MONEY },
+      { label: tx.costoPackingBase, value: pack.base,           fmt: FMT_MONEY },
+      { label: tx.recargoFormato,   value: pack.recargo,        fmt: FMT_MONEY },
+      { label: tx.costoMaquina,     value: pack.maquina,        fmt: FMT_MONEY },
+      { label: tx.lbMachine,        value: pack.lbMach,         fmt: FMT_LB    },
+      { label: tx.totalPacking,     value: pack.total,          fmt: FMT_MONEY },
       { label: tx.costoTotal, value: toNum(sr.costo_total),      fmt: FMT_MONEY },
       { label: tx.neto,       value: toNum(sr.neto_productor),   fmt: FMT_MONEY },
     ];
@@ -682,38 +711,68 @@ export async function downloadSettlementExcelAll(opts: {
   // ── HOJA 1: Resumen por productor ────────────────────────────────────────
   {
     const ws  = wb.addWorksheet(tx.sheetResumen, { views: [{ state: 'frozen', ySplit: 5 }] });
-    const headers = [tx.productor, tx.cajas, tx.lb, tx.ventas, tx.costoMat, tx.costoPack, tx.costoTotal, tx.neto];
+    const headers = [
+      tx.productor, tx.cajas, tx.lb, tx.ventas, tx.costoMat, tx.costoPack,
+      tx.costoPackingBase, tx.recargoFormato, tx.costoMaquina, tx.lbMachine, tx.totalPacking,
+      tx.costoTotal, tx.neto,
+    ];
     const COL = headers.length;
     addInfoHeader(ws, COL, company || tx.titleAll, '', period, emission, tx);
     const hRow = ws.addRow(headers);
     styleHeader(hRow, COL);
     ws.autoFilter = { from: { row: hRow.number, column: 1 }, to: { row: hRow.number, column: COL } };
 
-    let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0, sumPack = 0, sumCost = 0, sumNeto = 0;
+    let sumCajas = 0, sumLb = 0, sumVentas = 0, sumMat = 0, sumPack = 0;
+    let sumPackBase = 0, sumRecargo = 0, sumMaquina = 0, sumLbMach = 0, sumTotalPack = 0;
+    let sumCost = 0, sumNeto = 0;
     for (const r of opts.summaryRows) {
       const cajas  = toNum(r.cajas); const lb    = toNum(r.lb);
       const ventas = toNum(r.ventas); const mat  = toNum(r.costo_materiales);
-      const pack   = packingCostTotal(r); const cost = toNum(r.costo_total);
+      const pb = packingBreakdownFromRow(r);
+      const pack = pb.total;
+      const cost = toNum(r.costo_total);
       const neto   = toNum(r.neto_productor);
       sumCajas += cajas; sumLb += lb; sumVentas += ventas;
-      sumMat += mat; sumPack += pack; sumCost += cost; sumNeto += neto;
-      const row = ws.addRow([String(r.productor_nombre ?? ''), cajas, lb, ventas, mat, pack, cost, neto]);
+      sumMat += mat; sumPack += pack;
+      sumPackBase += pb.base; sumRecargo += pb.recargo; sumMaquina += pb.maquina;
+      sumLbMach += pb.lbMach; sumTotalPack += pb.total;
+      sumCost += cost; sumNeto += neto;
+      const row = ws.addRow([
+        String(r.productor_nombre ?? ''),
+        cajas, lb, ventas, mat, pack,
+        pb.base, pb.recargo, pb.maquina, pb.lbMach, pb.total,
+        cost, neto,
+      ]);
       row.height = 18;
       row.getCell(1).font = { size: 9, name: 'Arial' };
       applyFmt(row.getCell(2), FMT_QTY);   applyFmt(row.getCell(3), FMT_LB);
       applyFmt(row.getCell(4), FMT_MONEY); applyFmt(row.getCell(5), FMT_MONEY);
-      applyFmt(row.getCell(6), FMT_MONEY); applyFmt(row.getCell(7), FMT_MONEY);
-      applyFmt(row.getCell(8), FMT_MONEY);
+      applyFmt(row.getCell(6), FMT_MONEY);
+      applyFmt(row.getCell(7), FMT_MONEY); applyFmt(row.getCell(8), FMT_MONEY);
+      applyFmt(row.getCell(9), FMT_MONEY); applyFmt(row.getCell(10), FMT_LB);
+      applyFmt(row.getCell(11), FMT_MONEY);
+      applyFmt(row.getCell(12), FMT_MONEY); applyFmt(row.getCell(13), FMT_MONEY);
       for (let i = 2; i <= COL; i++) row.getCell(i).alignment = { horizontal: 'right' };
     }
-    const tot = ws.addRow(['', sumCajas, sumLb, sumVentas, sumMat, sumPack, sumCost, sumNeto]);
+    const tot = ws.addRow([
+      '', sumCajas, sumLb, sumVentas, sumMat, sumPack,
+      sumPackBase, sumRecargo, sumMaquina, sumLbMach, sumTotalPack,
+      sumCost, sumNeto,
+    ]);
     tot.getCell(1).value = tx.total;
     applyFmt(tot.getCell(2), FMT_QTY);   applyFmt(tot.getCell(3), FMT_LB);
     applyFmt(tot.getCell(4), FMT_MONEY); applyFmt(tot.getCell(5), FMT_MONEY);
-    applyFmt(tot.getCell(6), FMT_MONEY); applyFmt(tot.getCell(7), FMT_MONEY);
-    applyFmt(tot.getCell(8), FMT_MONEY);
+    applyFmt(tot.getCell(6), FMT_MONEY);
+    applyFmt(tot.getCell(7), FMT_MONEY); applyFmt(tot.getCell(8), FMT_MONEY);
+    applyFmt(tot.getCell(9), FMT_MONEY); applyFmt(tot.getCell(10), FMT_LB);
+    applyFmt(tot.getCell(11), FMT_MONEY);
+    applyFmt(tot.getCell(12), FMT_MONEY); applyFmt(tot.getCell(13), FMT_MONEY);
     styleTotalRow(tot, COL);
-    ws.columns = [{ width: 28 },{ width: 10 },{ width: 12 },{ width: 14 },{ width: 14 },{ width: 14 },{ width: 14 },{ width: 14 }];
+    ws.columns = [
+      { width: 28 }, { width: 10 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 14 },
+      { width: 16 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
+      { width: 14 }, { width: 14 },
+    ];
   }
 
   // ── HOJA 2: Ventas por despacho ──────────────────────────────────────────

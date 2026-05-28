@@ -707,6 +707,14 @@ export class ReportingService {
   ): Promise<{ summaryRows: Record<string, unknown>[]; detailRows: Record<string, unknown>[] }> {
     const inner = formatInner ?? (await this.computeFormatCostingRows(filter));
     const costByFormat = this.costMapFromFormatSummary(inner.summaryRows);
+    const formatRowByKey = new Map(
+      inner.summaryRows.map((r) => [
+        String((r as { format_code?: string }).format_code ?? '')
+          .trim()
+          .toLowerCase(),
+        r,
+      ]),
+    );
 
     const lines = (await this.dataSource.query(
       `
@@ -882,6 +890,10 @@ export class ReportingService {
     const applyCost = (pid: number | null) => {
       let cm = 0;
       let cp = 0;
+      let cpServicio = 0;
+      let cpRecargo = 0;
+      let lbMach = 0;
+      let costoMaquina = 0;
       for (const [pk, agg] of byProdFormat) {
         if (agg.productor_id !== pid) continue;
         const fk = agg.format_key;
@@ -890,34 +902,44 @@ export class ReportingService {
         if (!c || c.lb_periodo <= 0) continue;
         const share = agg.lb / c.lb_periodo;
         if (share <= 0) continue;
+        const fr = formatRowByKey.get(fk);
+        const lbPeriodo = c.lb_periodo;
+        const priceLb = fr ? Number((fr as { precio_packing_por_lb?: number }).precio_packing_por_lb ?? 0) : 0;
+        const surchargeLb = fr ? Number((fr as { surcharge_per_lb?: number }).surcharge_per_lb ?? 0) : 0;
+        cpServicio += share * lbPeriodo * priceLb;
+        cpRecargo += share * lbPeriodo * surchargeLb;
         cm += c.costo_materiales * share;
         cp += c.costo_packing * share;
       }
       // Costo máquina por productor (lb reales de machine_picking)
       if (pid != null) {
-        const lbMach = machineLbByProducer.get(pid) ?? 0;
+        lbMach = machineLbByProducer.get(pid) ?? 0;
         if (lbMach > 0) {
           const prodFormats = [...byProdFormat.values()].filter((a) => a.productor_id === pid && a.format_key != null);
           const speciesIds = new Set(
             prodFormats
               .map((a) => {
-                const row = inner.summaryRows.find(
-                  (r) =>
-                    String((r as Record<string, unknown>).format_code ?? '')
-                      .trim()
-                      .toLowerCase() === a.format_key,
-                );
+                const row = formatRowByKey.get(a.format_key ?? '');
                 return row ? Number((row as Record<string, unknown>).species_id ?? 0) : 0;
               })
               .filter((s) => s > 0),
           );
           const speciesId = speciesIds.size > 0 ? [...speciesIds][0] : null;
           const machRate = machineRateBySpecies.get(speciesId) ?? machineRateBySpecies.get(null) ?? 0;
-          const costoMaquina = lbMach * machRate;
+          costoMaquina = lbMach * machRate;
           cp += costoMaquina;
         }
       }
-      return { costo_materiales: cm, costo_packing: cp, costo_total: cm + cp };
+      return {
+        costo_materiales: cm,
+        costo_packing: cp,
+        costo_total: cm + cp,
+        costo_packing_base: cpServicio,
+        recargo_formato: cpRecargo,
+        costo_maquina: costoMaquina,
+        lb_machine: lbMach,
+        total_packing: cp,
+      };
     };
 
     const producerIds = [...new Set([...byProd.keys()].filter((x): x is number => x != null))];
@@ -943,6 +965,11 @@ export class ReportingService {
           ventas: Number(agg.ventas.toFixed(2)),
           costo_materiales: Number(costs.costo_materiales.toFixed(2)),
           costo_packing: Number(costs.costo_packing.toFixed(2)),
+          costo_packing_base: Number(costs.costo_packing_base.toFixed(2)),
+          recargo_formato: Number(costs.recargo_formato.toFixed(2)),
+          costo_maquina: Number(costs.costo_maquina.toFixed(2)),
+          lb_machine: Number(costs.lb_machine.toFixed(3)),
+          total_packing: Number(costs.total_packing.toFixed(2)),
           costo_total: Number(costs.costo_total.toFixed(2)),
           neto_productor: Number(neto.toFixed(2)),
         });
@@ -958,6 +985,11 @@ export class ReportingService {
         ventas: Number(agg.ventas.toFixed(2)),
         costo_materiales: Number(costs.costo_materiales.toFixed(2)),
         costo_packing: Number(costs.costo_packing.toFixed(2)),
+        costo_packing_base: Number(costs.costo_packing_base.toFixed(2)),
+        recargo_formato: Number(costs.recargo_formato.toFixed(2)),
+        costo_maquina: Number(costs.costo_maquina.toFixed(2)),
+        lb_machine: Number(costs.lb_machine.toFixed(3)),
+        total_packing: Number(costs.total_packing.toFixed(2)),
         costo_total: Number(costs.costo_total.toFixed(2)),
         neto_productor: Number(neto.toFixed(2)),
       });

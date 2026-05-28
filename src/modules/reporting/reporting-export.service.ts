@@ -566,7 +566,178 @@ export class ReportingExportService {
     }
 
     const diagnostic = await this.reporting.producerSettlementDiagnostic(filter);
-    return await this.renderProducerInternalPdf(summaryRows, detailRows, filter, diagnostic);
+    return await this.renderProducerInternalPdf(
+      summaryRows,
+      detailRows,
+      filter,
+      diagnostic,
+      inner.summaryRows,
+    );
+  }
+
+  private static pdfNum(v: unknown): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private static aggregateSettlementPacking(summaryRows: Record<string, unknown>[]) {
+    let base = 0;
+    let recargo = 0;
+    let maquina = 0;
+    let lbMach = 0;
+    for (const r of summaryRows) {
+      base += ReportingExportService.pdfNum((r as { costo_packing_base?: number }).costo_packing_base);
+      recargo += ReportingExportService.pdfNum((r as { recargo_formato?: number }).recargo_formato);
+      maquina += ReportingExportService.pdfNum((r as { costo_maquina?: number }).costo_maquina);
+      lbMach += ReportingExportService.pdfNum((r as { lb_machine?: number }).lb_machine);
+    }
+    const total =
+      summaryRows.length > 0
+        ? summaryRows.reduce(
+            (s, r) => s + ReportingExportService.pdfNum((r as { total_packing?: number }).total_packing),
+            0,
+          )
+        : base + recargo + maquina;
+    const machineRate = lbMach > 0 ? maquina / lbMach : 0;
+    return { base, recargo, maquina, lbMach, total, machineRate };
+  }
+
+  private static aggregateFormatPackingBreakdown(formatRows: Record<string, unknown>[]) {
+    let packBase = 0;
+    let recargo = 0;
+    let machineCost = 0;
+    let machineLb = 0;
+    let lbPeriod = 0;
+    for (const r of formatRows) {
+      const lb = ReportingExportService.pdfNum(
+        (r as { lb?: number }).lb ?? (r as { lb_totales?: number }).lb_totales,
+      );
+      const price = ReportingExportService.pdfNum((r as { precio_packing_por_lb?: number }).precio_packing_por_lb);
+      const sur = ReportingExportService.pdfNum((r as { surcharge_per_lb?: number }).surcharge_per_lb);
+      packBase += lb * price;
+      recargo += lb * sur;
+      lbPeriod += lb;
+      machineLb += ReportingExportService.pdfNum((r as { lb_machine?: number }).lb_machine);
+      machineCost += ReportingExportService.pdfNum((r as { costo_maquina?: number }).costo_maquina);
+    }
+    const machineRate = machineLb > 0 ? machineCost / machineLb : 0;
+    const totalPack = packBase + recargo + machineCost;
+    const avgPrice = lbPeriod > 0 ? packBase / lbPeriod : 0;
+    const avgSur = lbPeriod > 0 ? recargo / lbPeriod : 0;
+    return { packBase, recargo, machineCost, machineLb, machineRate, totalPack, lbPeriod, avgPrice, avgSur };
+  }
+
+  private drawPdfPackingLine(
+    doc: InstanceType<typeof PDFDocument>,
+    label: string,
+    value: string,
+    width: number,
+    opts?: { boldValue?: boolean },
+  ): void {
+    const left = doc.page.margins.left;
+    const y = doc.y;
+    const labelW = width * 0.62;
+    doc.fontSize(9).font('Helvetica').fillColor('#000000').text(label, left, y, { width: labelW, lineBreak: false });
+    doc
+      .font(opts?.boldValue ? 'Helvetica-Bold' : 'Helvetica')
+      .text(value, left, y, { width, align: 'right', lineBreak: false });
+    doc.moveDown(0.4);
+  }
+
+  private drawProducerPackingBreakdown(
+    doc: InstanceType<typeof PDFDocument>,
+    width: number,
+    summaryRows: Record<string, unknown>[],
+    lang: 'es' | 'en',
+  ): void {
+    if (!summaryRows.length) return;
+    const { base, recargo, maquina, total } = ReportingExportService.aggregateSettlementPacking(summaryRows);
+    if (base + recargo + maquina + total < 0.005) return;
+
+    const L =
+      lang === 'en'
+        ? {
+            title: 'Packing cost breakdown',
+            servicio: 'Packing service:',
+            recargo: 'Format surcharge:',
+            maquina: 'Machine processing:',
+            total: 'Total packing:',
+          }
+        : {
+            title: 'Desglose de costo packing',
+            servicio: 'Servicio de packing:',
+            recargo: 'Recargo por formato:',
+            maquina: 'Procesado máquina:',
+            total: 'Total packing:',
+          };
+
+    doc.moveDown(0.35);
+    doc.fontSize(10).font('Helvetica-Bold').text(L.title, { width });
+    doc.moveDown(0.25);
+    doc.font('Helvetica');
+    this.drawPdfPackingLine(doc, L.servicio, ReportingExportService.moneyAr(base), width);
+    if (recargo > 0.005) {
+      this.drawPdfPackingLine(doc, L.recargo, ReportingExportService.moneyAr(recargo), width);
+    }
+    if (maquina > 0.005) {
+      this.drawPdfPackingLine(doc, L.maquina, ReportingExportService.moneyAr(maquina), width);
+    }
+    const left = doc.page.margins.left;
+    const y = doc.y;
+    this.pdfHLineDark(doc, left, y, left + width);
+    doc.y = y + 4;
+    this.drawPdfPackingLine(doc, L.total, ReportingExportService.moneyAr(total), width, { boldValue: true });
+  }
+
+  private drawInternalPackingBreakdown(
+    doc: InstanceType<typeof PDFDocument>,
+    width: number,
+    formatRows: Record<string, unknown>[],
+  ): void {
+    if (!formatRows.length) return;
+    const b = ReportingExportService.aggregateFormatPackingBreakdown(formatRows);
+    if (b.totalPack < 0.005 && b.machineLb < 0.005) return;
+
+    doc.moveDown(0.35);
+    doc.fontSize(10).font('Helvetica-Bold').text('Desglose packing (período — formatos facturados)', { width });
+    doc.moveDown(0.25);
+    doc.font('Helvetica');
+    this.drawPdfPackingLine(
+      doc,
+      'Packing base (lb × tarifa/lb):',
+      ReportingExportService.moneyAr(b.packBase),
+      width,
+    );
+    this.drawPdfPackingLine(
+      doc,
+      'Recargo formato (lb × recargo):',
+      ReportingExportService.moneyAr(b.recargo),
+      width,
+    );
+    this.drawPdfPackingLine(
+      doc,
+      'Procesado máquina (lb × rate):',
+      ReportingExportService.moneyAr(b.machineCost),
+      width,
+    );
+    this.drawPdfPackingLine(doc, 'Lb máquina:', `${ReportingExportService.qtyAr(b.machineLb)} lb`, width);
+    this.drawPdfPackingLine(
+      doc,
+      'Rate máquina:',
+      `$${b.machineRate.toLocaleString('es-AR', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}/lb`,
+      width,
+    );
+    const left = doc.page.margins.left;
+    const y = doc.y;
+    this.pdfHLineDark(doc, left, y, left + width);
+    doc.y = y + 4;
+    this.drawPdfPackingLine(
+      doc,
+      'Total packing:',
+      ReportingExportService.moneyAr(b.totalPack),
+      width,
+      { boldValue: true },
+    );
   }
 
   private static moneyAr(n: number): string {
@@ -879,6 +1050,7 @@ export class ReportingExportService {
       this.pdfDrawDataTable(doc, T.summary, summaryCols, summaryBody, totalRow, {
         titleSize: 14,
       });
+      this.drawProducerPackingBreakdown(doc, w, summaryRows, lang);
     }
 
     doc.moveDown(0.5);
@@ -1055,6 +1227,7 @@ export class ReportingExportService {
     detailRows: Record<string, unknown>[],
     filter: ReportFilterDto,
     diagnostic: Awaited<ReturnType<ReportingService['producerSettlementDiagnostic']>>,
+    formatCostSummaryRows: Record<string, unknown>[] = [],
   ): Promise<{ buffer: Buffer; mime: string; filename: string }> {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const chunks: Buffer[] = [];
@@ -1140,6 +1313,8 @@ export class ReportingExportService {
         totalFontSize: 8.5,
       });
     }
+
+    this.drawInternalPackingBreakdown(doc, wInner, formatCostSummaryRows);
 
     doc.moveDown(0.4);
 
