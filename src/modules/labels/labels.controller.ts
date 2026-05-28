@@ -49,8 +49,9 @@ export class LabelsController {
     @Param('id', ParseIntPipe) id: number,
     @Query('template') template: string | undefined,
     @Res({ passthrough: false }) res: Response,
+    @Query('lang') lang?: string,
   ): Promise<void> {
-    const zpl = await this.labels.getTarjaZpl(id, template);
+    const zpl = await this.labels.getTarjaZpl(id, template, lang);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.send(zpl);
   }

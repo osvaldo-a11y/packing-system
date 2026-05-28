@@ -120,7 +120,8 @@ export type LocalPrintersProbeResult =
     };
 
 export async function fetchTarjaZpl(tarjaId: number, template: TarjaLabelTemplate): Promise<string> {
-  const q = new URLSearchParams({ template }).toString();
+  const lang = document.documentElement.lang?.startsWith('en') ? 'en' : 'es';
+  const q = new URLSearchParams({ template, lang }).toString();
   const res = await apiFetch(`/api/labels/tarja/${tarjaId}?${q}`, {
     method: 'GET',
     headers: { Accept: 'text/plain,*/*' },

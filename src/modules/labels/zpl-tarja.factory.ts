@@ -7,7 +7,12 @@ import { buildTarjaStandardZpl } from './zpl-tarja-standard';
 export function buildTarjaZpl(
   tag: PtTag,
   template: TarjaLabelTemplate,
-  detail: { contributions?: TarjaDetailContribution[]; clamshellLabel?: string; qrPayload?: string } = {},
+  detail: {
+    contributions?: TarjaDetailContribution[];
+    clamshellLabel?: string;
+    qrPayload?: string;
+    lang?: 'es' | 'en';
+  } = {},
 ): string {
   if (template === 'compact') {
     return buildTarjaCompactZpl(tag, { clamshellLabel: detail.clamshellLabel, qrPayload: detail.qrPayload });
@@ -18,5 +23,9 @@ export function buildTarjaZpl(
       qrPayload: detail.qrPayload,
     });
   }
-  return buildTarjaStandardZpl(tag, { clamshellLabel: detail.clamshellLabel, qrPayload: detail.qrPayload });
+  return buildTarjaStandardZpl(tag, {
+    clamshellLabel: detail.clamshellLabel,
+    qrPayload: detail.qrPayload,
+    lang: detail.lang,
+  });
 }

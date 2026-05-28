@@ -37,7 +37,7 @@ export class LabelsService {
     return TARJA_TEMPLATE_REGISTRY;
   }
 
-  async getTarjaZpl(id: number, templateRaw?: string): Promise<string> {
+  async getTarjaZpl(id: number, templateRaw?: string, lang?: string): Promise<string> {
     const tag = await this.ptTags.findOne({
       where: { id },
       relations: ['client', 'brand'],
@@ -48,13 +48,14 @@ export class LabelsService {
     const clamshellLabel = await this.resolveClamshellLabel(tag.format_code, tag.brand?.nombre ?? null);
     const qrPayload = await this.resolveStandardQrPayload(id, tag.tag_code, tag.bol);
     const template: TarjaLabelTemplate = resolveTarjaTemplate(templateRaw);
+    const zplOpts = { clamshellLabel, qrPayload, lang: lang === 'en' ? ('en' as const) : ('es' as const) };
     if (template !== 'detailed') {
-      return buildTarjaZpl(tag, template, { clamshellLabel, qrPayload });
+      return buildTarjaZpl(tag, template, zplOpts);
     }
 
     const items = await this.ptTagItems.find({ where: { tarja_id: id } });
     if (items.length === 0) {
-      return buildTarjaZpl(tag, template, { contributions: [], clamshellLabel, qrPayload });
+      return buildTarjaZpl(tag, template, { contributions: [], ...zplOpts });
     }
 
     const processIds = [...new Set(items.map((i) => Number(i.process_id)).filter((x) => Number.isFinite(x) && x > 0))];
@@ -99,7 +100,7 @@ export class LabelsService {
     }
 
     const contributions = [...aggregate.values()].sort((a, b) => b.boxes - a.boxes).slice(0, 3);
-    return buildTarjaZpl(tag, template, { contributions, clamshellLabel, qrPayload });
+    return buildTarjaZpl(tag, template, { contributions, ...zplOpts });
   }
 
   private async resolveClamshellLabel(formatCode: string, brandName: string | null): Promise<string | undefined> {
