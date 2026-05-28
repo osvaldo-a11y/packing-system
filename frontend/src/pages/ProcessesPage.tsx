@@ -2069,7 +2069,7 @@ export function ProcessesPage() {
 
                 <div className="flex min-h-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(72vh,780px)] lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:gap-6 lg:overflow-hidden">
                   <div className="flex min-h-0 flex-col gap-3 overflow-hidden lg:min-h-0">
-                  <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-card p-3 shadow-sm">
+                  <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-sm">
                     <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold text-foreground">{t('process.editDialog.ptTitle')}</h3>
@@ -2271,9 +2271,9 @@ export function ProcessesPage() {
                         ) : null}
                       </div>
                     ) : (
-                      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto rounded-md border border-border/80">
+                      <div className="max-h-[min(44vh,420px)] overflow-y-auto overflow-x-auto rounded-md border border-border/80">
                         <Table className="min-w-[680px] text-xs [&_td]:py-1.5 [&_th]:h-8 [&_th]:py-1.5 [&_th]:text-[10px]">
-                          <TableHeader>
+                          <TableHeader className="sticky top-0 z-[1] bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                             <TableRow className="hover:bg-transparent">
                               <TableHead className="whitespace-nowrap">{t('process.editDialog.colPtUnit')}</TableHead>
                               <TableHead>{t('process.editDialog.colFormat')}</TableHead>
