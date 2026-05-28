@@ -882,7 +882,6 @@ export class ReportingService {
     const applyCost = (pid: number | null) => {
       let cm = 0;
       let cp = 0;
-      let ct = 0;
       for (const [pk, agg] of byProdFormat) {
         if (agg.productor_id !== pid) continue;
         const fk = agg.format_key;
@@ -893,7 +892,6 @@ export class ReportingService {
         if (share <= 0) continue;
         cm += c.costo_materiales * share;
         cp += c.costo_packing * share;
-        ct += c.costo_total * share;
       }
       // Costo máquina por productor (lb reales de machine_picking)
       if (pid != null) {
@@ -917,10 +915,9 @@ export class ReportingService {
           const machRate = machineRateBySpecies.get(speciesId) ?? machineRateBySpecies.get(null) ?? 0;
           const costoMaquina = lbMach * machRate;
           cp += costoMaquina;
-          ct += costoMaquina;
         }
       }
-      return { costo_materiales: cm, costo_packing: cp, costo_total: ct };
+      return { costo_materiales: cm, costo_packing: cp, costo_total: cm + cp };
     };
 
     const producerIds = [...new Set([...byProd.keys()].filter((x): x is number => x != null))];
@@ -1031,10 +1028,10 @@ export class ReportingService {
       const fk = agg.format_key;
       const c = fk ? costByFormat.get(fk) : undefined;
       const share =
-        fk && c && c.cajas_periodo > 0 ? Math.min(1, Math.max(0, agg.cajas / c.cajas_periodo)) : 0;
-      const costo_materiales = fk && c && c.cajas_periodo > 0 ? c.costo_materiales * share : 0;
-      const costo_packing = fk && c && c.cajas_periodo > 0 ? c.costo_packing * share : 0;
-      const costo_total = fk && c && c.cajas_periodo > 0 ? c.costo_total * share : 0;
+        fk && c && c.lb_periodo > 0 ? Math.min(1, Math.max(0, agg.lb / c.lb_periodo)) : 0;
+      const costo_materiales = fk && c && c.lb_periodo > 0 ? c.costo_materiales * share : 0;
+      const costo_packing = fk && c && c.lb_periodo > 0 ? c.costo_packing * share : 0;
+      const costo_total = costo_materiales + costo_packing;
       detailRows.push({
         productor_id: agg.productor_id,
         productor_nombre: agg.productor_id != null ? nameById.get(agg.productor_id) ?? null : '(sin unidad PT / sin asignar)',
@@ -1052,8 +1049,8 @@ export class ReportingService {
         costo_total: Number(costo_total.toFixed(2)),
         neto: Number((agg.ventas - costo_total).toFixed(2)),
         nota_prorrateo:
-          fk && c && c.cajas_periodo > 0
-            ? `Costos del formato prorrateados por cajas del productor / cajas totales del formato en el período (${agg.cajas.toFixed(2)} / ${c.cajas_periodo.toFixed(2)}).`
+          fk && c && c.lb_periodo > 0
+            ? `Costos del formato prorrateados por lb del productor / lb totales del formato en el período (${agg.lb.toFixed(2)} / ${c.lb_periodo.toFixed(2)}).`
             : fk
               ? 'Sin receta/costo por formato para este código en el período.'
               : 'Línea sin packaging_code; solo ventas (sin costo por formato).',

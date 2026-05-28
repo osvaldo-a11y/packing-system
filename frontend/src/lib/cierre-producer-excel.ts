@@ -8,6 +8,147 @@ function toNum(v: unknown): number {
 
 export type RawRow = Record<string, unknown>;
 
+/** Packing total en liquidación: `costo_packing` ya incluye procesado máquina tras el backend/enrich. */
+export function packingCostTotal(row: RawRow): number {
+  return toNum(row.costo_packing);
+}
+
+/**
+ * El detalle prorratea por cajas; el resumen usa lb + costo máquina por productor.
+ * Ajusta materiales, packing y total para que cuadren con el resumen de liquidación.
+ */
+export function enrichSettlementDetailPacking(
+  detailRows: RawRow[],
+  summaryRows: RawRow[],
+): RawRow[] {
+  let out = detailRows;
+  for (const sr of summaryRows) {
+    const pidRaw = sr.productor_id;
+    const producerId =
+      pidRaw == null || pidRaw === '' ? null : Number(pidRaw);
+    if (producerId != null && !Number.isFinite(producerId)) continue;
+    out = enrichProducerDetailCosts(out, producerId, sr);
+  }
+  return out;
+}
+
+function lineWeight(d: RawRow, totalLb: number, totalCajas: number): number {
+  if (totalLb > 0) return toNum(d.lb) / totalLb;
+  if (totalCajas > 0) return toNum(d.cajas) / totalCajas;
+  return 0;
+}
+
+function enrichProducerDetailCosts(
+  detailRows: RawRow[],
+  producerId: number | null,
+  summaryRow: RawRow,
+): RawRow[] {
+  const matches = (d: RawRow) =>
+    producerId == null
+      ? d.productor_id == null || d.productor_id === ''
+      : Number(d.productor_id) === producerId;
+
+  const det = detailRows.filter(matches);
+  if (det.length === 0) return detailRows;
+
+  const targetMat = toNum(summaryRow.costo_materiales);
+  const targetPack = toNum(summaryRow.costo_packing);
+  const targetTotal = toNum(summaryRow.costo_total);
+
+  const detMat = det.reduce((s, d) => s + toNum(d.costo_materiales), 0);
+  const detPack = det.reduce((s, d) => s + toNum(d.costo_packing), 0);
+  const detTotal = det.reduce((s, d) => s + toNum(d.costo_total), 0);
+
+  const extraMat = targetMat - detMat;
+  const extraPack = targetPack - detPack;
+  const extraTotal = targetTotal - detTotal;
+
+  if (
+    Math.abs(extraMat) < 0.005 &&
+    Math.abs(extraPack) < 0.005 &&
+    Math.abs(extraTotal) < 0.005
+  ) {
+    return detailRows;
+  }
+
+  const totalLb = det.reduce((s, d) => s + toNum(d.lb), 0);
+  const totalCajas = det.reduce((s, d) => s + toNum(d.cajas), 0);
+  const denom = totalLb > 0 ? totalLb : totalCajas;
+  if (denom <= 0) return detailRows;
+
+  const adjusted: RawRow[] = [];
+  let sumMat = 0;
+  let sumPack = 0;
+  let sumTotal = 0;
+
+  for (const d of detailRows) {
+    if (!matches(d)) {
+      adjusted.push(d);
+      continue;
+    }
+    const w = lineWeight(d, totalLb, totalCajas);
+    const mat = toNum(d.costo_materiales) + extraMat * w;
+    const pack = toNum(d.costo_packing) + extraPack * w;
+    const total = mat + pack;
+    const ventas = toNum(d.ventas);
+    const row: RawRow = {
+      ...d,
+      costo_materiales: mat,
+      costo_packing: pack,
+      costo_total: total,
+      neto: ventas - total,
+    };
+    adjusted.push(row);
+    sumMat += mat;
+    sumPack += pack;
+    sumTotal += total;
+  }
+
+  // Redondeo: última línea del productor absorbe diferencia vs resumen
+  const matDrift = targetMat - sumMat;
+  const packDrift = targetPack - sumPack;
+  if (Math.abs(matDrift) >= 0.005 || Math.abs(packDrift) >= 0.005) {
+    for (let i = adjusted.length - 1; i >= 0; i--) {
+      const d = adjusted[i]!;
+      if (!matches(d)) continue;
+      const mat = toNum(d.costo_materiales) + matDrift;
+      const pack = toNum(d.costo_packing) + packDrift;
+      const total = mat + pack;
+      const ventas = toNum(d.ventas);
+      adjusted[i] = {
+        ...d,
+        costo_materiales: mat,
+        costo_packing: pack,
+        costo_total: total,
+        neto: ventas - total,
+      };
+      break;
+    }
+  }
+
+  sumTotal = 0;
+  for (const d of adjusted) {
+    if (matches(d)) sumTotal += toNum(d.costo_total);
+  }
+  const totalDrift = targetTotal - sumTotal;
+  if (Math.abs(totalDrift) >= 0.005) {
+    for (let i = adjusted.length - 1; i >= 0; i--) {
+      const d = adjusted[i]!;
+      if (!matches(d)) continue;
+      const total = toNum(d.costo_total) + totalDrift;
+      const ventas = toNum(d.ventas);
+      adjusted[i] = {
+        ...d,
+        costo_total: total,
+        neto: ventas - total,
+      };
+      break;
+    }
+  }
+
+  return adjusted;
+}
+
 export type FormatAggRow = {
   format_code: string;
   cajas: number;
@@ -189,7 +330,7 @@ export function aggregateDetailByFormatForProducer(
     cur.lb               += toNum(d.lb);
     cur.ventas           += toNum(d.ventas);
     cur.costo_materiales += toNum(d.costo_materiales);
-    cur.costo_packing    += toNum(d.costo_packing);
+    cur.costo_packing    += packingCostTotal(d);
     cur.costo_total      += toNum(d.costo_total);
     m.set(fmt, cur);
   }
@@ -258,8 +399,10 @@ export async function downloadProducerSettlementExcelClient(opts: {
   const tx = T[opts.lang === 'en' ? 'en' : 'es'];
   const companyDisplay = company || tx.infoLiquidacion;
 
+  const detailRows = enrichSettlementDetailPacking(opts.detailRows, [opts.summaryRow]);
+
   // Filas de detalle del productor (filtradas una sola vez)
-  const detProd = opts.detailRows.filter(
+  const detProd = detailRows.filter(
     (d) => Number(d.productor_id) === Number(opts.producerId),
   );
 
@@ -279,7 +422,7 @@ export async function downloadProducerSettlementExcelClient(opts: {
       { label: tx.lb,         value: toNum(sr.lb),               fmt: FMT_LB    },
       { label: tx.ventas,     value: toNum(sr.ventas),           fmt: FMT_MONEY },
       { label: tx.costoMat,   value: toNum(sr.costo_materiales), fmt: FMT_MONEY },
-      { label: tx.costoPack,  value: toNum(sr.costo_packing),    fmt: FMT_MONEY },
+      { label: tx.costoPack,  value: packingCostTotal(sr),       fmt: FMT_MONEY },
       { label: tx.costoTotal, value: toNum(sr.costo_total),      fmt: FMT_MONEY },
       { label: tx.neto,       value: toNum(sr.neto_productor),   fmt: FMT_MONEY },
     ];
@@ -385,7 +528,7 @@ export async function downloadProducerSettlementExcelClient(opts: {
     for (const d of detProd) {
       const cajas   = toNum(d.cajas);
       const matTot  = toNum(d.costo_materiales);
-      const packTot = toNum(d.costo_packing);
+      const packTot = packingCostTotal(d);
       const costTot = toNum(d.costo_total);
       const matCaja  = cajas > 0 ? matTot  / cajas : 0;
       const packCaja = cajas > 0 ? packTot / cajas : 0;
@@ -429,7 +572,7 @@ export async function downloadProducerSettlementExcelClient(opts: {
   // ── HOJA 4: Resumen por formato ────────────────────────────────────────────
   {
     const agg = enrichFormatAggWithFormatCostSummary(
-      aggregateDetailByFormatForProducer(opts.producerId, opts.detailRows),
+      aggregateDetailByFormatForProducer(opts.producerId, detailRows),
       opts.formatCostSummaryRows,
     );
 
@@ -534,6 +677,7 @@ export async function downloadSettlementExcelAll(opts: {
     hour: '2-digit', minute: '2-digit',
   });
   const tx = T[opts.lang === 'en' ? 'en' : 'es'];
+  const detailRows = enrichSettlementDetailPacking(opts.detailRows, opts.summaryRows);
 
   // ── HOJA 1: Resumen por productor ────────────────────────────────────────
   {
@@ -549,7 +693,7 @@ export async function downloadSettlementExcelAll(opts: {
     for (const r of opts.summaryRows) {
       const cajas  = toNum(r.cajas); const lb    = toNum(r.lb);
       const ventas = toNum(r.ventas); const mat  = toNum(r.costo_materiales);
-      const pack   = toNum(r.costo_packing); const cost = toNum(r.costo_total);
+      const pack   = packingCostTotal(r); const cost = toNum(r.costo_total);
       const neto   = toNum(r.neto_productor);
       sumCajas += cajas; sumLb += lb; sumVentas += ventas;
       sumMat += mat; sumPack += pack; sumCost += cost; sumNeto += neto;
@@ -583,7 +727,7 @@ export async function downloadSettlementExcelAll(opts: {
     ws.autoFilter = { from: { row: hRow.number, column: 1 }, to: { row: hRow.number, column: COL } };
 
     let sumCajas = 0, sumLb = 0, sumVentas = 0, sumNeto = 0;
-    for (const d of opts.detailRows) {
+    for (const d of detailRows) {
       const cajas  = toNum(d.cajas); const lb     = toNum(d.lb);
       const ventas = toNum(d.ventas); const neto  = toNum(d.neto);
       const precio = cajas > 0 ? ventas / cajas : 0;
@@ -622,9 +766,9 @@ export async function downloadSettlementExcelAll(opts: {
     ws.autoFilter = { from: { row: hRow.number, column: 1 }, to: { row: hRow.number, column: COL } };
 
     let sumMat = 0, sumPack = 0, sumCost = 0;
-    for (const d of opts.detailRows) {
+    for (const d of detailRows) {
       const cajas   = toNum(d.cajas);
-      const matTot  = toNum(d.costo_materiales); const packTot = toNum(d.costo_packing);
+      const matTot  = toNum(d.costo_materiales); const packTot = packingCostTotal(d);
       const costTot = toNum(d.costo_total);
       const matCaja  = cajas > 0 ? matTot  / cajas : 0;
       const packCaja = cajas > 0 ? packTot / cajas : 0;
@@ -653,11 +797,11 @@ export async function downloadSettlementExcelAll(opts: {
   // ── HOJA 4: Por formato ──────────────────────────────────────────────────
   {
     const fmtMap = new Map<string, { cajas: number; lb: number; mat: number; pack: number; cost: number; ventas: number }>();
-    for (const d of opts.detailRows) {
+    for (const d of detailRows) {
       const key = String(d.format_code ?? '').trim().toLowerCase() || '(sin formato)';
       const cur = fmtMap.get(key) ?? { cajas: 0, lb: 0, mat: 0, pack: 0, cost: 0, ventas: 0 };
       cur.cajas += toNum(d.cajas); cur.lb += toNum(d.lb); cur.ventas += toNum(d.ventas);
-      cur.mat   += toNum(d.costo_materiales); cur.pack += toNum(d.costo_packing); cur.cost += toNum(d.costo_total);
+      cur.mat   += toNum(d.costo_materiales); cur.pack += packingCostTotal(d); cur.cost += toNum(d.costo_total);
       fmtMap.set(key, cur);
     }
     const ws  = wb.addWorksheet(tx.sheetFormato, { views: [{ state: 'frozen', ySplit: 5 }] });
