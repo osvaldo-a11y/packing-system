@@ -702,6 +702,15 @@ export class FinalPalletService {
           const resultPid = Number(ev.result_final_pallet_id);
           const base = out.get(resultPid);
           if (!base) continue;
+          const resultPallet = palletById.get(resultPid);
+          const unifiedTarjaId =
+            resultPallet?.tarja_id != null && Number(resultPallet.tarja_id) > 0
+              ? Number(resultPallet.tarja_id)
+              : null;
+          /** Repallet crea tarja unificada en `final_pallets.tarja_id`; no mezclar TAR de orígenes. */
+          if (unifiedTarjaId != null) {
+            continue;
+          }
           const sourceIds = srcByEvent.get(Number(ev.id)) ?? [];
           if (sourceIds.length === 0) continue;
 

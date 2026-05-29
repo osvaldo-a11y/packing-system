@@ -1399,6 +1399,13 @@ export class DocumentsPdfService {
    * Si hay una sola unidad PT vinculada (p. ej. tras repaletizaje), usa la misma etiqueta 4×6 que pt-tags.
    */
   async buildFinalPalletLabelPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
+    const fpHead = await this.fpRepo.findOne({ where: { id }, select: ['id', 'tarja_id'] });
+    const palletTarjaId =
+      fpHead?.tarja_id != null && Number(fpHead.tarja_id) > 0 ? Number(fpHead.tarja_id) : null;
+    if (palletTarjaId != null) {
+      return this.buildTagLabelPdf(palletTarjaId, lang);
+    }
+
     const trMap = await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds([id]);
     const tarjaIds = trMap.get(id)?.tarja_ids ?? [];
     if (tarjaIds.length === 1) {
