@@ -76,10 +76,15 @@ export class DocumentsController {
   /** Etiqueta 4×6 (existencias / pallet final). Tras repaletizaje, usar el id del pallet resultado (ej. PF-81). */
   @Get('final-pallets/:id/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async finalPalletPdf(@Param('id', ParseIntPipe) id: number, @Query('variant') variant?: string) {
+  async finalPalletPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('variant') variant?: string,
+    @Query('lang') lang?: string,
+  ) {
+    const l = lang === 'en' ? 'en' : 'es';
     const v = (variant ?? 'etiqueta').toLowerCase();
     if (v === 'etiqueta' || v === 'label') {
-      const buffer = await this.pdf.buildFinalPalletLabelPdf(id);
+      const buffer = await this.pdf.buildFinalPalletLabelPdf(id, l);
       return new StreamableFile(buffer, {
         type: 'application/pdf',
         disposition: `attachment; filename="existencia-pt-${id}-etiqueta.pdf"`,

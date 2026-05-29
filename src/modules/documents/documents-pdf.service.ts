@@ -1396,9 +1396,15 @@ export class DocumentsPdfService {
 
   /**
    * Etiqueta operativa para pallet en existencias (corner board / PF-…).
-   * Tras repaletizaje, el código nuevo (ej. PF-81) es el que debe ir a cámara / bodega.
+   * Si hay una sola unidad PT vinculada (p. ej. tras repaletizaje), usa la misma etiqueta 4×6 que pt-tags.
    */
-  async buildFinalPalletLabelPdf(id: number): Promise<Buffer> {
+  async buildFinalPalletLabelPdf(id: number, lang: 'es' | 'en' = 'es'): Promise<Buffer> {
+    const trMap = await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds([id]);
+    const tarjaIds = trMap.get(id)?.tarja_ids ?? [];
+    if (tarjaIds.length === 1) {
+      return this.buildTagLabelPdf(tarjaIds[0], lang);
+    }
+
     await this.resolveCompanyLine();
     const fp = await this.fpRepo.findOne({
       where: { id },
@@ -1409,7 +1415,6 @@ export class DocumentsPdfService {
     const { boxes, pounds } = this.ptPlPalletTotals(id, lines);
     const ev = await this.repalletEventRepo.findOne({ where: { result_final_pallet_id: id } });
     const repalletResultadoVigente = ev != null && ev.reversed_at == null;
-    const trMap = await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds([id]);
     const tr = trMap.get(id);
     const code =
       (tr?.codigo_unidad_pt_display?.trim() ?? fp.corner_board_code?.trim()) || `PF-${fp.id}`;

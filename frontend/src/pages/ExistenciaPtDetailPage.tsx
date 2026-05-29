@@ -117,7 +117,7 @@ function fmtDate(iso: string | null | undefined) {
 }
 
 export function ExistenciaPtDetailPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { id: idParam } = useParams<{ id: string }>();
   const palletId = Number(idParam);
   const qc = useQueryClient();
@@ -188,8 +188,9 @@ export function ExistenciaPtDetailPage() {
             className="gap-1.5"
             onClick={async () => {
               try {
+                const langParam = i18n.language.startsWith('en') ? 'en' : 'es';
                 await downloadPdf(
-                  `/api/documents/final-pallets/${palletId}/pdf?variant=etiqueta`,
+                  `/api/documents/final-pallets/${palletId}/pdf?variant=etiqueta&lang=${langParam}`,
                   `pallet-pt-${palletId}-etiqueta.pdf`,
                 );
                 toast.success(t('existenciaDetail.toast.pdfReady'));
