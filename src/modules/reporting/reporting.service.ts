@@ -511,7 +511,7 @@ export class ReportingService {
       WHERE ii.tarja_id IS NOT NULL
         AND ii.fruit_process_id IS NULL
         AND rt.codigo = 'machine_picking'
-        AND ${formatKeySql('ii.packaging_code')} = $2
+        AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
 
       UNION ALL
@@ -531,7 +531,7 @@ export class ReportingService {
       JOIN reception_types rt ON rt.id = r.reception_type_id
       WHERE ii.fruit_process_id IS NOT NULL
         AND rt.codigo = 'machine_picking'
-        AND ${formatKeySql('ii.packaging_code')} = $2
+        AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
 
       UNION ALL
@@ -553,11 +553,11 @@ export class ReportingService {
         AND ii.tarja_id IS NULL
         AND ii.fruit_process_id IS NULL
         AND rt.codigo = 'machine_picking'
-        AND ${formatKeySql('ii.packaging_code')} = $2
+        AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
     ) sub
     `,
-        [recipe.format_code, formatKey],
+        [formatKey],
       )) as Array<{ lb_machine: string }>;
       const lbMachine = Number(machineLbRows[0]?.lb_machine ?? 0);
 

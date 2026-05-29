@@ -8,5 +8,5 @@ export function formatCodeMatchKey(code: string): string {
 
 /** Expresión SQL (PostgreSQL) para la misma normalización en agregaciones. */
 export function formatKeySql(columnExpr: string): string {
-  return `LOWER(REGEXP_REPLACE(TRIM(${columnExpr}), '^pinta\\s+', 'pint ', 'i'))`;
+  return `LOWER(REGEXP_REPLACE(TRIM(${columnExpr}), '^pinta[[:space:]]+', 'pint ', 'i'))`;
 }
