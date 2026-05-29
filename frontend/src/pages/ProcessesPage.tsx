@@ -366,6 +366,19 @@ function sumMermaComponentDraft(row: FruitProcessRow, draft: Record<number, numb
   return s;
 }
 
+/** Waste para KPI/totales: fila WASTE/MERMA en componentes, o legacy (sob+balance / merma_lb) si no hay fila. */
+function wasteLbForRow(r: FruitProcessRow): number {
+  let fromComponents = 0;
+  for (const c of r.components ?? []) {
+    if (isMermaResultComponent(c)) {
+      const v = Number(c.lb_value);
+      if (Number.isFinite(v)) fromComponents += v;
+    }
+  }
+  if (fromComponents > ALLOC_EPS) return fromComponents;
+  return mermaRegistradaLb(r);
+}
+
 function toDatetimeLocalValue(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -1178,6 +1191,8 @@ export function ProcessesPage() {
       if (Number.isFinite(e)) lbEntrada += e;
       const p = Number(r.lb_packout_planned ?? r.lb_packout ?? 0);
       if (Number.isFinite(p)) lbPack += p;
+      const w = wasteLbForRow(r);
+      if (Number.isFinite(w)) lbMerma += w;
       const comps = r.components ?? [];
       const directDes = Number(r.lb_desecho);
       for (const c of comps) {
@@ -1185,8 +1200,8 @@ export function ProcessesPage() {
         const nom = (c.nombre ?? '').toLowerCase();
         const v = Number(c.lb_value);
         if (!Number.isFinite(v)) continue;
+        if (isMermaResultComponent(c)) continue;
         if (cod.includes('JUGO') || nom.includes('jugo')) lbJugo += v;
-        else if (isMermaResultComponent(c)) lbMerma += v;
         else if (!(Number.isFinite(directDes) && directDes > 0) && (cod.includes('DESECH') || nom.includes('desecho')))
           lbDesecho += v;
       }
