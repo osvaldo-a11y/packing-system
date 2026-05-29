@@ -43,7 +43,8 @@ import { DocumentState, Mercado, ReceptionType } from './catalog.entities';
 import { MasterUsageService } from './master-usage.service';
 
 const FORMAT_CODE_RE = /^(\d+)x(\d+)oz$/i;
-const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
+/** Alias comercial pint (acepta PINT o PINTA por compatibilidad). */
+const FORMAT_ALIAS_RE = /^pint(?:a)?\s+(regular|low\s+profile)$/i;
 
 const WEIGHT_BASIS = new Set(['net_lb', 'gross_lb']);
 const QUALITY_INTENTS = new Set(['exportacion', 'proceso']);
@@ -643,7 +644,7 @@ export class TraceabilityService {
     const c = code.trim();
     if (!FORMAT_CODE_RE.test(c) && !FORMAT_ALIAS_RE.test(c)) {
       throw new BadRequestException(
-        'format_code debe ser NxMoz (ej. 4x16oz) o uno explícito permitido (PINTA REGULAR / PINTA LOW PROFILE).',
+        'format_code debe ser NxMoz (ej. 4x16oz) o alias pint: PINT REGULAR / PINT LOW PROFILE.',
       );
     }
   }

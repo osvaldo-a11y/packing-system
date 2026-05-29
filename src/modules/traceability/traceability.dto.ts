@@ -83,7 +83,10 @@ export class CreatePresentationFormatDto {
 export class UpdatePresentationFormatDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(20) format_code?: string;
   @IsOptional() @Type(() => Number) @IsInt() species_id?: number;
-  @IsOptional() @IsString() descripcion?: string;
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  descripcion?: string | null;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0.0001) net_weight_lb_per_box?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) max_boxes_per_pallet?: number | null;
   @IsOptional() @IsIn(['mano', 'maquina']) box_kind?: 'mano' | 'maquina' | null;

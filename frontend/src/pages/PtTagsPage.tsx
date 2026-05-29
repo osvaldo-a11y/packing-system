@@ -120,7 +120,7 @@ function labelProcesoEstadoParaSelector(
   return st;
 }
 const FORMAT_CODE_RE = /^(\d+)x(\d+(?:\.\d+)?)oz$/i;
-const FORMAT_ALIAS_RE = /^pinta\s+(regular|low\s+profile)$/i;
+const FORMAT_ALIAS_RE = /^pint(?:a)?\s+(regular|low\s+profile)$/i;
 
 function normalizeFormatKeyPt(formatCode: string): string {
   return formatCode.trim().toLowerCase().replace(/\s+/g, '');
@@ -154,7 +154,7 @@ const createTagSchema = z.object({
     .string()
     .min(1)
     .refine((s) => FORMAT_CODE_RE.test(s) || FORMAT_ALIAS_RE.test(s), {
-      message: 'Usá NxMoz (ej. 4x16oz) o PINTA REGULAR / PINTA LOW PROFILE',
+      message: 'Usá NxMoz (ej. 4x16oz) o PINT REGULAR / PINT LOW PROFILE',
     }),
   cajas_por_pallet: z.coerce
     .number()
@@ -1512,7 +1512,7 @@ export function PtTagsPage() {
                             </select>
                           ) : (
                             <Input
-                              placeholder="NxMoz (ej. 4x16oz) o PINTA REGULAR / PINTA LOW PROFILE"
+                              placeholder="NxMoz (ej. 4x16oz) o PINT REGULAR / PINT LOW PROFILE"
                               {...tagForm.register('format_code')}
                             />
                           )}

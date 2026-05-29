@@ -415,7 +415,7 @@ export function CommercialOfferCalculatorBlock({
               <Input
                 id="co-formato"
                 className={filterInputClass}
-                placeholder="Ej. PINTA LOW PROFILE"
+                placeholder="Ej. PINT LOW PROFILE"
                 value={formatoManual}
                 onChange={(e) => setFormatoManual(e.target.value)}
               />

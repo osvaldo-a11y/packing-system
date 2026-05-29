@@ -2640,10 +2640,13 @@ function formatPayloadFromForm(body: z.infer<typeof formatSchema>, mode: 'create
         ? null
         : undefined
       : (body.clamshell_label_kind as 'generica' | 'marca');
+  const descripcionRaw = body.descripcion?.trim() ?? '';
+  const descripcion =
+    mode === 'update' ? (descripcionRaw === '' ? null : descripcionRaw) : descripcionRaw || undefined;
   return {
     format_code: body.format_code.trim(),
     species_id,
-    descripcion: body.descripcion?.trim() || undefined,
+    descripcion,
     net_weight_lb_per_box: body.net_weight_lb_per_box,
     max_boxes_per_pallet: body.max_boxes_per_pallet,
     ...(box_kind !== undefined ? { box_kind } : {}),
