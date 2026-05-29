@@ -2558,6 +2558,7 @@ export function DispatchesPage() {
                                       <span>
                                         {ln.packaging_code ?? '—'} · esp.{ln.species_id ?? '—'} · var.{ln.variety_id ?? '—'} ·{' '}
                                         {ln.brand ?? '—'}
+                                        {ln.final_pallet_id != null ? ` · PF-${ln.final_pallet_id}` : ''}
                                         {ln.trays != null && ln.trays > 0 ? ` · band.${ln.trays}` : ''}
                                         {ln.pounds != null ? ` · ${ln.pounds} lb` : ''}
                                       </span>
@@ -2569,11 +2570,17 @@ export function DispatchesPage() {
                                       <Badge variant="outline" className="text-[10px]">
                                         {t('dispatch.table.badgeAdjust')}
                                       </Badge>
-                                    ) : ln.tarja_id != null ? (
-                                      <span title={`id tarja ${ln.tarja_id}`}>
-                                        {ln.codigo_unidad_pt_display?.trim() ||
-                                          ln.tag_code?.trim() ||
-                                          `id ${ln.tarja_id}`}
+                                    ) : ln.codigo_unidad_pt_display?.trim() || ln.tag_code?.trim() ? (
+                                      <span
+                                        title={
+                                          ln.tarja_id != null
+                                            ? `id tarja ${ln.tarja_id}`
+                                            : ln.final_pallet_id != null
+                                              ? `existencia PF-${ln.final_pallet_id}`
+                                              : undefined
+                                        }
+                                      >
+                                        {ln.codigo_unidad_pt_display?.trim() || ln.tag_code?.trim()}
                                       </span>
                                     ) : ln.fruit_process_id != null ? (
                                       <span title="Proceso (sin unidad PT en línea de factura)">Proc {ln.fruit_process_id}</span>
@@ -2602,7 +2609,9 @@ export function DispatchesPage() {
                                     ) : (
                                       <span className="flex flex-col items-end gap-0.5">
                                         <Badge variant="outline" className="text-[10px]">
-                                          {ln.tarja_id != null
+                                          {ln.tarja_id != null ||
+                                          ln.codigo_unidad_pt_display?.trim() ||
+                                          ln.tag_code?.trim()
                                             ? t('dispatch.table.badgePtUnit')
                                             : ln.fruit_process_id != null
                                               ? t('dispatch.table.badgeProcess')

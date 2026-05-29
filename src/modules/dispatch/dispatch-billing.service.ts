@@ -25,7 +25,7 @@ import {
   UpdateDispatchUnitPricesDto,
 } from './dispatch.dto';
 import { PtPackingList, PtPackingListItem } from '../pt-packing-list/pt-packing-list.entities';
-import { groupFinalPalletsForCommercialInvoice } from './commercial-invoice-lines';
+import { groupFinalPalletsForCommercialInvoice, resolveBrandFromFinalPallet } from './commercial-invoice-lines';
 import {
   Dispatch,
   DispatchPtPackingList,
@@ -77,19 +77,33 @@ function enrichInvoiceLine(
   it: InvoiceItem,
   tagCodeByTarjaId: Map<number, string>,
   traceByPalletId: Map<number, UnidadPtTraceability>,
+  brandByPalletId?: Map<number, string | null>,
 ) {
   const base = mapInvoiceLine(it);
-  const tid = it.tarja_id != null ? Number(it.tarja_id) : null;
   const pid = it.final_pallet_id != null ? Number(it.final_pallet_id) : null;
+  const trace = pid != null && pid > 0 ? traceByPalletId.get(pid) : undefined;
+  const tidStored = it.tarja_id != null ? Number(it.tarja_id) : null;
+  const tidFromTrace =
+    trace?.tarja_ids?.find((x) => Number.isFinite(x) && x > 0) ?? null;
+  const tid =
+    tidStored != null && tidStored > 0 ? tidStored : tidFromTrace != null && tidFromTrace > 0 ? tidFromTrace : null;
   let codigo_unidad_pt_display: string | null = null;
   if (tid != null && tid > 0) {
     codigo_unidad_pt_display = tagCodeByTarjaId.get(tid)?.trim() ?? null;
   }
-  if (!codigo_unidad_pt_display && pid != null && pid > 0) {
-    codigo_unidad_pt_display = traceByPalletId.get(pid)?.codigo_unidad_pt_display?.trim() ?? null;
+  if (!codigo_unidad_pt_display && trace?.codigo_unidad_pt_display?.trim()) {
+    codigo_unidad_pt_display = trace.codigo_unidad_pt_display.trim();
   }
+  const brandFromPallet =
+    (!it.brand?.trim() && pid != null && pid > 0 ? brandByPalletId?.get(pid)?.trim() : null) || null;
   return {
     ...base,
+    tarja_id: tid,
+    traceability_ok:
+      base.traceability_ok ||
+      (tid != null && tid > 0) ||
+      !!codigo_unidad_pt_display?.trim(),
+    brand: it.brand?.trim() ? it.brand : brandFromPallet ?? it.brand,
     tag_code: codigo_unidad_pt_display,
     codigo_unidad_pt_display,
   };
@@ -493,6 +507,21 @@ export class DispatchBillingService {
       unionFpIds.size > 0
         ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds([...unionFpIds])
         : new Map<number, UnidadPtTraceability>();
+    for (const tr of traceByPalletId.values()) {
+      for (const tid of tr.tarja_ids ?? []) {
+        if (Number.isFinite(tid) && tid > 0) unionTarjaIds.add(Number(tid));
+      }
+    }
+    const brandByPalletId = new Map<number, string | null>();
+    if (unionFpIds.size > 0) {
+      const fpsForBrand = await this.fpRepo.find({
+        where: { id: In([...unionFpIds]) },
+        relations: ['brand', 'pt_tag', 'pt_tag.brand'],
+      });
+      for (const fp of fpsForBrand) {
+        brandByPalletId.set(Number(fp.id), resolveBrandFromFinalPallet(fp).brandName);
+      }
+    }
     const tarjaIdList = [...unionTarjaIds].filter((x) => x > 0);
     const tagRows =
       tarjaIdList.length > 0
@@ -579,7 +608,7 @@ export class DispatchBillingService {
               total_cost: inv.total_cost,
               total: inv.total,
               lines: (linesByInvoiceId.get(Number(inv.id)) ?? []).map((li) =>
-                enrichInvoiceLine(li, tagCodeByTarjaId, traceByPalletId),
+                enrichInvoiceLine(li, tagCodeByTarjaId, traceByPalletId, brandByPalletId),
               ),
             }
           : null,
@@ -1437,9 +1466,18 @@ export class DispatchBillingService {
       fpIdsForInv.length > 0
         ? await this.fpRepo.find({
             where: { id: In(fpIdsForInv) },
-            relations: ['lines', 'lines.variety', 'lines.fruit_process', 'presentation_format', 'brand'],
+            relations: [
+              'lines',
+              'lines.variety',
+              'lines.fruit_process',
+              'presentation_format',
+              'brand',
+              'pt_tag',
+              'pt_tag.brand',
+            ],
           })
         : [];
+    const fpById = new Map(fps.map((fp) => [Number(fp.id), fp]));
 
     const grouped = groupFinalPalletsForCommercialInvoice(fps, prices);
     const plRefForInvoice = await this.ptPackingListRefForDispatch(dispatchId);
@@ -1497,14 +1535,20 @@ export class DispatchBillingService {
         const firstProcId = (ir.trace_lines ?? []).map((t) => t.fruit_process_id).find((x) => x != null && Number(x) > 0);
         const fpNum = firstProcId != null ? Number(firstProcId) : null;
         const proc = fpNum != null ? procById.get(fpNum) : undefined;
-        const tarjaFromInv =
+        const fpRow = fpById.get(Number(ir.final_pallet_id));
+        const tarjaFromProcess =
           proc?.tarja_id != null && Number(proc.tarja_id) > 0 ? Number(proc.tarja_id) : null;
+        const tarjaFromPallet =
+          fpRow?.tarja_id != null && Number(fpRow.tarja_id) > 0 ? Number(fpRow.tarja_id) : null;
+        const tarjaFromInv = tarjaFromProcess ?? tarjaFromPallet;
         let traceNote: string | null = null;
         if (tarjaFromInv == null && fpNum != null) {
-          traceNote = 'Inventario PT: proceso sin unidad PT; liquidación vía fruit_process.';
+          traceNote =
+            'Inventario PT: proceso sin unidad PT en proceso ni pallet; liquidación vía fruit_process.';
         } else if (tarjaFromInv == null && fpNum == null) {
           traceNote = 'Inventario PT sin fruit_process en trace_lines.';
         }
+        const { brandName } = fpRow ? resolveBrandFromFinalPallet(fpRow) : { brandName: null };
         await this.invItemRepo.save(
           this.invItemRepo.create({
             invoice_id: inv.id,
@@ -1520,7 +1564,7 @@ export class DispatchBillingService {
             packaging_code: (ir.format_code?.trim() || '—').toUpperCase(),
             species_id: ir.species_id != null ? Number(ir.species_id) : null,
             variety_id: null,
-            brand: null,
+            brand: brandName,
             pounds: pounds.toFixed(3),
             packing_list_ref: plRefForInvoice,
           }),

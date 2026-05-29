@@ -1,5 +1,26 @@
 import type { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
-import type { FruitProcess } from '../process/process.entities';
+import type { FruitProcess, PtTag } from '../process/process.entities';
+
+export type ResolvedPalletLineTrace = {
+  tarjaId: number | null;
+  fruitProcessId: number | null;
+  traceability_note: string | null;
+};
+
+/** Marca comercial: pallet final, si no la unidad PT (`pt_tags.brand_id`). */
+export function resolveBrandFromFinalPallet(fp: FinalPallet): {
+  brandId: number | null;
+  brandName: string | null;
+} {
+  if (fp.brand_id != null && Number(fp.brand_id) > 0) {
+    return { brandId: Number(fp.brand_id), brandName: fp.brand?.nombre ?? null };
+  }
+  const pt = fp.pt_tag as PtTag | undefined | null;
+  if (pt?.brand_id != null && Number(pt.brand_id) > 0) {
+    return { brandId: Number(pt.brand_id), brandName: pt.brand?.nombre ?? null };
+  }
+  return { brandId: null, brandName: null };
+}
 
 /** Línea de factura comercial agrupada (formato × variedad × marca × trazabilidad); no toca stock. */
 export type CommercialInvoiceLine = {
@@ -23,28 +44,35 @@ export type CommercialInvoiceLineWithTrace = CommercialInvoiceLine & {
   traceability_note: string | null;
 };
 
-function resolveLineTrace(
-  fp: FinalPallet,
-  ln: FinalPalletLine,
-): { tarjaId: number | null; fruitProcessId: number | null; note: string | null } {
+/**
+ * Trazabilidad para factura / liquidación por línea de pallet.
+ * Orden: `fruit_process.tarja_id` → `final_pallets.tarja_id` → proceso sin tarja → sin proceso.
+ */
+export function resolveFinalPalletLineTrace(fp: FinalPallet, ln: FinalPalletLine): ResolvedPalletLineTrace {
   const proc = ln.fruit_process as FruitProcess | undefined | null;
   const fruitProcessId = ln.fruit_process_id != null ? Number(ln.fruit_process_id) : null;
   const tarjaFromProcess =
     proc?.tarja_id != null && Number(proc.tarja_id) > 0 ? Number(proc.tarja_id) : null;
   if (tarjaFromProcess != null) {
-    return { tarjaId: tarjaFromProcess, fruitProcessId, note: null };
+    return { tarjaId: tarjaFromProcess, fruitProcessId, traceability_note: null };
+  }
+  const tarjaFromPallet =
+    fp.tarja_id != null && Number(fp.tarja_id) > 0 ? Number(fp.tarja_id) : null;
+  if (tarjaFromPallet != null) {
+    return { tarjaId: tarjaFromPallet, fruitProcessId, traceability_note: null };
   }
   if (fruitProcessId != null) {
     return {
       tarjaId: null,
       fruitProcessId,
-      note: 'Proceso sin unidad PT en fruit_process; liquidación puede usar productor vía proceso.',
+      traceability_note:
+        'Proceso sin unidad PT en fruit_process ni en el pallet; liquidación puede usar productor vía proceso.',
     };
   }
   return {
     tarjaId: null,
     fruitProcessId: null,
-    note: 'Línea de pallet sin proceso asociado; sin unidad PT para liquidación.',
+    traceability_note: 'Línea de pallet sin proceso asociado; sin unidad PT para liquidación.',
   };
 }
 
@@ -78,8 +106,7 @@ export function groupFinalPalletsForCommercialInvoice(
   for (const fp of fps) {
     const fid = fp.presentation_format_id != null ? Number(fp.presentation_format_id) : null;
     const fc = fp.presentation_format?.format_code?.trim() || '—';
-    const bid = fp.brand_id != null && Number(fp.brand_id) > 0 ? Number(fp.brand_id) : null;
-    const brandName = fp.brand?.nombre ?? null;
+    const { brandId: bid, brandName } = resolveBrandFromFinalPallet(fp);
 
     for (const ln of fp.lines ?? []) {
       if (ln.amount <= 0) continue;
@@ -90,7 +117,7 @@ export function groupFinalPalletsForCommercialInvoice(
           ? Number((ln.variety as { species_id: number }).species_id)
           : null;
 
-      const { tarjaId, fruitProcessId, note } = resolveLineTrace(fp, ln);
+      const { tarjaId, fruitProcessId, traceability_note: note } = resolveFinalPalletLineTrace(fp, ln);
 
       const traceKey =
         tarjaId != null
