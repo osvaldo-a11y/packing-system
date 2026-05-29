@@ -1899,6 +1899,7 @@
       "lineDeleted": "Line deleted",
       "pdfPl": "PDF packing list",
       "pdfInvoice": "PDF invoice",
+      "pdfBol": "BOL / Straight Bill of Lading",
       "pdfError": "PDF error",
       "tempInvalid": "Invalid temperature",
       "errNoPl": "Select at least one confirmed PT packing list.",

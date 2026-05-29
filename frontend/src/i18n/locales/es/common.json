@@ -1898,6 +1898,7 @@
       "lineDeleted": "Línea eliminada",
       "pdfPl": "PDF packing list",
       "pdfInvoice": "PDF factura",
+      "pdfBol": "BOL / Guía de despacho",
       "pdfError": "Error PDF",
       "tempInvalid": "Temperatura inválida",
       "errNoPl": "Seleccioná al menos un packing list PT confirmado.",

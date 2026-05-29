@@ -103,6 +103,20 @@ export class DocumentsController {
     });
   }
 
+  @Get('dispatches/:id/bol/pdf')
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  async bolPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('lang') lang?: string,
+  ) {
+    const l = lang === 'en' ? 'en' : 'es';
+    const buffer = await this.pdf.buildBolPdf(id, l);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="bol-${id}.pdf"`,
+    });
+  }
+
   @Get('dispatches/:id/packing-list/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
   async packingListPdf(@Param('id', ParseIntPipe) id: number) {

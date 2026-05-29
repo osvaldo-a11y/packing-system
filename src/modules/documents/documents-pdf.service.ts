@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { groupFinalPalletsForCommercialInvoice } from '../dispatch/commercial-invoice-lines';
 import {
   Dispatch,
@@ -690,6 +690,7 @@ export class DocumentsPdfService {
     @InjectRepository(FinalPallet) private readonly fpRepo: Repository<FinalPallet>,
     @InjectRepository(FinalPalletLine) private readonly fplLineRepo: Repository<FinalPalletLine>,
     @InjectRepository(RepalletEvent) private readonly repalletEventRepo: Repository<RepalletEvent>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   private async resolveCompanyLine(): Promise<void> {
@@ -1954,5 +1955,256 @@ export class DocumentsPdfService {
     );
 
     return pdfToBuffer(doc);
+  }
+
+  async buildBolPdf(dispatchId: number, lang: 'es' | 'en' = 'en'): Promise<Buffer> {
+    await this.resolveCompanyLine();
+    const dispatch = await this.dispatchRepo.findOne({
+      where: { id: dispatchId },
+      relations: { client: true },
+    });
+    if (!dispatch) throw new NotFoundException('Despacho no encontrado');
+
+    const pedidoCliente = await this.clientRepo.findOne({ where: { id: Number(dispatch.cliente_id) } });
+    const plLinks      = await this.dispatchPlRepo.find({
+      where: { dispatch_id: dispatchId },
+      relations: { pt_packing_list: true },
+    });
+    const plCodes = plLinks.map((l) => l.pt_packing_list?.list_code).filter((c): c is string => !!c);
+
+    const ACCENT = '#1a3a5c';
+    const MUTED  = '#555555';
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    const fmtDate = (d: Date | string | undefined): string => {
+      if (!d) return '—';
+      const x = d instanceof Date ? d : new Date(d as string);
+      if (Number.isNaN(x.getTime())) return String(d);
+      return x.toLocaleString(locale, { dateStyle: 'long' });
+    };
+
+    const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    const w  = doc.page.width  - 2 * DocumentsPdfService.PDF_MARGIN;
+    const x0 = DocumentsPdfService.PDF_MARGIN;
+
+    // ── Franja superior ──
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+    let y = DocumentsPdfService.PDF_MARGIN;
+
+    // ── Encabezado ──
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+       .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(ACCENT)
+       .text(lang === 'en' ? 'STRAIGHT BILL OF LADING' : 'GUÍA DE DESPACHO', x0, y, { width: w, align: 'center' });
+    y += 20;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+       .text(lang === 'en' ? 'FOR EXEMPT COMMODITIES — Original Not Negotiable' : 'Documento logístico — no negociable', x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 6).lineTo(x0 + w, y + 6).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 18;
+
+    // ── Bloque shipper / consignee en dos columnas ──
+    const colW2 = w / 2 - 8;
+    const xR    = x0 + w / 2 + 8;
+    const renderField = (label: string, value: string, x: number, startY: number, maxW: number): number => {
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(MUTED)
+         .text(label.toUpperCase(), x, startY, { width: maxW });
+      doc.font('Helvetica').fontSize(9).fillColor('#111111')
+         .text(value, x, startY + 9, { width: maxW });
+      return startY + 26;
+    };
+
+    const shipperAddr = `${this.companyLine()}`;
+    const shipToName  = dispatch.client?.nombre?.trim() ?? '—';
+    const soldToName  = pedidoCliente?.nombre?.trim() ?? shipToName;
+
+    const fieldStartY = y;
+    renderField(lang === 'en' ? 'Shipper (From)' : 'Remitente', shipperAddr, x0, fieldStartY, colW2);
+    renderField(lang === 'en' ? 'Ship To (Consignee)' : 'Destinatario', shipToName, xR, fieldStartY, colW2);
+    y = fieldStartY + 28;
+
+    renderField(lang === 'en' ? 'Sold To' : 'Facturado a', soldToName, x0, y, colW2);
+    renderField('BOL / Reference', dispatch.numero_bol ?? '—', xR, y, colW2);
+    y += 28;
+
+    const fechaStr = fmtDate(dispatch.fecha_despacho);
+    renderField(lang === 'en' ? 'Ship Date' : 'Fecha despacho', fechaStr, x0, y, colW2);
+    renderField(lang === 'en' ? 'Packing Lists' : 'Packing lists', plCodes.length ? plCodes.join(', ') : '—', xR, y, colW2);
+    y += 28;
+
+    if (dispatch.temperatura_f) {
+      renderField(lang === 'en' ? 'Maintain Temp (°F)' : 'Temperatura (°F)', String(dispatch.temperatura_f), x0, y, colW2);
+    }
+    if (dispatch.thermograph_serial?.trim()) {
+      renderField(lang === 'en' ? 'Temperature Recorder' : 'Termógrafo', dispatch.thermograph_serial.trim(), xR, y, colW2);
+    }
+    y += 28;
+
+    doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 12;
+
+    // ── Tabla de artículos ──
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT)
+       .text(lang === 'en' ? 'Description of Articles' : 'Descripción de artículos', x0, y);
+    y += 14;
+
+    // ── Cargar items: dtiRepo → pt_packing_lists → legacy fp ──────────────
+    const dtiItems = await this.dtiRepo.find({ where: { dispatch_id: dispatchId } });
+
+    // Resolver tag codes para dtiItems
+    const tagIds = [...new Set(dtiItems.map((i) => Number(i.tarja_id)).filter((x) => x > 0))];
+    const tags   = tagIds.length > 0
+      ? await this.tagRepo.find({ where: { id: In(tagIds) }, select: ['id', 'tag_code', 'format_code'] })
+      : [];
+    const tagById2 = new Map(tags.map((t) => [t.id, t]));
+
+    // PT packing lists vinculados al despacho
+    const ptPlLinks = await this.dispatchPlRepo.find({
+      where: { dispatch_id: dispatchId },
+      relations: { pt_packing_list: true },
+    });
+    const ptPlIds = ptPlLinks.map((l) => l.pt_packing_list_id).filter((x) => x != null && Number(x) > 0);
+
+    // Pallets desde PT packing list items
+    let ptPlFpIds: number[] = [];
+    if (ptPlIds.length > 0) {
+      const ptPlItemRows = await this.dataSource.query(
+        `SELECT DISTINCT final_pallet_id FROM pt_packing_list_items WHERE packing_list_id = ANY($1::int[])`,
+        [ptPlIds],
+      ) as Array<{ final_pallet_id: number }>;
+      ptPlFpIds = ptPlItemRows.map((r) => Number(r.final_pallet_id)).filter((x) => x > 0);
+    }
+
+    // Legacy: final_pallets con dispatch_id directo
+    const legacyFpIds: number[] = [];
+    if (ptPlFpIds.length === 0) {
+      const legacyRows = await this.dataSource.query(
+        `SELECT id FROM final_pallets WHERE dispatch_id = $1`,
+        [dispatchId],
+      ) as Array<{ id: number }>;
+      legacyFpIds.push(...legacyRows.map((r) => Number(r.id)));
+    }
+
+    const allFpIds = ptPlFpIds.length > 0 ? ptPlFpIds : legacyFpIds;
+
+    const fps = allFpIds.length > 0
+      ? await this.fpRepo.find({
+          where: { id: In(allFpIds) },
+          relations: { presentation_format: true },
+        })
+      : [];
+
+    const fpTrMap = allFpIds.length > 0
+      ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(allFpIds)
+      : new Map();
+
+    const useDti = dtiItems.length > 0;
+    const colWidths = useDti
+      ? [w * 0.18, w * 0.22, w * 0.18, w * 0.14, w * 0.14, w * 0.14]
+      : [w * 0.22, w * 0.34, w * 0.16, w * 0.14, w * 0.14, 0];
+    const header = useDti
+      ? (lang === 'en'
+          ? ['Ref.', 'Description', 'Format', 'Boxes', 'Pallets', 'Special Marks']
+          : ['Ref.', 'Descripción', 'Formato', 'Cajas', 'Pallets', 'Observaciones'])
+      : (lang === 'en'
+          ? ['Format', 'Description', '', 'Boxes', 'Pallets', '']
+          : ['Formato', 'Descripción', '', 'Cajas', 'Pallets', '']);
+
+    const tableRows: string[][] = [];
+    let totalBoxes   = 0;
+    let totalPallets = 0;
+
+    if (dtiItems.length > 0) {
+      for (const item of dtiItems) {
+        const tid  = Number(item.tarja_id);
+        const tag  = tid > 0 ? tagById2.get(tid) : undefined;
+        const ref  = tag?.tag_code?.trim() ?? `#${item.tarja_id ?? '—'}`;
+        const fmt  = tag?.format_code?.trim() ?? '—';
+        const desc = lang === 'en' ? 'BLUEBERRIES' : 'ARÁNDANOS';
+        const cajas   = Number(item.cajas_despachadas ?? 0);
+        const pallets = Number(item.pallets_despachados ?? 0);
+        totalBoxes   += cajas;
+        totalPallets += pallets;
+        tableRows.push([ref, desc, fmt, String(cajas), String(pallets), '']);
+      }
+    } else if (fps.length > 0) {
+      // Agrupar por formato
+      const fmtMap = new Map<string, { cajas: number; pallets: number }>();
+      for (const fp of fps) {
+        const fmt = fp.presentation_format?.format_code?.trim() ?? '—';
+        const fpLines = await this.fplLineRepo.find({ where: { final_pallet_id: fp.id } });
+        const cajas   = fpLines.reduce((s, l) => s + l.amount, 0);
+        const cur = fmtMap.get(fmt) ?? { cajas: 0, pallets: 0 };
+        cur.cajas   += cajas;
+        cur.pallets += 1;
+        fmtMap.set(fmt, cur);
+      }
+      const desc = lang === 'en' ? 'BLUEBERRIES' : 'ARÁNDANOS';
+      for (const [fmt, val] of [...fmtMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        totalBoxes   += val.cajas;
+        totalPallets += val.pallets;
+        tableRows.push([fmt, desc, '', String(val.cajas), String(val.pallets), '']);
+      }
+    }
+
+    if (!tableRows.length) {
+      tableRows.push(['—', '—', '—', '0', '0', lang === 'en' ? 'No items' : 'Sin ítems']);
+    }
+
+    y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, colWidths, header, tableRows,
+      { fs: 8, rowHeight: 16, wrap: false });
+
+    // ── Totales ──
+    y += 4;
+    const totalH = 26;
+    doc.save();
+    doc.rect(x0, y, w, totalH).fill(ACCENT);
+    doc.restore();
+    const totalLabel = lang === 'en'
+      ? `Total: ${totalBoxes} boxes  ·  ${totalPallets} pallets`
+      : `Total: ${totalBoxes} cajas  ·  ${totalPallets} pallets`;
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff')
+       .text(totalLabel, x0 + 10, y + 8, { width: w - 20 });
+    y += totalH + 16;
+
+    // ── Bloque firmas ──
+    doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 12;
+
+    const sigW = (w - 16) / 3;
+    const sigLabels = lang === 'en'
+      ? ["Shipper's Signature", "Driver's Signature", "Driver's License #"]
+      : ['Firma remitente', 'Firma conductor', 'Licencia conductor'];
+
+    for (let i = 0; i < 3; i++) {
+      const sx = x0 + i * (sigW + 8);
+      doc.font('Helvetica').fontSize(7.5).fillColor(MUTED)
+         .text(sigLabels[i], sx, y, { width: sigW });
+      doc.moveTo(sx, y + 28).lineTo(sx + sigW - 8, y + 28).lineWidth(0.5).strokeColor('#aaaaaa').stroke();
+    }
+    y += 42;
+
+    // ── Nota legal ──
+    const legalNote = lang === 'en'
+      ? 'NOTE: Any variance noted by receiver as to quantity, conditions or price must be brought to our attention within 24 hrs. after receipt of goods. No adjustments will be honored unless notified as herein stated.'
+      : 'NOTA: Cualquier discrepancia en cantidad, condiciones o precio debe informarse dentro de las 24 hs. de recibida la mercadería. No se aceptarán ajustes fuera de este plazo.';
+
+    doc.font('Helvetica').fontSize(7).fillColor(MUTED)
+       .text(legalNote, x0, y, { width: w, align: 'left' });
+
+    this.drawFooter(doc, x0, w,
+      lang === 'en' ? 'Straight Bill of Lading — Original Not Negotiable' : 'Guía de despacho',
+      new Date().toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }),
+      MUTED,
+    );
+    doc.end();
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+    });
   }
 }

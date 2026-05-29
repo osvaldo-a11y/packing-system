@@ -473,7 +473,7 @@ type LinkablePtPl = {
 };
 
 export function DispatchesPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { role } = useAuth();
   const canRevertSalida = role === 'admin' || role === 'supervisor' || role === 'operator';
   const queryClient = useQueryClient();
@@ -1907,6 +1907,21 @@ export function DispatchesPage() {
                                     }}
                                   >
                                     {t('dispatch.toast.pdfInvoice')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await downloadPdf(
+                                          `/api/documents/dispatches/${d.id}/bol/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`,
+                                          `bol-${d.id}.pdf`,
+                                        );
+                                        toast.success(t('dispatch.toast.pdfBol'));
+                                      } catch (e) {
+                                        toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
+                                      }
+                                    }}
+                                  >
+                                    {t('dispatch.toast.pdfBol')}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
