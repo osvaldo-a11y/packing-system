@@ -1345,7 +1345,9 @@ export class ReportingExportService {
       doc.addPage();
     }
     doc.moveDown(0.5);
-    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED).text(T.footer, { width: w, align: 'left' });
+    const left = doc.page.margins.left;
+    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED)
+       .text(T.footer, left, doc.y, { width: w, align: 'left' });
     doc.fillColor('#000000');
 
     this.drawSettlementDocumentFooters(doc, {
@@ -1689,7 +1691,9 @@ export class ReportingExportService {
 
     if (doc.y + 50 > this.pdfBottomY(doc)) doc.addPage();
     doc.moveDown(0.5);
-    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED).text(T.footer, { width: w, align: 'left' });
+    const left = doc.page.margins.left;
+    doc.fontSize(8).fillColor(ReportingExportService.PDF_MUTED)
+       .text(T.footer, left, doc.y, { width: w, align: 'left' });
     doc.fillColor('#000000');
     this.drawSettlementDocumentFooters(doc, {
       company,
