@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatCodeMatchKey } from '@/lib/format-code';
 import { formatReportCell } from '@/lib/format-report-cell';
 import { formatBoxes, formatLb, formatMoney, formatTechnical } from '@/lib/number-format';
 import {
@@ -1217,7 +1218,7 @@ function computeLiquidacionAudit(
   const formatSpeciesId = new Map<string, number>();
   for (const raw of reportData.formatCostSummary?.rows ?? []) {
     const fr = raw as Record<string, unknown>;
-    const code = String(fr.format_code ?? '').trim().toLowerCase();
+    const code = formatCodeMatchKey(String(fr.format_code ?? ''));
     const sid = fr.species_id;
     if (!code || sid == null || sid === '') continue;
     const n = Number(sid);
@@ -1228,7 +1229,7 @@ function computeLiquidacionAudit(
     const d = raw as Record<string, unknown>;
     const prod = detailProducerLabel(d);
     const fmt = String(d.format_code ?? '').trim() || '(sin formato)';
-    const fmtKey = fmt.toLowerCase();
+    const fmtKey = formatCodeMatchKey(fmt);
     const cajas = toNum(d.cajas);
     const lb = toNum(d.lb);
     const ventas = toNum(d.ventas);

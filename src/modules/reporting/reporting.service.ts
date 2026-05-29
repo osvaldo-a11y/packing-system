@@ -1,3 +1,4 @@
+import { formatCodeMatchKey, formatKeySql } from '../../common/format-code-key';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -315,9 +316,7 @@ export class ReportingService {
       { costo_materiales: number; costo_packing: number; costo_total: number; cajas_periodo: number; lb_periodo: number }
     >();
     for (const row of summaryRows) {
-      const fk = String((row as { format_code?: string }).format_code ?? '')
-        .trim()
-        .toLowerCase();
+      const fk = formatCodeMatchKey(String((row as { format_code?: string }).format_code ?? ''));
       if (!fk) continue;
       costByFormat.set(fk, {
         costo_materiales: Number((row as { costo_materiales?: number }).costo_materiales ?? 0),
@@ -352,7 +351,7 @@ export class ReportingService {
   }> {
     const manualPacking = filter.precio_packing_por_lb != null ? Number(filter.precio_packing_por_lb) : null;
     const formatCode = filter.format_code?.trim();
-    const formatWhere = formatCode ? `AND LOWER(TRIM(pf.format_code)) = LOWER(TRIM($1))` : '';
+    const formatWhere = formatCode ? `AND ${formatKeySql('pf.format_code')} = $1` : '';
     const recipes = (await this.dataSource.query(
       `
       SELECT r.id, r.descripcion, pf.format_code, pf.species_id, s.nombre AS species_name
@@ -362,7 +361,7 @@ export class ReportingService {
       WHERE r.activo = TRUE ${formatWhere}
       ORDER BY pf.format_code
       `,
-      formatCode ? [formatCode] : [],
+      formatCode ? [formatCodeMatchKey(formatCode)] : [],
     )) as Array<{ id: number; format_code: string; descripcion: string | null; species_id: number | null; species_name: string | null }>;
 
     const recipeIds = recipes.map((r) => Number(r.id));
@@ -392,7 +391,7 @@ export class ReportingService {
     const formatSurcharges = await this.packingFormatSurchargeRepo.find({ where: { active: true } });
     const surchargeByFormat = new Map<string, number>();
     for (const fs of formatSurcharges) {
-      const fk = fs.format_code.trim().toLowerCase();
+      const fk = formatCodeMatchKey(fs.format_code);
       if (!surchargeByFormat.has(fk)) {
         surchargeByFormat.set(fk, Number(fs.surcharge_per_lb));
       }
@@ -434,7 +433,7 @@ export class ReportingService {
 
     const formats = (await this.dataSource.query(
       `
-      SELECT LOWER(TRIM(format_code)) AS format_key, max_boxes_per_pallet
+      SELECT ${formatKeySql('format_code')} AS format_key, max_boxes_per_pallet
       FROM presentation_formats
       `,
     )) as Array<{ format_key: string; max_boxes_per_pallet: number | null }>;
@@ -445,7 +444,7 @@ export class ReportingService {
     const invoiceAgg = (await this.dataSource.query(
       `
       SELECT
-        LOWER(TRIM(ii.packaging_code)) AS format_key,
+        ${formatKeySql('ii.packaging_code')} AS format_key,
         COALESCE(SUM(ii.cajas), 0)::numeric AS cajas,
         COALESCE(
           SUM(
@@ -469,7 +468,7 @@ export class ReportingService {
       WHERE ii.packaging_code IS NOT NULL
         AND BTRIM(ii.packaging_code) <> ''
         ${this.withDate('d.fecha_despacho', filter)}
-      GROUP BY LOWER(TRIM(ii.packaging_code))
+      GROUP BY ${formatKeySql('ii.packaging_code')}
       `,
     )) as Array<{ format_key: string; cajas: string; lb_totales: string; precio_cliente: string | null }>;
     const aggByFormat = new Map<string, { cajas: number; lb_totales: number; precio_cliente: number | null }>(
@@ -487,7 +486,7 @@ export class ReportingService {
     const summaryRows: Record<string, unknown>[] = [];
 
     for (const recipe of recipes) {
-      const formatKey = recipe.format_code.trim().toLowerCase();
+      const formatKey = formatCodeMatchKey(recipe.format_code);
       const agg = aggByFormat.get(formatKey) ?? { cajas: 0, lb_totales: 0, precio_cliente: null };
 
       // Lb de máquina para este formato en el período
@@ -512,7 +511,7 @@ export class ReportingService {
       WHERE ii.tarja_id IS NOT NULL
         AND ii.fruit_process_id IS NULL
         AND rt.codigo = 'machine_picking'
-        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        AND ${formatKeySql('ii.packaging_code')} = $2
         ${this.withDate('d.fecha_despacho', filter)}
 
       UNION ALL
@@ -532,7 +531,7 @@ export class ReportingService {
       JOIN reception_types rt ON rt.id = r.reception_type_id
       WHERE ii.fruit_process_id IS NOT NULL
         AND rt.codigo = 'machine_picking'
-        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        AND ${formatKeySql('ii.packaging_code')} = $2
         ${this.withDate('d.fecha_despacho', filter)}
 
       UNION ALL
@@ -554,11 +553,11 @@ export class ReportingService {
         AND ii.tarja_id IS NULL
         AND ii.fruit_process_id IS NULL
         AND rt.codigo = 'machine_picking'
-        AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM($1))
+        AND ${formatKeySql('ii.packaging_code')} = $2
         ${this.withDate('d.fecha_despacho', filter)}
     ) sub
     `,
-        [recipe.format_code],
+        [recipe.format_code, formatKey],
       )) as Array<{ lb_machine: string }>;
       const lbMachine = Number(machineLbRows[0]?.lb_machine ?? 0);
 
@@ -622,7 +621,7 @@ export class ReportingService {
       // Aplicar ajuste de escenario por formato
       let materialAdjustment = 0;
       for (const adj of materialAdjustments) {
-        const adjFormatKey = adj.format_code?.trim().toLowerCase() ?? null;
+        const adjFormatKey = adj.format_code?.trim() ? formatCodeMatchKey(adj.format_code) : null;
         if (adjFormatKey !== null && adjFormatKey !== formatKey) continue;
         const v = Number(adj.value);
         if (adj.adjustment_type === 'per_box') {
@@ -708,12 +707,7 @@ export class ReportingService {
     const inner = formatInner ?? (await this.computeFormatCostingRows(filter));
     const costByFormat = this.costMapFromFormatSummary(inner.summaryRows);
     const formatRowByKey = new Map(
-      inner.summaryRows.map((r) => [
-        String((r as { format_code?: string }).format_code ?? '')
-          .trim()
-          .toLowerCase(),
-        r,
-      ]),
+      inner.summaryRows.map((r) => [formatCodeMatchKey(String((r as { format_code?: string }).format_code ?? '')), r]),
     );
 
     const lines = (await this.dataSource.query(
@@ -809,7 +803,7 @@ export class ReportingService {
       const cajas = Number(li.cajas ?? 0);
       const lbLine = Number(li.lb_line ?? 0);
       const ventas = Number(li.line_subtotal ?? 0);
-      const fmt = li.packaging_code?.trim() ? li.packaging_code.trim().toLowerCase() : null;
+      const fmt = li.packaging_code?.trim() ? formatCodeMatchKey(li.packaging_code) : null;
       const { slices } = this.settlementSlicesForInvoiceLine(
         li.tarja_id != null && Number(li.tarja_id) > 0 ? Number(li.tarja_id) : null,
         li.fruit_process_id != null && Number(li.fruit_process_id) > 0 ? Number(li.fruit_process_id) : null,
@@ -1021,7 +1015,7 @@ export class ReportingService {
       const cajas = Number(li.cajas ?? 0);
       const lbLine = Number(li.lb_line ?? 0);
       const ventas = Number(li.line_subtotal ?? 0);
-      const fmt = li.packaging_code?.trim() ? li.packaging_code.trim().toLowerCase() : null;
+      const fmt = li.packaging_code?.trim() ? formatCodeMatchKey(li.packaging_code) : null;
       const { slices } = this.settlementSlicesForInvoiceLine(
         li.tarja_id != null && Number(li.tarja_id) > 0 ? Number(li.tarja_id) : null,
         li.fruit_process_id != null && Number(li.fruit_process_id) > 0 ? Number(li.fruit_process_id) : null,
@@ -1120,7 +1114,7 @@ export class ReportingService {
     const clientClause = cid != null ? ` AND d.cliente_id = ${cid}` : '';
     const fc = filter.format_code?.trim();
     const formatLineClause = fc
-      ? ` AND LOWER(TRIM(ii.packaging_code)) = LOWER(TRIM('${fc.replace(/'/g, "''")}'))`
+      ? ` AND ${formatKeySql('ii.packaging_code')} = '${formatCodeMatchKey(fc).replace(/'/g, "''")}'`
       : '';
 
     const lines = (await this.dataSource.query(
@@ -1161,7 +1155,7 @@ export class ReportingService {
       const cajas = Number(li.cajas ?? 0);
       const lbLine = Number(li.lb_line ?? 0);
       const ventas = Number(li.line_subtotal ?? 0);
-      const fmt = li.packaging_code?.trim() ? li.packaging_code.trim().toLowerCase() : null;
+      const fmt = li.packaging_code?.trim() ? formatCodeMatchKey(li.packaging_code) : null;
       const pk = `${clienteId}|${fmt ?? ''}`;
       const cur = byClientFormat.get(pk) ?? { cliente_id: clienteId, format_key: fmt, cajas: 0, lb: 0, ventas: 0 };
       cur.cajas += cajas;
@@ -1965,11 +1959,11 @@ export class ReportingService {
   }
 
   async upsertPackingFormatSurcharge(dto: UpsertPackingFormatSurchargeDto): Promise<PackingFormatSurcharge> {
-    const formatKey = dto.format_code.trim().toLowerCase();
+    const formatKey = formatCodeMatchKey(dto.format_code);
     const seasonKey = dto.season?.trim() || null;
     const existing = await this.packingFormatSurchargeRepo
       .createQueryBuilder('s')
-      .where('LOWER(TRIM(s.format_code)) = :fk', { fk: formatKey })
+      .where(`${formatKeySql('s.format_code')} = :fk`, { fk: formatKey })
       .andWhere("COALESCE(s.season, '') = COALESCE(:sk, '')", { sk: seasonKey })
       .getOne();
     if (existing) {
@@ -2065,9 +2059,9 @@ export class ReportingService {
         `SELECT s.nombre AS species_nombre
          FROM presentation_formats pf
          LEFT JOIN species s ON s.id = pf.species_id
-         WHERE LOWER(TRIM(pf.format_code)) = LOWER(TRIM($1))
+         WHERE ${formatKeySql('pf.format_code')} = $1
          LIMIT 1`,
-        [fc],
+        [formatCodeMatchKey(fc)],
       )) as Array<{ species_nombre: string | null }>;
       especieLabel = rows[0]?.species_nombre?.trim() ?? null;
     }
