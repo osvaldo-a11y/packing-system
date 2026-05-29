@@ -5,6 +5,21 @@
 scripts/check-db.js
 scripts/backup-*.sql
 
+# Credenciales y archivos sensibles
+tmp-login.json
+*.credentials.json
+
+# Servicio Zebra local — binarios y logs
+local-zebra-print-service/daemon/*.exe
+local-zebra-print-service/daemon/*.exe.config
+local-zebra-print-service/daemon/*.xml
+local-zebra-print-service/daemon/*.log
+local-zebra-print-service/daemon/*.wrapper.log
+
+# Variables de entorno locales
+.env.local
+frontend/.env.local
+
 
 # Build y dependencias
 /node_modules
