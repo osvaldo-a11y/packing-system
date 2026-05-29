@@ -5,6 +5,13 @@
 scripts/check-db.js
 scripts/backup-*.sql
 
+# Scripts y archivos temporales de diagnóstico
+scripts/tmp-*.cjs
+_tmp_*.txt
+_tmp_*.json
+*.tmp.ts
+*.tmp.js
+
 # Credenciales y archivos sensibles
 tmp-login.json
 *.credentials.json
