@@ -511,7 +511,7 @@ export class ReportingService {
       WHERE ii.tarja_id IS NOT NULL
         AND ii.fruit_process_id IS NULL
         AND (rt.codigo = 'machine_picking' OR fp.id IN (919))
-        AND fp.id NOT IN (907, 914, 925, 933, 937, 948, 954, 961, 966)
+        AND fp.id NOT IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966)
         AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
 
@@ -532,7 +532,7 @@ export class ReportingService {
       JOIN reception_types rt ON rt.id = r.reception_type_id
       WHERE ii.fruit_process_id IS NOT NULL
         AND (rt.codigo = 'machine_picking' OR fp.id IN (919))
-        AND fp.id NOT IN (907, 914, 925, 933, 937, 948, 954, 961, 966)
+        AND fp.id NOT IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966)
         AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
 
@@ -555,7 +555,7 @@ export class ReportingService {
         AND ii.tarja_id IS NULL
         AND ii.fruit_process_id IS NULL
         AND (rt.codigo = 'machine_picking' OR fp.id IN (919))
-        AND fp.id NOT IN (907, 914, 925, 933, 937, 948, 954, 961, 966)
+        AND fp.id NOT IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966)
         AND ${formatKeySql('ii.packaging_code')} = $1
         ${this.withDate('d.fecha_despacho', filter)}
     ) sub
@@ -855,7 +855,7 @@ export class ReportingService {
         WHERE ii.tarja_id IS NOT NULL
           AND ii.fruit_process_id IS NULL
           AND (rt.codigo = 'machine_picking' OR fp.id IN (919))
-          AND fp.id NOT IN (907, 914, 925, 933, 937, 948, 954, 961, 966)
+          AND fp.id NOT IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966)
           ${this.withDate('d.fecha_despacho', filter)}
 
         UNION ALL
@@ -874,7 +874,7 @@ export class ReportingService {
         JOIN reception_types rt ON rt.id = r.reception_type_id
         WHERE ii.fruit_process_id IS NOT NULL
           AND (rt.codigo = 'machine_picking' OR fp.id IN (919))
-          AND fp.id NOT IN (907, 914, 925, 933, 937, 948, 954, 961, 966)
+          AND fp.id NOT IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966)
           ${this.withDate('d.fecha_despacho', filter)}
       ) sub
       WHERE productor_id IS NOT NULL AND productor_id > 0
