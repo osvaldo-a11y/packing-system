@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
+import { formatCodeMatchKey } from '@/lib/format-code';
 import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
 import {
   contentCard,
@@ -562,12 +563,20 @@ export function ProcessesPage() {
   }, [linkedPtRowsForModal]);
 
   const formatFilterOptions = useMemo(() => {
-    const s = new Set<string>();
+    const canonical = new Map<string, string>();
     for (const f of presFormats ?? []) {
-      if (f.activo !== false) s.add(f.format_code);
+      if (f.activo === false) continue;
+      const code = f.format_code?.trim();
+      if (!code) continue;
+      canonical.set(formatCodeMatchKey(code), code);
     }
-    for (const t of ptTags ?? []) s.add(t.format_code);
-    return [...s].sort((a, b) => a.localeCompare(b));
+    for (const t of ptTags ?? []) {
+      const code = t.format_code?.trim();
+      if (!code) continue;
+      const key = formatCodeMatchKey(code);
+      if (!canonical.has(key)) canonical.set(key, code);
+    }
+    return [...canonical.values()].sort((a, b) => a.localeCompare(b, 'es'));
   }, [presFormats, ptTags]);
 
   const { data: eligibleLines, isFetching: eligibleLoading } = useQuery({
@@ -1064,11 +1073,11 @@ export function ProcessesPage() {
       rows = rows.filter((r) => (r.process_status ?? 'borrador') === filterStatus);
     }
     if (filterProcessFormat.trim()) {
-      const fc = filterProcessFormat.trim().toLowerCase();
+      const fc = formatCodeMatchKey(filterProcessFormat);
       rows = rows.filter((r) => {
         if (r.tarja_id == null) return false;
         const tag = tagById.get(r.tarja_id);
-        return tag?.format_code?.trim().toLowerCase() === fc;
+        return formatCodeMatchKey(tag?.format_code ?? '') === fc;
       });
     }
     if (filterProcessClient > 0) {
