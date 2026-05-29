@@ -1462,25 +1462,15 @@ export class DocumentsPdfService {
     return this.buildTagDetailPdf(id);
   }
 
-  async buildInvoicePdf(dispatchId: number): Promise<Buffer> {
+  async buildInvoicePdf(dispatchId: number, lang: 'es' | 'en' = 'en'): Promise<Buffer> {
     await this.resolveCompanyLine();
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId }, relations: { client: true } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
     const inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
     if (!inv) throw new NotFoundException('Factura no generada; ejecute POST .../invoice/generate primero');
     const lines = await this.invItemRepo.find({ where: { invoice_id: inv.id }, order: { id: 'ASC' } });
-    const plLinks = await this.dispatchPlRepo.find({
-      where: { dispatch_id: dispatchId },
-      relations: { pt_packing_list: true },
-    });
+    const plLinks = await this.dispatchPlRepo.find({ where: { dispatch_id: dispatchId }, relations: { pt_packing_list: true } });
     const plCodes = plLinks.map((l) => l.pt_packing_list?.list_code).filter((c): c is string => !!c);
-
-    const varietyIds = [
-      ...new Set(lines.map((l) => (l.variety_id != null && Number(l.variety_id) > 0 ? Number(l.variety_id) : null)).filter((x): x is number => x != null)),
-    ];
-    const varieties = varietyIds.length ? await this.varietyRepo.findBy({ id: In(varietyIds) }) : [];
-    const varietyName = new Map(varieties.map((v) => [v.id, v.nombre]));
-
     let clienteNombre = dispatch.client?.nombre ?? null;
     if (!clienteNombre && dispatch.client_id != null && Number(dispatch.client_id) > 0) {
       const c = await this.clientRepo.findOne({ where: { id: Number(dispatch.client_id) } });
@@ -1489,123 +1479,207 @@ export class DocumentsPdfService {
     const pedidoCliente = await this.clientRepo.findOne({ where: { id: Number(dispatch.cliente_id) } });
     const pedidoNombre = pedidoCliente?.nombre?.trim() ?? null;
 
-    const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
-    const x0 = DocumentsPdfService.PDF_MARGIN;
-    const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
-    let y = this.renderCorporateHeader(
-      doc,
-      x0,
-      DocumentsPdfService.PDF_MARGIN,
-      w,
-      'Factura comercial',
-      'Documento financiero — despacho y facturación',
-    );
+    const ACCENT = '#1a3a5c';
+    const MUTED  = '#555555';
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    const fmtDate = (d: Date): string =>
+      d.toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
 
-    const fd = dispatch.fecha_despacho instanceof Date ? dispatch.fecha_despacho : new Date(String(dispatch.fecha_despacho));
-    y = DocumentsPdfService.renderInvoiceCommercialBlock(doc, x0, y, w, {
-      clienteComercial: clienteNombre?.trim() ? clienteNombre : '—',
-      clientePedido: pedidoNombre ?? '—',
-      fechaTexto: DocumentsPdfService.pdfDateEs(fd),
-      documentoRef: String(inv.invoice_number ?? '—'),
-      packingLists: plCodes.length ? plCodes.join(', ') : '—',
-      operacionLine: `BOL / transporte: ${dispatch.numero_bol ?? '—'} · Orden: ${dispatch.orden_id ?? '—'}`,
-    });
+    const L = {
+      title:       lang === 'en' ? 'COMMERCIAL INVOICE'          : 'FACTURA COMERCIAL',
+      subtitle:    lang === 'en' ? 'Financial document — dispatch and invoicing' : 'Documento financiero — despacho y facturación',
+      soldTo:      lang === 'en' ? 'SOLD TO'                     : 'CLIENTE COMERCIAL',
+      billTo:      lang === 'en' ? 'BILL TO'                     : 'CLIENTE PEDIDO',
+      date:        lang === 'en' ? 'DATE'                        : 'FECHA',
+      invoice:     lang === 'en' ? 'INVOICE #'                   : 'N° FACTURA',
+      bol:         lang === 'en' ? 'BOL / REFERENCE'             : 'BOL / REFERENCIA',
+      packingLists: lang === 'en' ? 'PACKING LISTS'               : 'PACKING LISTS',
+      detailTitle: lang === 'en' ? 'Product and services detail' : 'Detalle de producto y servicios',
+      detailSub:   lang === 'en' ? 'Prices and billable quantities' : 'Precios y cantidades facturables',
+      colConcepto: lang === 'en' ? 'Description'   : 'Concepto',
+      colCajas:    lang === 'en' ? 'Boxes'         : 'Cajas',
+      colLb:       lang === 'en' ? 'Net lb'        : 'Lb neto',
+      colPUnit:    lang === 'en' ? 'Unit price'    : 'P. unit.',
+      colSubtotal: lang === 'en' ? 'Subtotal'      : 'Subtotal',
+      colObs:      lang === 'en' ? 'Notes'         : 'Observaciones',
+      ptUnit:      lang === 'en' ? 'PT unit'       : 'Producto PT (unidad)',
+      discount:    lang === 'en' ? 'Discount · '   : 'Descuento · ',
+      adjustment:  lang === 'en' ? 'Adjustment · ' : 'Ajuste · ',
+      noLines:     lang === 'en' ? 'No lines'      : 'Sin líneas',
+      totalesProducto: lang === 'en' ? 'Product totals (boxes / lb / line subtotal)' : 'Totales producto (cajas / lb / subtotal líneas)',
+      subtotal:    lang === 'en' ? 'Subtotal'      : 'Subtotal',
+      costoPallet: lang === 'en' ? 'Pallet / logistics cost' : 'Costo pallet / logística',
+      total:       lang === 'en' ? 'TOTAL'         : 'TOTAL',
+      costoLog:    lang === 'en' ? 'Pallet logistics cost' : 'Costo logística pallet',
+      footer:      lang === 'en'
+        ? 'Commercial document generated from the traceability system. Does not modify inventory or physical balances.'
+        : 'Documento comercial generado desde el sistema de trazabilidad. No modifica inventario ni saldos físicos.',
+    };
+
+    const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    const x0 = DocumentsPdfService.PDF_MARGIN;
+    const w  = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
+
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+    let y = DocumentsPdfService.PDF_MARGIN;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+       .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(ACCENT)
+       .text(L.title, x0, y, { width: w, align: 'center' });
+    y += 22;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+       .text(L.subtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 6).lineTo(x0 + w, y + 6).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 18;
+
+    const colW2 = w / 2 - 8;
+    const xR    = x0 + w / 2 + 8;
+    const fd    = dispatch.fecha_despacho instanceof Date ? dispatch.fecha_despacho : new Date(String(dispatch.fecha_despacho));
+    const renderMeta = (label: string, value: string, x: number, startY: number, maxW: number): number => {
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(MUTED).text(label, x, startY, { width: maxW });
+      doc.font('Helvetica').fontSize(9).fillColor('#111111').text(value, x, startY + 9, { width: maxW });
+      return startY + 26;
+    };
+    const metaStartY = y;
+    renderMeta(L.soldTo,  clienteNombre?.trim() || '—', x0, metaStartY, colW2);
+    renderMeta(L.invoice, String(inv.invoice_number ?? '—'), xR, metaStartY, colW2);
+    y = metaStartY + 28;
+    renderMeta(L.billTo,  pedidoNombre || '—', x0, y, colW2);
+    renderMeta(L.date,    fmtDate(fd), xR, y, colW2);
+    y += 28;
+    renderMeta(L.bol,         dispatch.numero_bol ?? '—', x0, y, colW2);
+    renderMeta(L.packingLists, plCodes.length ? plCodes.join(', ') : '—', xR, y, colW2);
+    y += 28;
+    doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 12;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(L.detailTitle, x0, y);
+    y += 14;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.detailSub, x0, y);
+    y += 14;
 
     const detailRows: string[][] = [];
-    let sumCajas = 0;
-    let sumLb = 0;
-    let sumProducto = 0;
+    let sumCajas = 0, sumLb = 0, sumProducto = 0;
+
+    type ProductGroup = {
+      packagingCode: string;
+      brand: string;
+      unitPrice: number;
+      cajas: number;
+      lb: number;
+      subtotal: number;
+    };
+    const productByFmtBrand = new Map<string, ProductGroup>();
+
+    const productGroupKey = (fmt: string, brand: string, unitPrice: number): string =>
+      `${fmt.trim().toLowerCase()}\0${brand.trim().toLowerCase()}\0${unitPrice.toFixed(4)}`;
 
     for (const li of lines) {
       if (li.tarja_id != null && Number(li.tarja_id) > 0) {
-        const obs = `Costo logística pallet: $ ${DocumentsPdfService.moneyAr(Number(li.pallet_cost_total ?? 0))}`;
         detailRows.push([
-          'Producto PT (unidad)',
-          String(li.cajas),
-          '—',
+          L.ptUnit, String(li.cajas), '—',
           `$ ${DocumentsPdfService.moneyAr(Number(li.unit_price))}`,
           `$ ${DocumentsPdfService.moneyAr(Number(li.line_subtotal))}`,
-          obs,
+          `${L.costoLog}: $ ${DocumentsPdfService.moneyAr(Number(li.pallet_cost_total ?? 0))}`,
         ]);
-        sumCajas += li.cajas;
-        sumProducto += Number(li.line_subtotal);
+        sumCajas += li.cajas; sumProducto += Number(li.line_subtotal);
         continue;
       }
       if (li.is_manual) {
-        const desc =
-          (li.manual_description && String(li.manual_description).trim()) ||
-          [li.packaging_code, li.brand].filter((x) => x != null && String(x).trim() !== '').join(' · ') ||
-          '—';
-        const kindLabel = li.manual_line_kind === 'descuento' ? 'Descuento · ' : 'Ajuste · ';
+        const desc = (li.manual_description && String(li.manual_description).trim()) ||
+          [li.packaging_code, li.brand].filter((x) => x != null && String(x).trim() !== '').join(' · ') || '—';
+        const kindLabel = li.manual_line_kind === 'descuento' ? L.discount : L.adjustment;
         const lb = li.pounds != null ? Number(li.pounds) : 0;
         detailRows.push([
-          `${kindLabel}${desc}`,
-          String(li.cajas),
+          `${kindLabel}${desc}`, String(li.cajas),
           lb > 0 ? `${DocumentsPdfService.qtyAr(lb)} lb` : '—',
           `$ ${DocumentsPdfService.moneyAr(Number(li.unit_price))}`,
-          `$ ${DocumentsPdfService.moneyAr(Number(li.line_subtotal))}`,
-          '—',
+          `$ ${DocumentsPdfService.moneyAr(Number(li.line_subtotal))}`, '—',
         ]);
-        sumCajas += li.cajas;
-        sumProducto += Number(li.line_subtotal);
+        sumCajas += li.cajas; sumProducto += Number(li.line_subtotal);
         continue;
       }
-      const vid = li.variety_id != null ? Number(li.variety_id) : null;
-      const vn = vid != null ? varietyName.get(vid) ?? '—' : '—';
+      const fmt = (li.packaging_code ?? '—').trim() || '—';
+      const brand = (li.brand ?? '—').trim() || '—';
+      const unitPrice = Number(li.unit_price);
       const lb = li.pounds != null ? Number(li.pounds) : 0;
-      const marca = li.brand ?? '—';
-      const fmt = li.packaging_code ?? '—';
-      detailRows.push([
-        `${fmt} · ${vn} · ${marca}`,
-        String(li.cajas),
-        `${DocumentsPdfService.qtyAr(lb)} lb`,
-        `$ ${DocumentsPdfService.moneyAr(Number(li.unit_price))}`,
-        `$ ${DocumentsPdfService.moneyAr(Number(li.line_subtotal))}`,
-        '—',
-      ]);
+      const key = productGroupKey(fmt, brand, unitPrice);
+      const cur = productByFmtBrand.get(key) ?? {
+        packagingCode: fmt,
+        brand,
+        unitPrice,
+        cajas: 0,
+        lb: 0,
+        subtotal: 0,
+      };
+      cur.cajas += li.cajas;
+      cur.lb += lb;
+      cur.subtotal += Number(li.line_subtotal);
+      productByFmtBrand.set(key, cur);
       sumCajas += li.cajas;
       sumLb += lb;
       sumProducto += Number(li.line_subtotal);
     }
 
+    const groupedProductRows = [...productByFmtBrand.values()]
+      .sort((a, b) =>
+        a.packagingCode.localeCompare(b.packagingCode) || a.brand.localeCompare(b.brand) || a.unitPrice - b.unitPrice,
+      )
+      .map((g) => [
+        `${g.packagingCode} - ${g.brand}`,
+        String(g.cajas),
+        g.lb > 0 ? `${DocumentsPdfService.qtyAr(g.lb)} lb` : '—',
+        `$ ${DocumentsPdfService.moneyAr(g.unitPrice)}`,
+        `$ ${DocumentsPdfService.moneyAr(g.subtotal)}`,
+        '—',
+      ] as string[]);
+
+    detailRows.unshift(...groupedProductRows);
+
     const tw = [w * 0.26, w * 0.08, w * 0.12, w * 0.14, w * 0.14, w * 0.26];
-    const headerDet = ['Concepto', 'Cajas', 'Lb neto', 'P. unit.', 'Subtotal', 'Observaciones'];
-    y = DocumentsPdfService.renderSectionTitle(doc, x0, y, 'Detalle de producto y servicios', 'Precios y cantidades facturables');
-    y += 6;
-    if (!detailRows.length) {
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, tw, headerDet, [['—', '—', '—', '—', '—', 'Sin líneas']], {
-        fs: 8,
-        rowHeight: 14,
-        wrap: true,
-      });
-    } else {
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, tw, headerDet, detailRows, { fs: 8, rowHeight: 14, wrap: true });
-    }
+    const headerDet = [L.colConcepto, L.colCajas, L.colLb, L.colPUnit, L.colSubtotal, L.colObs];
+    y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, tw, headerDet,
+      detailRows.length ? detailRows : [['—', '—', '—', '—', '—', L.noLines]],
+      { fs: 8, rowHeight: 14, wrap: true });
 
     y += 6;
     y = DocumentsPdfService.ensureVerticalSpace(doc, y, 120);
-    doc.moveTo(x0, y).lineTo(x0 + w, y).stroke('#dddddd');
+    doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
     y += 10;
-    y = DocumentsPdfService.renderStatementTotals(doc, x0, y, w, [
-      {
-        label: 'Totales producto (cajas / lb / subtotal líneas)',
-        value: `${DocumentsPdfService.qtyAr(sumCajas)} cajas · ${DocumentsPdfService.qtyAr(sumLb)} lb · $ ${DocumentsPdfService.moneyAr(sumProducto)}`,
-      },
-      { label: 'Subtotal', value: String(inv.subtotal) },
-      { label: 'Costo pallet / logística', value: String(inv.total_cost) },
-      { label: 'Total', value: String(inv.total), bold: true },
-    ]);
+    const totalH = 28;
+    const totalRows = [
+      { label: L.totalesProducto, value: `${DocumentsPdfService.qtyAr(sumCajas)} ${L.colCajas.toLowerCase()} · ${DocumentsPdfService.qtyAr(sumLb)} lb · $ ${DocumentsPdfService.moneyAr(sumProducto)}` },
+      { label: L.subtotal,  value: `$ ${DocumentsPdfService.moneyAr(Number(inv.subtotal))}` },
+      { label: L.costoPallet, value: `$ ${DocumentsPdfService.moneyAr(Number(inv.total_cost))}` },
+    ];
+    for (const r of totalRows) {
+      doc.font('Helvetica').fontSize(9).fillColor('#333333').text(r.label, x0, y, { width: w * 0.62 });
+      doc.font('Helvetica').fontSize(9).fillColor('#333333').text(r.value, x0 + w * 0.62, y, { width: w * 0.38, align: 'right' });
+      y += 16;
+    }
+    y += 4;
+    doc.save();
+    doc.rect(x0, y, w, totalH).fill(ACCENT);
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#ffffff')
+       .text(`${L.total}`, x0 + 10, y + 8, { width: w * 0.5 });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#ffffff')
+       .text(`$ ${DocumentsPdfService.moneyAr(Number(inv.total))}`, x0, y + 8, { width: w - 10, align: 'right' });
+    y += totalH + 8;
 
-    y += 8;
-    y = DocumentsPdfService.ensureVerticalSpace(doc, y, 48);
-    DocumentsPdfService.renderDocumentFooter(
-      doc,
-      x0,
-      y,
-      w,
-      'Documento comercial generado desde el sistema de trazabilidad. No modifica inventario ni saldos físicos.',
-    );
-    return pdfToBuffer(doc);
+    this.drawFooter(doc, x0, w, L.footer,
+      new Date().toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }), MUTED);
+    doc.end();
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+    });
   }
 
   /** Factura PDF desde packing list PT (sin despacho). Solo documento; precios por formato en el cuerpo. */
@@ -1720,114 +1794,269 @@ export class DocumentsPdfService {
     return pdfToBuffer(doc);
   }
 
-  async buildPackingListPdf(dispatchId: number): Promise<Buffer> {
+  async buildPackingListPdf(dispatchId: number, lang: 'es' | 'en' = 'en'): Promise<Buffer> {
     await this.resolveCompanyLine();
     const dispatch = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
     if (!dispatch) throw new NotFoundException('Despacho no encontrado');
     const pedidoCliente = await this.clientRepo.findOne({ where: { id: Number(dispatch.cliente_id) } });
     const pl = await this.plRepo.findOne({ where: { dispatch_id: dispatchId } });
     const items = await this.dtiRepo.find({ where: { dispatch_id: dispatchId } });
+    const ptPlLinks = await this.dispatchPlRepo.find({
+      where: { dispatch_id: dispatchId },
+      relations: { pt_packing_list: true },
+    });
+    const ptPlCodes = ptPlLinks.map((l) => l.pt_packing_list?.list_code).filter((c): c is string => !!c);
+    const ptPlIds = ptPlLinks.map((l) => l.pt_packing_list_id).filter((x) => x != null && Number(x) > 0);
+    let ptPlFpIds: number[] = [];
+    if (ptPlIds.length > 0) {
+      const ptPlItemRows = await this.dataSource.query(
+        `SELECT DISTINCT final_pallet_id FROM pt_packing_list_items WHERE packing_list_id = ANY($1::int[])`,
+        [ptPlIds],
+      ) as Array<{ final_pallet_id: number }>;
+      ptPlFpIds = ptPlItemRows.map((r) => Number(r.final_pallet_id)).filter((x) => x > 0);
+    }
+    const legacyFpIds: number[] = [];
+    if (ptPlFpIds.length === 0) {
+      const legacyRows = await this.dataSource.query(
+        `SELECT id FROM final_pallets WHERE dispatch_id = $1`,
+        [dispatchId],
+      ) as Array<{ id: number }>;
+      legacyFpIds.push(...legacyRows.map((r) => Number(r.id)));
+    }
+    const allFpIds = ptPlFpIds.length > 0 ? ptPlFpIds : legacyFpIds;
+    const fpsFromDispatch =
+      allFpIds.length > 0
+        ? await this.fpRepo.find({
+            where: { id: In(allFpIds) },
+            relations: { presentation_format: true },
+          })
+        : [];
+
+    const ACCENT = '#1a3a5c';
+    const MUTED  = '#555555';
+    const locale = lang === 'en' ? 'en-US' : 'es-AR';
+    const fmtDateLong = (d: Date): string =>
+      d.toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' });
+
+    const L = {
+      title:      lang === 'en' ? 'PACKING LIST'                 : 'PACKING LIST — SALIDA',
+      subtitle:   lang === 'en' ? 'Logistics document — load and transport' : 'Documento logístico — carga y transporte',
+      shipInfo:   lang === 'en' ? 'Shipping & conditions'        : 'Envío y condiciones',
+      clientePedido: lang === 'en' ? 'Order client'              : 'Cliente pedido',
+      fechaCarga: lang === 'en' ? 'Load date'                    : 'Fecha de carga',
+      bolRef:     lang === 'en' ? 'BOL / transport reference'    : 'BOL / referencia transporte',
+      tempF:      lang === 'en' ? 'Load temperature (°F)'        : 'Temperatura de carga (°F)',
+      termografo: lang === 'en' ? 'Temperature recorder'         : 'Termógrafo',
+      refPl:      lang === 'en' ? 'Packing list reference'       : 'Referencia packing list',
+      plPtCodes:  lang === 'en' ? 'PT packing lists'           : 'Packing lists PT',
+      cargaTitle: lang === 'en' ? 'Load — PT units'              : 'Carga — unidades PT',
+      cargaSub:   lang === 'en' ? 'Dispatched quantities'        : 'Cantidades despachadas',
+      cargaSubFp: lang === 'en' ? 'Detail by pallet and format (from PT packing lists)' : 'Detalle por pallet y formato (desde packing lists PT)',
+      colRef:     lang === 'en' ? 'PT unit (reference)'          : 'Unidad PT (referencia)',
+      colCajas:   lang === 'en' ? 'Boxes'   : 'Cajas',
+      colPallets: lang === 'en' ? 'Pallets' : 'Pallets',
+      colPrecio:  lang === 'en' ? 'Unit price' : 'Precio unit.',
+      sinLineas:  lang === 'en' ? 'No unit lines' : 'Sin líneas de unidad',
+      existTitle: lang === 'en' ? 'PT stock included in list'    : 'Existencias PT incluidas en el listado',
+      colUnidad:  lang === 'en' ? 'PT unit / stock'              : 'Unidad PT / existencia',
+      colFormato: lang === 'en' ? 'Format'  : 'Formato',
+      colLb:      lang === 'en' ? 'Net lb'  : 'Lb neto',
+      footer:     lang === 'en'
+        ? 'Logistics document generated from the traceability system. Verify load and transport documentation before dispatch.'
+        : 'Documento logístico generado desde el sistema de trazabilidad. Verificar carga y documentación de transporte antes del despacho.',
+    };
 
     const doc = new PDFDocument({ margin: DocumentsPdfService.PDF_MARGIN, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
     const x0 = DocumentsPdfService.PDF_MARGIN;
-    const w = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
-    let y = this.renderCorporateHeader(
-      doc,
-      x0,
-      DocumentsPdfService.PDF_MARGIN,
-      w,
-      'Packing list — salida',
-      'Documento logístico — carga y transporte',
-    );
+    const w  = doc.page.width - 2 * DocumentsPdfService.PDF_MARGIN;
 
-    const fechaDesp = dispatch.fecha_despacho instanceof Date ? dispatch.fecha_despacho : new Date(String(dispatch.fecha_despacho));
-    const logLines = [
-      `Cliente pedido: ${pedidoCliente?.nombre?.trim() ?? '—'}`,
-      `Fecha de carga: ${DocumentsPdfService.pdfDateEs(fechaDesp)}`,
-      `BOL / referencia transporte: ${dispatch.numero_bol?.trim() ? dispatch.numero_bol.trim() : '—'}`,
-      `Temperatura de carga (°F): ${dispatch.temperatura_f != null ? String(dispatch.temperatura_f) : '—'}`,
-      `Termógrafo: ${[
-        dispatch.thermograph_serial?.trim() ? dispatch.thermograph_serial.trim() : '—',
-        dispatch.thermograph_notes?.trim() ? dispatch.thermograph_notes.trim() : '',
-      ]
-        .filter(Boolean)
-        .join(' · ') || '—'}`,
-    ];
-    if (pl?.packing_number != null && String(pl.packing_number).trim() !== '') {
-      logLines.push(`Referencia packing list: ${String(pl.packing_number)}`);
+    doc.save();
+    doc.rect(x0, DocumentsPdfService.PDF_MARGIN - 16, w, 3).fill(ACCENT);
+    doc.restore();
+    let y = DocumentsPdfService.PDF_MARGIN;
+    doc.font('Helvetica').fontSize(8).fillColor(MUTED)
+       .text(this.companyLine(), x0, y, { width: w, align: 'center' });
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(ACCENT)
+       .text(L.title, x0, y, { width: w, align: 'center' });
+    y += 22;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+       .text(L.subtitle, x0, y, { width: w, align: 'center' });
+    y += 10;
+    doc.moveTo(x0, y + 6).lineTo(x0 + w, y + 6).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 18;
+
+    const colW2 = w / 2 - 8;
+    const xR    = x0 + w / 2 + 8;
+    const fechaDesp = dispatch.fecha_despacho instanceof Date
+      ? dispatch.fecha_despacho : new Date(String(dispatch.fecha_despacho));
+    const renderMeta = (label: string, value: string, x: number, startY: number, maxW: number): number => {
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(MUTED).text(label.toUpperCase(), x, startY, { width: maxW });
+      doc.font('Helvetica').fontSize(9).fillColor('#111111').text(value, x, startY + 9, { width: maxW });
+      return startY + 26;
+    };
+    const metaStartY = y;
+    renderMeta(L.clientePedido, pedidoCliente?.nombre?.trim() ?? '—', x0, metaStartY, colW2);
+    renderMeta(L.bolRef, dispatch.numero_bol?.trim() || '—', xR, metaStartY, colW2);
+    y = metaStartY + 28;
+    renderMeta(L.fechaCarga, fmtDateLong(fechaDesp), x0, y, colW2);
+    renderMeta(L.tempF, dispatch.temperatura_f != null ? String(dispatch.temperatura_f) : '—', xR, y, colW2);
+    y += 28;
+    const thermLine = [
+      dispatch.thermograph_serial?.trim() || '—',
+      dispatch.thermograph_notes?.trim() || '',
+    ].filter(Boolean).join(' · ');
+    renderMeta(L.termografo, thermLine, x0, y, colW2);
+    if (ptPlCodes.length > 0) {
+      renderMeta(L.plPtCodes, ptPlCodes.join(', '), xR, y, colW2);
+    } else if (pl?.packing_number != null && String(pl.packing_number).trim() !== '') {
+      renderMeta(L.refPl, String(pl.packing_number), xR, y, colW2);
     }
-    y = DocumentsPdfService.renderMutedContextBlock(doc, x0, y, w, 'Envío y condiciones', logLines);
-    y = DocumentsPdfService.renderSectionTitle(doc, x0, y, 'Carga — unidades PT', 'Cantidades despachadas');
+    y += 28;
+    doc.moveTo(x0, y).lineTo(x0 + w, y).lineWidth(0.5).strokeColor('#dddddd').stroke();
+    y += 12;
 
-    const itemTarjaIds = [...new Set(items.map((i) => Number(i.tarja_id)).filter((x) => x > 0))];
-    const itemTags =
-      itemTarjaIds.length > 0
-        ? await this.tagRepo.find({ where: { id: In(itemTarjaIds) }, select: ['id', 'tag_code'] })
-        : [];
-    const itemTagCode = new Map(itemTags.map((t) => [Number(t.id), (t.tag_code ?? '').trim()]));
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(L.cargaTitle, x0, y);
+    y += 14;
 
+    const useDti = items.length > 0;
     const ptRows: string[][] = [];
-    for (const it of items) {
-      const tid = Number(it.tarja_id);
-      const tc = tid > 0 ? itemTagCode.get(tid) : '';
-      const ref = tc ? tc : 'Unidad PT';
-      ptRows.push([
-        ref,
-        String(it.cajas_despachadas ?? '—'),
-        String(it.pallets_despachados ?? '—'),
-        it.unit_price != null ? `$ ${DocumentsPdfService.moneyAr(Number(it.unit_price))}` : '—',
-      ]);
+    let headPt: string[];
+    let twPt: number[];
+
+    if (useDti) {
+      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.cargaSub, x0, y);
+      y += 14;
+      const itemTarjaIds = [...new Set(items.map((i) => Number(i.tarja_id)).filter((x) => x > 0))];
+      const itemTags =
+        itemTarjaIds.length > 0
+          ? await this.tagRepo.find({ where: { id: In(itemTarjaIds) }, select: ['id', 'tag_code'] })
+          : [];
+      const itemTagCode = new Map(itemTags.map((t) => [Number(t.id), (t.tag_code ?? '').trim()]));
+      for (const it of items) {
+        const tid = Number(it.tarja_id);
+        const tc = tid > 0 ? itemTagCode.get(tid) : '';
+        ptRows.push([
+          tc || L.colRef,
+          String(it.cajas_despachadas ?? '—'),
+          String(it.pallets_despachados ?? '—'),
+          it.unit_price != null ? `$ ${DocumentsPdfService.moneyAr(Number(it.unit_price))}` : '—',
+        ]);
+      }
+      headPt = [L.colRef, L.colCajas, L.colPallets, L.colPrecio];
+      twPt = [w * 0.4, w * 0.2, w * 0.2, w * 0.2];
+    } else if (fpsFromDispatch.length > 0) {
+      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.cargaSubFp, x0, y);
+      y += 14;
+      const fpTrPdf = await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(allFpIds);
+      const sortedFps = [...fpsFromDispatch].sort((a, b) => Number(a.id) - Number(b.id));
+      for (const fp of sortedFps) {
+        const fpLines = await this.fplLineRepo.find({ where: { final_pallet_id: fp.id } });
+        const cajas = fpLines.reduce((s, l) => s + l.amount, 0);
+        const lb = fpLines.reduce((s, l) => s + Number(l.pounds ?? 0), 0);
+        const tr = fpTrPdf.get(Number(fp.id));
+        const primary =
+          tr?.codigo_unidad_pt_display?.trim() ||
+          fp.corner_board_code?.trim() ||
+          `PF-${fp.id}`;
+        const fmt = fp.presentation_format?.format_code?.trim() ?? '—';
+        ptRows.push([
+          primary,
+          fmt,
+          String(cajas),
+          lb > 0 ? `${DocumentsPdfService.qtyAr(lb)} lb` : '—',
+        ]);
+      }
+      headPt = [L.colUnidad, L.colFormato, L.colCajas, L.colLb];
+      twPt = [w * 0.28, w * 0.22, w * 0.18, w * 0.32];
+    } else {
+      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(L.cargaSub, x0, y);
+      y += 14;
+      const inv = await this.invRepo.findOne({ where: { dispatch_id: dispatchId } });
+      if (inv) {
+        const invLines = await this.invItemRepo.find({
+          where: { invoice_id: inv.id },
+          order: { id: 'ASC' },
+        });
+        type InvGroup = { fmt: string; brand: string; cajas: number; lb: number };
+        const invGroup = new Map<string, InvGroup>();
+        for (const li of invLines) {
+          if (li.tarja_id != null && Number(li.tarja_id) > 0) continue;
+          if (li.is_manual) continue;
+          const fmt = (li.packaging_code ?? '—').trim() || '—';
+          const brand = (li.brand ?? '—').trim() || '—';
+          const key = `${fmt.toLowerCase()}\0${brand.toLowerCase()}`;
+          const lb = li.pounds != null ? Number(li.pounds) : 0;
+          const cur = invGroup.get(key) ?? { fmt, brand, cajas: 0, lb: 0 };
+          cur.cajas += li.cajas;
+          cur.lb += lb;
+          invGroup.set(key, cur);
+        }
+        for (const g of [...invGroup.values()].sort(
+          (a, b) => a.fmt.localeCompare(b.fmt) || a.brand.localeCompare(b.brand),
+        )) {
+          ptRows.push([
+            `${g.fmt} - ${g.brand}`,
+            String(g.cajas),
+            '—',
+            g.lb > 0 ? `${DocumentsPdfService.qtyAr(g.lb)} lb` : '—',
+          ]);
+        }
+      }
+      headPt =
+        lang === 'en'
+          ? ['Description', L.colCajas, L.colPallets, L.colLb]
+          : ['Descripción', L.colCajas, L.colPallets, L.colLb];
+      twPt = [w * 0.36, w * 0.16, w * 0.16, w * 0.32];
     }
 
-    const twPt = [w * 0.4, w * 0.2, w * 0.2, w * 0.2];
-    const headPt = ['Unidad PT (referencia)', 'Cajas', 'Pallets', 'Precio unit.'];
     y += 4;
-    if (!ptRows.length) {
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, twPt, headPt, [['—', '—', '—', 'Sin líneas de unidad']], { fs: 8, rowHeight: 14, wrap: true });
-    } else {
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, twPt, headPt, ptRows, { fs: 8, rowHeight: 14, wrap: true });
-    }
+    y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, twPt, headPt,
+      ptRows.length ? ptRows : [['—', '—', '—', L.sinLineas]],
+      { fs: 8, rowHeight: 14, wrap: true });
     y += 10;
 
-    const pay = pl?.printable_payload as { final_pallets?: Array<Record<string, unknown>> } | undefined;
-    const fps = pay?.final_pallets;
-    if (fps?.length) {
-      const fpIdsPdf = [...new Set(fps.map((fp) => Number(fp.id)).filter((x) => x > 0))];
-      const fpTrPdf =
-        fpIdsPdf.length > 0
-          ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(fpIdsPdf)
-          : new Map();
-
-      const exRows: string[][] = [];
-      for (const fp of fps) {
-        const fid = Number(fp.id);
-        const tr = fpTrPdf.get(fid);
-        const primary =
-          (tr?.codigo_unidad_pt_display?.trim() ?? String(fp.corner_board_code ?? '').trim()) ||
-          `PF-${fid}`;
-        const boxes = fp.boxes != null ? String(fp.boxes) : '—';
-        const lbs = fp.pounds != null ? `${DocumentsPdfService.qtyAr(Number(fp.pounds))} lb` : '—';
-        exRows.push([primary, String(fp.format_code ?? '—'), boxes, lbs]);
+    if (useDti) {
+      const pay = pl?.printable_payload as { final_pallets?: Array<Record<string, unknown>> } | undefined;
+      const fpsPayload = pay?.final_pallets ?? [];
+      if (fpsPayload.length > 0) {
+        const fpIdsPdf = [...new Set(fpsPayload.map((fp) => Number(fp.id)).filter((x) => x > 0))];
+        const fpTrPdf =
+          fpIdsPdf.length > 0
+            ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(fpIdsPdf)
+            : new Map();
+        const exRows: string[][] = [];
+        for (const fp of fpsPayload) {
+          const fid = Number(fp.id);
+          const tr = fpTrPdf.get(fid);
+          const primary =
+            (tr?.codigo_unidad_pt_display?.trim() ?? String(fp.corner_board_code ?? '').trim()) || `PF-${fid}`;
+          exRows.push([
+            primary,
+            String(fp.format_code ?? '—'),
+            fp.boxes != null ? String(fp.boxes) : '—',
+            fp.pounds != null ? `${DocumentsPdfService.qtyAr(Number(fp.pounds))} lb` : '—',
+          ]);
+        }
+        y = DocumentsPdfService.ensureVerticalSpace(doc, y, 80);
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(L.existTitle, x0, y);
+        y += 16;
+        y = DocumentsPdfService.renderPdfTable(doc, x0, y, w,
+          [w * 0.34, w * 0.22, w * 0.2, w * 0.24],
+          [L.colUnidad, L.colFormato, L.colCajas, L.colLb],
+          exRows, { fs: 8, rowHeight: 14, wrap: true });
       }
-
-      const twEx = [w * 0.34, w * 0.22, w * 0.2, w * 0.24];
-      const headEx = ['Unidad PT / existencia', 'Formato', 'Cajas', 'Lb neto'];
-      y = DocumentsPdfService.ensureVerticalSpace(doc, y, 80);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(DocumentsPdfService.PDF_TITLE).text('Existencias PT incluidas en el listado', x0, y);
-      y += 16;
-      y = DocumentsPdfService.renderPdfTable(doc, x0, y, w, twEx, headEx, exRows, { fs: 8, rowHeight: 14, wrap: true });
     }
 
-    y += 8;
-    y = DocumentsPdfService.ensureVerticalSpace(doc, y, 48);
-    DocumentsPdfService.renderDocumentFooter(
-      doc,
-      x0,
-      y,
-      w,
-      'Documento logístico generado desde el sistema de trazabilidad. Verificar carga y documentación de transporte antes del despacho.',
-    );
-    return pdfToBuffer(doc);
+    this.drawFooter(doc, x0, w, L.footer,
+      new Date().toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }), MUTED);
+    doc.end();
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+    });
   }
 
   /** Packing list logístico PT (independiente de despacho). */

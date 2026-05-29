@@ -95,8 +95,8 @@ export class DocumentsController {
 
   @Get('dispatches/:id/invoice/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async invoicePdf(@Param('id', ParseIntPipe) id: number) {
-    const buffer = await this.pdf.buildInvoicePdf(id);
+  async invoicePdf(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
+    const buffer = await this.pdf.buildInvoicePdf(id, lang === 'en' ? 'en' : 'es');
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="invoice-despacho-${id}.pdf"`,
@@ -119,8 +119,8 @@ export class DocumentsController {
 
   @Get('dispatches/:id/packing-list/pdf')
   @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
-  async packingListPdf(@Param('id', ParseIntPipe) id: number) {
-    const buffer = await this.pdf.buildPackingListPdf(id);
+  async packingListPdf(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
+    const buffer = await this.pdf.buildPackingListPdf(id, lang === 'en' ? 'en' : 'es');
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="packing-list-${id}.pdf"`,

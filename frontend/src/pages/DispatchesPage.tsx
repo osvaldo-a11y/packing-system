@@ -1895,7 +1895,7 @@ export function DispatchesPage() {
                                     onClick={async () => {
                                       try {
                                         await downloadPdf(
-                                          `/api/documents/dispatches/${d.id}/packing-list/pdf`,
+                                          `/api/documents/dispatches/${d.id}/packing-list/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`,
                                           `packing-list-${d.id}.pdf`,
                                         );
                                         toast.success(t('dispatch.toast.pdfPl'));
@@ -1909,7 +1909,7 @@ export function DispatchesPage() {
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       try {
-                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `invoice-${d.id}.pdf`);
                                         toast.success(t('dispatch.toast.pdfInvoice'));
                                       } catch (e) {
                                         toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
@@ -1993,7 +1993,7 @@ export function DispatchesPage() {
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       try {
-                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                        await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `invoice-${d.id}.pdf`);
                                         toast.success(t('dispatch.toast.pdfInvoice'));
                                       } catch (e) {
                                         toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
@@ -2217,7 +2217,7 @@ export function DispatchesPage() {
                           <DropdownMenuItem
                             onClick={async () => {
                               try {
-                                await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf`, `invoice-${d.id}.pdf`);
+                                await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `invoice-${d.id}.pdf`);
                                 toast.success(t('dispatch.toast.pdfInvoice'));
                               } catch (e) {
                                 toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
