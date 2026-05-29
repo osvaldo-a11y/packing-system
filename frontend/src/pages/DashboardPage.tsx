@@ -242,6 +242,48 @@ function ptTagPackoutLb(t: PtTagApi): number {
   return parseNum(t.net_weight_lb);
 }
 
+/** Fracción de cajas de la tarja atribuible a un productor (varios procesos en `items`). */
+function tagProducerCajasShare(t: PtTagApi, producerId: number): number {
+  const items = t.items ?? [];
+  if (!items.length) return 0;
+  const totalCajas = items.reduce((s, it) => s + parseNum(it.cajas_generadas), 0);
+  if (totalCajas <= 1e-9) return 0;
+  const prodCajas = items
+    .filter((it) => Number(it.productor_id) === producerId)
+    .reduce((s, it) => s + parseNum(it.cajas_generadas), 0);
+  return prodCajas / totalCajas;
+}
+
+/** Packout atribuido a un productor: prorrateo por cajas en `pt_tag_items` (alineado a líneas de factura). */
+function ptTagPackoutLbForProducer(
+  t: PtTagApi,
+  producerId: number | 'all',
+  processById: Map<number, FruitProcessRow>,
+): number {
+  const total = ptTagPackoutLb(t);
+  if (producerId === 'all') return total;
+  const share = tagProducerCajasShare(t, producerId);
+  if (share > 1e-9) return total * share;
+  const procId = primaryProcessIdFromTag(t);
+  const proc = procId != null ? processById.get(procId) : undefined;
+  const pid = proc != null ? Number(proc.productor_id ?? 0) : 0;
+  return pid === producerId ? total : 0;
+}
+
+function tagMatchesProducerFilter(
+  t: PtTagApi | undefined,
+  producerId: number | 'all',
+  processById: Map<number, FruitProcessRow>,
+): boolean {
+  if (!t) return producerId === 'all';
+  if (producerId === 'all') return true;
+  if (tagProducerCajasShare(t, producerId) > 1e-9) return true;
+  const procId = primaryProcessIdFromTag(t);
+  const proc = procId != null ? processById.get(procId) : undefined;
+  const pid = proc != null ? Number(proc.productor_id ?? 0) : 0;
+  return pid === producerId;
+}
+
 /**
  * Salida física en lb: prioriza Σ `pounds` en líneas de factura;
  * si la factura no trae lb en ninguna línea, estima proporcional (cajas despachadas / total_cajas) por tarja.
@@ -283,21 +325,56 @@ function resolvedProducerIdFromInvoiceLine(
   tagById: Map<number, PtTagApi>,
   processById: Map<number, FruitProcessRow>,
 ): number | null {
+  if (l.fruit_process_id != null && Number(l.fruit_process_id) > 0) {
+    const proc = processById.get(Number(l.fruit_process_id));
+    const pid = proc != null ? Number(proc.productor_id ?? 0) : null;
+    if (pid != null && pid > 0) return pid;
+  }
   if (l.tarja_id != null) {
     return resolvedProducerIdFromTagDashboard(tagById.get(l.tarja_id), processById);
-  }
-  if (l.fruit_process_id != null) {
-    const proc = processById.get(l.fruit_process_id);
-    const pid = proc != null ? Number(proc.productor_id ?? 0) : null;
-    return pid != null && pid > 0 ? pid : null;
   }
   return null;
 }
 
 function producerMatchesDashboardFilter(resolvedPid: number | null, producerId: number | 'all'): boolean {
   if (producerId === 'all') return true;
-  if (resolvedPid != null && resolvedPid !== producerId) return false;
-  return true;
+  if (resolvedPid == null || resolvedPid <= 0) return false;
+  return resolvedPid === producerId;
+}
+
+function invoiceLineMatchesProducerFilter(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+): boolean {
+  if (producerId === 'all') return true;
+  const rp = resolvedProducerIdFromInvoiceLine(l, tagById, processById);
+  if (producerMatchesDashboardFilter(rp, producerId)) return true;
+  if (l.tarja_id != null) {
+    const tag = tagById.get(l.tarja_id);
+    if (tag && tagProducerCajasShare(tag, producerId) > 1e-9) return true;
+  }
+  return false;
+}
+
+function invoiceLineLbForDashboardProducer(
+  l: InvoiceLineApi,
+  tagById: Map<number, PtTagApi>,
+  processById: Map<number, FruitProcessRow>,
+  producerId: number | 'all',
+): number {
+  const x = Number(l.pounds);
+  const lb = Number.isFinite(x) ? x : 0;
+  if (producerId === 'all') return lb;
+  const rp = resolvedProducerIdFromInvoiceLine(l, tagById, processById);
+  if (producerMatchesDashboardFilter(rp, producerId)) return lb;
+  if (l.tarja_id != null) {
+    const tag = tagById.get(l.tarja_id);
+    const share = tag ? tagProducerCajasShare(tag, producerId) : 0;
+    if (share > 1e-9) return lb * share;
+  }
+  return 0;
 }
 
 function speciesMatchesDashboardFilter(resolvedSpeciesId: number | null, speciesId: number | 'all'): boolean {
@@ -347,12 +424,15 @@ function processFromInvoiceLine(
   tagById: Map<number, PtTagApi>,
   processById: Map<number, FruitProcessRow>,
 ): FruitProcessRow | undefined {
+  if (l.fruit_process_id != null && Number(l.fruit_process_id) > 0) {
+    const proc = processById.get(Number(l.fruit_process_id));
+    if (proc) return proc;
+  }
   if (l.tarja_id != null) {
     const tag = tagById.get(l.tarja_id);
     const procId = tag ? primaryProcessIdFromTag(tag) : null;
     if (procId != null) return processById.get(procId);
   }
-  if (l.fruit_process_id != null) return processById.get(l.fruit_process_id);
   return undefined;
 }
 
@@ -376,8 +456,7 @@ function invoiceLineMatchesDashboardFilters(
   speciesId: number | 'all',
   workMode: WorkMode,
 ): boolean {
-  const rp = resolvedProducerIdFromInvoiceLine(l, tagById, processById);
-  if (!producerMatchesDashboardFilter(rp, producerId)) return false;
+  if (!invoiceLineMatchesProducerFilter(l, tagById, processById, producerId)) return false;
   const rs = invoiceLineResolvedSpecies(l, tagById, processById);
   if (!speciesMatchesDashboardFilter(rs, speciesId)) return false;
   if (!lineWorkModeMatchesForDashboard(l, tagById, processById, workMode)) return false;
@@ -393,8 +472,7 @@ function dispatchItemMatchesDashboardFilters(
   workMode: WorkMode,
 ): boolean {
   const tag = tagById.get(it.tarja_id);
-  const rp = resolvedProducerIdFromTagDashboard(tag, processById);
-  if (!producerMatchesDashboardFilter(rp, producerId)) return false;
+  if (!tagMatchesProducerFilter(tag, producerId, processById)) return false;
   const rs = resolvedSpeciesFromTag(tag, processById);
   if (!speciesMatchesDashboardFilter(rs, speciesId)) return false;
   if (workMode === 'both') return true;
@@ -421,16 +499,16 @@ function dispatchOutboundLbForDashboardFilters(
   if (invoiceHasPounds) {
     return lines.reduce((sum, l) => {
       if (!invoiceLineMatchesDashboardFilters(l, tagById, processById, producerId, speciesId, workMode)) return sum;
-      const x = Number(l.pounds);
-      return sum + (Number.isFinite(x) ? x : 0);
+      return sum + invoiceLineLbForDashboardProducer(l, tagById, processById, producerId);
     }, 0);
   }
   let est = 0;
   for (const it of d.items ?? []) {
     if (!dispatchItemMatchesDashboardFilters(it, tagById, processById, producerId, speciesId, workMode)) continue;
     const tag = tagById.get(it.tarja_id);
-    const tagLb = parseNum(tag?.net_weight_lb);
-    const tagBoxes = parseNum(tag?.total_cajas);
+    if (!tag) continue;
+    const tagLb = ptTagPackoutLbForProducer(tag, producerId, processById);
+    const tagBoxes = parseNum(tag.total_cajas);
     const boxesOut = parseNum(it.cajas_despachadas);
     if (tagLb <= 0 || boxesOut <= 0) continue;
     if (tagBoxes > 0) est += tagLb * (boxesOut / tagBoxes);
@@ -764,11 +842,7 @@ export function DashboardPage() {
       if (!inDateRange(t.fecha, range.from, range.to)) return false;
       const procId = primaryProcessIdFromTag(t);
       const proc = procId != null ? processById.get(procId) : undefined;
-      if (producerId !== 'all') {
-        const tagProd = proc != null ? Number(proc.productor_id ?? 0) : primaryProductorIdFromTag(t);
-        const pid = tagProd != null && tagProd > 0 ? tagProd : null;
-        if (pid != null && pid !== producerId) return false;
-      }
+      if (!tagMatchesProducerFilter(t, producerId, processById)) return false;
       if (speciesId !== 'all') {
         const sp = proc != null ? Number(proc.especie_id ?? 0) : 0;
         if (sp > 0 && sp !== speciesId) return false;
@@ -793,12 +867,16 @@ export function DashboardPage() {
     [receptionsFiltered],
   );
   const totalPackedLb = useMemo(
-    () => ptTagsFiltered.reduce((s, t) => s + ptTagPackoutLb(t), 0),
-    [ptTagsFiltered],
+    () => ptTagsFiltered.reduce((s, t) => s + ptTagPackoutLbForProducer(t, producerId, processById), 0),
+    [ptTagsFiltered, producerId, processById],
   );
   const ptTagsFilteredWithoutNetLb = useMemo(
-    () => ptTagsFiltered.reduce((n, t) => n + (ptTagPackoutLb(t) <= 0 ? 1 : 0), 0),
-    [ptTagsFiltered],
+    () =>
+      ptTagsFiltered.reduce(
+        (n, t) => n + (ptTagPackoutLbForProducer(t, producerId, processById) <= 0 ? 1 : 0),
+        0,
+      ),
+    [ptTagsFiltered, producerId, processById],
   );
   const totalDispatchedLb = useMemo(
     () =>
@@ -1134,7 +1212,7 @@ export function DashboardPage() {
     for (const t of ptTagsFiltered) {
       const k = toDayKey(t.fecha);
       if (!k) continue;
-      packMap.set(k, (packMap.get(k) ?? 0) + ptTagPackoutLb(t));
+      packMap.set(k, (packMap.get(k) ?? 0) + ptTagPackoutLbForProducer(t, producerId, processById));
     }
     const dayKeys = [...new Set([...recMap.keys(), ...packMap.keys()])].sort((a, b) => a.localeCompare(b));
     if (dayKeys.length === 0) return [];
@@ -1166,7 +1244,7 @@ export function DashboardPage() {
       received: recMap.get(k) ?? 0,
       packed: packMap.get(k) ?? 0,
     }));
-  }, [receptionsFiltered, ptTagsFiltered, chartGranularity, t]);
+  }, [receptionsFiltered, ptTagsFiltered, chartGranularity, producerId, processById, t]);
 
   const productionByClient = useMemo(() => {
     const clientsMap = new Map((clientsQ.data ?? []).map((c) => [c.id, c.nombre]));
@@ -1181,7 +1259,7 @@ export function DashboardPage() {
     };
     for (const t of ptTagsFiltered) {
       const cid = t.client_id != null ? Number(t.client_id) : null;
-      ensure(cid).produced += ptTagPackoutLb(t);
+      ensure(cid).produced += ptTagPackoutLbForProducer(t, producerId, processById);
     }
     for (const d of dispatchesFiltered) {
       const lbOut = dispatchOutboundLbForDashboardFilters(
