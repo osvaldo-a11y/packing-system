@@ -136,6 +136,8 @@ export type DispatchApi = {
   temperatura_f: string;
   thermograph_serial?: string | null;
   thermograph_notes?: string | null;
+  ship_to_name?: string | null;
+  ship_to_address?: string | null;
   status?: string;
   /** ISO: momento de confirmación (cierre operativo del documento). */
   confirmed_at?: string | null;
@@ -500,6 +502,8 @@ export function DispatchesPage() {
   const [metaTemperaturaF, setMetaTemperaturaF] = useState('');
   const [metaThermographSerial, setMetaThermographSerial] = useState('');
   const [metaThermographNotes, setMetaThermographNotes] = useState('');
+  const [metaShipToName, setMetaShipToName] = useState('');
+  const [metaShipToAddress, setMetaShipToAddress] = useState('');
   const [orderLinkDialogDispatchId, setOrderLinkDialogDispatchId] = useState<number | null>(null);
   const [orderLinkOrderId, setOrderLinkOrderId] = useState(0);
   const [orderLinkClientId, setOrderLinkClientId] = useState(0);
@@ -786,12 +790,16 @@ export function DispatchesPage() {
       temperatura_f,
       thermograph_serial,
       thermograph_notes,
+      ship_to_name,
+      ship_to_address,
     }: {
       dispatchId: number;
       fecha_despacho: string;
       temperatura_f: number;
-      thermograph_serial: string;
-      thermograph_notes: string;
+      thermograph_serial?: string;
+      thermograph_notes?: string;
+      ship_to_name?: string;
+      ship_to_address?: string;
     }) =>
       apiJson(`/api/dispatches/${dispatchId}/meta`, {
         method: 'PATCH',
@@ -800,6 +808,8 @@ export function DispatchesPage() {
           temperatura_f,
           thermograph_serial,
           thermograph_notes,
+          ship_to_name,
+          ship_to_address,
         }),
       }),
     onSuccess: () => {
@@ -1936,6 +1946,8 @@ export function DispatchesPage() {
                                   setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
                                   setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
                                   setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                                  setMetaShipToName(d.ship_to_name ?? '');
+                                  setMetaShipToAddress(d.ship_to_address ?? '');
                                 }}
                               >
                                 {t('dispatch.table.actionEdit')}
@@ -1997,6 +2009,8 @@ export function DispatchesPage() {
                                       setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
                                       setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
                                       setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                                      setMetaShipToName(d.ship_to_name ?? '');
+                                      setMetaShipToAddress(d.ship_to_address ?? '');
                                     }}
                                   >
                                     {t('dispatch.table.actionEditData')}
@@ -2219,6 +2233,8 @@ export function DispatchesPage() {
                               setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
                               setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
                               setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                              setMetaShipToName(d.ship_to_name ?? '');
+                              setMetaShipToAddress(d.ship_to_address ?? '');
                             }}
                           >
                             {t('dispatch.table.actionEditData')}
@@ -2896,6 +2912,28 @@ export function DispatchesPage() {
                 placeholder={t('dispatch.table.thermographNotesPlaceholder')}
               />
             </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">
+                {t('dispatch.table.shipToNameLabel')}
+              </Label>
+              <Input
+                className="h-9"
+                value={metaShipToName}
+                onChange={(e) => setMetaShipToName(e.target.value)}
+                placeholder={t('dispatch.table.shipToNamePlaceholder')}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">
+                {t('dispatch.table.shipToAddressLabel')}
+              </Label>
+              <Input
+                className="h-9"
+                value={metaShipToAddress}
+                onChange={(e) => setMetaShipToAddress(e.target.value)}
+                placeholder={t('dispatch.table.shipToAddressPlaceholder')}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMetaDialogDispatchId(null)}>
@@ -2916,8 +2954,10 @@ export function DispatchesPage() {
                   dispatchId: metaDialogDispatchId,
                   fecha_despacho: iso,
                   temperatura_f: temp,
-                  thermograph_serial: metaThermographSerial.trim(),
-                  thermograph_notes: metaThermographNotes.trim(),
+                  thermograph_serial: metaThermographSerial.trim() || undefined,
+                  thermograph_notes: metaThermographNotes.trim() || undefined,
+                  ship_to_name: metaShipToName.trim() || undefined,
+                  ship_to_address: metaShipToAddress.trim() || undefined,
                 });
               }}
             >

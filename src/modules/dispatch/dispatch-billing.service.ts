@@ -532,6 +532,8 @@ export class DispatchBillingService {
         temperatura_f: d.temperatura_f,
         thermograph_serial: d.thermograph_serial ?? null,
         thermograph_notes: d.thermograph_notes ?? null,
+        ship_to_name: d.ship_to_name ?? null,
+        ship_to_address: d.ship_to_address ?? null,
         status: d.status ?? 'despachado',
         confirmed_at: isoOrNull(d.dispatch_confirmed_at ?? null),
         despachado_at: isoOrNull(d.dispatch_despachado_at ?? null),
@@ -1042,6 +1044,12 @@ export class DispatchBillingService {
     }
     if (dto.thermograph_notes !== undefined) {
       dispatch.thermograph_notes = dto.thermograph_notes.trim() || null;
+    }
+    if (dto.ship_to_name !== undefined) {
+      dispatch.ship_to_name = dto.ship_to_name.trim() || null;
+    }
+    if (dto.ship_to_address !== undefined) {
+      dispatch.ship_to_address = dto.ship_to_address.trim() || null;
     }
     if (postSalidaEdit) {
       const stamp = `[AJUSTE POST-SALIDA ${new Date().toISOString()}]`;

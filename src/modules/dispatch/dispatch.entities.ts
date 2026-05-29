@@ -122,6 +122,12 @@ export class Dispatch {
   @Column({ type: 'text', nullable: true })
   thermograph_notes?: string | null;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  ship_to_name?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ship_to_address?: string | null;
+
   @Column({ type: 'simple-json', nullable: true })
   final_pallet_unit_prices?: Record<string, number> | null;
 

@@ -93,6 +93,8 @@ export class UpdateDispatchMetaDto {
   @IsOptional() @IsNumber() temperatura_f?: number;
   @IsOptional() @IsString() @MaxLength(120) thermograph_serial?: string;
   @IsOptional() @IsString() @MaxLength(500) thermograph_notes?: string;
+  @IsOptional() @IsString() @MaxLength(120) ship_to_name?: string;
+  @IsOptional() @IsString() ship_to_address?: string;
 }
 
 /** Corrección de vínculo comercial del despacho (pedido y clientes asociados). */

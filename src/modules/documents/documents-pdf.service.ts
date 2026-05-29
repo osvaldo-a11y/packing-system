@@ -2019,12 +2019,18 @@ export class DocumentsPdfService {
     };
 
     const shipperAddr = `${this.companyLine()}`;
-    const shipToName  = dispatch.client?.nombre?.trim() ?? '—';
+    const dispatchExt = dispatch as unknown as { ship_to_name?: string | null; ship_to_address?: string | null };
+    const shipToName    = dispatchExt.ship_to_name?.trim()    || dispatch.client?.nombre?.trim() || '—';
+    const shipToAddress = dispatchExt.ship_to_address?.trim() || '';
     const soldToName  = pedidoCliente?.nombre?.trim() ?? shipToName;
 
     const fieldStartY = y;
     renderField(lang === 'en' ? 'Shipper (From)' : 'Remitente', shipperAddr, x0, fieldStartY, colW2);
-    renderField(lang === 'en' ? 'Ship To (Consignee)' : 'Destinatario', shipToName, xR, fieldStartY, colW2);
+    renderField(
+      lang === 'en' ? 'Ship To (Consignee)' : 'Destinatario',
+      shipToAddress ? `${shipToName}\n${shipToAddress}` : shipToName,
+      xR, fieldStartY, colW2,
+    );
     y = fieldStartY + 28;
 
     renderField(lang === 'en' ? 'Sold To' : 'Facturado a', soldToName, x0, y, colW2);
@@ -2039,8 +2045,21 @@ export class DocumentsPdfService {
     if (dispatch.temperatura_f) {
       renderField(lang === 'en' ? 'Maintain Temp (°F)' : 'Temperatura (°F)', String(dispatch.temperatura_f), x0, y, colW2);
     }
-    if (dispatch.thermograph_serial?.trim()) {
-      renderField(lang === 'en' ? 'Temperature Recorder' : 'Termógrafo', dispatch.thermograph_serial.trim(), xR, y, colW2);
+    const hasThermograph = dispatch.thermograph_serial?.trim();
+    const hasThermographNotes = (dispatch as unknown as { thermograph_notes?: string | null }).thermograph_notes?.trim();
+    if (hasThermograph) {
+      renderField(
+        lang === 'en' ? 'Temperature Recorder' : 'Termógrafo',
+        [hasThermograph, hasThermographNotes].filter(Boolean).join(' · '),
+        xR, y, colW2,
+      );
+    } else {
+      // Dejar espacio para anotación manual
+      renderField(
+        lang === 'en' ? 'Temperature Recorder' : 'Termógrafo',
+        '____________________',
+        xR, y, colW2,
+      );
     }
     y += 28;
 
