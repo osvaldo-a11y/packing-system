@@ -1722,7 +1722,11 @@
       "withAlertsNote": "Cliente, BOL o pallets — expandir fila",
       "topVolume": "Top volumen (cajas)",
       "topValue": "Top valor ($)",
-      "noData": "Sin datos."
+      "noData": "Sin datos.",
+      "ptUnits": "Unidades PT",
+      "ptUnitsNote": "Tarjas distintas en despachos filtrados",
+      "ptStock": "Existencias PT",
+      "ptStockNote": "Pallets finales en despachos filtrados"
     },
     "filters": {
       "title": "Filtros",
@@ -1730,6 +1734,8 @@
       "clientAll": "Todos",
       "from": "Desde",
       "to": "Hasta",
+      "today": "Hoy",
+      "clearDates": "Ver todo",
       "search": "Buscar",
       "searchPlaceholder": "BOL, id, cliente, orden…"
     },

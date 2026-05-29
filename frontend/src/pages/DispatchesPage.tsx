@@ -41,6 +41,7 @@ import {
   palletsCabeceraClienteFueraSinDestino,
   summarizeDispatchPalletRisks,
 } from '@/lib/operational-risk';
+import { localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb, formatMoney, parseNumeric } from '@/lib/number-format';
 import {
   contentCard,
@@ -1199,6 +1200,29 @@ export function DispatchesPage() {
     };
   }, [filtered, palletById, processes, ptTags, ptTagById]);
 
+  const dispatchTraceKpis = useMemo(() => {
+    const tarjaIds = new Set<number>();
+    const palletIds = new Set<number>();
+    for (const d of filtered) {
+      for (const it of d.items ?? []) {
+        const tid = Number(it.tarja_id);
+        if (Number.isFinite(tid) && tid > 0) tarjaIds.add(tid);
+      }
+      for (const fp of d.final_pallets ?? []) {
+        const pid = Number(fp.id);
+        if (Number.isFinite(pid) && pid > 0) palletIds.add(pid);
+      }
+      for (const ln of d.invoice?.lines ?? []) {
+        if (ln.is_manual) continue;
+        const tid = ln.tarja_id != null ? Number(ln.tarja_id) : 0;
+        if (tid > 0) tarjaIds.add(tid);
+        const pid = ln.final_pallet_id != null ? Number(ln.final_pallet_id) : 0;
+        if (pid > 0) palletIds.add(pid);
+      }
+    }
+    return { ptUnits: tarjaIds.size, ptStock: palletIds.size };
+  }, [filtered]);
+
   const pendingConfirmSummary = useMemo(() => {
     if (confirmDispatchId == null || !dispatches) return null;
     const d = dispatches.find((x) => x.id === confirmDispatchId);
@@ -1536,6 +1560,18 @@ export function DispatchesPage() {
             <p className={kpiFootnote}>{t('dispatch.kpi.pricePerLbNote')}</p>
           </div>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>{t('dispatch.kpi.ptUnits')}</p>
+            <p className={kpiValueMd}>{formatCount(dispatchTraceKpis.ptUnits)}</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.ptUnitsNote')}</p>
+          </div>
+          <div className={kpiCardSm}>
+            <p className={kpiLabel}>{t('dispatch.kpi.ptStock')}</p>
+            <p className={kpiValueMd}>{formatCount(dispatchTraceKpis.ptStock)}</p>
+            <p className={kpiFootnote}>{t('dispatch.kpi.ptStockNote')}</p>
+          </div>
+        </div>
         <div
           className={cn(
             'grid gap-3',
@@ -1610,8 +1646,53 @@ export function DispatchesPage() {
             <Info className="h-3.5 w-3.5" />
           </button>
         </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dispatch.filters.from')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterFechaDesde}
+              onChange={(e) => setFilterFechaDesde(e.target.value)}
+            />
+          </div>
+          <div className="grid min-w-[9.5rem] gap-1.5">
+            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dispatch.filters.to')}</Label>
+            <Input
+              type="date"
+              className={cn(filterInputClass, 'h-9')}
+              value={filterFechaHasta}
+              onChange={(e) => setFilterFechaHasta(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterFechaDesde(d);
+              setFilterFechaHasta(d);
+            }}
+          >
+            {t('dispatch.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 text-slate-600"
+            onClick={() => {
+              setFilterFechaDesde('');
+              setFilterFechaHasta('');
+            }}
+          >
+            {t('dispatch.filters.clearDates')}
+          </Button>
+        </div>
         <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
-          <div className="grid gap-2 lg:col-span-3">
+          <div className="grid gap-2 lg:col-span-4">
             <Label className="text-xs text-slate-500">{t('dispatch.filters.client')}</Label>
             <select
               className={cn(filterSelectClass, 'w-full max-w-none')}
@@ -1626,27 +1707,7 @@ export function DispatchesPage() {
               ))}
             </select>
           </div>
-          <div className="flex flex-wrap items-end gap-2 lg:col-span-5">
-            <div className="grid min-w-0 flex-1 gap-2 sm:max-w-[200px]">
-              <Label className="text-xs text-slate-500">{t('dispatch.filters.from')}</Label>
-              <Input
-                type="date"
-                className={filterInputClass}
-                value={filterFechaDesde}
-                onChange={(e) => setFilterFechaDesde(e.target.value)}
-              />
-            </div>
-            <div className="grid min-w-0 flex-1 gap-2 sm:max-w-[200px]">
-              <Label className="text-xs text-slate-500">{t('dispatch.filters.to')}</Label>
-              <Input
-                type="date"
-                className={filterInputClass}
-                value={filterFechaHasta}
-                onChange={(e) => setFilterFechaHasta(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid gap-2 lg:col-span-4">
+          <div className="grid gap-2 lg:col-span-8">
             <Label className="text-xs text-slate-500">{t('dispatch.filters.search')}</Label>
             <Input
               className={filterInputClass}
