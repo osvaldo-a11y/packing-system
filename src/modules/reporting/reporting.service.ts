@@ -2115,6 +2115,7 @@ export class ReportingService {
         fecha: string;
         variedad: string;
         tipo_recepcion: string;
+        is_machine: boolean;
         lb_entrada: number;
         lb_packout: number;
         pct_packout: number;
@@ -2209,6 +2210,11 @@ export class ReportingService {
         r.received_at::date as fecha,
         COALESCE(v.nombre, '—') as variedad,
         rt.nombre as tipo_recepcion,
+        CASE
+          WHEN rt.codigo = 'machine_picking' THEN true
+          WHEN fp.id IN (919) THEN true
+          ELSE false
+        END as is_machine,
         fp.lb_entrada::numeric as lb_entrada,
         fp.lb_packout::numeric as lb_packout,
         COALESCE(
@@ -2260,6 +2266,7 @@ export class ReportingService {
           fecha: String(d.fecha ?? ''),
           variedad: String(d.variedad ?? '—'),
           tipo_recepcion: String(d.tipo_recepcion ?? '—'),
+          is_machine: Boolean(d.is_machine),
           lb_entrada: Number(d.lb_entrada ?? 0),
           lb_packout: Number(d.lb_packout ?? 0),
           pct_packout: Number(d.pct_packout ?? 0),

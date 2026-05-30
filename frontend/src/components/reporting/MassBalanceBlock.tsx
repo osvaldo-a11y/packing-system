@@ -11,12 +11,20 @@ import { cn } from '@/lib/utils';
 import { kpiLabel, kpiValueMd, contentCard } from '@/lib/page-ui';
 import ExcelJS from 'exceljs';
 
+type RawRow = Record<string, unknown>;
+
+type SettlementData = {
+  producerSettlementSummary?: { rows: RawRow[] };
+  producerSettlementDetail?: { rows: RawRow[] };
+} | null;
+
 type ProcessDetail = {
   proceso_id: number;
   recepcion_id: number;
   fecha: string;
   variedad: string;
   tipo_recepcion: string;
+  is_machine: boolean;
   lb_entrada: number;
   lb_packout: number;
   pct_packout: number;
@@ -88,6 +96,7 @@ async function buildMassBalanceExcel(
   lang: 'es' | 'en',
   period: string,
   company: string,
+  settlementData?: SettlementData,
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Packing system — Mass Balance';
@@ -248,21 +257,60 @@ async function buildMassBalanceExcel(
   ];
 
   const wsDisp = wb.addWorksheet(lang === 'en' ? 'Dispatches' : 'Despachos');
-  const COL_DISP = 5;
-  const dispHeader = wsDisp.addRow([
+  const COL_DISP = 7;
+  const dispHdr = wsDisp.addRow([
     lang === 'en' ? 'Producer' : 'Productor',
-    lang === 'en' ? 'Dispatch' : 'Despacho',
+    lang === 'en' ? 'Dispatch #' : 'N° Despacho',
     lang === 'en' ? 'Date' : 'Fecha',
+    lang === 'en' ? 'BOL' : 'BOL',
+    lang === 'en' ? 'Format' : 'Formato',
     lang === 'en' ? 'Lb Invoiced' : 'Lb Facturado',
     lang === 'en' ? 'Sales' : 'Ventas',
   ]);
-  styleHeader(dispHeader, COL_DISP);
-  wsDisp.addRow([
-    lang === 'en'
-      ? '— Dispatch detail will be added in next update —'
-      : '— Detalle de despachos se agregará en próxima actualización —',
-  ]);
-  wsDisp.columns = [{ width: 28 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 16 }];
+  styleHeader(dispHdr, COL_DISP);
+
+  const settlementDetailRows = settlementData?.producerSettlementDetail?.rows ?? [];
+  const dispRows = settlementDetailRows.filter((r) =>
+    producers.some((p) => p.productor_id === Number(r.productor_id)),
+  );
+
+  let sumLbDisp = 0;
+  let sumVentasDisp = 0;
+  for (const r of dispRows) {
+    const lb = Number(r.lb ?? 0);
+    const vt = Number(r.ventas ?? 0);
+    sumLbDisp += lb;
+    sumVentasDisp += vt;
+    const dr = wsDisp.addRow([
+      String(r.productor_nombre ?? ''),
+      Number(r.dispatch_number ?? r.dispatch_id ?? 0),
+      String(r.fecha_despacho ?? ''),
+      String(r.numero_bol ?? '—'),
+      String(r.format_code ?? '—'),
+      lb,
+      vt,
+    ]);
+    dr.height = 18;
+    dr.getCell(6).numFmt = FMT_LB;
+    dr.getCell(6).alignment = { horizontal: 'right' };
+    dr.getCell(7).numFmt = '"$"#,##0.00';
+    dr.getCell(7).alignment = { horizontal: 'right' };
+    dr.getCell(1).font = { size: 9, name: 'Arial' };
+  }
+
+  const dispTot = wsDisp.addRow(['', '', '', '', lang === 'en' ? 'TOTAL' : 'TOTAL', sumLbDisp, sumVentasDisp]);
+  dispTot.getCell(6).numFmt = FMT_LB;
+  dispTot.getCell(7).numFmt = '"$"#,##0.00';
+  styleTotal(dispTot, COL_DISP);
+  wsDisp.columns = [
+    { width: 28 },
+    { width: 13 },
+    { width: 14 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16 },
+  ];
 
   for (const p of producers) {
     const wsFee = wb.addWorksheet((lang === 'en' ? 'PackFee ' : 'Fees ') + p.productor_nombre.slice(0, 20));
@@ -283,42 +331,45 @@ async function buildMassBalanceExcel(
     ]);
     styleHeader(feeHdr, COL_FEE);
 
-    const lbMaquina = p.detalle
-      .filter(
-        (d) =>
-          d.tipo_recepcion.includes('machine') ||
-          d.tipo_recepcion.toLowerCase().includes('máquina') ||
-          d.tipo_recepcion.toLowerCase().includes('maquina'),
-      )
-      .reduce((s, d) => s + d.lb_packout, 0);
+    const lbMaquina = p.detalle.filter((d) => d.is_machine).reduce((s, d) => s + d.lb_packout, 0);
     const lbTotal = p.lb_packout;
+
+    const settlementSummaryRows = settlementData?.producerSettlementSummary?.rows ?? [];
+    const settlementRow = settlementSummaryRows.find((r) => Number(r.productor_id) === p.productor_id);
+    const packBase = settlementRow ? Number(settlementRow.costo_packing_base ?? 0) : lbTotal * 0.45;
+    const recargoFmt = settlementRow ? Number(settlementRow.recargo_formato ?? 0) : 0;
+    const costoMaq = settlementRow ? Number(settlementRow.costo_maquina ?? 0) : lbMaquina * 0.1;
+    const totalPack = settlementRow ? Number(settlementRow.total_packing ?? 0) : packBase + recargoFmt + costoMaq;
+    const ventas = settlementRow ? Number(settlementRow.ventas ?? 0) : 0;
+    const costoMat = settlementRow ? Number(settlementRow.costo_materiales ?? 0) : 0;
+    const netoProductor = settlementRow ? Number(settlementRow.neto_productor ?? 0) : 0;
 
     const services = [
       {
         nombre: lang === 'en' ? 'Blueberry packing service' : 'Servicio packing arándano',
-        tarifa: 0.45,
+        tarifa: lbTotal > 0 ? packBase / lbTotal : 0.45,
         lb: lbTotal,
+        monto: packBase,
         nota: lang === 'en' ? 'Base rate per lb packed' : 'Tarifa base por lb empacada',
       },
       {
-        nombre: lang === 'en' ? 'Size / Jumbo premium' : 'Recargo size / Jumbo',
-        tarifa: 0.0,
-        lb: 0,
-        nota:
-          lang === 'en'
-            ? 'Applied by format — see format surcharge in settlement'
-            : 'Aplicado por formato — ver recargo formato en liquidación',
+        nombre: lang === 'en' ? 'Format surcharge (size/jumbo)' : 'Recargo por formato (size/jumbo)',
+        tarifa: lbTotal > 0 ? recargoFmt / lbTotal : 0,
+        lb: lbTotal,
+        monto: recargoFmt,
+        nota: lang === 'en' ? '12x9.8oz and similar premium formats' : 'Formatos premium 12x9.8oz y similares',
       },
       {
         nombre: lang === 'en' ? 'Machine processing fee' : 'Servicio procesado máquina',
-        tarifa: 0.1,
+        tarifa: lbMaquina > 0 ? costoMaq / lbMaquina : 0.1,
         lb: lbMaquina,
-        nota: lang === 'en' ? 'Applied only to machine-picked fruit' : 'Solo aplicado a fruta de cosecha máquina',
+        monto: costoMaq,
+        nota: lang === 'en' ? 'Applied only to machine-picked fruit' : 'Solo fruta cosecha máquina',
       },
     ];
 
     for (const svc of services) {
-      const monto = svc.tarifa * svc.lb;
+      const monto = svc.monto;
       const feeRow = wsFee.addRow([svc.nombre, svc.tarifa, svc.lb, monto, svc.nota]);
       feeRow.height = 18;
       feeRow.getCell(2).numFmt = '"$"#,##0.000';
@@ -331,7 +382,7 @@ async function buildMassBalanceExcel(
       feeRow.getCell(5).font = { size: 8, name: 'Arial', color: { argb: 'FF666666' }, italic: true };
     }
 
-    const feeTotal = services.reduce((s, sv) => s + sv.tarifa * sv.lb, 0);
+    const feeTotal = services.reduce((s, sv) => s + sv.monto, 0);
     const feeTotRow = wsFee.addRow([
       lang === 'en' ? 'TOTAL PACK FEE (base)' : 'TOTAL PACK FEE (base)',
       '',
@@ -341,6 +392,28 @@ async function buildMassBalanceExcel(
     ]);
     styleTotal(feeTotRow, COL_FEE);
     feeTotRow.getCell(4).numFmt = '"$"#,##0.00';
+
+    wsFee.addRow([]);
+    const summaryRows2 = [
+      { label: lang === 'en' ? 'Sales' : 'Ventas', value: ventas, isNet: false },
+      { label: lang === 'en' ? 'Material cost' : 'Costo materiales', value: costoMat, isNet: false },
+      { label: lang === 'en' ? 'Total packing' : 'Total packing', value: totalPack, isNet: false },
+      { label: lang === 'en' ? 'Producer net' : 'Neto productor', value: netoProductor, isNet: true },
+    ];
+    for (const sr of summaryRows2) {
+      const srRow = wsFee.addRow([sr.label, '', '', sr.value, '']);
+      srRow.getCell(1).font = {
+        bold: sr.isNet,
+        size: 10,
+        name: 'Arial',
+      };
+      srRow.getCell(4).numFmt = '"$"#,##0.00';
+      srRow.getCell(4).alignment = { horizontal: 'right' };
+      if (sr.isNet) {
+        styleTotal(srRow, COL_FEE);
+        srRow.getCell(4).numFmt = '"$"#,##0.00';
+      }
+    }
 
     wsFee.addRow([]);
     const noteRow = wsFee.addRow([
@@ -395,7 +468,7 @@ async function buildMassBalanceExcel(
         d.recepcion_id,
         d.fecha,
         d.variedad,
-        tipoLabelXls(d.tipo_recepcion),
+        d.is_machine ? (lang === 'en' ? 'Machine' : 'Máquina') : tipoLabelXls(d.tipo_recepcion),
         d.lb_entrada,
         d.lb_packout,
         d.pct_packout / 100,
@@ -454,6 +527,7 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
   const [data, setData] = useState<MassBalanceData | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [settlementData, setSettlementData] = useState<SettlementData>(null);
 
   const L =
     lang === 'en'
@@ -520,9 +594,9 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
           mixto: 'Mixto',
         };
 
-  const tipoLabel = (tipo: string) => {
+  const tipoLabel = (tipo: string, isMachine?: boolean) => {
+    if (isMachine) return L.maquina;
     const t = tipo.toLowerCase();
-    if (t.includes('machine') || t.includes('máquina') || t.includes('maquina')) return L.maquina;
     if (t.includes('hand') || t.includes('mano')) return L.mano;
     return L.mixto;
   };
@@ -535,16 +609,30 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
       const params = new URLSearchParams();
       if (desde) params.set('desde', desde);
       if (hasta) params.set('hasta', hasta);
-      const result = await apiJson<MassBalanceData>(`/api/reporting/mass-balance?${params}`);
-      setData(result);
+      const settlementParams = new URLSearchParams();
+      if (desde) settlementParams.set('fecha_desde', desde);
+      if (hasta) settlementParams.set('fecha_hasta', hasta);
+      settlementParams.set('page', '1');
+      settlementParams.set('limit', '9999');
+
+      const [massResult, settlementResult] = await Promise.all([
+        apiJson<MassBalanceData>(`/api/reporting/mass-balance?${params}`),
+        apiJson<{
+          producerSettlementSummary?: { rows: RawRow[] };
+          producerSettlementDetail?: { rows: RawRow[] };
+        }>(`/api/reporting/producer-settlement?${settlementParams}`).catch(() => null),
+      ]);
+      setData(massResult);
+      setSettlementData(settlementResult);
       setExpanded(new Set());
-      if (!result.producers?.length) {
+      if (!massResult.producers?.length) {
         toast.info(lang === 'en' ? 'No data for this period.' : 'Sin datos para este período.');
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(lang === 'en' ? `Mass balance failed: ${msg}` : `Error al generar balance: ${msg}`);
       setData(null);
+      setSettlementData(null);
     } finally {
       setLoading(false);
     }
@@ -563,7 +651,7 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
     if (!data) return;
     setDownloading(true);
     try {
-      await buildMassBalanceExcel(data, producerIds, lang, period, company);
+      await buildMassBalanceExcel(data, producerIds, lang, period, company, settlementData);
     } finally {
       setDownloading(false);
     }
@@ -744,14 +832,12 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
                                     <span
                                       className={cn(
                                         'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                                        d.tipo_recepcion.toLowerCase().includes('machine') ||
-                                          d.tipo_recepcion.toLowerCase().includes('máquina') ||
-                                          d.tipo_recepcion.toLowerCase().includes('maquina')
+                                        d.is_machine
                                           ? 'bg-blue-50 text-blue-700'
                                           : 'bg-green-50 text-green-700',
                                       )}
                                     >
-                                      {tipoLabel(d.tipo_recepcion)}
+                                      {tipoLabel(d.tipo_recepcion, d.is_machine)}
                                     </span>
                                   </TableCell>
                                   <TableCell className="py-1.5 text-right tabular-nums">
