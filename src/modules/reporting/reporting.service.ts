@@ -2211,8 +2211,9 @@ export class ReportingService {
         COALESCE(v.nombre, '—') as variedad,
         rt.nombre as tipo_recepcion,
         CASE
+          WHEN fp.id IN (900, 907, 914, 925, 926, 933, 937, 948, 954, 961, 966) THEN false
           WHEN rt.codigo = 'machine_picking' THEN true
-          WHEN fp.id IN (919, 927, 973, 978, 983, 987, 993, 1004, 1006) THEN true
+          WHEN fp.id IN (919) THEN true
           ELSE false
         END as is_machine,
         fp.lb_entrada::numeric as lb_entrada,
