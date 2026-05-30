@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { apiJson } from '@/api';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -415,6 +416,13 @@ export function MassBalanceBlock({ company = '' }: { company?: string }) {
       const result = await apiJson<MassBalanceData>(`/api/reporting/mass-balance?${params}`);
       setData(result);
       setExpanded(new Set());
+      if (!result.producers?.length) {
+        toast.info(lang === 'en' ? 'No data for this period.' : 'Sin datos para este período.');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(lang === 'en' ? `Mass balance failed: ${msg}` : `Error al generar balance: ${msg}`);
+      setData(null);
     } finally {
       setLoading(false);
     }

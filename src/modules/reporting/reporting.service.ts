@@ -2161,21 +2161,21 @@ export class ReportingService {
     const recepcionRows = (await this.dataSource.query(
       `
       SELECT
-        r.productor_id,
+        r.producer_id,
         SUM(r.net_weight_lb::numeric) as lb_recepcionado
       FROM receptions r
-      WHERE r.productor_id IS NOT NULL
-        AND r.productor_id > 0
+      WHERE r.producer_id IS NOT NULL
+        AND r.producer_id > 0
         AND r.document_state_id IN (
           SELECT id FROM document_states WHERE codigo IN ('confirmado', 'cerrado')
         )
         ${filter.desde ? `AND r.received_at >= '${filter.desde}'` : ''}
         ${filter.hasta ? `AND r.received_at <= '${filter.hasta}'` : ''}
-      GROUP BY r.productor_id
+      GROUP BY r.producer_id
     `,
     )) as Array<Record<string, unknown>>;
     const recepcionByProducer = new Map(
-      recepcionRows.map((r) => [Number(r.productor_id), Number(r.lb_recepcionado ?? 0)]),
+      recepcionRows.map((r) => [Number(r.producer_id), Number(r.lb_recepcionado ?? 0)]),
     );
 
     const facturadoRows = (await this.dataSource.query(
