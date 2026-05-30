@@ -17,7 +17,7 @@ import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   AddPtTagItemDto,
@@ -43,19 +43,19 @@ export class ProcessController {
   constructor(private readonly service: ProcessService) {}
 
   @Get('processes')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listProcesses() {
     return this.service.listProcesses();
   }
 
   @Post('processes')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   createProcess(@Body() dto: CreateFruitProcessDto) {
     return this.service.createProcess(dto);
   }
 
   @Get('processes/eligible-lines')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   eligibleLines(
     @Query('producer_id', ParseIntPipe) producerId: number,
     /** Solo recepciones confirmadas/cerradas (KPI planificación). Sin flag: incluye borrador (alta de proceso). */
@@ -69,7 +69,7 @@ export class ProcessController {
   }
 
   @Get('processes/producers-with-eligible-mp')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   producersWithEligibleMp(
     @Query('planning_only') planningOnlyRaw?: string,
     @Query('borrador_only') borradorOnlyRaw?: string,
@@ -81,7 +81,7 @@ export class ProcessController {
 
   /** Total MP sin procesar: Σ recepción neta − Σ volteado a proceso (por productor; sin filtrar estado documental). */
   @Get('processes/mp-disponible-resumen')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   mpDisponibleResumen(
     @Query('planning_only') planningOnlyRaw?: string,
     @Query('borrador_only') borradorOnlyRaw?: string,
@@ -92,7 +92,7 @@ export class ProcessController {
   }
 
   @Get('processes/:id/editable-mp-lines')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   editableMpLines(@Param('id', ParseIntPipe) id: number) {
     return this.service.listEditableMpLinesForProcess(id);
   }
@@ -110,7 +110,7 @@ export class ProcessController {
   }
 
   @Patch('processes/:id/weights')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   updateWeights(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProcessWeightsDto,
@@ -121,13 +121,13 @@ export class ProcessController {
   }
 
   @Put('processes/:id/balance')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   closeBalance(@Param('id', ParseIntPipe) id: number, @Body() dto: CloseProcessBalanceDto) {
     return this.service.closeProcessBalance(id, dto);
   }
 
   @Post('processes/:id/confirm')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   confirmProcess(@Param('id', ParseIntPipe) id: number) {
     return this.service.confirmProcess(id);
   }
@@ -159,37 +159,37 @@ export class ProcessController {
   }
 
   @Get('pt-tags')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listPtTags() {
     return this.service.listPtTagsWithItems();
   }
 
   @Post('pt-tags')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   createTag(@Body() dto: CreatePtTagDto) {
     return this.service.createTag(dto);
   }
 
   @Post('pt-tags/merge')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   mergeTags(@Body() dto: MergeTagsDto) {
     return this.service.mergeTags(dto);
   }
 
   @Post('pt-tags/:id/split')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   splitTag(@Param('id', ParseIntPipe) id: number, @Body() dto: SplitTagDto) {
     return this.service.splitTag(id, dto);
   }
 
   @Get('pt-tags/:id/lineage')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   tagLineage(@Param('id', ParseIntPipe) id: number) {
     return this.service.getTagLineage(id);
   }
 
   @Post('pt-tags/:id/items')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   addToTag(@Param('id', ParseIntPipe) id: number, @Body() dto: AddPtTagItemDto) {
     return this.service.addProcessToTag(id, dto);
   }
@@ -202,7 +202,7 @@ export class ProcessController {
 
   /** Elimina la unidad PT si no está en despacho, factura, merge ni pallet final logístico (misma lógica que carga masiva). */
   @Delete('pt-tags/:id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   async deletePtTag(@Param('id', ParseIntPipe) id: number) {
     await this.service.purgePtTagById(id);
     return { ok: true as const };

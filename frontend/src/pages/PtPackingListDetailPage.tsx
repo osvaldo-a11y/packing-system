@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson, downloadPdf, downloadPdfPost } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canSupervise } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +59,7 @@ type PtPlDetail = {
 export function PtPackingListDetailPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canReverseMaster = role === 'admin' || role === 'supervisor';
+  const canReverseMaster = canSupervise(role);
   const { id: idParam } = useParams<{ id: string }>();
   const id = Number(idParam);
   const qc = useQueryClient();

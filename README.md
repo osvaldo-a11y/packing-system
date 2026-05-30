@@ -46,7 +46,7 @@ Produccion: `npm run build` y `npm start` (tras definir variables de entorno). M
    - Respuesta: `{ access_token, token_type, expires_in }`
 2. Enviar en las rutas protegidas:
    - Cabecera `Authorization: Bearer <access_token>`
-3. El **rol** (`admin`, `supervisor`, `operator`) va dentro del JWT (claim `role`), no en cabeceras personalizadas.
+3. El **rol** (`admin`, `supervisor`, `operator`, `viewer`) va dentro del JWT (claim `role`), no en cabeceras personalizadas.
 
 Usuarios por defecto (solo desarrollo): ver `AUTH_USERS_JSON` en `.env.example`.
 
@@ -78,9 +78,10 @@ Endpoints publicos: `POST /api/auth/login`, `GET /api/auth/health`, `GET /api/pl
 
 | Rol | Uso |
 | --- | --- |
+| `viewer` | Solo lectura en operación; generar reportes y exportar (sin editar datos) |
 | `admin` | Edicion de parametros planta, borrado de reportes guardados |
 | `supervisor` | Edicion de tarjas, pedidos, crear/editar reportes guardados |
-| `operator` | Lectura de reportes, listados y export |
+| `operator` | Lectura de reportes, listados y export; operación en planta |
 
 Operaciones protegidas (JWT + rol):
 

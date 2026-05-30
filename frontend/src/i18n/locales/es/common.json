@@ -39,6 +39,9 @@
     "submit": "Entrar",
     "toastSuccess": "Sesión iniciada"
   },
+  "auth": {
+    "viewerBanner": "Sesión de solo lectura (observador): podés consultar datos y generar informes, sin modificar registros."
+  },
   "about": {
     "pageTitle": "Acerca del sistema",
     "pageSubtitle": "Pinebloom Packing — panel operativo para planta, empaque, proceso, despacho y reportes.",
@@ -54,7 +57,7 @@
     },
     "practices": {
       "title": "Buenas prácticas",
-      "tip1": "Usá roles adecuados (operador, supervisor, admin) y no compartas credenciales.",
+      "tip1": "Usá roles adecuados (observador, operador, supervisor, admin) y no compartas credenciales.",
       "tip2": "En producción: contraseñas con hash bcrypt, JWT fuerte y HTTPS.",
       "tip3": "El login tiene límite de intentos por minuto para reducir abuso."
     },

@@ -1232,6 +1232,14 @@ export function ROLES_SUMMARY(lang: 'es' | 'en'): { role: string; canDo: string[
 
 const EN_ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
   {
+    role: 'viewer',
+    canDo: [
+      'Read all screens and operational data',
+      'Generate reports, export Excel/PDF, mass balance',
+      'Cannot edit masters, processes, dispatches, or packing rates',
+    ],
+  },
+  {
     role: 'operator',
     canDo: [
       'Read reports and export',
@@ -1261,6 +1269,14 @@ const EN_ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
 ];
 
 const ES_ROLES_SUMMARY: { role: string; canDo: string[] }[] = [
+  {
+    role: 'viewer',
+    canDo: [
+      'Ver todas las pantallas y datos operativos',
+      'Generar reportes, exportar Excel/PDF y balance de masas',
+      'No editar maestros, procesos, despachos ni tarifas de packing',
+    ],
+  },
   {
     role: 'operator',
     canDo: [

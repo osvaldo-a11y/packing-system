@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, U
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   AddRecipeItemDto,
@@ -20,11 +20,12 @@ import { PackagingService } from './packaging.service';
 @ApiBearerAuth('JWT-auth')
 @Controller('api/packaging')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+@Roles(...READ_ACCESS_ROLES)
 export class PackagingController {
   constructor(private readonly service: PackagingService) {}
 
   @Post('materials')
+  @Roles(...OPERATE_ROLES)
   createMaterial(@Body() dto: CreateMaterialDto) {
     return this.service.createMaterial(dto);
   }
@@ -40,17 +41,19 @@ export class PackagingController {
   }
 
   @Patch('materials/:id')
+  @Roles(...OPERATE_ROLES)
   updateMaterial(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateMaterialDto) {
     return this.service.updateMaterial(id, dto);
   }
 
   @Delete('materials/:id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   deleteMaterial(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteMaterial(id);
   }
 
   @Post('materials/:id/movements')
+  @Roles(...OPERATE_ROLES)
   recordMaterialMovement(@Param('id', ParseIntPipe) id: number, @Body() dto: RecordMaterialMovementDto) {
     return this.service.recordMaterialMovement(id, dto);
   }
@@ -66,6 +69,7 @@ export class PackagingController {
   }
 
   @Post('recipes')
+  @Roles(...OPERATE_ROLES)
   createRecipe(@Body() dto: CreateRecipeDto) {
     return this.service.createRecipe(dto);
   }
@@ -76,11 +80,13 @@ export class PackagingController {
   }
 
   @Post('recipes/:id/items')
+  @Roles(...OPERATE_ROLES)
   addRecipeItem(@Param('id', ParseIntPipe) id: number, @Body() dto: AddRecipeItemDto) {
     return this.service.addRecipeItem(id, dto);
   }
 
   @Put('recipes/:recipeId/items/:itemId')
+  @Roles(...OPERATE_ROLES)
   updateRecipeItem(
     @Param('recipeId', ParseIntPipe) recipeId: number,
     @Param('itemId', ParseIntPipe) itemId: number,
@@ -90,6 +96,7 @@ export class PackagingController {
   }
 
   @Delete('recipes/:id')
+  @Roles(...OPERATE_ROLES)
   deleteRecipe(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteRecipe(id);
   }
@@ -101,6 +108,7 @@ export class PackagingController {
   }
 
   @Post('consumptions')
+  @Roles(...OPERATE_ROLES)
   createConsumption(@Body() dto: CreateConsumptionDto) {
     return this.service.createConsumption(dto);
   }
@@ -116,6 +124,7 @@ export class PackagingController {
   }
 
   @Post('consumptions/recalculate')
+  @Roles(...OPERATE_ROLES)
   recalculateConsumptions(@Body() dto: RecalculateConsumptionsDto) {
     return this.service.recalculateConsumptions(dto.tarja_id);
   }

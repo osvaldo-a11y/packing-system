@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canOperate, canSupervise, isAdmin } from '@/lib/roles';
 import { DataTable } from '@/components/data/DataTable';
 import { Button } from '@/components/ui/button';
 import {
@@ -436,9 +437,10 @@ function fetchEligibleLines(producerId: number) {
 export function ProcessesPage() {
   const { t, i18n } = useTranslation('common');
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdminRole = isAdmin(role);
   /** Cerrar y reabrir a borrador vía PATCH; el resto de transiciones sigue siendo solo admin. */
-  const canChangeProcessStatus = isAdmin || role === 'supervisor';
+  const canChangeProcessStatus = canSupervise(role);
+  const canOperateProcess = canOperate(role);
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const focusPid = Number(searchParams.get('processId') || '') || null;
@@ -703,8 +705,12 @@ export function ProcessesPage() {
   const weightsModalCanEditWeights = useMemo(() => {
     if (!weightsRow) return false;
     const st = weightsRow.process_status ?? 'borrador';
-    return !weightsRow.balance_closed && (st !== 'cerrado' || isAdmin);
-  }, [weightsRow, isAdmin]);
+    return (
+      canOperateProcess &&
+      !weightsRow.balance_closed &&
+      (st !== 'cerrado' || isAdminRole)
+    );
+  }, [weightsRow, isAdminRole, canOperateProcess]);
 
   const componentsEditTotal = Object.values(weightComponentsDraft).reduce((s, n) => s + (Number.isFinite(n) ? n : 0), 0);
 
@@ -893,7 +899,7 @@ export function ProcessesPage() {
     suggestions: PtRecoveryHint[];
   };
 
-  const recoveryQueryEnabled = Boolean(isAdmin && weightsOpen && weightsRow && linkedPtRowsForModal.length === 0);
+  const recoveryQueryEnabled = Boolean(isAdminRole && weightsOpen && weightsRow && linkedPtRowsForModal.length === 0);
 
   const { data: recoveryData, isFetching: recoveryLoading, refetch: refetchRecovery } = useQuery({
     queryKey: ['processes', 'pt-recovery', weightsRow?.id],
@@ -1345,7 +1351,7 @@ export function ProcessesPage() {
         header: () => <span className="text-right">{t('process.columns.acciones')}</span>,
         cell: ({ row }) => {
           const cerrado = row.original.process_status === 'cerrado';
-          const adminEdit = cerrado && isAdmin;
+          const adminEdit = cerrado && isAdminRole;
           return (
             <div className="flex min-w-[148px] items-center justify-end gap-1.5">
               <Button
@@ -1355,7 +1361,7 @@ export function ProcessesPage() {
                 className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-xs font-medium shadow-sm"
                 onClick={() => openWeights(row.original)}
                 title={
-                  cerrado && !isAdmin
+                  cerrado && !isAdminRole
                     ? 'Solo lectura (proceso cerrado)'
                     : adminEdit
                       ? 'Editar (admin): proceso cerrado'
@@ -1394,7 +1400,7 @@ export function ProcessesPage() {
         },
       },
     ],
-    [openWeights, isAdmin, t],
+    [openWeights, isAdminRole, t],
   );
 
   if (isPending) {
@@ -2135,7 +2141,7 @@ export function ProcessesPage() {
                     {linkedPtRowsForModal.length === 0 ? (
                       <div className="space-y-3">
                         <p className="text-xs text-muted-foreground">{t('process.editDialog.noPt')}</p>
-                        {isAdmin && weightsRow ? (
+                        {isAdminRole && weightsRow ? (
                           <div className="rounded-lg border border-amber-200/90 bg-amber-50/60 p-3">
                             <p className="text-xs font-semibold text-amber-950">{t('process.editDialog.recoveryTitle')}</p>
                             <p className="mt-1 text-[11px] leading-snug text-amber-900/90">
@@ -2416,7 +2422,7 @@ export function ProcessesPage() {
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-semibold text-foreground">{t('process.editDialog.statusTitle')}</p>
                         <span className="text-[10px] text-muted-foreground">
-                          {isAdmin ? t('process.editDialog.statusAdmin') : t('process.editDialog.statusSupervisor')}
+                          {isAdminRole ? t('process.editDialog.statusAdmin') : t('process.editDialog.statusSupervisor')}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-end gap-2">
@@ -2612,7 +2618,7 @@ export function ProcessesPage() {
                       const st = weightsRow.process_status ?? 'borrador';
                       return (
                         <>
-                          {st === 'cerrado' && isAdmin ? (
+                          {st === 'cerrado' && isAdminRole ? (
                             <p className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:border-amber-600 dark:bg-amber-950/30 dark:text-amber-100">
                               {t('process.editDialog.adminEditWarning')}
                             </p>
@@ -2943,7 +2949,7 @@ export function ProcessesPage() {
                             const highMerma = mermaPct != null && mermaPct >= 15;
                             const compsCount = (r.components ?? []).filter((c) => Number(c.lb_value) > 0.001).length;
                             const cerrado = r.process_status === 'cerrado';
-                            const adminEdit = cerrado && isAdmin;
+                            const adminEdit = cerrado && isAdminRole;
                             return (
                               <TableRow key={r.id} className="border-b border-slate-100/70 hover:bg-slate-50/70">
                                 <TableCell className="py-2.5">
@@ -2979,7 +2985,7 @@ export function ProcessesPage() {
                                       className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-xs font-medium shadow-sm"
                                       onClick={() => openWeights(r)}
                                       title={
-                                        cerrado && !isAdmin
+                                        cerrado && !isAdminRole
                                           ? 'Solo lectura (proceso cerrado)'
                                           : adminEdit
                                             ? 'Editar (admin): proceso cerrado'

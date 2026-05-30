@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canSupervise, isAdmin } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -564,7 +565,7 @@ type TabKey =
 export function MastersPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canWrite = role === 'admin' || role === 'supervisor';
+  const canWrite = canSupervise(role);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('species');
   const [rowFilter, setRowFilter] = useState('');
@@ -838,7 +839,7 @@ function ProcessMachinesSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.kind}`),
@@ -1113,7 +1114,7 @@ function BrandsSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () =>
@@ -1421,7 +1422,7 @@ function ContainersSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.tipo} ${r.capacidad ?? ''} ${r.requiereRetorno ? 'retorno' : ''}`),
@@ -1688,7 +1689,7 @@ function QualitySection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.purpose ?? ''}`),
@@ -1963,7 +1964,7 @@ function SpeciesSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.activo ? 'activo' : ''}`),
@@ -2137,7 +2138,7 @@ function ProducersSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo ?? ''} ${r.nombre}`),
@@ -2329,7 +2330,7 @@ function VarietiesSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () =>
@@ -2667,7 +2668,7 @@ function FormatsSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () =>
@@ -3047,7 +3048,7 @@ function ProcessResultComponentsSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.sort_order}`),
@@ -3415,7 +3416,7 @@ function ClientsSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre} ${r.pais ?? ''} ${r.mercado?.nombre ?? ''}`),
@@ -3739,7 +3740,7 @@ function SimpleCatalogSection({
 }) {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canForceDelete = role === 'admin';
+  const canForceDelete = isAdmin(role);
   const { filter } = useMastersRowFilter();
   const rows = useMemo(
     () => filterRows(list, filter, (r) => `${r.codigo} ${r.nombre}`),

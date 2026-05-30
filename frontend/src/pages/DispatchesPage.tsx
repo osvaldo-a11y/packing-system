@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canOperate } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -478,7 +479,7 @@ type LinkablePtPl = {
 export function DispatchesPage() {
   const { t, i18n } = useTranslation('common');
   const { role } = useAuth();
-  const canRevertSalida = role === 'admin' || role === 'supervisor' || role === 'operator';
+  const canRevertSalida = canOperate(role);
   const queryClient = useQueryClient();
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [addTagDispatchId, setAddTagDispatchId] = useState<number | null>(null);

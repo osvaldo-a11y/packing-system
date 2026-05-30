@@ -13,7 +13,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CommercialInvoicePdfDto } from './dto/commercial-invoice-pdf.dto';
 import { DocumentsPdfService } from './documents-pdf.service';
@@ -26,7 +26,7 @@ export class DocumentsController {
   constructor(private readonly pdf: DocumentsPdfService) {}
 
   @Get('receptions/:id/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async receptionPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('lang') lang?: string,
@@ -40,7 +40,7 @@ export class DocumentsController {
   }
 
   @Get('processes/:id/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async processPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('lang') lang?: string,
@@ -54,7 +54,7 @@ export class DocumentsController {
   }
 
   @Get('pt-tags/:id/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async tagPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('variant') variant?: string,
@@ -75,7 +75,7 @@ export class DocumentsController {
 
   /** Etiqueta 4×6 (existencias / pallet final). Tras repaletizaje, usar el id del pallet resultado (ej. PF-81). */
   @Get('final-pallets/:id/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async finalPalletPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('variant') variant?: string,
@@ -94,7 +94,7 @@ export class DocumentsController {
   }
 
   @Get('dispatches/:id/invoice/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async invoicePdf(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
     const buffer = await this.pdf.buildInvoicePdf(id, lang === 'en' ? 'en' : 'es');
     return new StreamableFile(buffer, {
@@ -104,7 +104,7 @@ export class DocumentsController {
   }
 
   @Get('dispatches/:id/bol/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async bolPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('lang') lang?: string,
@@ -118,7 +118,7 @@ export class DocumentsController {
   }
 
   @Get('dispatches/:id/packing-list/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async packingListPdf(@Param('id', ParseIntPipe) id: number, @Query('lang') lang?: string) {
     const buffer = await this.pdf.buildPackingListPdf(id, lang === 'en' ? 'en' : 'es');
     return new StreamableFile(buffer, {
@@ -128,7 +128,7 @@ export class DocumentsController {
   }
 
   @Get('pt-packing-lists/:id/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async ptPackingListPdf(@Param('id', ParseIntPipe) id: number) {
     const buffer = await this.pdf.buildPtPackingListPtPdf(id);
     return new StreamableFile(buffer, {
@@ -139,7 +139,7 @@ export class DocumentsController {
 
   /** Factura comercial PDF desde packing list PT (precios por formato en el cuerpo; no persiste factura). */
   @Post('pt-packing-lists/:id/invoice/pdf')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   async ptPackingListCommercialInvoicePdf(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CommercialInvoicePdfDto,

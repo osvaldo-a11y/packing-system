@@ -15,7 +15,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   AddDispatchTagDto,

@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canOperate, canSupervise } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -437,7 +438,7 @@ function packagingCategorySectionIcon(cat: { codigo: string; nombre: string }): 
 export function MaterialsPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canDelete = role === 'admin' || role === 'supervisor' || role === 'operator';
+  const canDelete = canOperate(role);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -733,8 +734,8 @@ export function MaterialsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canManageSupplierLinks = role === 'admin' || role === 'supervisor';
-  const canEditSupplierAliases = role === 'admin' || role === 'supervisor' || role === 'operator';
+  const canManageSupplierLinks = canSupervise(role);
+  const canEditSupplierAliases = canOperate(role);
 
   const linkMut = useMutation({
     mutationFn: (body: {

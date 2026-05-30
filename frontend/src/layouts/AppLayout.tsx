@@ -23,6 +23,7 @@ import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/AuthContext';
+import { isAdmin, isViewer } from '@/lib/roles';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,7 +120,8 @@ export function AppLayout() {
   const { t } = useTranslation('common');
   const navGroups = getNavGroups(t);
   const { username, role, logout } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdminRole = isAdmin(role);
+  const readOnlySession = isViewer(role);
   const { pathname } = useLocation();
 
   return (
@@ -159,7 +161,7 @@ export function AppLayout() {
               </ul>
             </div>
           ))}
-          {isAdmin && (
+          {isAdminRole && (
             <div className="mt-3 border-t border-slate-100/80 pt-3">
               <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 {t('nav.groups.admin').toUpperCase()}
@@ -221,7 +223,7 @@ export function AppLayout() {
                   ))}
                 </Fragment>
               ))}
-              {isAdmin && (
+              {isAdminRole && (
                 <Fragment>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
@@ -287,6 +289,11 @@ export function AppLayout() {
             key={pathname}
             className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8"
           >
+            {readOnlySession ? (
+              <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950">
+                {t('auth.viewerBanner')}
+              </p>
+            ) : null}
             <Outlet />
           </div>
         </main>

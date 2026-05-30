@@ -24,6 +24,7 @@ export class AuthService {
         { username: 'admin', password: 'admin123', role: 'admin' },
         { username: 'supervisor', password: 'sup123', role: 'supervisor' },
         { username: 'operator', password: 'op123', role: 'operator' },
+        { username: 'viewer', password: 'view123', role: 'viewer' },
       ]);
     try {
       return JSON.parse(raw) as AuthUserRecord[];

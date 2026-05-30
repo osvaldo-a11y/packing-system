@@ -15,7 +15,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import {
   ReportExportQueryDto,
   ReportFilterDto,
@@ -40,21 +40,21 @@ export class ReportingController {
 
   @Get('generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   generate(@Query() query: ReportFilterDto) {
     return this.service.generate(query);
   }
 
   @Get('format-cost')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   formatCost(@Query() query: ReportFilterDto) {
     return this.service.formatCost(query);
   }
 
   @Get('producer-settlement')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   producerSettlement(@Query() query: ReportFilterDto) {
     return this.service.producerSettlement(query);
   }
@@ -68,7 +68,7 @@ export class ReportingController {
 
   @Get('producer-settlement/pdf')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   async producerSettlementPdf(
     @Query() query: ReportFilterDto,
     @Query('variant') variant: string | undefined,
@@ -86,7 +86,7 @@ export class ReportingController {
 
   @Get('packing-costs')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   listPackingCosts() {
     return this.service.listPackingCosts();
   }
@@ -100,7 +100,7 @@ export class ReportingController {
 
   @Get('packing-format-surcharges')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   getPackingFormatSurcharges() {
     return this.service.getPackingFormatSurcharges();
   }
@@ -147,7 +147,7 @@ export class ReportingController {
 
   @Get('export')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   async export(@Query() query: ReportExportQueryDto, @Res() res: Response) {
     const { buffer, mime, filename } = await this.exportService.build(query.format, query);
     res.setHeader('Content-Type', mime);
@@ -164,7 +164,7 @@ export class ReportingController {
 
   @Get('saved-reports')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.OPERATOR)
+  @Roles(...READ_ACCESS_ROLES)
   list() {
     return this.service.listSavedReports();
   }
@@ -185,7 +185,7 @@ export class ReportingController {
 
   @Get('mass-balance')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   getMassBalance(
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -162,7 +163,7 @@ function draftToPayload(line: DraftLine): AddItemForm {
 
 export function RecipesPage() {
   const { role } = useAuth();
-  const canSeeDangerZone = role === 'admin';
+  const canSeeDangerZone = isAdmin(role);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 

@@ -14,7 +14,7 @@ import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   CreateFinalPalletDto,
@@ -34,14 +34,14 @@ export class FinalPalletController {
   constructor(private readonly service: FinalPalletService) {}
 
   @Get()
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   list() {
     return this.service.listPallets();
   }
 
   /** Vista inventario PT: pallets finales con filtros (ruta antes de :id). */
   @Get('existencias-pt')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listExistenciasPt(@Query() q: ListExistenciasPtQueryDto) {
     return this.service.listExistenciasPt(q);
   }
@@ -55,13 +55,13 @@ export class FinalPalletController {
 
   /** Asigna el mismo BOL a varios pallets (definitivo, sin despacho). */
   @Post('bulk-assign-bol')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   bulkAssignBol(@Body() dto: BulkAssignBolDto) {
     return this.service.bulkAssignBol(dto);
   }
 
   @Get('packout-budget/:processId')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   packoutBudget(
     @Param('processId', ParseIntPipe) processId: number,
     @Query('presentation_format_id') presentationFormatId?: string,
@@ -72,14 +72,14 @@ export class FinalPalletController {
 
   /** Repaletizaje controlado: descuenta orígenes, crea pallet destino y guarda trazabilidad origen→destino. */
   @Post('repallet')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   repallet(@Body() dto: RepalletDto) {
     return this.service.executeRepallet(dto);
   }
 
   /** Reversa operativa del repaletizaje (pallet resultado → revertido; orígenes recuperan stock). */
   @Post(':id/repallet-reverse')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   reverseRepallet(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: RepalletReverseDto,
@@ -91,13 +91,13 @@ export class FinalPalletController {
 
   /** Detalle solo lectura: recepción → proceso → líneas de pallet (trazabilidad PT). */
   @Get(':id/traceability')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   getTraceability(@Param('id', ParseIntPipe) id: number) {
     return this.service.getPalletTraceabilityDetail(id);
   }
 
   @Get(':id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   get(@Param('id', ParseIntPipe) id: number) {
     return this.service.getPallet(id);
   }
@@ -110,7 +110,7 @@ export class FinalPalletController {
   }
 
   @Patch(':id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   patch(@Param('id', ParseIntPipe) id: number, @Body() dto: PatchFinalPalletDto) {
     return this.service.patchPallet(id, dto);
   }

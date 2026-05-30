@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canSupervise } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -242,7 +243,7 @@ function formatLinesPreview(r: SalesOrderRow): string {
 export function SalesOrdersPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canManage = role === 'admin' || role === 'supervisor';
+  const canManage = canSupervise(role);
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editRow, setEditRow] = useState<SalesOrderRow | null>(null);

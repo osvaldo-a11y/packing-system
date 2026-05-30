@@ -39,6 +39,9 @@
     "submit": "Sign in",
     "toastSuccess": "Session started"
   },
+  "auth": {
+    "viewerBanner": "Read-only session (viewer): you can browse data and generate reports, but cannot change records."
+  },
   "about": {
     "pageTitle": "About the system",
     "pageSubtitle": "Pinebloom Packing — operational panel for plant, packaging, process, dispatch and reports.",
@@ -54,7 +57,7 @@
     },
     "practices": {
       "title": "Best practices",
-      "tip1": "Use appropriate roles (operator, supervisor, admin) and do not share credentials.",
+      "tip1": "Use appropriate roles (viewer, operator, supervisor, admin) and do not share credentials.",
       "tip2": "In production: bcrypt hashed passwords, strong JWT and HTTPS.",
       "tip3": "Login has a per-minute attempt limit to reduce abuse."
     },

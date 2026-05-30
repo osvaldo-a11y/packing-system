@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canSupervise } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -423,7 +424,7 @@ export function PtTagsPage() {
   const { t, i18n } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
-  const canEditTag = role === 'admin' || role === 'supervisor';
+  const canEditTag = canSupervise(role);
   const queryClient = useQueryClient();
   const [tagOpen, setTagOpen] = useState(false);
   const [bulkCreateProgress, setBulkCreateProgress] = useState<{ cur: number; total: number } | null>(null);

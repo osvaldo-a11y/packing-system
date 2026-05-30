@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,7 @@ export function PlantPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = role === 'admin';
+  const isAdminRole = isAdmin(role);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['plant-settings'],
@@ -113,15 +114,15 @@ export function PlantPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit((vals) => isAdmin && mutation.mutate(vals))} className="grid gap-4">
+          <form onSubmit={form.handleSubmit((vals) => isAdminRole && mutation.mutate(vals))} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="yield_tolerance_percent">{t('plant.card.yieldTolerance')}</Label>
               <Input
                 id="yield_tolerance_percent"
                 type="number"
                 step="0.01"
-                readOnly={!isAdmin}
-                className={!isAdmin ? 'opacity-80' : undefined}
+                readOnly={!isAdminRole}
+                className={!isAdminRole ? 'opacity-80' : undefined}
                 {...form.register('yield_tolerance_percent')}
               />
             </div>
@@ -131,8 +132,8 @@ export function PlantPage() {
                 id="min_yield_percent"
                 type="number"
                 step="0.01"
-                readOnly={!isAdmin}
-                className={!isAdmin ? 'opacity-80' : undefined}
+                readOnly={!isAdminRole}
+                className={!isAdminRole ? 'opacity-80' : undefined}
                 {...form.register('min_yield_percent')}
               />
             </div>
@@ -142,12 +143,12 @@ export function PlantPage() {
                 id="max_merma_percent"
                 type="number"
                 step="0.01"
-                readOnly={!isAdmin}
-                className={!isAdmin ? 'opacity-80' : undefined}
+                readOnly={!isAdminRole}
+                className={!isAdminRole ? 'opacity-80' : undefined}
                 {...form.register('max_merma_percent')}
               />
             </div>
-            {isAdmin ? (
+            {isAdminRole ? (
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? t('plant.card.savingButton') : t('plant.card.saveButton')}
               </Button>

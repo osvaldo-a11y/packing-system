@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Headers, Param, ParseIntPip
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateReceptionDto, TransitionReceptionStateDto, UpdateReceptionDto, BulkCloseBorradorReceptionsDto } from './traceability.dto';
 import { TraceabilityService } from './traceability.service';
@@ -15,7 +15,7 @@ export class ReceptionController {
   constructor(private readonly trace: TraceabilityService) {}
 
   @Get()
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   list() {
     return this.trace.listReceptions();
   }
@@ -42,19 +42,19 @@ export class ReceptionController {
   }
 
   @Get(':id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   get(@Param('id', ParseIntPipe) id: number) {
     return this.trace.getReception(id);
   }
 
   @Post()
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   create(@Body() dto: CreateReceptionDto) {
     return this.trace.createReception(dto);
   }
 
   @Put(':id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateReceptionDto) {
     return this.trace.updateReception(id, dto);
   }
@@ -67,7 +67,7 @@ export class ReceptionController {
   }
 
   @Patch(':id/state')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   transitionState(@Param('id', ParseIntPipe) id: number, @Body() dto: TransitionReceptionStateDto) {
     return this.trace.transitionReceptionState(id, dto);
   }

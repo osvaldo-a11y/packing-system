@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { ApiBearerAuth, ApiOkResponse, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LabelsService } from './labels.service';
 import type { TarjaTemplateMeta } from './tarja-template-registry';
@@ -16,7 +16,7 @@ export class LabelsController {
   constructor(private readonly labels: LabelsService) {}
 
   @Get('templates')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   @ApiOkResponse({
     description: 'Catálogo de plantillas ZPL para tarjas PT',
     schema: {
@@ -36,7 +36,7 @@ export class LabelsController {
   }
 
   @Get('tarja/:id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   @ApiProduces('text/plain')
   @ApiQuery({
     name: 'template',

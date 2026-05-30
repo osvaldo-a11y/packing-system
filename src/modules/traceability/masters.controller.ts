@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Q
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   CreatePresentationFormatDto,
@@ -58,7 +58,7 @@ export class MastersController {
   ) {}
 
   @Get('quality-grades')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listQuality(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listQualityGrades(parseIncludeInactive(includeInactive));
   }
@@ -82,7 +82,7 @@ export class MastersController {
   }
 
   @Get('species')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listSpecies(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listSpecies(parseIncludeInactive(includeInactive));
   }
@@ -106,7 +106,7 @@ export class MastersController {
   }
 
   @Get('producers')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listProducers(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listProducers(parseIncludeInactive(includeInactive));
   }
@@ -130,7 +130,7 @@ export class MastersController {
   }
 
   @Get('varieties')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listVarieties(@Query('species_id') speciesId?: string, @Query('include_inactive') includeInactive?: string) {
     let sid: number | undefined;
     if (speciesId != null && speciesId !== '') {
@@ -159,7 +159,7 @@ export class MastersController {
   }
 
   @Get('presentation-formats')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listFormats(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listPresentationFormats(parseIncludeInactive(includeInactive));
   }
@@ -183,7 +183,7 @@ export class MastersController {
   }
 
   @Get('process-machines')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listProcessMachines(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listProcessMachines(parseIncludeInactive(includeInactive));
   }
@@ -207,7 +207,7 @@ export class MastersController {
   }
 
   @Get('process-result-components')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listProcessResultComponents(@Query('include_inactive') includeInactive?: string) {
     return this.trace.listProcessResultComponents(parseIncludeInactive(includeInactive));
   }
@@ -231,7 +231,7 @@ export class MastersController {
   }
 
   @Get('species/:id/process-result-components')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listSpeciesProcessResultComponents(
     @Param('id', ParseIntPipe) id: number,
     @Query('include_inactive') includeInactive?: string,
@@ -249,7 +249,7 @@ export class MastersController {
   }
 
   @Get('clients')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listClients(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listClients(parseIncludeInactive(includeInactive));
   }
@@ -273,7 +273,7 @@ export class MastersController {
   }
 
   @Get('brands')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listBrands(
     @Query('include_inactive') includeInactive?: string,
     @Query('for_client_id') forClientIdRaw?: string,
@@ -305,7 +305,7 @@ export class MastersController {
   }
 
   @Get('packing-suppliers')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listPackingSuppliers(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listPackingSuppliers(parseIncludeInactive(includeInactive));
   }
@@ -329,7 +329,7 @@ export class MastersController {
   }
 
   @Get('packing-material-links')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listPackingMaterialLinks(@Query('material_id') materialId?: string) {
     const mid =
       materialId != null && materialId !== '' && Number.isFinite(Number(materialId))
@@ -352,13 +352,13 @@ export class MastersController {
 
   /** Actualizar código/nombre según guía del proveedor (vínculo debe existir). */
   @Patch('packing-material-links')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
   patchPackingMaterialLink(@Body() dto: UpdatePackingMaterialLinkDto) {
     return this.operational.updatePackingMaterialLink(dto);
   }
 
   @Get('returnable-containers')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listReturnableContainers(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listReturnableContainers(parseIncludeInactive(includeInactive));
   }
@@ -382,7 +382,7 @@ export class MastersController {
   }
 
   @Get('mercados')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listMercados(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listMercados(parseIncludeInactive(includeInactive));
   }
@@ -406,7 +406,7 @@ export class MastersController {
   }
 
   @Get('material-categories')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listMaterialCategories(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listMaterialCategories(parseIncludeInactive(includeInactive));
   }
@@ -430,7 +430,7 @@ export class MastersController {
   }
 
   @Get('reception-types')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listReceptionTypes(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listReceptionTypes(parseIncludeInactive(includeInactive));
   }
@@ -454,7 +454,7 @@ export class MastersController {
   }
 
   @Get('document-states')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listDocumentStates(@Query('include_inactive') includeInactive?: string) {
     return this.operational.listDocumentStates(parseIncludeInactive(includeInactive));
   }
@@ -478,7 +478,7 @@ export class MastersController {
   }
 
   @Get('finished-pt-stock')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listFinishedPtStock() {
     return this.operational.listFinishedPtStock();
   }

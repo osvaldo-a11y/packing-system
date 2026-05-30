@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { OPERATE_ROLES, READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   CreatePtPackingListDto,
@@ -21,43 +21,43 @@ export class PtPackingListController {
   constructor(private readonly service: PtPackingListService) {}
 
   @Post()
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   create(@Body() dto: CreatePtPackingListDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   list() {
     return this.service.findAll();
   }
 
   @Patch(':id/numero-bol')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   patchNumeroBol(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtPackingListBolDto) {
     return this.service.updateNumeroBol(id, dto);
   }
 
   @Patch(':id/client')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   patchClient(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePtPackingListClientDto) {
     return this.service.updateClient(id, dto);
   }
 
   @Get(':id')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   getOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Post(':id/confirm')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   confirm(@Param('id', ParseIntPipe) id: number) {
     return this.service.confirm(id);
   }
 
   @Post(':id/reverse')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   reverse(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReversePtPackingListDto,
@@ -68,7 +68,7 @@ export class PtPackingListController {
   }
 
   @Post(':id/annul')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   annul(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReversePtPackingListDto,
@@ -95,7 +95,7 @@ export class PtPackingListController {
 
   @Delete(':id')
   @HttpCode(204)
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...OPERATE_ROLES)
   async deleteDraft(@Param('id', ParseIntPipe) id: number) {
     await this.service.deleteDraft(id);
   }

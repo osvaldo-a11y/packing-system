@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiFetch, apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canSupervise, isAdmin } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -2916,7 +2917,7 @@ function recordToReportFilters(r: Record<string, unknown>): ReportFilters {
 
 export function ReportingPage() {
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdminRole = isAdmin(role);
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation('common');
   const tr = (k: string) => t(`reporting.${k}`);
@@ -3306,7 +3307,7 @@ export function ReportingPage() {
     generateMut.mutate(next);
   }
 
-  const canManagePackingCosts = role === 'admin' || role === 'supervisor';
+  const canManagePackingCosts = canSupervise(role);
 
   const periodFilterFieldsGrid = (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -4519,7 +4520,7 @@ export function ReportingPage() {
                   </details>
 
                   {/* Diagnóstico técnico admin */}
-                  {isAdmin ? (
+                  {isAdminRole ? (
                     <details className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/50">
                       <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
                         <div className="flex items-center gap-3">

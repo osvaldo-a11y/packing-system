@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { canOperate, isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -370,7 +371,8 @@ export function ReceptionPage() {
   const { t, i18n } = useTranslation('common');
   const queryClient = useQueryClient();
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdminRole = isAdmin(role);
+  const canOperateReception = canOperate(role);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
@@ -915,7 +917,7 @@ export function ReceptionPage() {
       const r = await apiJson<ReceptionRow>(`/api/receptions/${id}`);
       const codigo = r.document_state?.codigo ?? '';
       if (codigo !== 'borrador') {
-        if (!isAdmin) {
+        if (!isAdminRole) {
           toast.error('Solo se editan recepciones en borrador.');
           return;
         }
@@ -1652,10 +1654,12 @@ export function ReceptionPage() {
             </button>
           </div>
         </div>
-        <Button className={cn(btnToolbarPrimary, 'shrink-0')} onClick={() => openNew()}>
-          <Plus className="h-4 w-4" />
-          {t('reception.newButton')}
-        </Button>
+        {canOperateReception ? (
+          <Button className={cn(btnToolbarPrimary, 'shrink-0')} onClick={() => openNew()}>
+            <Plus className="h-4 w-4" />
+            {t('reception.newButton')}
+          </Button>
+        ) : null}
       </div>
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
@@ -1987,7 +1991,14 @@ export function ReceptionPage() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 gap-1 px-1.5 text-xs"
-                                    onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
+                                    onClick={() =>
+                                      void (
+                                        isAdminRole ||
+                                        (canOperateReception && r.document_state?.codigo === 'borrador')
+                                          ? openEdit(r.id)
+                                          : openView(r.id)
+                                      )
+                                    }
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
                                     {t('reception.table.actionEdit')}
@@ -2127,7 +2138,14 @@ export function ReceptionPage() {
                               variant="ghost"
                               size="sm"
                               className="h-6 gap-1 px-1.5 text-xs"
-                              onClick={() => void (isAdmin || r.document_state?.codigo === 'borrador' ? openEdit(r.id) : openView(r.id))}
+                              onClick={() =>
+                                void (
+                                  isAdminRole ||
+                                  (canOperateReception && r.document_state?.codigo === 'borrador')
+                                    ? openEdit(r.id)
+                                    : openView(r.id)
+                                )
+                              }
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               {t('reception.table.actionEdit')}
