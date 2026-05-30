@@ -209,7 +209,14 @@ async function buildMassBalanceExcel(
       row.getCell(i).alignment = { horizontal: 'right' };
     });
   }
-  const tot = data.totales;
+  const tot = {
+    lb_recepcionado: producers.reduce((s, p) => s + p.lb_recepcionado, 0),
+    lb_procesado: producers.reduce((s, p) => s + p.lb_procesado, 0),
+    lb_packout: producers.reduce((s, p) => s + p.lb_packout, 0),
+    lb_merma: producers.reduce((s, p) => s + p.lb_merma, 0),
+    lb_facturado: producers.reduce((s, p) => s + p.lb_facturado, 0),
+    diferencia: producers.reduce((s, p) => s + p.diferencia, 0),
+  };
   const totRow = wsSummary.addRow([
     L.total,
     '',
@@ -239,6 +246,121 @@ async function buildMassBalanceExcel(
     { width: 16 },
     { width: 14 },
   ];
+
+  const wsDisp = wb.addWorksheet(lang === 'en' ? 'Dispatches' : 'Despachos');
+  const COL_DISP = 5;
+  const dispHeader = wsDisp.addRow([
+    lang === 'en' ? 'Producer' : 'Productor',
+    lang === 'en' ? 'Dispatch' : 'Despacho',
+    lang === 'en' ? 'Date' : 'Fecha',
+    lang === 'en' ? 'Lb Invoiced' : 'Lb Facturado',
+    lang === 'en' ? 'Sales' : 'Ventas',
+  ]);
+  styleHeader(dispHeader, COL_DISP);
+  wsDisp.addRow([
+    lang === 'en'
+      ? '— Dispatch detail will be added in next update —'
+      : '— Detalle de despachos se agregará en próxima actualización —',
+  ]);
+  wsDisp.columns = [{ width: 28 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 16 }];
+
+  for (const p of producers) {
+    const wsFee = wb.addWorksheet((lang === 'en' ? 'PackFee ' : 'Fees ') + p.productor_nombre.slice(0, 20));
+    const COL_FEE = 5;
+    const feeTitle = wsFee.addRow([p.productor_nombre]);
+    wsFee.mergeCells(feeTitle.number, 1, feeTitle.number, COL_FEE);
+    feeTitle.getCell(1).font = { bold: true, size: 11, name: 'Arial', color: { argb: C.headerBg } };
+    feeTitle.height = 22;
+
+    wsFee.addRow([]);
+
+    const feeHdr = wsFee.addRow([
+      lang === 'en' ? 'Service' : 'Servicio',
+      lang === 'en' ? 'Rate ($/lb)' : 'Tarifa ($/lb)',
+      lang === 'en' ? 'Lb Base' : 'Lb Base',
+      lang === 'en' ? 'Amount' : 'Monto',
+      lang === 'en' ? 'Notes' : 'Notas',
+    ]);
+    styleHeader(feeHdr, COL_FEE);
+
+    const lbMaquina = p.detalle
+      .filter(
+        (d) =>
+          d.tipo_recepcion.includes('machine') ||
+          d.tipo_recepcion.toLowerCase().includes('máquina') ||
+          d.tipo_recepcion.toLowerCase().includes('maquina'),
+      )
+      .reduce((s, d) => s + d.lb_packout, 0);
+    const lbTotal = p.lb_packout;
+
+    const services = [
+      {
+        nombre: lang === 'en' ? 'Blueberry packing service' : 'Servicio packing arándano',
+        tarifa: 0.45,
+        lb: lbTotal,
+        nota: lang === 'en' ? 'Base rate per lb packed' : 'Tarifa base por lb empacada',
+      },
+      {
+        nombre: lang === 'en' ? 'Size / Jumbo premium' : 'Recargo size / Jumbo',
+        tarifa: 0.0,
+        lb: 0,
+        nota:
+          lang === 'en'
+            ? 'Applied by format — see format surcharge in settlement'
+            : 'Aplicado por formato — ver recargo formato en liquidación',
+      },
+      {
+        nombre: lang === 'en' ? 'Machine processing fee' : 'Servicio procesado máquina',
+        tarifa: 0.1,
+        lb: lbMaquina,
+        nota: lang === 'en' ? 'Applied only to machine-picked fruit' : 'Solo aplicado a fruta de cosecha máquina',
+      },
+    ];
+
+    for (const svc of services) {
+      const monto = svc.tarifa * svc.lb;
+      const feeRow = wsFee.addRow([svc.nombre, svc.tarifa, svc.lb, monto, svc.nota]);
+      feeRow.height = 18;
+      feeRow.getCell(2).numFmt = '"$"#,##0.000';
+      feeRow.getCell(3).numFmt = FMT_LB;
+      feeRow.getCell(4).numFmt = '"$"#,##0.00';
+      [2, 3, 4].forEach((i) => {
+        feeRow.getCell(i).alignment = { horizontal: 'right' };
+      });
+      feeRow.getCell(1).font = { size: 9, name: 'Arial' };
+      feeRow.getCell(5).font = { size: 8, name: 'Arial', color: { argb: 'FF666666' }, italic: true };
+    }
+
+    const feeTotal = services.reduce((s, sv) => s + sv.tarifa * sv.lb, 0);
+    const feeTotRow = wsFee.addRow([
+      lang === 'en' ? 'TOTAL PACK FEE (base)' : 'TOTAL PACK FEE (base)',
+      '',
+      '',
+      feeTotal,
+      '',
+    ]);
+    styleTotal(feeTotRow, COL_FEE);
+    feeTotRow.getCell(4).numFmt = '"$"#,##0.00';
+
+    wsFee.addRow([]);
+    const noteRow = wsFee.addRow([
+      lang === 'en'
+        ? '* Format surcharge (Jumbo/size premium) is detailed in the settlement Excel by format.'
+        : '* El recargo por formato (premium Jumbo/size) está detallado en el Excel de liquidación por formato.',
+    ]);
+    wsFee.mergeCells(noteRow.number, 1, noteRow.number, COL_FEE);
+    noteRow.getCell(1).font = { size: 8, name: 'Arial', italic: true, color: { argb: 'FF666666' } };
+
+    wsFee.columns = [{ width: 36 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 48 }];
+  }
+
+  const tipoLabelXls = (tipo: string): string => {
+    const t = tipo.toLowerCase();
+    if (t.includes('machine') || t.includes('máquina') || t.includes('maquina'))
+      return lang === 'en' ? 'Machine' : 'Máquina';
+    if (t.includes('hand') || t.includes('mano')) return lang === 'en' ? 'Hand' : 'Mano';
+    return lang === 'en' ? 'Mixed' : 'Mixto';
+  };
 
   for (const p of producers) {
     const ws = wb.addWorksheet(L.sheetDetail(p.productor_nombre));
@@ -273,7 +395,7 @@ async function buildMassBalanceExcel(
         d.recepcion_id,
         d.fecha,
         d.variedad,
-        d.tipo_recepcion,
+        tipoLabelXls(d.tipo_recepcion),
         d.lb_entrada,
         d.lb_packout,
         d.pct_packout / 100,
