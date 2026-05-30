@@ -70,6 +70,7 @@ import {
 } from '@/lib/cierre-producer-excel';
 import { cn } from '@/lib/utils';
 import { EodPlanningSection } from '@/components/reporting/EodPlanningSection';
+import { MassBalanceBlock } from '@/components/reporting/MassBalanceBlock';
 import { ReportSemanticBlock } from '@/components/reporting/ReportSemanticBlock';
 
 type ReportFilters = {
@@ -5216,6 +5217,9 @@ export function ReportingPage() {
 
           {reportTab === 'documentos' ? (
             <>
+              <MassBalanceBlock
+                company={((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? ''}
+              />
               <Card className="border-slate-200/90 bg-white shadow-sm">
                 <CardHeader className="pb-2">
                   <ReportCategoryBadge kind="entregable" />

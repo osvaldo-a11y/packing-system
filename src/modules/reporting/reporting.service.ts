@@ -2095,4 +2095,188 @@ export class ReportingService {
       formatoCodigo: fc,
     };
   }
+
+  async getMassBalanceByProducer(filter: { desde?: string; hasta?: string }): Promise<{
+    producers: Array<{
+      productor_id: number;
+      productor_nombre: string;
+      recepciones: number;
+      lb_recepcionado: number;
+      procesos: number;
+      lb_procesado: number;
+      lb_packout: number;
+      lb_merma: number;
+      pct_packout: number;
+      lb_facturado: number;
+      diferencia: number;
+      detalle: Array<{
+        proceso_id: number;
+        recepcion_id: number;
+        fecha: string;
+        variedad: string;
+        tipo_recepcion: string;
+        lb_entrada: number;
+        lb_packout: number;
+        pct_packout: number;
+        cajas_pt: number;
+      }>;
+    }>;
+    totales: {
+      lb_recepcionado: number;
+      lb_procesado: number;
+      lb_packout: number;
+      lb_merma: number;
+      lb_facturado: number;
+      diferencia: number;
+    };
+  }> {
+    const dateFilter = (col: string) => {
+      const parts: string[] = [];
+      if (filter.desde) parts.push(`${col} >= '${filter.desde}'`);
+      if (filter.hasta) parts.push(`${col} <= '${filter.hasta}'`);
+      return parts.length ? 'AND ' + parts.join(' AND ') : '';
+    };
+
+    const summaryRows = (await this.dataSource.query(
+      `
+      SELECT
+        fp.productor_id,
+        pr.nombre as productor_nombre,
+        COUNT(DISTINCT r.id) as recepciones,
+        SUM(DISTINCT r.net_weight_lb::numeric) as lb_recepcionado_raw,
+        COUNT(DISTINCT fp.id) as procesos,
+        SUM(fp.lb_entrada::numeric) as lb_procesado,
+        SUM(fp.lb_packout::numeric) as lb_packout,
+        SUM(fp.lb_entrada::numeric) - SUM(fp.lb_packout::numeric) as lb_merma
+      FROM fruit_processes fp
+      JOIN receptions r ON r.id = fp.recepcion_id
+      JOIN producers pr ON pr.id = fp.productor_id
+      WHERE fp.deleted_at IS NULL
+        ${dateFilter('r.received_at')}
+      GROUP BY fp.productor_id, pr.nombre
+      ORDER BY SUM(fp.lb_packout::numeric) DESC
+    `,
+    )) as Array<Record<string, unknown>>;
+
+    const recepcionRows = (await this.dataSource.query(
+      `
+      SELECT
+        fp.productor_id,
+        SUM(r.net_weight_lb::numeric) as lb_recepcionado
+      FROM (
+        SELECT DISTINCT fp.productor_id, fp.recepcion_id
+        FROM fruit_processes fp
+        JOIN receptions r ON r.id = fp.recepcion_id
+        WHERE fp.deleted_at IS NULL
+          ${dateFilter('r.received_at')}
+      ) fp
+      JOIN receptions r ON r.id = fp.recepcion_id
+      GROUP BY fp.productor_id
+    `,
+    )) as Array<Record<string, unknown>>;
+    const recepcionByProducer = new Map(
+      recepcionRows.map((r) => [Number(r.productor_id), Number(r.lb_recepcionado ?? 0)]),
+    );
+
+    const facturadoRows = (await this.dataSource.query(
+      `
+      SELECT
+        fp.productor_id,
+        SUM(CASE
+          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+          THEN BTRIM(ii.pounds::text)::numeric
+          ELSE 0
+        END) as lb_facturado
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      JOIN fruit_processes fp ON fp.id = ii.fruit_process_id
+      WHERE fp.deleted_at IS NULL
+        ${dateFilter('d.fecha_despacho')}
+      GROUP BY fp.productor_id
+    `,
+    )) as Array<Record<string, unknown>>;
+    const facturadoByProducer = new Map(
+      facturadoRows.map((r) => [Number(r.productor_id), Number(r.lb_facturado ?? 0)]),
+    );
+
+    const detalleRows = (await this.dataSource.query(
+      `
+      SELECT
+        fp.id as proceso_id,
+        fp.productor_id,
+        fp.recepcion_id,
+        r.received_at::date as fecha,
+        COALESCE(v.nombre, '—') as variedad,
+        rt.nombre as tipo_recepcion,
+        fp.lb_entrada::numeric as lb_entrada,
+        fp.lb_packout::numeric as lb_packout,
+        COALESCE(
+          ROUND(fp.lb_packout::numeric / NULLIF(fp.lb_entrada::numeric, 0) * 100, 2),
+          0
+        ) as pct_packout,
+        COALESCE((
+          SELECT SUM(pti.cajas_generadas)
+          FROM pt_tag_items pti
+          WHERE pti.process_id = fp.id
+        ), 0) as cajas_pt
+      FROM fruit_processes fp
+      JOIN receptions r ON r.id = fp.recepcion_id
+      JOIN reception_types rt ON rt.id = r.reception_type_id
+      LEFT JOIN varieties v ON v.id = fp.variedad_id
+      WHERE fp.deleted_at IS NULL
+        ${dateFilter('r.received_at')}
+      ORDER BY fp.productor_id, r.received_at, fp.id
+    `,
+    )) as Array<Record<string, unknown>>;
+
+    const detalleByProducer = new Map<number, Array<Record<string, unknown>>>();
+    for (const d of detalleRows) {
+      const pid = Number(d.productor_id);
+      if (!detalleByProducer.has(pid)) detalleByProducer.set(pid, []);
+      detalleByProducer.get(pid)!.push(d);
+    }
+
+    const producers = summaryRows.map((r) => {
+      const pid = Number(r.productor_id);
+      const lbRec = recepcionByProducer.get(pid) ?? 0;
+      const lbFact = facturadoByProducer.get(pid) ?? 0;
+      const lbPackout = Number(r.lb_packout ?? 0);
+      return {
+        productor_id: pid,
+        productor_nombre: String(r.productor_nombre ?? ''),
+        recepciones: Number(r.recepciones ?? 0),
+        lb_recepcionado: lbRec,
+        procesos: Number(r.procesos ?? 0),
+        lb_procesado: Number(r.lb_procesado ?? 0),
+        lb_packout: lbPackout,
+        lb_merma: Number(r.lb_merma ?? 0),
+        pct_packout: lbRec > 0 ? Math.round((lbPackout / lbRec) * 100 * 100) / 100 : 0,
+        lb_facturado: lbFact,
+        diferencia: lbPackout - lbFact,
+        detalle: (detalleByProducer.get(pid) ?? []).map((d) => ({
+          proceso_id: Number(d.proceso_id),
+          recepcion_id: Number(d.recepcion_id),
+          fecha: String(d.fecha ?? ''),
+          variedad: String(d.variedad ?? '—'),
+          tipo_recepcion: String(d.tipo_recepcion ?? '—'),
+          lb_entrada: Number(d.lb_entrada ?? 0),
+          lb_packout: Number(d.lb_packout ?? 0),
+          pct_packout: Number(d.pct_packout ?? 0),
+          cajas_pt: Number(d.cajas_pt ?? 0),
+        })),
+      };
+    });
+
+    const totales = {
+      lb_recepcionado: producers.reduce((s, p) => s + p.lb_recepcionado, 0),
+      lb_procesado: producers.reduce((s, p) => s + p.lb_procesado, 0),
+      lb_packout: producers.reduce((s, p) => s + p.lb_packout, 0),
+      lb_merma: producers.reduce((s, p) => s + p.lb_merma, 0),
+      lb_facturado: producers.reduce((s, p) => s + p.lb_facturado, 0),
+      diferencia: producers.reduce((s, p) => s + p.diferencia, 0),
+    };
+
+    return { producers, totales };
+  }
 }

@@ -182,4 +182,14 @@ export class ReportingController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteSavedReport(id);
   }
+
+  @Get('mass-balance')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  getMassBalance(
+    @Query('desde') desde?: string,
+    @Query('hasta') hasta?: string,
+  ) {
+    return this.service.getMassBalanceByProducer({ desde, hasta });
+  }
 }
