@@ -2953,9 +2953,9 @@ export function ReportingPage() {
   const [machineRateNotes, setMachineRateNotes] = useState('');
   const [machineRateActive, setMachineRateActive] = useState(true);
   const [useAdjustedCost, setUseAdjustedCost] = useState(false);
-  const [reportTab, setReportTab] = useState<ReportModuleTab>('cierre');
-  /** Tarifas packing: abierto por defecto en Cierre para configurar antes de generar liquidación. */
-  const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(true);
+  const [reportTab, setReportTab] = useState<ReportModuleTab | null>(null);
+  /** Tarifas packing en Cierre: colapsado por defecto. */
+  const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   /** Productor elegido solo para informe PDF/Excel por productor en Cierre (no altera el generado global). */
   const [cierreInformeProducerId, setCierreInformeProducerId] = useState<number | null>(null);
@@ -4213,7 +4213,7 @@ export function ReportingPage() {
         </div>
       )}
 
-      {!generateMut.isPending && (
+      {!generateMut.isPending && reportTab != null && (
         <div className="space-y-4">
           {reportTab === 'operacion' ? (
             <>
