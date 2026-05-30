@@ -344,6 +344,23 @@ async function buildMassBalanceExcel(
     const costoMat = settlementRow ? Number(settlementRow.costo_materiales ?? 0) : 0;
     const netoProductor = settlementRow ? Number(settlementRow.neto_productor ?? 0) : 0;
 
+    // ── Lb por formato premium (del detalle de liquidación) ──
+    const detailRows = (settlementData?.producerSettlementDetail?.rows ?? [])
+      .filter((r) => Number(r.productor_id) === p.productor_id);
+
+    // Agrupar lb por formato
+    const lbByFormat = new Map<string, number>();
+    for (const r of detailRows) {
+      const fmt = String(r.format_code ?? '').trim();
+      if (!fmt) continue;
+      lbByFormat.set(fmt, (lbByFormat.get(fmt) ?? 0) + Number(r.lb ?? 0));
+    }
+
+    // Formatos premium con recargo (12x9.8oz = $0.55/lb)
+    const PREMIUM_FORMATS = ['12x9.8oz', '12x9.8OZ', '9.8oz', '9.8OZ'];
+    const lbPremium = PREMIUM_FORMATS.reduce((s, fmt) => s + (lbByFormat.get(fmt) ?? 0), 0);
+    const tarifaRecargo = lbPremium > 0 && recargoFmt > 0 ? recargoFmt / lbPremium : 0.55;
+
     const services = [
       {
         nombre: lang === 'en' ? 'Blueberry packing service' : 'Servicio packing arándano',
@@ -353,15 +370,17 @@ async function buildMassBalanceExcel(
         nota: lang === 'en' ? 'Base rate per lb packed' : 'Tarifa base por lb empacada',
       },
       {
-        nombre: lang === 'en' ? 'Format surcharge (size/jumbo)' : 'Recargo por formato (size/jumbo)',
-        tarifa: lbTotal > 0 ? recargoFmt / lbTotal : 0,
-        lb: lbTotal,
+        nombre: lang === 'en' ? 'Format surcharge — 12x9.8oz (size/jumbo)' : 'Recargo formato — 12x9.8oz (size/jumbo)',
+        tarifa: tarifaRecargo,
+        lb: lbPremium,
         monto: recargoFmt,
-        nota: lang === 'en' ? '12x9.8oz and similar premium formats' : 'Formatos premium 12x9.8oz y similares',
+        nota: lang === 'en'
+          ? `Premium format lb: ${lbPremium.toLocaleString('en-US', {maximumFractionDigits: 2})}`
+          : `Lb formato premium: ${lbPremium.toLocaleString('es-AR', {maximumFractionDigits: 2})}`,
       },
       {
         nombre: lang === 'en' ? 'Machine processing fee' : 'Servicio procesado máquina',
-        tarifa: lbMaquina > 0 ? costoMaq / lbMaquina : 0.1,
+        tarifa: lbMaquina > 0 ? costoMaq / lbMaquina : 0.10,
         lb: lbMaquina,
         monto: costoMaq,
         nota: lang === 'en' ? 'Applied only to machine-picked fruit' : 'Solo fruta cosecha máquina',
