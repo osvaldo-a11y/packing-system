@@ -2612,7 +2612,7 @@
       "operacion": { "label": "Operación", "subtitle": "¿Qué pasó hoy? Fin del día primero; KPIs del turno; período al final.", "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros." },
       "decision":  { "label": "Decisión",  "subtitle": "¿Qué debo producir? Contexto de MP y simulación — sin filtros del reporte económico; liquidación desde Cierre.", "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros." },
       "cierre":    { "label": "Cierre",    "subtitle": "¿Cuánto ganó cada productor? Liquidación, packing por especie y trazabilidad.", "excelHint": "Exportar TODO (Excel) y PDF desde la pestaña Documentos." },
-      "documentos":{ "label": "Documentos","subtitle": "¿Cómo exporto? Vista del período y descargas.", "excelHint": "Mismos filtros del período aplicados al archivo generado." }
+      "documentos":{ "label": "Documentos","subtitle": "Balance de masas por productor y Excel unificado.", "excelHint": "Elegí fechas y descargá el Excel desde cada productor o todos." }
     },
     "operacion": {
       "kpisHint": "KPIs del día (packed, cámara, shipped y MP proceso) justo debajo del fin del día de la fecha operativa."

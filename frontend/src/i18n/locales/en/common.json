@@ -2613,7 +2613,7 @@
       "operacion": { "label": "Operations", "subtitle": "What happened today? End of day first; shift KPIs; period at the end.", "excelHint": "In Documents you can export the full workbook with the same filters." },
       "decision":  { "label": "Decision",   "subtitle": "What should I produce? RM context and simulation — no financial report filters; settlement from Close.", "excelHint": "In Documents you can export the full workbook with the same filters." },
       "cierre":    { "label": "Close",      "subtitle": "How much did each producer earn? Settlement, packing by species and traceability.", "excelHint": "Export ALL (Excel) and PDF from the Documents tab." },
-      "documentos":{ "label": "Documents",  "subtitle": "How do I export? Period view and downloads.", "excelHint": "Same period filters applied to the generated file." }
+      "documentos":{ "label": "Documents",  "subtitle": "Mass balance by producer and unified Excel.", "excelHint": "Pick dates and download Excel per producer or all." }
     },
     "operacion": {
       "kpisHint": "Daily KPIs (packed, cold-storage, shipped and RM in process) just below the end-of-day for the operative date."

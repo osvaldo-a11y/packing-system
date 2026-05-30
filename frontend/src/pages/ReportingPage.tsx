@@ -10,14 +10,9 @@ import {
   Download,
   FileDown,
   FileText,
-  FolderOpen,
   Info,
   Layers,
-  Pencil,
-  Printer,
   RefreshCw,
-  Save,
-  Trash2,
   Users,
   XCircle,
 } from 'lucide-react';
@@ -30,7 +25,6 @@ import { useAuth } from '@/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,24 +36,19 @@ import {
   btnToolbarPrimary,
   contentCard,
   emptyStateInset,
-  emptyStatePanel,
   errorStateCard,
   filterInputClass,
   filterLabel,
   kpiCardSm,
   kpiFootnoteLead,
-  kpiGrid3,
   kpiLabel,
   kpiValueMd,
   pageHeaderRow,
   pageStack,
   pageSubtitle,
   pageTitle,
-  sectionHint,
-  sectionTitle,
   tableBodyRow,
   tableHeaderRow,
-  tableShell,
 } from '@/lib/page-ui';
 import {
   aggregateDetailByFormatForProducer,
@@ -238,14 +227,6 @@ interface MachineProcessingRate {
   notes: string | null;
   created_at: string;
 }
-
-type SavedReportRow = {
-  id: number;
-  report_name: string;
-  filters: Record<string, unknown>;
-  payload: Record<string, unknown>;
-  created_at: string;
-};
 
 type ReportModuleTab = 'operacion' | 'decision' | 'cierre' | 'documentos';
 
@@ -838,88 +819,6 @@ function toNum(v: unknown): number {
 
 function toStr(v: unknown): string {
   return v == null ? '—' : String(v);
-}
-
-type ExecutiveKpis = {
-  cajasPtTotal: number;
-  cajasDespachadasTotal: number;
-  rendimientoPromedio: number | null;
-  mermaRegistradaLb: number;
-  formatosConConsumo: number;
-  ventasPeriodo: number;
-  costosPeriodo: number;
-  margenTotal: number;
-  productoresLiquidados: number;
-  topClienteNombre: string | null;
-  topClienteVentas: number;
-};
-
-function computeExecutiveKpis(d: GenerateResponse): ExecutiveKpis {
-  const cajasPtTotal = (d.boxesByProducer?.rows ?? []).reduce(
-    (s, r) => s + toNum((r as Record<string, unknown>).total_cajas),
-    0,
-  );
-  const cajasDespachadasTotal = (d.dispatchedBoxesByProducer?.rows ?? []).reduce(
-    (s, r) => s + toNum((r as Record<string, unknown>).cajas_despachadas),
-    0,
-  );
-  const yw = d.yieldAndWaste?.rows ?? [];
-  let rendimientoPromedio: number | null = null;
-  if (yw.length) {
-    const pesoSum = yw.reduce((s, r) => s + toNum((r as Record<string, unknown>).peso_procesado_total), 0);
-    if (pesoSum > 0) {
-      rendimientoPromedio =
-        yw.reduce(
-          (s, r) =>
-            s + toNum((r as Record<string, unknown>).rendimiento_promedio) * toNum((r as Record<string, unknown>).peso_procesado_total),
-          0,
-        ) / pesoSum;
-    } else {
-      rendimientoPromedio =
-        yw.reduce((s, r) => s + toNum((r as Record<string, unknown>).rendimiento_promedio), 0) / yw.length;
-    }
-  }
-  const mermaRegistradaLb = yw.reduce((s, r) => s + toNum((r as Record<string, unknown>).merma_total_lb), 0);
-  const formatosConConsumo = (d.packagingByFormat?.rows ?? []).filter(
-    (r) => toNum((r as Record<string, unknown>).consumos) > 0,
-  ).length;
-
-  const sales = d.salesAndCostsByDispatch?.rows ?? [];
-  const ventasPeriodo = sales.reduce((s, r) => s + toNum((r as Record<string, unknown>).total_ventas), 0);
-  const costosPeriodo = sales.reduce((s, r) => s + toNum((r as Record<string, unknown>).total_costos), 0);
-
-  const cms = d.clientMarginSummary?.rows ?? [];
-  const margenTotal = cms.reduce((s, r) => s + toNum((r as Record<string, unknown>).margen), 0);
-  let topClienteNombre: string | null = null;
-  let topClienteVentas = 0;
-  for (const raw of cms) {
-    const r = raw as Record<string, unknown>;
-    const v = toNum(r.total_ventas);
-    if (v > topClienteVentas) {
-      topClienteVentas = v;
-      topClienteNombre = String(r.cliente_nombre ?? '—');
-    }
-  }
-
-  const pss = d.producerSettlementSummary?.rows ?? [];
-  const productoresLiquidados = pss.filter((raw) => {
-    const pid = (raw as Record<string, unknown>).productor_id;
-    return pid != null && pid !== '' && Number(pid) > 0;
-  }).length;
-
-  return {
-    cajasPtTotal,
-    cajasDespachadasTotal,
-    rendimientoPromedio,
-    mermaRegistradaLb,
-    formatosConConsumo,
-    ventasPeriodo,
-    costosPeriodo,
-    margenTotal,
-    productoresLiquidados,
-    topClienteNombre,
-    topClienteVentas,
-  };
 }
 
 function KpiTile({
@@ -2797,181 +2696,6 @@ function DiagnosticoTrazabilidadGuiaCard() {
   );
 }
 
-/** Muestra primeras filas del bloque principal para validar antes de exportar. */
-function ReportPreviewStrip({ data }: { data: GenerateResponse }) {
-  const { t } = useTranslation('common');
-  const tr = (k: string) => t(`reporting.${k}`);
-  const section = data.boxesByProducer;
-  const rows = section?.rows ?? [];
-  if (!rows.length) {
-    return <div className={emptyStatePanel}>{tr('misc.sinFilasCajasPt')}</div>;
-  }
-  const preview = rows.slice(0, 15);
-  const cols = Object.keys(preview[0] ?? {});
-  return (
-    <div className="space-y-2">
-      <div>
-        <p className={sectionTitle}>{tr('misc.tablaResumidaCajasPt')}</p>
-        <p className={sectionHint}>{tr('misc.primeras15Filas')}</p>
-      </div>
-      <div className={cn(tableShell, 'overflow-x-auto')}>
-        <Table>
-          <TableHeader>
-            <TableRow className={tableHeaderRow}>
-              {cols.map((c) => (
-                <TableHead key={c} className="whitespace-nowrap text-xs font-medium">
-                  {c}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {preview.map((row, i) => (
-              <TableRow key={i} className={tableBodyRow}>
-                {cols.map((c) => (
-                  <TableCell key={c} className="max-w-[240px] truncate text-sm tabular-nums">
-                    {renderCell(c, (row as Record<string, unknown>)[c])}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
-
-type UnifiedPreviewRow = {
-  row_grain: string;
-  row_id: string;
-  pallet_id: string;
-  invoice_id: string;
-  producer_name: string;
-  product_variety: string;
-  boxes: string;
-  net_weight: string;
-  reference: string;
-  is_mixed_line: string;
-  line_candidate_count: string;
-};
-
-function pickAny(row: Record<string, unknown>, keys: string[]): unknown {
-  for (const k of keys) {
-    if (row[k] != null && String(row[k]).trim() !== '') return row[k];
-  }
-  return null;
-}
-
-function buildUnifiedPreviewRows(data: GenerateResponse | null): UnifiedPreviewRow[] {
-  const fallback: UnifiedPreviewRow[] = [
-    {
-      row_grain: 'invoice_item',
-      row_id: 'INV-1024',
-      pallet_id: 'PF-30',
-      invoice_id: 'FAC-00030',
-      producer_name: 'Productor demo',
-      product_variety: 'Arándano Legacy',
-      boxes: '420',
-      net_weight: '4,536.00',
-      reference: 'PL-0008',
-      is_mixed_line: 'No',
-      line_candidate_count: '1',
-    },
-    {
-      row_grain: 'final_pallet_line',
-      row_id: 'FPL-778',
-      pallet_id: 'PF-31',
-      invoice_id: '—',
-      producer_name: 'Pendiente trazabilidad',
-      product_variety: 'Variedad por confirmar',
-      boxes: '96',
-      net_weight: '1,036.80',
-      reference: 'Sin factura',
-      is_mixed_line: 'Sí',
-      line_candidate_count: '2',
-    },
-  ];
-  if (!data) return fallback;
-  const src =
-    data.producerSettlementDetail?.rows?.length
-      ? data.producerSettlementDetail.rows
-      : data.boxesByProducerDetail?.rows?.length
-        ? data.boxesByProducerDetail.rows
-        : [];
-  if (!src.length) return fallback;
-  return src.slice(0, 10).map((raw, i) => {
-    const row = raw as Record<string, unknown>;
-    const boxes = Number(pickAny(row, ['cajas', 'total_cajas', 'cajas_despachadas']) ?? 0);
-    const lb = Number(pickAny(row, ['lb', 'net_lb', 'pounds', 'peso_neto_lb']) ?? 0);
-    const invoice = pickAny(row, ['invoice_number', 'invoice_id', 'dispatch_id']);
-    const candidateCount = Number(pickAny(row, ['line_candidate_count']) ?? 1);
-    return {
-      row_grain: String(pickAny(row, ['row_grain']) ?? (invoice ? 'invoice_item' : 'final_pallet_line')),
-      row_id: String(pickAny(row, ['row_id']) ?? `${invoice ? 'INV' : 'FPL'}-PRE-${i + 1}`),
-      pallet_id: String(pickAny(row, ['final_pallet_id', 'pallet_id', 'tarja_id']) ?? '—'),
-      invoice_id: String(invoice ?? '—'),
-      producer_name: String(pickAny(row, ['productor_nombre', 'producer_name']) ?? '—'),
-      product_variety: String(pickAny(row, ['variedad_nombre', 'variety_name', 'variedad', 'format_code']) ?? '—'),
-      boxes: formatTechnical(boxes, 4),
-      net_weight: formatTechnical(lb, 3),
-      reference: String(pickAny(row, ['reference', 'packing_list_ref', 'nota_prorrateo']) ?? '—'),
-      is_mixed_line: String(pickAny(row, ['is_mixed_line']) ?? (candidateCount > 1 ? 'Sí' : 'No')),
-      line_candidate_count: String(candidateCount),
-    };
-  });
-}
-
-function UnifiedDatasetTechPreview({ data }: { data: GenerateResponse | null }) {
-  const rows = useMemo(() => buildUnifiedPreviewRows(data), [data]);
-  return (
-    <details className="group mt-3 rounded-2xl border border-slate-200 bg-white/90 open:border-slate-300">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-        <span className="mr-2 inline-block transition-transform group-open:rotate-90">▸</span>
-        Dataset unificado PT/Despacho (preview técnico)
-      </summary>
-      <div className="border-t border-slate-100 px-4 py-3">
-        <div className={cn(tableShell, 'overflow-x-auto')}>
-          <Table>
-            <TableHeader>
-              <TableRow className={tableHeaderRow}>
-                <TableHead>row_grain</TableHead>
-                <TableHead>row_id</TableHead>
-                <TableHead>pallet_id</TableHead>
-                <TableHead>invoice_id</TableHead>
-                <TableHead>producer_name</TableHead>
-                <TableHead>product_variety</TableHead>
-                <TableHead className="text-right">boxes</TableHead>
-                <TableHead className="text-right">net_weight</TableHead>
-                <TableHead>reference</TableHead>
-                <TableHead>is_mixed_line</TableHead>
-                <TableHead className="text-right">line_candidate_count</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.row_id} className={tableBodyRow}>
-                  <TableCell>{r.row_grain}</TableCell>
-                  <TableCell className="font-mono text-xs">{r.row_id}</TableCell>
-                  <TableCell>{r.pallet_id}</TableCell>
-                  <TableCell>{r.invoice_id}</TableCell>
-                  <TableCell>{r.producer_name}</TableCell>
-                  <TableCell>{r.product_variety}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.boxes}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.net_weight}</TableCell>
-                  <TableCell>{r.reference}</TableCell>
-                  <TableCell>{r.is_mixed_line}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.line_candidate_count}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </details>
-  );
-}
-
 function FormatCostGrouped({
   summary,
   lines,
@@ -3168,10 +2892,6 @@ function renderCell(columnKey: string, v: unknown): string {
   return formatReportCell(columnKey, v);
 }
 
-function fetchSavedReports() {
-  return apiJson<SavedReportRow[]>('/api/reporting/saved-reports');
-}
-
 function numOr(v: unknown, fallback: number): number {
   if (typeof v === 'number' && !Number.isNaN(v)) return v;
   const n = Number(v);
@@ -3194,43 +2914,9 @@ function recordToReportFilters(r: Record<string, unknown>): ReportFilters {
   };
 }
 
-function parsePayload(p: Record<string, unknown>): GenerateResponse | null {
-  const keys = [
-    'boxesByProducer',
-    'plant_thresholds',
-    'palletCosts',
-    'yieldAndWaste',
-    'salesAndCostsByDispatch',
-    'packagingByFormat',
-    'formatCostSummary',
-    'formatCostLines',
-  ] as const;
-  for (const k of keys) {
-    const v = p[k];
-    if (v == null || typeof v !== 'object') return null;
-  }
-  const base = p as unknown as GenerateResponse;
-  const f = (base.filters ?? {}) as Record<string, unknown>;
-  const page = Math.max(1, numOr(f.page, 1));
-  const limit = Math.min(100, Math.max(1, numOr(f.limit, 100)));
-  const emptyPaginated = (): PaginatedSection => ({ rows: [], total: 0, page, limit });
-  /** Snapshots viejos no traían liquidación; sin esto la UI muestra "Sin sección." en lugar de tabla vacía. */
-  return {
-    ...base,
-    producerSettlementSummary: base.producerSettlementSummary ?? emptyPaginated(),
-    producerSettlementDetail: base.producerSettlementDetail ?? emptyPaginated(),
-    clientMarginSummary: base.clientMarginSummary ?? emptyPaginated(),
-    clientMarginDetail: base.clientMarginDetail ?? emptyPaginated(),
-    boxesByProducerDetail: base.boxesByProducerDetail ?? emptyPaginated(),
-    dispatchedBoxesByProducer: base.dispatchedBoxesByProducer ?? emptyPaginated(),
-  };
-}
-
 export function ReportingPage() {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
-  const canSave = role === 'admin' || role === 'supervisor';
-  const canDelete = role === 'admin';
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation('common');
   const tr = (k: string) => t(`reporting.${k}`);
@@ -3244,11 +2930,6 @@ export function ReportingPage() {
   const [draft, setDraft] = useState<Partial<ReportFilters>>({});
   const [reportData, setReportData] = useState<GenerateResponse | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const [activeSavedId, setActiveSavedId] = useState<number | null>(null);
-  const [renameTarget, setRenameTarget] = useState<SavedReportRow | null>(null);
-  const [renameValue, setRenameValue] = useState('');
   const [packingSpeciesId, setPackingSpeciesId] = useState<number>(0);
   const [packingSeason, setPackingSeason] = useState('');
   const [packingPrice, setPackingPrice] = useState('');
@@ -3282,10 +2963,6 @@ export function ReportingPage() {
   const [cierreView, setCierreView] = useState<'global' | 'productor'>('global');
 
   useEffect(() => {
-    setFiltersOpen(reportTab === 'documentos');
-  }, [reportTab]);
-
-  useEffect(() => {
     if (!reportData || cierreInformeProducerId == null) return;
     const opts = selectExternalSettlementProducers(
       (reportData.producerSettlementSummary?.rows ?? []) as Record<string, unknown>[],
@@ -3306,11 +2983,6 @@ export function ReportingPage() {
     if (!reportData?.filters) return null;
     return recordToReportFilters(reportData.filters as Record<string, unknown>);
   }, [reportData]);
-
-  const { data: savedList, isPending: savedLoading } = useQuery({
-    queryKey: ['reporting', 'saved'],
-    queryFn: fetchSavedReports,
-  });
 
   const { data: species } = useQuery({
     queryKey: ['masters', 'species'],
@@ -3402,8 +3074,6 @@ export function ReportingPage() {
     return rows;
   }, [packingCosts, hiddenPackingSpeciesIds, showInactivePackingCosts]);
 
-  const executiveKpis = useMemo(() => (reportData ? computeExecutiveKpis(reportData) : null), [reportData]);
-
   const cierreProducerOptions = useMemo(
     () =>
       reportData
@@ -3492,7 +3162,6 @@ export function ReportingPage() {
     onSuccess: (data) => {
       setReportData(data);
       setGenerateError(null);
-      setActiveSavedId(null);
       setDraft(recordToReportFilters(data.filters as Record<string, unknown>));
       toast.success('Reporte generado');
     },
@@ -3501,74 +3170,6 @@ export function ReportingPage() {
       setGenerateError(e.message);
       toast.error(e.message);
     },
-  });
-
-  const saveMut = useMutation({
-    mutationFn: () => {
-      if (!reportData) throw new Error('Generá un reporte primero');
-      return apiJson('/api/reporting/saved-reports', {
-        method: 'POST',
-        body: JSON.stringify({
-          report_name: saveName.trim(),
-          filters: reportData.filters as Record<string, unknown>,
-          payload: reportData as unknown as Record<string, unknown>,
-        }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reporting', 'saved'] });
-      toast.success('Reporte guardado');
-      setSaveOpen(false);
-      setSaveName('');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: number) => apiJson(`/api/reporting/saved-reports/${id}`, { method: 'DELETE' }),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['reporting', 'saved'] });
-      toast.success('Eliminado');
-      setActiveSavedId((cur) => (cur === id ? null : cur));
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const renameMut = useMutation({
-    mutationFn: ({ row, name }: { row: SavedReportRow; name: string }) =>
-      apiJson(`/api/reporting/saved-reports/${row.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          report_name: name.trim(),
-          filters: row.filters,
-          payload: row.payload,
-        }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reporting', 'saved'] });
-      toast.success('Nombre actualizado');
-      setRenameTarget(null);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const syncMut = useMutation({
-    mutationFn: (row: SavedReportRow) => {
-      if (!reportData) throw new Error('Generá o cargá un reporte antes');
-      return apiJson(`/api/reporting/saved-reports/${row.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          report_name: row.report_name,
-          filters: reportData.filters as Record<string, unknown>,
-          payload: reportData as unknown as Record<string, unknown>,
-        }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reporting', 'saved'] });
-      toast.success('Guardado actualizado con la vista en pantalla');
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const upsertPackingCostMut = useMutation({
@@ -3705,67 +3306,6 @@ export function ReportingPage() {
     generateMut.mutate(next);
   }
 
-  function loadSavedReport(r: SavedReportRow) {
-    const parsed = parsePayload(r.payload);
-    if (!parsed) {
-      toast.error('Formato de snapshot no compatible con esta versión');
-      return;
-    }
-    setReportData(parsed);
-    const f = recordToReportFilters(r.filters);
-    setFilters(f);
-    setDraft(f);
-    setActiveSavedId(r.id);
-    toast.success(`Cargado: ${r.report_name}`);
-  }
-
-  async function downloadExport(
-    format: 'csv' | 'xlsx' | 'pdf',
-    opts?: { pdfProfile?: 'internal' | 'external'; productor_id?: number },
-  ) {
-    const base = reportFiltersForPdf ?? filters;
-    const exportProdId = opts?.productor_id ?? base.productor_id;
-    const q = toQuery({
-      format,
-      lang: docLang,
-      pdf_profile:
-        format === 'pdf' && opts?.pdfProfile ? opts.pdfProfile : undefined,
-      ...base,
-      productor_id: exportProdId != null && exportProdId > 0 ? exportProdId : undefined,
-      cliente_id: base.cliente_id || undefined,
-      variedad_id: base.variedad_id || undefined,
-      tarja_id: base.tarja_id || undefined,
-      format_code: base.format_code || undefined,
-      precio_packing_por_lb: base.precio_packing_por_lb ?? undefined,
-      fecha_desde: base.fecha_desde || undefined,
-      fecha_hasta: base.fecha_hasta || undefined,
-      calidad: base.calidad || undefined,
-    });
-    const res = await apiFetch(`/api/reporting/export?${q}`, { psSkipForbiddenRedirect: true });
-    if (!res.ok) {
-      toast.error(res.status === 403 ? 'No tenés permiso para exportar.' : 'No se pudo exportar');
-      return;
-    }
-    const blob = await res.blob();
-    const ext = format === 'xlsx' ? 'xlsx' : format;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download =
-      format === 'pdf'
-        ? opts?.pdfProfile === 'external'
-          ? 'reporte-packing-resumen.pdf'
-          : 'reporte-packing-interno.pdf'
-        : `reporte-packing.${ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Descarga iniciada');
-  }
-
-  const savedSorted = useMemo(
-    () => (savedList ?? []).slice().sort((a, b) => b.id - a.id),
-    [savedList],
-  );
   const canManagePackingCosts = role === 'admin' || role === 'supervisor';
 
   const periodFilterFieldsGrid = (
@@ -4658,35 +4198,6 @@ export function ReportingPage() {
         </div>
       ) : null}
 
-      {activeSavedId != null && canSave && (
-        <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm">
-              {tr('misc.estasviendo')} <strong>#{activeSavedId}</strong>. {tr('misc.regenerarSincronizar')}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="gap-1"
-                disabled={syncMut.isPending || !reportData}
-                onClick={() => {
-                  const row = savedSorted.find((x) => x.id === activeSavedId);
-                  if (row) syncMut.mutate(row);
-                }}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Sincronizar guardado
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setActiveSavedId(null)}>
-                Cerrar vínculo
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {generateMut.isPending && (
         <div className="space-y-3">
           <Skeleton className="h-32 w-full" />
@@ -5216,203 +4727,9 @@ export function ReportingPage() {
           ) : null}
 
           {reportTab === 'documentos' ? (
-            <>
-              <MassBalanceBlock
-                company={((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? ''}
-              />
-              <Card className="border-slate-200/90 bg-white shadow-sm">
-                <CardHeader className="pb-2">
-                  <ReportCategoryBadge kind="entregable" />
-                  <CardTitle className="text-base text-slate-900">{tr('documentos.title')}</CardTitle>
-                  <CardDescription>{tr('documentos.subtitle')}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 border-t border-border/60 pt-3">
-                  <div className="rounded-md bg-sky-50/70 px-3 py-2 text-sm text-sky-950">
-                    <strong className="font-medium">{tr('documentos.beforeExport')}</strong> {tr('documentos.beforeExportHint')}
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
-                    <p className={sectionTitle}>{tr('documentos.periodView')}</p>
-                    <p className={sectionHint}>{tr('documentos.periodViewHint')}</p>
-                    {reportData && executiveKpis ? (
-                      <div className="mt-3 space-y-4">
-                        <div className={kpiGrid3}>
-                          <KpiTile label={tr('documentos.boxesPt')} value={fmtQty(executiveKpis.cajasPtTotal, 0)} />
-                          <KpiTile label={tr('documentos.boxesDispatched')} value={fmtQty(executiveKpis.cajasDespachadasTotal, 2)} />
-                          <KpiTile label={tr('documentos.boxesDiff')} value={fmtQty(executiveKpis.cajasPtTotal - executiveKpis.cajasDespachadasTotal, 2)} />
-                        </div>
-                        <ReportPreviewStrip data={reportData} />
-                        <details className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-2">
-                          <summary className="cursor-pointer text-sm font-medium text-slate-800 marker:content-none [&::-webkit-details-marker]:hidden">
-                            {tr('documentos.datasetTech')}
-                          </summary>
-                          <div className="mt-3 border-t pt-3">
-                            <UnifiedDatasetTechPreview data={reportData} />
-                          </div>
-                        </details>
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        {tr('documentos.noData')}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-                    <Button
-                      type="button"
-                      className={cn(btnToolbarPrimary, 'h-11 w-full gap-2 sm:min-w-[220px] sm:flex-1')}
-                      disabled={!reportData}
-                      title={REPORT_MODULE_TABS.find((x) => x.id === 'documentos')?.excelCtaHint}
-                      onClick={() => downloadExport('xlsx')}
-                    >
-                      <Download className="h-4 w-4" />
-                      {tr('documentos.exportAll')}
-                    </Button>
-                    <div className="flex flex-1 flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" className="h-9 gap-2" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'internal' })}>
-                        <FileDown className="h-4 w-4" />
-                        {tr('documentos.pdfInterno')}
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-9 gap-2" disabled={!reportData} onClick={() => void downloadExport('pdf', { pdfProfile: 'external' })}>
-                        <FileDown className="h-4 w-4" />
-                        {tr('documentos.pdfResumen')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 gap-2"
-                        disabled={!reportFiltersForPdf}
-                        onClick={() => {
-                          if (!reportFiltersForPdf) {
-                            toast.error(tr('documentos.generateFirst'));
-                            return;
-                          }
-                          void downloadProducerSettlementPdf('producer', reportFiltersForPdf, { lang: docLang });
-                        }}
-                      >
-                        <FileDown className="h-4 w-4" />
-                        {tr('documentos.pdfLiquidacion')}
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-9" disabled={!reportData} onClick={() => downloadExport('csv')}>
-                        {tr('documentos.csv')}
-                      </Button>
-                      {canSave ? (
-                        <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-                          <DialogTrigger asChild>
-                            <Button type="button" variant="secondary" size="sm" className="h-9 gap-2" disabled={!reportData}>
-                              <Save className="h-4 w-4" />
-                              {tr('documentos.saveView')}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>{tr('documentos.saveReport')}</DialogTitle>
-                            </DialogHeader>
-                            <div className="grid gap-2 py-2">
-                              <Label>{tr('documentos.saveName')}</Label>
-                              <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder={tr('documentos.saveNamePlaceholder')} />
-                            </div>
-                            <DialogFooter>
-                              <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>
-                                {tr('documentos.cancel')}
-                              </Button>
-                              <Button type="button" disabled={!saveName.trim() || saveMut.isPending} onClick={() => saveMut.mutate()}>
-                                {saveMut.isPending ? tr('documentos.saving') : tr('documentos.save')}
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      ) : (
-                        <Button type="button" variant="secondary" size="sm" className="h-9 gap-2" disabled title={tr('documentos.savePermission')}>
-                          <Save className="h-4 w-4" />
-                          {tr('documentos.saveView')}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <Link to="/dispatches" className="inline-flex items-center gap-2 text-[13px] text-primary underline-offset-4 hover:underline">
-                    <Printer className="h-4 w-4 shrink-0" />
-                    {tr('misc.facturasDespachos')}
-                  </Link>
-                </CardContent>
-              </Card>
-
-              <div className={cn(contentCard, 'p-4 sm:p-5')}>
-                <p className={sectionTitle}>{tr('misc.reportesGuardados')}</p>
-                <p className={sectionHint}>{tr('misc.reportesGuardadosHint')}</p>
-                <div className="mt-4">
-                  {savedLoading ? (
-                    <Skeleton className="h-24 w-full" />
-                  ) : savedSorted.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{tr('misc.ningunoGuardado')}</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{tr('misc.colNombre')}</TableHead>
-                          <TableHead>Creado</TableHead>
-                          <TableHead className="min-w-[200px]">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {savedSorted.map((r) => (
-                          <TableRow key={r.id}>
-                            <TableCell className="font-medium">
-                              {r.report_name}
-                              {activeSavedId === r.id ? (
-                                <Badge variant="default" className="ml-2">
-                                  activo
-                                </Badge>
-                              ) : null}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">{new Date(r.created_at).toLocaleString('es')}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => loadSavedReport(r)}>
-                                  <FolderOpen className="h-3.5 w-3.5" />
-                                  Cargar
-                                </Button>
-                                {canSave && (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-1"
-                                    onClick={() => {
-                                      setRenameTarget(r);
-                                      setRenameValue(r.report_name);
-                                    }}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                    Renombrar
-                                  </Button>
-                                )}
-                                {canDelete && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() => {
-                                      if (confirm(`¿Eliminar «${r.report_name}»?`)) deleteMut.mutate(r.id);
-                                    }}
-                                    disabled={deleteMut.isPending}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </div>
-              </div>
-            </>
+            <MassBalanceBlock
+              company={((import.meta.env as Record<string, string | undefined>).VITE_COMPANY_DISPLAY_NAME) ?? ''}
+            />
           ) : null}
 
         </div>
@@ -5444,29 +4761,6 @@ export function ReportingPage() {
           </Card>
         )}
 
-      <Dialog open={renameTarget != null} onOpenChange={(o) => !o && setRenameTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renombrar reporte</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-2 py-2">
-            <Label>Nombre</Label>
-            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRenameTarget(null)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={!renameTarget || !renameValue.trim() || renameMut.isPending}
-              onClick={() => renameTarget && renameMut.mutate({ row: renameTarget, name: renameValue })}
-            >
-              {renameMut.isPending ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
