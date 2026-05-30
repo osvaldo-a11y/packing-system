@@ -2161,17 +2161,17 @@ export class ReportingService {
     const recepcionRows = (await this.dataSource.query(
       `
       SELECT
-        fp.productor_id,
+        r.productor_id,
         SUM(r.net_weight_lb::numeric) as lb_recepcionado
-      FROM (
-        SELECT DISTINCT fp.productor_id, fp.recepcion_id
-        FROM fruit_processes fp
-        JOIN receptions r ON r.id = fp.recepcion_id
-        WHERE fp.deleted_at IS NULL
-          ${dateFilter('r.received_at')}
-      ) fp
-      JOIN receptions r ON r.id = fp.recepcion_id
-      GROUP BY fp.productor_id
+      FROM receptions r
+      WHERE r.productor_id IS NOT NULL
+        AND r.productor_id > 0
+        AND r.document_state_id IN (
+          SELECT id FROM document_states WHERE codigo IN ('confirmado', 'cerrado')
+        )
+        ${filter.desde ? `AND r.received_at >= '${filter.desde}'` : ''}
+        ${filter.hasta ? `AND r.received_at <= '${filter.hasta}'` : ''}
+      GROUP BY r.productor_id
     `,
     )) as Array<Record<string, unknown>>;
     const recepcionByProducer = new Map(
