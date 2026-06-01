@@ -2358,21 +2358,25 @@
       "otherNetNote": "Entradas y salidas fuera de compras/cons. PT típico.",
       "totalEntries": "Total entradas",
       "totalEntriesNote": "Base operativa cargada antes de consumir por PT.",
-      "ptConsumption": "Consumo total (PT)",
-      "ptConsumptionNote": "Tarjas × receta por caja.",
+      "ptConsumption": "Consumo comprometido (PT)",
+      "ptConsumptionNote": "Σ cajas de todas las unidades PT × factor de receta (misma lógica que Consumos).",
+      "ptRegisteredNote": "Registrado en kardex (consumos cargados): {{value}} {{uom}}.",
       "finalStock": "Stock final",
       "finalStockNote": "Inv. inicial + compras − consumo PT = {{value}} {{uom}}",
       "includesMov": "Incluye {{count}} mov. sin consumo PT en el modelo."
     },
     "byFormat": {
       "title": "Consumo por formato",
-      "description": "Cajas producidas según tarjas PT, factor de receta por caja y consumo del formato.",
+      "description": "Comprometido según todas las unidades PT creadas y la receta de cada formato (incluye materiales compartidos entre formatos). Registrado = solo tarjas con consumo cargado.",
       "colFormat": "Formato",
-      "colBoxes": "Cajas producidas",
-      "colPerBox": "Consumo por caja",
+      "colPtUnits": "U. PT",
+      "colBoxes": "Cajas PT",
+      "colPerBox": "Por caja",
+      "colCommitted": "Comprometido",
+      "colRegistered": "Registrado",
       "colTotal": "Consumo total",
       "totalRow": "Total",
-      "empty": "Sin consumos por formato registrados para este material en el período."
+      "empty": "Este material no aparece en recetas activas con unidades PT en planta, o no aplica al alcance del material."
     },
     "truncated": {
       "title": "Historial acotado",

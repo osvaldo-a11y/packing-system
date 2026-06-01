@@ -56,12 +56,17 @@ type KardexOperational = {
   movimientos_sin_consumo_pt: number;
   total_entradas: number;
   consumo_pt_total: number;
+  consumo_pt_comprometido?: number;
+  consumo_pt_registrado?: number;
   stock_segun_inv_compras_y_pt: number;
   stock_final: number;
   por_formato: Array<{
     formato: string;
     cajas_producidas: number;
+    pt_unidades?: number;
     consumo_por_caja: number;
+    consumo_comprometido?: number;
+    consumo_registrado?: number;
     consumo_total: number;
   }>;
 };
@@ -428,6 +433,16 @@ export function KardexPage() {
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
                   <p className={cn(kpiFootnote, 'mt-2')}>{t('kardex.summary.ptConsumptionNote')}</p>
+                  {(kardexOp.consumo_pt_comprometido ?? 0) > 0 &&
+                  (kardexOp.consumo_pt_registrado ?? 0) > 0 &&
+                  Math.abs((kardexOp.consumo_pt_comprometido ?? 0) - (kardexOp.consumo_pt_registrado ?? 0)) > 0.01 ? (
+                    <p className={cn(kpiFootnote, 'mt-1 text-[11px] text-slate-600')}>
+                      {t('kardex.summary.ptRegisteredNote', {
+                        value: formatInventoryQty(kardexOp.consumo_pt_registrado ?? 0),
+                        uom,
+                      })}
+                    </p>
+                  ) : null}
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-slate-200 bg-slate-50/30')}>
                   <Layers className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-slate-200" aria-hidden />
@@ -465,32 +480,54 @@ export function KardexPage() {
                     <TableHeader>
                       <TableRow className="border-slate-100 hover:bg-transparent">
                         <TableHead className="text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colFormat')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colPtUnits')}</TableHead>
                         <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colBoxes')}</TableHead>
                         <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colPerBox')}</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colTotal')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colCommitted')}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase text-slate-500">{t('kardex.byFormat.colRegistered')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {kardexOp.por_formato.map((row) => (
+                      {kardexOp.por_formato.map((row) => {
+                        const comprometido = row.consumo_comprometido ?? row.consumo_total;
+                        const registrado = row.consumo_registrado ?? 0;
+                        return (
                         <TableRow key={row.formato} className="border-slate-100">
                           <TableCell className="font-medium text-slate-900">{row.formato}</TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-slate-700">
+                            {row.pt_unidades != null && row.pt_unidades > 0 ? formatCount(row.pt_unidades) : '—'}
+                          </TableCell>
                           <TableCell className="text-right font-mono tabular-nums text-slate-800">
                             {formatInventoryQty(row.cajas_producidas)}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm tabular-nums text-slate-600">
                             {row.consumo_por_caja > 0 ? formatTechnical(row.consumo_por_caja, 4) : '—'}
                           </TableCell>
-                          <TableCell className="text-right font-mono tabular-nums text-slate-800">
-                            {formatInventoryQty(row.consumo_total)}
+                          <TableCell className="text-right font-mono tabular-nums font-medium text-teal-900">
+                            {comprometido > 0 ? formatInventoryQty(comprometido) : '—'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-slate-600">
+                            {registrado > 0 ? formatInventoryQty(registrado) : '—'}
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                       <TableRow className="border-t border-slate-200 bg-slate-50/80 font-medium">
                         <TableCell>{t('kardex.byFormat.totalRow')}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-slate-900">—</TableCell>
-                        <TableCell className="text-right text-slate-500">—</TableCell>
                         <TableCell className="text-right font-mono tabular-nums text-slate-900">
-                          {formatInventoryQty(kardexOp.consumo_pt_total)}
+                          {formatCount(kardexOp.por_formato.reduce((s, r) => s + (r.pt_unidades ?? 0), 0))}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-slate-900">
+                          {formatInventoryQty(kardexOp.por_formato.reduce((s, r) => s + r.cajas_producidas, 0))}
+                        </TableCell>
+                        <TableCell className="text-right text-slate-500">—</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-teal-900">
+                          {formatInventoryQty(kardexOp.consumo_pt_comprometido ?? kardexOp.consumo_pt_total)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-slate-700">
+                          {(kardexOp.consumo_pt_registrado ?? 0) > 0
+                            ? formatInventoryQty(kardexOp.consumo_pt_registrado ?? 0)
+                            : '—'}
                         </TableCell>
                       </TableRow>
                     </TableBody>

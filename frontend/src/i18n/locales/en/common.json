@@ -2359,21 +2359,25 @@
       "otherNetNote": "Entries and exits outside typical purchases/PT consumption.",
       "totalEntries": "Total entries",
       "totalEntriesNote": "Operational base loaded before PT consumption.",
-      "ptConsumption": "Total consumption (PT)",
-      "ptConsumptionNote": "Tags × recipe per box.",
+      "ptConsumption": "Committed PT consumption",
+      "ptConsumptionNote": "Sum of all PT unit boxes × recipe factor (same logic as Consumptions).",
+      "ptRegisteredNote": "Recorded in kardex (posted consumptions): {{value}} {{uom}}.",
       "finalStock": "Final stock",
       "finalStockNote": "Init. inv. + purchases − PT consumption = {{value}} {{uom}}",
       "includesMov": "Includes {{count}} mov. without PT consumption in the model."
     },
     "byFormat": {
       "title": "Consumption by format",
-      "description": "Boxes produced per PT tags, recipe factor per box and format consumption.",
+      "description": "Committed from all PT units created and each format's recipe (includes materials shared across formats). Recorded = tags with posted consumption only.",
       "colFormat": "Format",
-      "colBoxes": "Boxes produced",
-      "colPerBox": "Consumption per box",
+      "colPtUnits": "PT units",
+      "colBoxes": "PT boxes",
+      "colPerBox": "Per box",
+      "colCommitted": "Committed",
+      "colRegistered": "Recorded",
       "colTotal": "Total consumption",
       "totalRow": "Total",
-      "empty": "No format consumption recorded for this material in the period."
+      "empty": "This material is not in active recipes with PT units in the plant, or is outside the material scope."
     },
     "truncated": {
       "title": "Truncated history",

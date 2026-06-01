@@ -79,6 +79,165 @@ export class PackagingService {
     });
   }
 
+  /** Tarjas que son solo etiqueta unificada de repallet (no duplican cajas en packout). */
+  private async repalletUnifiedTarjaIds(tagIds: number[]): Promise<Set<number>> {
+    const uniq = [...new Set(tagIds)].filter((id) => id > 0);
+    if (uniq.length === 0) return new Set();
+    const out = new Set<number>();
+    const CHUNK = 8000;
+    for (let i = 0; i < uniq.length; i += CHUNK) {
+      const slice = uniq.slice(i, i + CHUNK);
+      const rows = (await this.dataSource.query(
+        `SELECT DISTINCT fp.tarja_id AS tid
+         FROM final_pallets fp
+         INNER JOIN repallet_events re
+           ON re.result_final_pallet_id = fp.id AND re.reversed_at IS NULL
+         WHERE fp.tarja_id IS NOT NULL AND fp.tarja_id = ANY($1::bigint[])`,
+        [slice],
+      )) as { tid: string | number }[];
+      for (const r of rows) {
+        const n = Number(r.tid);
+        if (Number.isFinite(n) && n > 0) out.add(n);
+      }
+    }
+    return out;
+  }
+
+  private materialAppliesToFormat(
+    m: PackagingMaterial,
+    formatId: number,
+    tagClientId: number | null,
+  ): boolean {
+    const formatScope = this.parseBigintArray(m.presentation_format_scope_ids);
+    if (formatScope.length > 0) {
+      if (!formatScope.includes(formatId)) return false;
+    } else {
+      const pf = m.presentation_format_id != null ? Number(m.presentation_format_id) : null;
+      if (pf != null && pf !== formatId) return false;
+    }
+    return this.materialAppliesToTagClient(m, tagClientId);
+  }
+
+  /** Alcance comercial del material respecto a la tarja (sin filtrar por formato). */
+  private materialAppliesToTagClient(m: PackagingMaterial, tagClientId: number | null): boolean {
+    const clientScope = this.parseBigintArray(m.client_scope_ids);
+    const cid = tagClientId != null && tagClientId > 0 ? tagClientId : null;
+    if (clientScope.length > 0) {
+      if (cid == null || !clientScope.includes(cid)) return false;
+    } else {
+      const mid = m.client_id != null ? Number(m.client_id) : null;
+      if (mid != null && cid != null && mid !== cid) return false;
+    }
+    if (m.client_id != null && clientScope.length > 0 && !clientScope.includes(Number(m.client_id))) {
+      return false;
+    }
+    return true;
+  }
+
+  private async tryResolveRecipeForTagTx(em: EntityManager, tag: PtTag): Promise<PackagingRecipe | null> {
+    try {
+      return await this.resolveRecipeForTagTx(em, tag);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Consumo comprometido por formato: Σ (cajas PT × qty receta) para este material,
+   * alineado con la pantalla de Consumos (todas las tarjas, no solo consumos registrados).
+   */
+  private async computeCommittedConsumptionByFormat(materialId: number): Promise<
+    Map<string, { cajas: number; qty: number; pt_units: number }>
+  > {
+    const mat = await this.materialRepo.findOne({ where: { id: materialId } });
+    if (!mat) return new Map();
+
+    const formats = await this.presentationFormatRepo.find({ where: { activo: true } });
+    const formatIdByCode = new Map(formats.map((f) => [f.format_code.trim().toLowerCase(), Number(f.id)]));
+    const maxBpByFormatId = new Map(
+      formats.map((f) => {
+        const n = f.max_boxes_per_pallet != null ? Number(f.max_boxes_per_pallet) : 0;
+        return [Number(f.id), Number.isFinite(n) && n > 0 ? Math.floor(n) : 0];
+      }),
+    );
+
+    const recipes = await this.recipeRepo.find({
+      where: { activo: true },
+      relations: ['presentation_format'],
+    });
+    const recipeIds = recipes.map((r) => Number(r.id));
+    const recipeItems =
+      recipeIds.length > 0
+        ? await this.recipeItemRepo.find({ where: { recipe_id: In(recipeIds), material_id: materialId } })
+        : [];
+    const itemsByRecipeId = new Map<number, PackagingRecipeItem[]>();
+    for (const it of recipeItems) {
+      const rid = Number(it.recipe_id);
+      const list = itemsByRecipeId.get(rid) ?? [];
+      list.push(it);
+      itemsByRecipeId.set(rid, list);
+    }
+
+    const tags = await this.ptTagRepo.find({ order: { id: 'ASC' } });
+    const skipRepallet = await this.repalletUnifiedTarjaIds(tags.map((t) => Number(t.id)));
+
+    const out = new Map<string, { cajas: number; qty: number; pt_units: number }>();
+    const em = this.dataSource.manager;
+
+    /** Formatos donde la receta activa incluye este material (aunque aún no haya PT). */
+    for (const recipe of recipes) {
+      const rid = Number(recipe.id);
+      if (!(itemsByRecipeId.get(rid)?.length ?? 0)) continue;
+      const code =
+        recipe.presentation_format?.format_code?.trim() ??
+        formats.find((f) => Number(f.id) === Number(recipe.presentation_format_id))?.format_code?.trim();
+      if (!code) continue;
+      if (!out.has(code)) out.set(code, { cajas: 0, qty: 0, pt_units: 0 });
+    }
+
+    for (const tag of tags) {
+      const tagId = Number(tag.id);
+      if (skipRepallet.has(tagId)) continue;
+      const formatCode = tag.format_code?.trim();
+      if (!formatCode) continue;
+      const formatKey = formatCode.toLowerCase();
+      const formatId = formatIdByCode.get(formatKey);
+      if (formatId == null) continue;
+
+      const tagClientId = tag.client_id != null ? Number(tag.client_id) : null;
+      /** Formato lo define la receta de la tarja; no el alcance de formato del material (cajas compartidas). */
+      if (!this.materialAppliesToTagClient(mat, tagClientId)) continue;
+
+      const recipe = await this.tryResolveRecipeForTagTx(em, tag);
+      if (!recipe || Number(recipe.presentation_format_id) !== formatId) continue;
+
+      const items = itemsByRecipeId.get(Number(recipe.id)) ?? [];
+      if (!items.length) continue;
+
+      const boxes = Number(tag.total_cajas) || 0;
+      if (boxes <= 0) continue;
+      const maxBp = maxBpByFormatId.get(formatId) ?? 0;
+      const palletsEquiv = maxBp > 0 ? boxes / maxBp : Number(tag.total_pallets) || 0;
+
+      let lineQty = 0;
+      for (const it of items) {
+        const qtyUnit = Number(it.qty_per_unit);
+        if (!Number.isFinite(qtyUnit) || qtyUnit <= 0) continue;
+        const factor = it.base_unidad === 'box' ? boxes : palletsEquiv;
+        lineQty += qtyUnit * factor;
+      }
+      if (lineQty <= 0) continue;
+
+      const cur = out.get(formatCode) ?? { cajas: 0, qty: 0, pt_units: 0 };
+      cur.cajas += boxes;
+      cur.qty += lineQty;
+      cur.pt_units += 1;
+      out.set(formatCode, cur);
+    }
+
+    return out;
+  }
+
   private async resolveRecipeForTagTx(
     em: EntityManager,
     tag: PtTag,
@@ -982,7 +1141,7 @@ export class PackagingService {
       .getRawOne<{ total: string }>();
     const consumoFromBreakdown = Number(breakdownAgg?.total ?? 0) || 0;
 
-    const consumo_pt_total =
+    const consumo_pt_registrado =
       consumoFromBreakdown > 0 ? consumoFromBreakdown : consumoPorMovimientos;
 
     const porFormatoRaw = await this.dataSource.query<
@@ -1002,16 +1161,42 @@ export class PackagingService {
       [materialId],
     );
 
-    const por_formato = porFormatoRaw.map((row) => {
-      const cajas = Number(row.cajas_producidas) || 0;
-      const total = Number(row.consumo_total) || 0;
-      return {
-        formato: row.formato,
-        cajas_producidas: cajas,
-        consumo_por_caja: cajas > 0 ? total / cajas : 0,
-        consumo_total: total,
-      };
-    });
+    const registradoByFormato = new Map<string, { cajas: number; qty: number }>();
+    for (const row of porFormatoRaw) {
+      registradoByFormato.set(row.formato, {
+        cajas: Number(row.cajas_producidas) || 0,
+        qty: Number(row.consumo_total) || 0,
+      });
+    }
+
+    const comprometidoByFormato = await this.computeCommittedConsumptionByFormat(materialId);
+    const formatKeys = new Set<string>([
+      ...registradoByFormato.keys(),
+      ...comprometidoByFormato.keys(),
+    ]);
+
+    const por_formato = [...formatKeys]
+      .sort((a, b) => a.localeCompare(b, 'es'))
+      .map((formato) => {
+        const reg = registradoByFormato.get(formato) ?? { cajas: 0, qty: 0 };
+        const com = comprometidoByFormato.get(formato) ?? { cajas: 0, qty: 0, pt_units: 0 };
+        const cajas = com.cajas > 0 ? com.cajas : reg.cajas;
+        const consumo_comprometido = com.qty;
+        const consumo_registrado = reg.qty;
+        const consumo_total = consumo_comprometido > 0 ? consumo_comprometido : consumo_registrado;
+        return {
+          formato,
+          cajas_producidas: cajas,
+          pt_unidades: com.pt_units,
+          consumo_por_caja: cajas > 0 ? consumo_total / cajas : 0,
+          consumo_comprometido,
+          consumo_registrado,
+          consumo_total,
+        };
+      });
+
+    const consumo_pt_comprometido = [...comprometidoByFormato.values()].reduce((s, r) => s + r.qty, 0);
+    const consumo_pt_total = consumo_pt_comprometido > 0 ? consumo_pt_comprometido : consumo_pt_registrado;
 
     const stock_final = Number(mat.cantidad_disponible) || 0;
     const total_entradas = inventario_inicial + compras_total;
@@ -1028,6 +1213,8 @@ export class PackagingService {
       movimientos_sin_consumo_pt,
       total_entradas,
       consumo_pt_total,
+      consumo_pt_comprometido,
+      consumo_pt_registrado,
       stock_segun_inv_compras_y_pt,
       stock_final,
       por_formato,
