@@ -22,6 +22,7 @@ import {
   PackagingRecipe,
   PackagingRecipeItem,
 } from './packaging.entities';
+import { formatCodeMatchKey } from '../../common/format-code-key';
 import { PtTag } from '../process/process.entities';
 
 @Injectable()
@@ -142,6 +143,61 @@ export class PackagingService {
     }
   }
 
+  /** Catálogo activo: clave estable (minúsculas, pint/pinta) → formato. */
+  private presentationFormatByMatchKey(formats: PresentationFormat[]): Map<string, PresentationFormat> {
+    const m = new Map<string, PresentationFormat>();
+    for (const f of formats) {
+      m.set(formatCodeMatchKey(f.format_code), f);
+    }
+    return m;
+  }
+
+  private async findPresentationFormatByCodeTx(
+    em: EntityManager,
+    formatCode: string,
+  ): Promise<PresentationFormat | null> {
+    const key = formatCodeMatchKey(formatCode);
+    const rows = await em.find(PresentationFormat, { where: { activo: true } });
+    return rows.find((f) => formatCodeMatchKey(f.format_code) === key) ?? null;
+  }
+
+  private resolveRecipeForTagFromLists(
+    tag: PtTag,
+    formatId: number,
+    recipes: PackagingRecipe[],
+    preferredRecipeId?: number,
+  ): PackagingRecipe | null {
+    const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : null;
+    const recipeMatchesTag = (r: PackagingRecipe | null): r is PackagingRecipe =>
+      !!r &&
+      r.activo &&
+      Number(r.presentation_format_id) === formatId &&
+      (tagBrandId == null || r.brand_id == null || Number(r.brand_id) === tagBrandId);
+
+    if (preferredRecipeId != null) {
+      const preferred = recipes.find((r) => Number(r.id) === preferredRecipeId) ?? null;
+      if (recipeMatchesTag(preferred)) return preferred;
+    }
+
+    if (tagBrandId != null) {
+      const branded = recipes
+        .filter((r) => recipeMatchesTag(r) && Number(r.brand_id) === tagBrandId)
+        .sort((a, b) => Number(b.id) - Number(a.id))[0];
+      if (branded) return branded;
+    }
+
+    return (
+      recipes
+        .filter(
+          (r) =>
+            r.activo &&
+            Number(r.presentation_format_id) === formatId &&
+            (r.brand_id == null || Number(r.brand_id) === 0),
+        )
+        .sort((a, b) => Number(b.id) - Number(a.id))[0] ?? null
+    );
+  }
+
   /**
    * Consumo comprometido por formato: Σ (cajas PT × qty receta) para este material,
    * alineado con la pantalla de Consumos (todas las tarjas, no solo consumos registrados).
@@ -153,7 +209,13 @@ export class PackagingService {
     if (!mat) return new Map();
 
     const formats = await this.presentationFormatRepo.find({ where: { activo: true } });
-    const formatIdByCode = new Map(formats.map((f) => [f.format_code.trim().toLowerCase(), Number(f.id)]));
+    const formatByMatchKey = this.presentationFormatByMatchKey(formats);
+    const formatIdByMatchKey = new Map(
+      formats.map((f) => [formatCodeMatchKey(f.format_code), Number(f.id)]),
+    );
+    const labelByMatchKey = new Map(
+      formats.map((f) => [formatCodeMatchKey(f.format_code), f.format_code.trim()]),
+    );
     const maxBpByFormatId = new Map(
       formats.map((f) => {
         const n = f.max_boxes_per_pallet != null ? Number(f.max_boxes_per_pallet) : 0;
@@ -182,17 +244,17 @@ export class PackagingService {
     const skipRepallet = await this.repalletUnifiedTarjaIds(tags.map((t) => Number(t.id)));
 
     const out = new Map<string, { cajas: number; qty: number; pt_units: number }>();
-    const em = this.dataSource.manager;
 
     /** Formatos donde la receta activa incluye este material (aunque aún no haya PT). */
     for (const recipe of recipes) {
       const rid = Number(recipe.id);
       if (!(itemsByRecipeId.get(rid)?.length ?? 0)) continue;
-      const code =
-        recipe.presentation_format?.format_code?.trim() ??
-        formats.find((f) => Number(f.id) === Number(recipe.presentation_format_id))?.format_code?.trim();
-      if (!code) continue;
-      if (!out.has(code)) out.set(code, { cajas: 0, qty: 0, pt_units: 0 });
+      const pf =
+        recipe.presentation_format ??
+        formats.find((f) => Number(f.id) === Number(recipe.presentation_format_id));
+      if (!pf) continue;
+      const matchKey = formatCodeMatchKey(pf.format_code);
+      if (!out.has(matchKey)) out.set(matchKey, { cajas: 0, qty: 0, pt_units: 0 });
     }
 
     for (const tag of tags) {
@@ -200,15 +262,15 @@ export class PackagingService {
       if (skipRepallet.has(tagId)) continue;
       const formatCode = tag.format_code?.trim();
       if (!formatCode) continue;
-      const formatKey = formatCode.toLowerCase();
-      const formatId = formatIdByCode.get(formatKey);
+      const matchKey = formatCodeMatchKey(formatCode);
+      const formatId = formatIdByMatchKey.get(matchKey);
       if (formatId == null) continue;
 
       const tagClientId = tag.client_id != null ? Number(tag.client_id) : null;
       /** Formato lo define la receta de la tarja; no el alcance de formato del material (cajas compartidas). */
       if (!this.materialAppliesToTagClient(mat, tagClientId)) continue;
 
-      const recipe = await this.tryResolveRecipeForTagTx(em, tag);
+      const recipe = this.resolveRecipeForTagFromLists(tag, formatId, recipes);
       if (!recipe || Number(recipe.presentation_format_id) !== formatId) continue;
 
       const items = itemsByRecipeId.get(Number(recipe.id)) ?? [];
@@ -228,14 +290,27 @@ export class PackagingService {
       }
       if (lineQty <= 0) continue;
 
-      const cur = out.get(formatCode) ?? { cajas: 0, qty: 0, pt_units: 0 };
+      const cur = out.get(matchKey) ?? { cajas: 0, qty: 0, pt_units: 0 };
       cur.cajas += boxes;
       cur.qty += lineQty;
       cur.pt_units += 1;
-      out.set(formatCode, cur);
+      out.set(matchKey, cur);
     }
 
-    return out;
+    /** Etiqueta canónica del catálogo (ej. PINT REGULAR) aunque las tarjas digan pint regular. */
+    const displayOut = new Map<string, { cajas: number; qty: number; pt_units: number }>();
+    for (const [matchKey, agg] of out) {
+      const label = labelByMatchKey.get(matchKey) ?? formatByMatchKey.get(matchKey)?.format_code?.trim() ?? matchKey;
+      const prev = displayOut.get(label);
+      if (prev) {
+        prev.cajas += agg.cajas;
+        prev.qty += agg.qty;
+        prev.pt_units += agg.pt_units;
+      } else {
+        displayOut.set(label, { ...agg });
+      }
+    }
+    return displayOut;
   }
 
   private async resolveRecipeForTagTx(
@@ -243,9 +318,8 @@ export class PackagingService {
     tag: PtTag,
     preferredRecipeId?: number,
   ): Promise<PackagingRecipe> {
-    const tagFormat = tag.format_code?.trim().toLowerCase();
-    if (!tagFormat) throw new BadRequestException('Tarja sin formato válido');
-    const pf = await em.findOne(PresentationFormat, { where: { format_code: tagFormat, activo: true } });
+    if (!tag.format_code?.trim()) throw new BadRequestException('Tarja sin formato válido');
+    const pf = await this.findPresentationFormatByCodeTx(em, tag.format_code);
     if (!pf) throw new BadRequestException(`Formato ${tag.format_code} no encontrado o inactivo`);
     const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : null;
 
@@ -1161,12 +1235,19 @@ export class PackagingService {
       [materialId],
     );
 
+    const catalogFormats = await this.presentationFormatRepo.find({ where: { activo: true } });
+    const labelByMatchKey = new Map(
+      catalogFormats.map((f) => [formatCodeMatchKey(f.format_code), f.format_code.trim()]),
+    );
+
     const registradoByFormato = new Map<string, { cajas: number; qty: number }>();
     for (const row of porFormatoRaw) {
-      registradoByFormato.set(row.formato, {
-        cajas: Number(row.cajas_producidas) || 0,
-        qty: Number(row.consumo_total) || 0,
-      });
+      const raw = row.formato?.trim() ?? '';
+      const label = labelByMatchKey.get(formatCodeMatchKey(raw)) ?? raw;
+      const cur = registradoByFormato.get(label) ?? { cajas: 0, qty: 0 };
+      cur.cajas += Number(row.cajas_producidas) || 0;
+      cur.qty += Number(row.consumo_total) || 0;
+      registradoByFormato.set(label, cur);
     }
 
     const comprometidoByFormato = await this.computeCommittedConsumptionByFormat(materialId);
