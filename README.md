@@ -78,7 +78,7 @@ Endpoints publicos: `POST /api/auth/login`, `GET /api/auth/health`, `GET /api/pl
 
 | Rol | Uso |
 | --- | --- |
-| `viewer` | Solo lectura en operación; generar reportes y exportar (sin editar datos) |
+| `viewer` | Consulta en toda la operación, PDFs e impresión; reportes y export; sin crear ni editar datos |
 | `admin` | Edicion de parametros planta, borrado de reportes guardados |
 | `supervisor` | Edicion de tarjas, pedidos, crear/editar reportes guardados |
 | `operator` | Lectura de reportes, listados y export; operación en planta |

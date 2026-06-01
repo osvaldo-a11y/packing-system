@@ -42,7 +42,7 @@ Railway suele crear variables como `PGHOST`, `PGUSER`, `DATABASE_URL`, etc., en 
 | `DATABASE_URL` | Pulsa **Add Reference** → elige el servicio **Postgres** → variable **`DATABASE_URL`** (o la que Railway muestre como URL completa de conexión). Así la app usa la misma URL que inyecta Postgres. |
 | `JWT_SECRET` | Una cadena larga y aleatoria (no la compartas). |
 | `NODE_ENV` | `production` |
-| `AUTH_USERS_JSON` | (Opcional, solo pruebas) Copia el JSON de `.env.example` o acorta usuarios. |
+| `AUTH_USERS_JSON` | Usuarios de login (JSON en una línea). **Demo:** incluí un usuario `viewer` con rol `"viewer"` para recorridos solo lectura. Ejemplo mínimo: `[{"username":"admin","passwordHash":"…","role":"admin"},{"username":"viewer","passwordHash":"…","role":"viewer"}]`. Generar hash: `npm run auth:hash-password -- tu_clave`. |
 
 12. Si al referenciar Postgres **no** aparece `DATABASE_URL` en el plugin, en el servicio **Postgres** abre **Variables** / **Connect** y copia la **Connection URL**; luego en el servicio de la app crea `DATABASE_URL` manualmente pegando esa URL.
 

@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { isReadOnlySession } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -700,6 +701,7 @@ function ReceivedPackedAreaChart({
 export function DashboardPage() {
   const { t } = useTranslation('common');
   const { username, role, token } = useAuth();
+  const demoReadOnly = isReadOnlySession(role);
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
 
   const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
@@ -1409,8 +1411,18 @@ export function DashboardPage() {
       ) : null}
 
       {canLoad && dashboardListError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-900">
-          <strong className="font-semibold">{t('dashboard.loadError.title')}</strong> {t('dashboard.loadError.desc')}
+        <div
+          className={cn(
+            'rounded-2xl px-4 py-3 text-sm',
+            demoReadOnly
+              ? 'border border-amber-200/90 bg-amber-50/90 text-amber-950'
+              : 'border border-red-200 bg-red-50/90 text-red-900',
+          )}
+        >
+          <strong className="font-semibold">
+            {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
+          </strong>{' '}
+          {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
         </div>
       ) : null}
 

@@ -17,3 +17,6 @@ export const READ_ACCESS_ROLES: AppRole[] = [
 
 /** Operación en planta (no incluye viewer). */
 export const OPERATE_ROLES: AppRole[] = [ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN];
+
+/** Consulta + PDFs + cola de impresión Zebra (incluye viewer). */
+export const PRINT_ROLES: AppRole[] = [...READ_ACCESS_ROLES];

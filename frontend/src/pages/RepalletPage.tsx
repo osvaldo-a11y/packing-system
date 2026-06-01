@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson } from '@/api';
+import { OperateOnly } from '@/components/OperateOnly';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -552,11 +553,13 @@ export function RepalletPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
-              {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
-            </Button>
-          </div>
+          <OperateOnly>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
+                {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
+              </Button>
+            </div>
+          </OperateOnly>
             </div>
 
             <aside

@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
+import { OperateOnly } from '@/components/OperateOnly';
 import { canOperate } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -479,7 +480,8 @@ type LinkablePtPl = {
 export function DispatchesPage() {
   const { t, i18n } = useTranslation('common');
   const { role } = useAuth();
-  const canRevertSalida = canOperate(role);
+  const canOperateDispatch = canOperate(role);
+  const canRevertSalida = canOperateDispatch;
   const queryClient = useQueryClient();
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [addTagDispatchId, setAddTagDispatchId] = useState<number | null>(null);
@@ -1296,6 +1298,7 @@ export function DispatchesPage() {
             </button>
         </div>
         </div>
+        <OperateOnly>
         <Dialog
           open={dispatchOpen}
           onOpenChange={(o) => {
@@ -1509,6 +1512,7 @@ export function DispatchesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </OperateOnly>
       </div>
 
       <section aria-labelledby="dp-kpis" className="space-y-4">
@@ -1997,6 +2001,7 @@ export function DispatchesPage() {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                    {canOperateDispatch ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -2014,6 +2019,7 @@ export function DispatchesPage() {
                               >
                                 {t('dispatch.table.actionEdit')}
                     </Button>
+                    ) : null}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-md" aria-label="Más acciones">
@@ -2021,6 +2027,8 @@ export function DispatchesPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-[min(100vw-2rem,18rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
+                                  {canOperateDispatch ? (
+                                    <>
                                   {d.kind === 'packing_lists' && d.status === 'borrador' ? (
                                     <DropdownMenuItem
                                       disabled={confirmDispatchMut.isPending}
@@ -2049,6 +2057,8 @@ export function DispatchesPage() {
                                     </DropdownMenuItem>
                                   ) : null}
                                   <DropdownMenuSeparator />
+                                    </>
+                                  ) : null}
                                   <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>
                                     {t('dispatch.table.actionDetail')}
                                   </DropdownMenuItem>
@@ -2064,6 +2074,8 @@ export function DispatchesPage() {
                                   >
                                     PDF
                                   </DropdownMenuItem>
+                                  {canOperateDispatch ? (
+                                    <>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setMetaDialogDispatchId(d.id);
@@ -2134,6 +2146,8 @@ export function DispatchesPage() {
                                     >
                                       {t('dispatch.table.actionUndoExit')}
                                     </DropdownMenuItem>
+                                  ) : null}
+                                    </>
                                   ) : null}
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -2230,6 +2244,8 @@ export function DispatchesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[min(100vw-2rem,18rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
+                          {canOperateDispatch ? (
+                            <>
                           {d.kind === 'packing_lists' && d.status === 'borrador' ? (
                             <DropdownMenuItem
                               disabled={confirmDispatchMut.isPending}
@@ -2257,22 +2273,9 @@ export function DispatchesPage() {
                               {t('dispatch.table.actionRegisterExit')}
                             </DropdownMenuItem>
                           ) : null}
-                          {d.status === 'despachado' && canRevertSalida ? (
-                            <DropdownMenuItem
-                              disabled={revertDespachadoMut.isPending}
-                              onClick={() => {
-                                if (
-                                  !window.confirm(t('dispatch.toast.confirmRevertSalida'))
-                                ) {
-                                  return;
-                                }
-                                revertDespachadoMut.mutate(d.id);
-                              }}
-                            >
-                              {t('dispatch.table.actionUndoExit')}
-                            </DropdownMenuItem>
-                          ) : null}
                           <DropdownMenuSeparator />
+                            </>
+                          ) : null}
                           <DropdownMenuItem onClick={() => openDispatchDetailView(d.id)}>
                             {t('dispatch.table.actionDetail')}
                           </DropdownMenuItem>
@@ -2288,6 +2291,8 @@ export function DispatchesPage() {
                           >
                             PDF
                           </DropdownMenuItem>
+                          {canOperateDispatch ? (
+                            <>
                           <DropdownMenuItem
                             onClick={() => {
                               setMetaDialogDispatchId(d.id);
@@ -2358,6 +2363,8 @@ export function DispatchesPage() {
                             >
                               {t('dispatch.table.actionUndoExit')}
                             </DropdownMenuItem>
+                          ) : null}
+                            </>
                           ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>

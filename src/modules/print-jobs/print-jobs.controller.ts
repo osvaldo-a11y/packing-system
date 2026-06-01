@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { PRINT_ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CompletePrintJobDto } from './dto/complete-print-job.dto';
 import { CreatePrintJobDto } from './dto/create-print-job.dto';
@@ -16,7 +16,7 @@ export class PrintJobsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...PRINT_ROLES)
   @ApiBearerAuth('JWT-auth')
   async create(@Body() dto: CreatePrintJobDto, @Req() req: { user?: { sub?: number } }) {
     const userId = req.user?.sub != null ? Number(req.user.sub) : null;

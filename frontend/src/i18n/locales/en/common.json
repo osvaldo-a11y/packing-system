@@ -40,7 +40,9 @@
     "toastSuccess": "Session started"
   },
   "auth": {
-    "viewerBanner": "Read-only session (viewer): you can browse data and generate reports, but cannot change records."
+    "viewerBanner": "Read-only session (viewer): you can browse, print, and export reports; you cannot create or change records.",
+    "demoBannerTitle": "Demo mode — read only",
+    "demoBannerDesc": "Browse home, operations, PT stock, orders, dispatches, and reports; download PDFs and print labels. Create and edit actions are hidden."
   },
   "about": {
     "pageTitle": "About the system",
@@ -159,7 +161,9 @@
     },
     "loadError": {
       "title": "Some lists could not be loaded.",
-      "desc": "Try again later or check your connection; KPIs may be incomplete."
+      "desc": "Try again later or check your connection; KPIs may be incomplete.",
+      "demoTitle": "Some commercial data is not available for this session.",
+      "demoDesc": "The rest of the dashboard is still useful for the demo. If permissions were just updated, sign out and sign in again."
     },
     "filters": {
       "today": "Today",
@@ -1931,6 +1935,7 @@
     "pageSubtitle": "Support catalogs — quick add and edit.",
     "readOnly": "Read only",
     "readOnlyDesc": "You need supervisor or admin role to edit.",
+    "viewerBrowseDesc": "You can browse all catalogs; editing is disabled for your role.",
     "filterPlaceholder": "Filter rows in current list…",
     "filterAriaLabel": "Filter rows",
     "catalogAriaLabel": "Catalogs",

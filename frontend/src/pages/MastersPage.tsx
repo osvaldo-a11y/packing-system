@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
-import { canSupervise, isAdmin } from '@/lib/roles';
+import { canEditMasters, isAdmin, isViewer } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -565,7 +565,8 @@ type TabKey =
 export function MastersPage() {
   const { t } = useTranslation('common');
   const { role } = useAuth();
-  const canWrite = canSupervise(role);
+  const canWrite = canEditMasters(role);
+  const viewerBrowseOnly = isViewer(role);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('species');
   const [rowFilter, setRowFilter] = useState('');
@@ -673,10 +674,12 @@ export function MastersPage() {
             <CardHeader className="py-3">
               <CardTitle className="text-sm font-medium">{t('masters.readOnly')}</CardTitle>
               <CardDescription className="text-xs">
-                {t('masters.readOnlyDesc')}{' '}
-                <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
-                  API
-                </a>
+                {viewerBrowseOnly ? t('masters.viewerBrowseDesc') : t('masters.readOnlyDesc')}{' '}
+                {!viewerBrowseOnly ? (
+                  <a href="/api/docs" target="_blank" rel="noreferrer" className="text-primary underline">
+                    API
+                  </a>
+                ) : null}
               </CardDescription>
             </CardHeader>
           </Card>

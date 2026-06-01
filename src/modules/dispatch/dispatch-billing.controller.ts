@@ -44,20 +44,20 @@ export class DispatchBillingController {
   ) {}
 
   @Get('sales-orders')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listSalesOrders() {
     return this.service.listSalesOrders();
   }
 
   /** Pedidos pendientes (cajas por despachar) de un cliente; debe declararse antes de `sales-orders/:id/...`. */
   @Get('sales-orders/for-dispatch')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listSalesOrdersForDispatch(@Query('cliente_id', ParseIntPipe) clienteId: number) {
     return this.service.listSalesOrdersForDispatchCliente(clienteId);
   }
 
   @Get('sales-orders/:id/progress')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   getSalesOrderProgress(@Param('id', ParseIntPipe) id: number) {
     return this.salesOrderProgress.getProgress(id);
   }
@@ -75,20 +75,20 @@ export class DispatchBillingController {
   }
 
   @Get('dispatches')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listDispatches() {
     return this.service.listDispatchesWithItems();
   }
 
   @Get('dispatches/linkable-pt-packing-lists')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   listLinkablePtPackingLists() {
     return this.service.listLinkablePtPackingLists();
   }
 
   /** Auditoría: facturas sin líneas (afecta liquidación). */
   @Get('dispatches/invoice-health')
-  @Roles(ROLES.OPERATOR, ROLES.SUPERVISOR, ROLES.ADMIN)
+  @Roles(...READ_ACCESS_ROLES)
   invoiceHealth() {
     return this.service.listInvoicesWithNoLines();
   }

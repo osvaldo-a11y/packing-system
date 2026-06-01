@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
+import { OperateOnly } from '@/components/OperateOnly';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -1127,6 +1128,7 @@ export function ExistenciasPtPage() {
             <span className="font-semibold tabular-nums text-slate-800">
               {selectedIds.size} {t('existenciasPt.selection.selected')}
             </span>
+            <OperateOnly>
             <Button type="button" size="sm" className="h-9 rounded-lg" onClick={() => setBolDialogOpen(true)}>
               {t('existenciasPt.selection.assignBol')}
             </Button>
@@ -1140,6 +1142,7 @@ export function ExistenciasPtPage() {
             >
               {createPlMut.isPending ? t('existenciasPt.selection.creating') : t('existenciasPt.selection.createPl')}
             </Button>
+            </OperateOnly>
             <Button type="button" size="sm" variant="ghost" className="h-9 rounded-lg" onClick={() => setSelectedIds(new Set())}>
               {t('existenciasPt.selection.clearSelection')}
             </Button>

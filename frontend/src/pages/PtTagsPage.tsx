@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
-import { canSupervise } from '@/lib/roles';
+import { canOperate, canSupervise } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -425,6 +425,7 @@ export function PtTagsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useAuth();
   const canEditTag = canSupervise(role);
+  const canDeleteTag = canOperate(role);
   const queryClient = useQueryClient();
   const [tagOpen, setTagOpen] = useState(false);
   const [bulkCreateProgress, setBulkCreateProgress] = useState<{ cur: number; total: number } | null>(null);
@@ -1383,6 +1384,7 @@ export function PtTagsPage() {
           <p className={pageSubtitle}>{t('ptTag.pageSubtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          {canOperate(role) ? (
           <Dialog
             open={tagOpen}
             onOpenChange={(open) => {
@@ -1784,6 +1786,7 @@ export function PtTagsPage() {
             </form>
           </DialogContent>
         </Dialog>
+          ) : null}
         </div>
       </div>
 
@@ -2110,14 +2113,18 @@ export function PtTagsPage() {
                                       <FileDown className="mr-2 h-4 w-4" />
                                       {t('ptTag.table.actionZpl')}
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => setDeleteConfirmTag(tag)}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      {t('ptTag.table.actionDelete')}
-                                    </DropdownMenuItem>
+                                    {canDeleteTag ? (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onClick={() => setDeleteConfirmTag(tag)}
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          {t('ptTag.table.actionDelete')}
+                                        </DropdownMenuItem>
+                                      </>
+                                    ) : null}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                   </div>
@@ -2251,14 +2258,18 @@ export function PtTagsPage() {
                               <Printer className="mr-2 h-4 w-4" />
                               {t('ptTag.table.actionPrint')}
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteConfirmTag(tag)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {t('ptTag.table.actionDelete')}
-                            </DropdownMenuItem>
+                            {canDeleteTag ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteConfirmTag(tag)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {t('ptTag.table.actionDelete')}
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -2385,15 +2396,17 @@ export function PtTagsPage() {
                     {t('ptTag.detail.actionEdit')}
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteConfirmTag(detailTag)}
-                >
-                  <Trash2 className="mr-1 h-3.5 w-3.5" />
-                  {t('ptTag.detail.actionDelete')}
-                </Button>
+                {canDeleteTag ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleteConfirmTag(detailTag)}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    {t('ptTag.detail.actionDelete')}
+                  </Button>
+                ) : null}
               </div>
             </div>
           )}

@@ -40,7 +40,9 @@
     "toastSuccess": "Sesión iniciada"
   },
   "auth": {
-    "viewerBanner": "Sesión de solo lectura (observador): podés consultar datos y generar informes, sin modificar registros."
+    "viewerBanner": "Sesión de solo lectura (observador): podés consultar, imprimir y exportar informes; no podés crear ni modificar registros.",
+    "demoBannerTitle": "Modo demostración — solo lectura",
+    "demoBannerDesc": "Podés recorrer inicio, operación, stock PT, pedidos, despachos y reportes; descargar PDFs e imprimir etiquetas. Los botones de alta y edición están ocultos."
   },
   "about": {
     "pageTitle": "Acerca del sistema",
@@ -159,7 +161,9 @@
     },
     "loadError": {
       "title": "No se pudieron cargar algunos listados.",
-      "desc": "Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos."
+      "desc": "Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos.",
+      "demoTitle": "Algunos datos comerciales no están disponibles para esta sesión.",
+      "demoDesc": "El resto del tablero sigue siendo útil para la demo. Si acabás de actualizar permisos, cerrá sesión y volvé a entrar."
     },
     "filters": {
       "today": "Hoy",
@@ -1930,6 +1934,7 @@
     "pageSubtitle": "Catálogos de apoyo — alta y edición rápida.",
     "readOnly": "Solo lectura",
     "readOnlyDesc": "Necesitás rol supervisor o admin para editar.",
+    "viewerBrowseDesc": "Podés consultar todos los catálogos; la edición está deshabilitada para tu rol.",
     "filterPlaceholder": "Filtrar filas del listado actual…",
     "filterAriaLabel": "Filtrar filas",
     "catalogAriaLabel": "Catálogos",

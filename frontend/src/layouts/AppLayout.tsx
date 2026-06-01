@@ -22,8 +22,9 @@ import {
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { DemoModeBanner } from '@/components/DemoModeBanner';
 import { useAuth } from '@/AuthContext';
-import { isAdmin, isViewer } from '@/lib/roles';
+import { isAdmin, isReadOnlySession } from '@/lib/roles';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -121,7 +122,7 @@ export function AppLayout() {
   const navGroups = getNavGroups(t);
   const { username, role, logout } = useAuth();
   const isAdminRole = isAdmin(role);
-  const readOnlySession = isViewer(role);
+  const readOnlySession = isReadOnlySession(role);
   const { pathname } = useLocation();
 
   return (
@@ -289,11 +290,7 @@ export function AppLayout() {
             key={pathname}
             className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8"
           >
-            {readOnlySession ? (
-              <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950">
-                {t('auth.viewerBanner')}
-              </p>
-            ) : null}
+            {readOnlySession ? <DemoModeBanner /> : null}
             <Outlet />
           </div>
         </main>

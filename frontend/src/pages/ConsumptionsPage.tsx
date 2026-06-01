@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
+import { OperateOnly } from '@/components/OperateOnly';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -779,17 +780,19 @@ export function ConsumptionsPage() {
           <p className={pageSubtitle}>{t('consumptions.pageSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 rounded-lg gap-1.5"
-            disabled={recalcMut.isPending}
-            onClick={() => recalcMut.mutate()}
-          >
-            <RotateCcw className={cn('h-4 w-4', recalcMut.isPending && 'animate-spin')} />
-            {t('consumptions.recalcButton')}
-          </Button>
+          <OperateOnly>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-lg gap-1.5"
+              disabled={recalcMut.isPending}
+              onClick={() => recalcMut.mutate()}
+            >
+              <RotateCcw className={cn('h-4 w-4', recalcMut.isPending && 'animate-spin')} />
+              {t('consumptions.recalcButton')}
+            </Button>
+          </OperateOnly>
           <Button variant="outline" size="sm" className="h-9 rounded-lg" asChild>
             <Link to="/packaging/materials" className="gap-1.5">
               <Package className="h-4 w-4" />
