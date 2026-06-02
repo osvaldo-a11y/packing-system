@@ -120,3 +120,30 @@ export class MachineProcessingRate {
   @CreateDateColumn()
   created_at: Date;
 }
+
+@Entity('material_price_targets')
+export class MaterialPriceTarget {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  format_code: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  producer_id: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 6 })
+  target_price_per_box: string;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  season: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  notes: string | null;
+
+  @CreateDateColumn()
+  created_at: Date;
+}

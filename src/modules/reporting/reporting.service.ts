@@ -9,12 +9,14 @@ import {
   SaveReportDto,
   UpsertMachineProcessingRateDto,
   UpsertMaterialCostAdjustmentDto,
+  UpsertMaterialPriceTargetDto,
   UpsertPackingCostDto,
   UpsertPackingFormatSurchargeDto,
 } from './reporting.dto';
 import {
   MachineProcessingRate,
   MaterialCostAdjustment,
+  MaterialPriceTarget,
   PackingCost,
   PackingFormatSurcharge,
   ReportSnapshot,
@@ -34,6 +36,8 @@ export class ReportingService {
     private readonly materialCostAdjRepo: Repository<MaterialCostAdjustment>,
     @InjectRepository(MachineProcessingRate)
     private readonly machineRateRepo: Repository<MachineProcessingRate>,
+    @InjectRepository(MaterialPriceTarget)
+    private readonly materialPriceTargetRepo: Repository<MaterialPriceTarget>,
     private readonly plantService: PlantService,
     private readonly processService: ProcessService,
   ) {}
@@ -409,6 +413,18 @@ export class ReportingService {
       }
     }
 
+    const priceTargets = await this.materialPriceTargetRepo.find({ where: { active: true } });
+    // Mapa: formatKey|producerId → target_price_per_box ($/caja materiales)
+    // Prioridad: format+producer > format+null > null+producer > null+null
+    const buildTargetKey = (fk: string | null, pid: number | null) =>
+      `${fk ?? '*'}|${pid ?? '*'}`;
+    const targetMap = new Map<string, number>();
+    for (const pt of priceTargets) {
+      const fk = pt.format_code?.trim().toLowerCase() ?? null;
+      const pid = pt.producer_id != null ? Number(pt.producer_id) : null;
+      targetMap.set(buildTargetKey(fk, pid), Number(pt.target_price_per_box));
+    }
+
     const items = (await this.dataSource.query(
       `
       SELECT i.id, i.recipe_id, i.material_id, i.qty_per_unit, i.base_unidad, i.cost_type,
@@ -618,6 +634,23 @@ export class ReportingService {
       }
 
       const subtotalMateriales = totalDirecto + totalTripaje;
+
+      // Precio objetivo de materiales por caja
+      const cajasTotales = agg.cajas;
+      const costoMaterialesRealPorCaja = cajasTotales > 0 ? subtotalMateriales / cajasTotales : 0;
+
+      // Buscar target por prioridad: formato+null > null+null
+      const fkLower = formatKey;
+      const targetPorCaja =
+        targetMap.get(buildTargetKey(fkLower, null)) ??
+        targetMap.get(buildTargetKey(null, null)) ??
+        null;
+
+      const costoMaterialesTarget = targetPorCaja != null
+        ? cajasTotales * targetPorCaja
+        : subtotalMateriales;
+      const deltaMateriales = costoMaterialesTarget - subtotalMateriales;
+
       const surchargePerLb = surchargeByFormat.get(formatKey) ?? 0;
       const effectivePacking = pricePacking + surchargePerLb;
       const costoPacking = agg.lb_totales * effectivePacking;
@@ -636,7 +669,10 @@ export class ReportingService {
         }
       }
       const costoMaterialesAjustado = subtotalMateriales + materialAdjustment;
-      const costoTotal = costoMaterialesAjustado + costoPacking + costoMaquina;
+      const useTargetPrice = filter.use_material_target_price === true;
+      const costoMaterialesLiquidacion =
+        useTargetPrice && targetPorCaja != null ? costoMaterialesTarget : costoMaterialesAjustado;
+      const costoTotal = costoMaterialesLiquidacion + costoPacking + costoMaquina;
       const costoPorCaja = agg.cajas > 0 ? costoTotal / agg.cajas : 0;
       const costoPorLb = agg.lb_totales > 0 ? costoTotal / agg.lb_totales : 0;
       const deltaPorCaja = agg.precio_cliente != null ? agg.precio_cliente - costoPorCaja : null;
@@ -656,9 +692,17 @@ export class ReportingService {
         precio_packing_efectivo: Number(effectivePacking.toFixed(6)),
         total_directo: Number(totalDirecto.toFixed(2)),
         total_tripaje: Number(totalTripaje.toFixed(2)),
-        costo_materiales: Number(costoMaterialesAjustado.toFixed(2)),
-        subtotal_materiales: Number(costoMaterialesAjustado.toFixed(2)),
+        costo_materiales: Number(costoMaterialesLiquidacion.toFixed(2)),
+        subtotal_materiales: Number(costoMaterialesLiquidacion.toFixed(2)),
+        use_material_target_price: useTargetPrice && targetPorCaja != null,
         costo_materiales_real: Number(subtotalMateriales.toFixed(2)),
+        costo_materiales_real_por_caja: Number(costoMaterialesRealPorCaja.toFixed(6)),
+        target_price_per_box: targetPorCaja != null ? Number(targetPorCaja.toFixed(6)) : null,
+        costo_materiales_target: Number(costoMaterialesTarget.toFixed(2)),
+        delta_materiales: Number(deltaMateriales.toFixed(2)),
+        delta_materiales_por_caja: targetPorCaja != null
+          ? Number((targetPorCaja - costoMaterialesRealPorCaja).toFixed(6))
+          : 0,
         material_adjustment: Number(materialAdjustment.toFixed(2)),
         costo_packing: Number(costoPacking.toFixed(2)),
         lb_machine: Number(lbMachine.toFixed(3)),
@@ -1957,6 +2001,26 @@ export class ReportingService {
 
   async deleteMaterialCostAdjustment(id: number): Promise<void> {
     await this.materialCostAdjRepo.delete(id);
+  }
+
+  async getMaterialPriceTargets(): Promise<MaterialPriceTarget[]> {
+    return this.materialPriceTargetRepo.find({ order: { created_at: 'DESC' } });
+  }
+
+  async upsertMaterialPriceTarget(dto: UpsertMaterialPriceTargetDto): Promise<MaterialPriceTarget> {
+    const entity = this.materialPriceTargetRepo.create({
+      format_code: dto.format_code?.trim() || null,
+      producer_id: dto.producer_id ?? null,
+      target_price_per_box: String(dto.target_price_per_box),
+      season: dto.season?.trim() || null,
+      active: dto.active ?? true,
+      notes: dto.notes?.trim() || null,
+    });
+    return this.materialPriceTargetRepo.save(entity);
+  }
+
+  async deleteMaterialPriceTarget(id: number): Promise<void> {
+    await this.materialPriceTargetRepo.delete(id);
   }
 
   async getPackingFormatSurcharges(): Promise<PackingFormatSurcharge[]> {

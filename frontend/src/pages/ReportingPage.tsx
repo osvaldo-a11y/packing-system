@@ -74,11 +74,15 @@ type ReportFilters = {
   fecha_desde?: string;
   fecha_hasta?: string;
   calidad?: string;
+  /** Materiales por precio objetivo $/caja (donde haya target activo). */
+  use_material_target_price?: boolean;
   page: number;
   limit: number;
 };
 
-function toQuery(params: Record<string, string | number | undefined>) {
+const LS_USE_TARGET_PRICE = 'reporting_use_target_price';
+
+function toQuery(params: Record<string, string | number | boolean | undefined>) {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === '') continue;
@@ -112,6 +116,7 @@ async function downloadProducerSettlementPdf(
     fecha_desde: merged.fecha_desde || undefined,
     fecha_hasta: merged.fecha_hasta || undefined,
     calidad: merged.calidad || undefined,
+    use_material_target_price: merged.use_material_target_price ? '1' : undefined,
     page: merged.page,
     limit: merged.limit,
     lang: opts?.lang,
@@ -223,6 +228,17 @@ interface MachineProcessingRate {
   id: number;
   rate_per_lb: string;
   species_id: number | null;
+  season: string | null;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+interface MaterialPriceTarget {
+  id: number;
+  format_code: string | null;
+  producer_id: number | null;
+  target_price_per_box: string;
   season: string | null;
   active: boolean;
   notes: string | null;
@@ -2912,6 +2928,11 @@ function recordToReportFilters(r: Record<string, unknown>): ReportFilters {
     fecha_desde: typeof r.fecha_desde === 'string' ? r.fecha_desde : undefined,
     fecha_hasta: typeof r.fecha_hasta === 'string' ? r.fecha_hasta : undefined,
     calidad: typeof r.calidad === 'string' ? r.calidad : undefined,
+    use_material_target_price:
+      r.use_material_target_price === true ||
+      r.use_material_target_price === 'true' ||
+      r.use_material_target_price === 1 ||
+      r.use_material_target_price === '1',
   };
 }
 
@@ -2920,7 +2941,8 @@ export function ReportingPage() {
   const isAdminRole = isAdmin(role);
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation('common');
-  const tr = (k: string) => t(`reporting.${k}`);
+  const tr = (k: string, opts?: Record<string, unknown>): string =>
+    String(t(`reporting.${k}`, opts as never));
   const REPORT_MODULE_TABS = getReportModuleTabs(t);
   const docLang = i18n.language.startsWith('en') ? 'en' : 'es';
 
@@ -2954,6 +2976,15 @@ export function ReportingPage() {
   const [machineRateNotes, setMachineRateNotes] = useState('');
   const [machineRateActive, setMachineRateActive] = useState(true);
   const [useAdjustedCost, setUseAdjustedCost] = useState(false);
+  const [targetFormatCode, setTargetFormatCode] = useState('');
+  const [targetProducerId, setTargetProducerId] = useState<number>(0);
+  const [targetPricePerBox, setTargetPricePerBox] = useState('');
+  const [targetSeason, setTargetSeason] = useState('');
+  const [targetNotes, setTargetNotes] = useState('');
+  const [targetActive, setTargetActive] = useState(true);
+  const [useTargetPrice, setUseTargetPrice] = useState(
+    () => localStorage.getItem(LS_USE_TARGET_PRICE) !== '0',
+  );
   const [reportTab, setReportTab] = useState<ReportModuleTab | null>(null);
   /** Tarifas packing en Cierre: colapsado por defecto. */
   const [packingTariffsSectionOpen, setPackingTariffsSectionOpen] = useState(false);
@@ -2980,10 +3011,17 @@ export function ReportingPage() {
     localStorage.setItem(PACKING_HIDDEN_SPECIES_LS, JSON.stringify([...hiddenPackingSpeciesIds]));
   }, [hiddenPackingSpeciesIds]);
 
+  useEffect(() => {
+    localStorage.setItem(LS_USE_TARGET_PRICE, useTargetPrice ? '1' : '0');
+  }, [useTargetPrice]);
+
   const reportFiltersForPdf = useMemo(() => {
     if (!reportData?.filters) return null;
-    return recordToReportFilters(reportData.filters as Record<string, unknown>);
-  }, [reportData]);
+    return {
+      ...recordToReportFilters(reportData.filters as Record<string, unknown>),
+      use_material_target_price: useTargetPrice,
+    };
+  }, [reportData, useTargetPrice]);
 
   const { data: species } = useQuery({
     queryKey: ['masters', 'species'],
@@ -3044,6 +3082,15 @@ export function ReportingPage() {
   } = useQuery<MachineProcessingRate[]>({
     queryKey: ['reporting', 'machine-processing-rates'],
     queryFn: () => apiJson<MachineProcessingRate[]>('/api/reporting/machine-processing-rates'),
+  });
+
+  const {
+    data: priceTargets,
+    isLoading: priceTargetsLoading,
+    refetch: refetchPriceTargets,
+  } = useQuery<MaterialPriceTarget[]>({
+    queryKey: ['reporting', 'material-price-targets'],
+    queryFn: () => apiJson<MaterialPriceTarget[]>('/api/reporting/material-price-targets'),
   });
 
   const { data: presentationFormatsForSurcharge } = useQuery({
@@ -3157,6 +3204,7 @@ export function ReportingPage() {
         fecha_desde: f.fecha_desde || undefined,
         fecha_hasta: f.fecha_hasta || undefined,
         calidad: f.calidad || undefined,
+        use_material_target_price: f.use_material_target_price ? '1' : undefined,
       });
       return apiJson<GenerateResponse>(`/api/reporting/generate?${q}`);
     },
@@ -3285,7 +3333,46 @@ export function ReportingPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function runMergedGenerate() {
+  const upsertPriceTargetMut = useMutation({
+    mutationFn: (body: {
+      format_code?: string | null;
+      producer_id?: number | null;
+      target_price_per_box: number;
+      season?: string | null;
+      active: boolean;
+      notes?: string | null;
+    }) =>
+      apiJson<MaterialPriceTarget>('/api/reporting/material-price-targets', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      toast.success('Precio objetivo guardado');
+      void refetchPriceTargets();
+      setTargetFormatCode('');
+      setTargetProducerId(0);
+      setTargetPricePerBox('');
+      setTargetSeason('');
+      setTargetNotes('');
+      setTargetActive(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deletePriceTargetMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiFetch(`/api/reporting/material-price-targets/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar precio objetivo');
+    },
+    onSuccess: () => {
+      toast.success('Precio objetivo eliminado');
+      void refetchPriceTargets();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function runMergedGenerate(materialTargetOverride?: boolean) {
+    const applyTarget = materialTargetOverride ?? useTargetPrice;
     const next: ReportFilters = {
       ...filters,
       ...draft,
@@ -3301,6 +3388,7 @@ export function ReportingPage() {
       variedad_id: draft.variedad_id ?? filters.variedad_id,
       tarja_id: draft.tarja_id ?? filters.tarja_id,
       precio_packing_por_lb: draft.precio_packing_por_lb ?? filters.precio_packing_por_lb,
+      use_material_target_price: applyTarget,
     };
     setFilters(next);
     setDraft({});
@@ -3554,14 +3642,14 @@ export function ReportingPage() {
                   <DollarSign className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{tr('cierre.packingRates')}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{tr('cierre.packingRatesDesc')}</p>
+                  <p className="text-sm font-semibold text-slate-900">{tr('cierre.tarifas.title')}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{tr('cierre.tarifas.subtitle')}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" aria-hidden />
               </div>
             </summary>
             <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
-              <p className="text-xs leading-relaxed text-slate-500">{tr('cierre.packingRatesHelp')}</p>
+              <p className="text-xs leading-relaxed text-slate-500">{tr('cierre.tarifas.desc')}</p>
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <label className="flex cursor-pointer items-center gap-2 text-slate-600">
                   <input
@@ -3570,18 +3658,18 @@ export function ReportingPage() {
                     checked={showInactivePackingCosts}
                     onChange={(e) => setShowInactivePackingCosts(e.target.checked)}
                   />
-                  {tr('cierre.showInactive')}
+                  {tr('cierre.tarifas.showInactive')}
                 </label>
                 {hiddenPackingSpeciesIds.size > 0 ? (
                   <Button type="button" variant="link" className="h-auto p-0 text-xs text-primary" onClick={() => setHiddenPackingSpeciesIds(new Set())}>
-                    {tr('cierre.restoreHidden')} ({hiddenPackingSpeciesIds.size})
+                    {tr('cierre.tarifas.restoreHidden', { count: hiddenPackingSpeciesIds.size })}
                   </Button>
                 ) : null}
               </div>
               {canManagePackingCosts ? (
                 <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">{tr('cierre.species')}</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.tarifas.cols.species')}</Label>
                     <select
                       className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                       value={packingSpeciesId}
@@ -3594,15 +3682,15 @@ export function ReportingPage() {
                     </select>
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">{tr('cierre.season')}</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.tarifas.cols.season')}</Label>
                     <Input className="h-9" value={packingSeason} onChange={(e) => setPackingSeason(e.target.value)} placeholder="2026-2027" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">{tr('cierre.pricePerLb')}</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.tarifas.cols.priceLb')}</Label>
                     <Input className="h-9 font-mono" type="number" step="0.000001" min={0} value={packingPrice} onChange={(e) => setPackingPrice(e.target.value)} placeholder="0.1200" />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label className="text-xs text-slate-500">{tr('cierre.active')}</Label>
+                    <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.active')}</Label>
                     <select className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" value={packingActive ? '1' : '0'} onChange={(e) => setPackingActive(e.target.value === '1')}>
                       <option value="1">{tr('cierre.yes')}</option>
                       <option value="0">{tr('cierre.no')}</option>
@@ -3610,7 +3698,7 @@ export function ReportingPage() {
                   </div>
                   <div className="md:col-span-4">
                     <Button type="button" size="sm" disabled={upsertPackingCostMut.isPending || packingSpeciesId <= 0 || packingPrice.trim() === ''} onClick={() => upsertPackingCostMut.mutate()}>
-                      {upsertPackingCostMut.isPending ? tr('cierre.saving') : tr('cierre.saveRate')}
+                      {upsertPackingCostMut.isPending ? tr('cierre.tarifas.saving') : tr('cierre.tarifas.saveRate')}
                     </Button>
                   </div>
                 </div>
@@ -3622,10 +3710,10 @@ export function ReportingPage() {
                   <Table className="min-w-[500px]">
                     <TableHeader>
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colSpecies')}</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colSeason')}</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colPricePerLb')}</TableHead>
-                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.colStatus')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.cols.species')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.cols.season')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.cols.priceLb')}</TableHead>
+                        <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.cols.state')}</TableHead>
                         <TableHead className="border-b border-slate-200 py-2.5 w-[80px]" />
                       </TableRow>
                     </TableHeader>
@@ -3644,18 +3732,18 @@ export function ReportingPage() {
                             <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">{formatMoney(Number(r.price_per_lb))}</TableCell>
                             <TableCell className="py-2.5 text-xs leading-snug">
                               {cierrePackingManualMode ? (
-                                <span className="text-slate-400">{tr('cierre.manualMode')}</span>
+                                <span className="text-slate-400">{tr('cierre.tarifas.states.manual')}</span>
                               ) : cierreMissingSpeciesIdSet.has(r.species_id) ? (
-                                <span className="font-medium text-rose-600">{tr('cierre.missingRate')}</span>
+                                <span className="font-medium text-rose-600">{tr('cierre.tarifas.states.missing')}</span>
                               ) : r.active && Number(r.price_per_lb) > 0 ? (
-                                <span className="font-medium text-emerald-600">{tr('cierre.rateActive')}</span>
+                                <span className="font-medium text-emerald-600">{tr('cierre.tarifas.states.active')}</span>
                               ) : (
-                                <span className="text-amber-600">{tr('cierre.noEffectiveRate')}</span>
+                                <span className="text-amber-600">{tr('cierre.tarifas.states.noRate')}</span>
                               )}
                             </TableCell>
                             <TableCell className="py-2.5">
                               <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-slate-400 hover:text-slate-700" onClick={() => setHiddenPackingSpeciesIds((prev) => new Set([...prev, r.species_id]))}>
-                                {tr('cierre.hide')}
+                                {tr('cierre.tarifas.cols.hide')}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -3669,22 +3757,22 @@ export function ReportingPage() {
               {/* Recargos por formato */}
               <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{tr('cierre.surcharges')}</p>
+                  <p className="text-sm font-semibold text-slate-800">{tr('cierre.tarifas.surcharges.title')}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {tr('cierre.surchargesDesc')}
+                    {tr('cierre.tarifas.surcharges.desc')}
                   </p>
                 </div>
 
                 {canManagePackingCosts ? (
                   <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                     <div className="grid gap-1.5 md:col-span-2">
-                      <Label className="text-xs text-slate-500">{tr('cierre.format')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.formatLabel')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={surchargeFormatCode}
                         onChange={(e) => setSurchargeFormatCode(e.target.value)}
                       >
-                        <option value="">{tr('cierre.chooseFormat')}</option>
+                        <option value="">{tr('cierre.tarifas.surcharges.formatAll')}</option>
                         {(activePresFormats ?? []).map((f) => (
                           <option key={f.format_code} value={f.format_code}>
                             {f.format_code}
@@ -3693,7 +3781,7 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('cierre.surchargePerLb')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.rateLb')}</Label>
                       <Input
                         className="h-9 font-mono"
                         type="number"
@@ -3705,7 +3793,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('recargos.temporada')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.season')}</Label>
                       <Input
                         className="h-9"
                         value={surchargeSeason}
@@ -3714,7 +3802,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('recargos.notas')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.notes')}</Label>
                       <Input
                         className="h-9"
                         value={surchargeNotes}
@@ -3723,14 +3811,14 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.surcharges.active')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={surchargeActive ? '1' : '0'}
                         onChange={(e) => setSurchargeActive(e.target.value === '1')}
                       >
-                        <option value="1">Sí</option>
-                        <option value="0">No</option>
+                        <option value="1">{tr('cierre.yes')}</option>
+                        <option value="0">{tr('cierre.no')}</option>
                       </select>
                     </div>
                     <div className="md:col-span-4">
@@ -3752,7 +3840,7 @@ export function ReportingPage() {
                           })
                         }
                       >
-                        {upsertFormatSurchargeMut.isPending ? 'Guardando…' : tr('cierre.guardarRecargo')}
+                        {upsertFormatSurchargeMut.isPending ? tr('cierre.tarifas.saving') : tr('cierre.tarifas.surcharges.save')}
                       </Button>
                     </div>
                   </div>
@@ -3761,17 +3849,17 @@ export function ReportingPage() {
                 {formatSurchargesLoading ? (
                   <Skeleton className="h-20 w-full" />
                 ) : (formatSurcharges ?? []).length === 0 ? (
-                  <p className="text-xs text-slate-400">Sin recargos por formato configurados.</p>
+                  <p className="text-xs text-slate-400">{tr('cierre.tarifas.surcharges.empty')}</p>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-slate-200">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Formato</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recargo/lb</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notas</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.surcharges.cols.format')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.surcharges.cols.rate')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.surcharges.cols.season')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.surcharges.cols.notes')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.surcharges.cols.state')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3785,8 +3873,8 @@ export function ReportingPage() {
                             <TableCell className="py-2.5 text-xs text-slate-500">{r.notes ?? '—'}</TableCell>
                             <TableCell className="py-2.5 text-xs">
                               {r.active
-                                ? <span className="font-medium text-emerald-600">✓ Activo</span>
-                                : <span className="text-slate-400">Inactivo</span>
+                                ? <span className="font-medium text-emerald-600">{tr('cierre.tarifas.states.active')}</span>
+                                : <span className="text-slate-400">{tr('cierre.tarifas.states.inactive')}</span>
                               }
                             </TableCell>
                           </TableRow>
@@ -3800,17 +3888,16 @@ export function ReportingPage() {
               {/* ── Procesado máquina ── */}
               <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Rate procesado máquina</p>
+                  <p className="text-sm font-semibold text-slate-800">{tr('cierre.tarifas.machineRate.title')}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Cargo adicional USD/lb para fruta de cosecha máquina (<strong className="text-slate-700">machine_picking</strong>).
-                    Se suma al costo de packing en la liquidación.
+                    {tr('cierre.tarifas.machineRate.desc')}
                   </p>
                 </div>
 
                 {canManagePackingCosts ? (
                   <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-3">
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Rate / lb</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.machineRate.rateLb')}</Label>
                       <Input
                         className="h-9 font-mono"
                         type="number"
@@ -3822,20 +3909,20 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Especie (vacío = todas)</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.machineRate.speciesLabel')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={machineRateSpeciesId}
                         onChange={(e) => setMachineRateSpeciesId(Number(e.target.value))}
                       >
-                        <option value={0}>Todas las especies</option>
+                        <option value={0}>{tr('cierre.tarifas.machineRate.speciesAll')}</option>
                         {(species ?? []).map((s) => (
                           <option key={s.id} value={s.id}>{s.nombre}</option>
                         ))}
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Temporada (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.machineRate.season')}</Label>
                       <Input
                         className="h-9"
                         value={machineRateSeason}
@@ -3844,7 +3931,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5 md:col-span-2">
-                      <Label className="text-xs text-slate-500">Notas (opc.)</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.machineRate.notes')}</Label>
                       <Input
                         className="h-9"
                         value={machineRateNotes}
@@ -3853,14 +3940,14 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">Activo</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.machineRate.active')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={machineRateActive ? '1' : '0'}
                         onChange={(e) => setMachineRateActive(e.target.value === '1')}
                       >
-                        <option value="1">Sí</option>
-                        <option value="0">No</option>
+                        <option value="1">{tr('cierre.yes')}</option>
+                        <option value="0">{tr('cierre.no')}</option>
                       </select>
                     </div>
                     <div className="md:col-span-3">
@@ -3878,7 +3965,7 @@ export function ReportingPage() {
                           })
                         }
                       >
-                        {upsertMachineRateMut.isPending ? 'Guardando…' : 'Guardar rate máquina'}
+                        {upsertMachineRateMut.isPending ? tr('cierre.tarifas.saving') : tr('cierre.tarifas.machineRate.save')}
                       </Button>
                     </div>
                   </div>
@@ -3887,17 +3974,17 @@ export function ReportingPage() {
                 {machineRatesLoading ? (
                   <Skeleton className="h-16 w-full" />
                 ) : (machineRates ?? []).length === 0 ? (
-                  <p className="text-xs text-slate-400">Sin rates de máquina configurados.</p>
+                  <p className="text-xs text-slate-400">{tr('cierre.tarifas.machineRate.empty')}</p>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-slate-200">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Especie</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rate/lb</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Temporada</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notas</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Estado</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.machineRate.cols.species')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.machineRate.cols.rate')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.machineRate.cols.season')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.machineRate.cols.notes')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.machineRate.cols.state')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3906,7 +3993,7 @@ export function ReportingPage() {
                             <TableCell className="py-2.5 text-sm text-slate-700">
                               {r.species_id != null
                                 ? (species ?? []).find((s) => s.id === r.species_id)?.nombre ?? `#${r.species_id}`
-                                : 'Todas'}
+                                : tr('cierre.tarifas.priceTarget.cols.all')}
                             </TableCell>
                             <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
                               +{formatMoney(Number(r.rate_per_lb))}
@@ -3915,8 +4002,8 @@ export function ReportingPage() {
                             <TableCell className="py-2.5 text-xs text-slate-500">{r.notes ?? '—'}</TableCell>
                             <TableCell className="py-2.5 text-xs">
                               {r.active
-                                ? <span className="font-medium text-emerald-600">✓ Activa</span>
-                                : <span className="text-slate-400">Inactiva</span>}
+                                ? <span className="font-medium text-emerald-600">{tr('cierre.tarifas.states.active')}</span>
+                                : <span className="text-slate-400">{tr('cierre.tarifas.states.inactive')}</span>}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -3930,15 +4017,13 @@ export function ReportingPage() {
               <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{tr('ajustes.title')}</p>
+                    <p className="text-sm font-semibold text-slate-800">{tr('cierre.tarifas.materialAdj.title')}</p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {tr('ajustes.desc1')}
-                      {' '}
-                      {tr('ajustes.desc2')}
+                      {tr('cierre.tarifas.materialAdj.desc')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-xs text-slate-500">{tr('ajustes.vistaLabel')}</span>
+                    <span className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.viewLabel')}</span>
                     <button
                       type="button"
                       onClick={() => setUseAdjustedCost(false)}
@@ -3949,7 +4034,7 @@ export function ReportingPage() {
                           : 'text-slate-500 hover:text-slate-800',
                       )}
                     >
-                      {tr('ajustes.vistaReal')}
+                      {tr('cierre.tarifas.materialAdj.viewReal')}
                     </button>
                     <button
                       type="button"
@@ -3961,7 +4046,7 @@ export function ReportingPage() {
                           : 'text-slate-500 hover:text-slate-800',
                       )}
                     >
-                      {tr('ajustes.vistaAjustado')}
+                      {tr('cierre.tarifas.materialAdj.viewAdj')}
                     </button>
                   </div>
                 </div>
@@ -3969,28 +4054,28 @@ export function ReportingPage() {
                 {canManagePackingCosts ? (
                   <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
                     <div className="grid gap-1.5 md:col-span-2">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.nombreEscenario')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.nameLabel')}</Label>
                       <Input
                         className="h-9"
                         value={adjName}
                         onChange={(e) => setAdjName(e.target.value)}
-                        placeholder={tr('ajustes.nombrePlaceholder')}
+                        placeholder={tr('cierre.tarifas.materialAdj.namePlaceholder')}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.tipoAjuste')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.typeLabel')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjType}
                         onChange={(e) => setAdjType(e.target.value as 'per_box' | 'per_lb' | 'percent')}
                       >
-                        <option value="per_box">{tr('ajustes.porCaja')}</option>
-                        <option value="per_lb">{tr('ajustes.porLb')}</option>
-                        <option value="percent">{tr('ajustes.porPct')}</option>
+                        <option value="per_box">{tr('cierre.tarifas.materialAdj.typePerBox')}</option>
+                        <option value="per_lb">{tr('cierre.tarifas.materialAdj.typePerLb')}</option>
+                        <option value="percent">{tr('cierre.tarifas.materialAdj.typePercent')}</option>
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.valor')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.valueLabel')}</Label>
                       <Input
                         className="h-9 font-mono"
                         type="number"
@@ -4002,13 +4087,13 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.formatoVacio')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.formatLabel')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjFormatCode}
                         onChange={(e) => setAdjFormatCode(e.target.value)}
                       >
-                        <option value="">{tr('ajustes.allFormatos')}</option>
+                        <option value="">{tr('cierre.tarifas.materialAdj.formatAll')}</option>
                         {(activePresFormats ?? []).map((f) => (
                           <option key={f.format_code} value={f.format_code}>
                             {f.format_code}
@@ -4017,13 +4102,13 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.productorVacio')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.producerLabel')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjProducerId}
                         onChange={(e) => setAdjProducerId(Number(e.target.value))}
                       >
-                        <option value={0}>{tr('ajustes.allProductores')}</option>
+                        <option value={0}>{tr('cierre.tarifas.materialAdj.producerAll')}</option>
                         {(producersSorted ?? []).map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.nombre}
@@ -4032,7 +4117,7 @@ export function ReportingPage() {
                       </select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.temporada')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.season')}</Label>
                       <Input
                         className="h-9"
                         value={adjSeason}
@@ -4041,7 +4126,7 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.notas')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.notes')}</Label>
                       <Input
                         className="h-9"
                         value={adjNotes}
@@ -4050,14 +4135,14 @@ export function ReportingPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs text-slate-500">{tr('ajustes.activo')}</Label>
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.materialAdj.active')}</Label>
                       <select
                         className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
                         value={adjActive ? '1' : '0'}
                         onChange={(e) => setAdjActive(e.target.value === '1')}
                       >
-                        <option value="1">{tr('ajustes.si')}</option>
-                        <option value="0">{tr('ajustes.no')}</option>
+                        <option value="1">{tr('cierre.yes')}</option>
+                        <option value="0">{tr('cierre.no')}</option>
                       </select>
                     </div>
                     <div className="md:col-span-4">
@@ -4078,7 +4163,7 @@ export function ReportingPage() {
                           })
                         }
                       >
-                        {upsertMaterialAdjMut.isPending ? tr('ajustes.saving') : tr('ajustes.guardar')}
+                        {upsertMaterialAdjMut.isPending ? tr('cierre.tarifas.materialAdj.saving') : tr('cierre.tarifas.materialAdj.save')}
                       </Button>
                     </div>
                   </div>
@@ -4087,18 +4172,18 @@ export function ReportingPage() {
                 {materialAdjustmentsLoading ? (
                   <Skeleton className="h-20 w-full" />
                 ) : (materialAdjustments ?? []).length === 0 ? (
-                  <p className="text-xs text-slate-400">{tr('ajustes.sinAjustes')}</p>
+                  <p className="text-xs text-slate-400">{tr('cierre.tarifas.materialAdj.empty')}</p>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-slate-200">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colEscenario')}</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colTipo')}</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colValor')}</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colFormato')}</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colProductor')}</TableHead>
-                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('ajustes.colEstado')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.scenario')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.type')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.value')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.format')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.producer')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.materialAdj.cols.state')}</TableHead>
                           <TableHead className="border-b border-slate-200 py-2.5 w-[60px]" />
                         </TableRow>
                       </TableHeader>
@@ -4107,23 +4192,23 @@ export function ReportingPage() {
                           <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
                             <TableCell className="py-2.5 text-sm font-semibold text-slate-900">{r.name}</TableCell>
                             <TableCell className="py-2.5 text-xs text-slate-600">
-                              {r.adjustment_type === 'per_box' ? tr('ajustes.unidadCaja') : r.adjustment_type === 'per_lb' ? tr('ajustes.unidadLb') : tr('ajustes.unidadPct')}
+                              {r.adjustment_type === 'per_box' ? tr('cierre.tarifas.materialAdj.types.per_box') : r.adjustment_type === 'per_lb' ? tr('cierre.tarifas.materialAdj.types.per_lb') : tr('cierre.tarifas.materialAdj.types.percent')}
                             </TableCell>
                             <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
                               {r.adjustment_type === 'percent'
                                 ? `${formatTechnical(Number(r.value), 2)}%`
                                 : `+${formatMoney(Number(r.value))}`}
                             </TableCell>
-                            <TableCell className="py-2.5 font-mono text-xs text-slate-700">{r.format_code ?? tr('ajustes.todos')}</TableCell>
+                            <TableCell className="py-2.5 font-mono text-xs text-slate-700">{r.format_code ?? tr('cierre.tarifas.priceTarget.cols.all')}</TableCell>
                             <TableCell className="py-2.5 text-xs text-slate-600">
                               {r.producer_id != null
                                 ? producersSorted.find((p) => p.id === r.producer_id)?.nombre ?? `#${r.producer_id}`
-                                : tr('ajustes.todos')}
+                                : tr('cierre.tarifas.priceTarget.cols.all')}
                             </TableCell>
                             <TableCell className="py-2.5 text-xs">
                               {r.active
-                                ? <span className="font-medium text-emerald-600">{tr('ajustes.activo2')}</span>
-                                : <span className="text-slate-400">{tr('ajustes.inactivo')}</span>}
+                                ? <span className="font-medium text-emerald-600">{tr('cierre.tarifas.states.active')}</span>
+                                : <span className="text-slate-400">{tr('cierre.tarifas.states.inactive')}</span>}
                             </TableCell>
                             <TableCell className="py-2.5">
                               <Button
@@ -4134,7 +4219,7 @@ export function ReportingPage() {
                                 disabled={deleteMaterialAdjMut.isPending}
                                 onClick={() => deleteMaterialAdjMut.mutate(r.id)}
                               >
-                                {tr('ajustes.quitar')}
+                                {tr('cierre.tarifas.materialAdj.cols.remove')}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -4146,9 +4231,278 @@ export function ReportingPage() {
 
                 {useAdjustedCost && (materialAdjustments ?? []).filter((a) => a.active).length > 0 ? (
                   <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                    <span className="font-semibold">{tr('ajustes.vistaAjustadaActiva')}</span>
-                    {(materialAdjustments ?? []).filter((a) => a.active).map((a) => a.name).join(', ')}
-                    {' '}{tr('ajustes.aplicarHint')}
+                    {tr('cierre.tarifas.materialAdj.activeNote', {
+                      names: (materialAdjustments ?? []).filter((a) => a.active).map((a) => a.name).join(', '),
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* ── Precio objetivo de materiales ── */}
+              <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{tr('cierre.tarifas.priceTarget.title')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {tr('cierre.tarifas.priceTarget.desc')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.viewLabel')}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (useTargetPrice) return;
+                        setUseTargetPrice(false);
+                        if (reportData) runMergedGenerate(false);
+                      }}
+                      className={cn(
+                        'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                        !useTargetPrice
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-500 hover:text-slate-800',
+                      )}
+                    >
+                      {tr('cierre.tarifas.priceTarget.viewReal')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!useTargetPrice) {
+                          setUseTargetPrice(true);
+                          if (reportData) runMergedGenerate(true);
+                        }
+                      }}
+                      className={cn(
+                        'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                        useTargetPrice
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-500 hover:text-slate-800',
+                      )}
+                    >
+                      {tr('cierre.tarifas.priceTarget.viewTarget')}
+                    </button>
+                  </div>
+                </div>
+
+                {canManagePackingCosts ? (
+                  <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:grid-cols-4">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.formatLabel')}</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={targetFormatCode}
+                        onChange={(e) => setTargetFormatCode(e.target.value)}
+                      >
+                        <option value="">{tr('cierre.tarifas.priceTarget.formatAll')}</option>
+                        {(activePresFormats ?? []).map((f) => (
+                          <option key={f.format_code} value={f.format_code}>
+                            {f.format_code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.producerLabel')}</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={targetProducerId}
+                        onChange={(e) => setTargetProducerId(Number(e.target.value))}
+                      >
+                        <option value={0}>{tr('cierre.tarifas.priceTarget.producerAll')}</option>
+                        {(producersSorted ?? []).map((p) => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.priceLabel')}</Label>
+                      <Input
+                        className="h-9 font-mono"
+                        type="number"
+                        step="0.0001"
+                        min={0}
+                        value={targetPricePerBox}
+                        onChange={(e) => setTargetPricePerBox(e.target.value)}
+                        placeholder={tr('cierre.tarifas.priceTarget.pricePlaceholder')}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.season')}</Label>
+                      <Input
+                        className="h-9"
+                        value={targetSeason}
+                        onChange={(e) => setTargetSeason(e.target.value)}
+                        placeholder="2026-2027"
+                      />
+                    </div>
+                    <div className="grid gap-1.5 md:col-span-3">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.notes')}</Label>
+                      <Input
+                        className="h-9"
+                        value={targetNotes}
+                        onChange={(e) => setTargetNotes(e.target.value)}
+                        placeholder="Ej. Precio referencia mercado"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs text-slate-500">{tr('cierre.tarifas.priceTarget.active')}</Label>
+                      <select
+                        className="flex h-9 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm"
+                        value={targetActive ? '1' : '0'}
+                        onChange={(e) => setTargetActive(e.target.value === '1')}
+                      >
+                        <option value="1">{tr('cierre.yes')}</option>
+                        <option value="0">{tr('cierre.no')}</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={upsertPriceTargetMut.isPending || !targetPricePerBox.trim()}
+                        onClick={() =>
+                          upsertPriceTargetMut.mutate({
+                            format_code: targetFormatCode || null,
+                            producer_id: targetProducerId > 0 ? targetProducerId : null,
+                            target_price_per_box: Number(targetPricePerBox),
+                            season: targetSeason.trim() || null,
+                            active: targetActive,
+                            notes: targetNotes.trim() || null,
+                          })
+                        }
+                      >
+                        {upsertPriceTargetMut.isPending ? tr('cierre.tarifas.priceTarget.saving') : tr('cierre.tarifas.priceTarget.save')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {priceTargetsLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (priceTargets ?? []).length === 0 ? (
+                  <p className="text-xs text-slate-400">{tr('cierre.tarifas.priceTarget.empty')}</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.priceTarget.cols.format')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.priceTarget.cols.producer')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.priceTarget.cols.targetLb')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.priceTarget.cols.notes')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr('cierre.tarifas.priceTarget.cols.state')}</TableHead>
+                          <TableHead className="border-b border-slate-200 py-2.5 w-[60px]" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(priceTargets ?? []).map((r, i) => (
+                          <TableRow key={r.id} className={cn('border-slate-100', i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                            <TableCell className="py-2.5 font-mono text-sm font-semibold text-slate-900">
+                              {r.format_code ?? tr('cierre.tarifas.priceTarget.cols.all')}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-600">
+                              {r.producer_id != null
+                                ? (producersSorted ?? []).find((p) => p.id === r.producer_id)?.nombre ?? `#${r.producer_id}`
+                                : tr('cierre.tarifas.priceTarget.cols.all')}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-900">
+                              {formatMoney(Number(r.target_price_per_box))}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs text-slate-500">{r.notes ?? '—'}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              {r.active
+                                ? <span className="font-medium text-emerald-600">{tr('cierre.tarifas.states.active')}</span>
+                                : <span className="text-slate-400">{tr('cierre.tarifas.states.inactive')}</span>}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[11px] text-rose-500 hover:text-rose-700"
+                                disabled={deletePriceTargetMut.isPending}
+                                onClick={() => deletePriceTargetMut.mutate(r.id)}
+                              >
+                                {tr('cierre.tarifas.priceTarget.cols.remove')}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {useTargetPrice && (priceTargets ?? []).filter((p) => p.active).length > 0 ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    {tr('cierre.tarifas.priceTarget.activeNote')}
+                  </div>
+                ) : null}
+
+                {reportData && (priceTargets ?? []).filter(p => p.active).length > 0 ? (
+                  <div className="overflow-hidden rounded-xl border border-blue-200 bg-blue-50/40">
+                    <div className="border-b border-blue-200 bg-blue-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-blue-900">{tr('cierre.tarifas.priceTarget.delta.title')}</p>
+                      <p className="text-xs text-blue-700 mt-0.5">{tr('cierre.tarifas.priceTarget.delta.subtitle')}</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-blue-50/50 hover:bg-blue-50/50">
+                            <TableHead className="border-b border-blue-200 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colFormat')}</TableHead>
+                            <TableHead className="border-b border-blue-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colRealLb')}</TableHead>
+                            <TableHead className="border-b border-blue-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colTargetLb')}</TableHead>
+                            <TableHead className="border-b border-blue-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colDeltaLb')}</TableHead>
+                            <TableHead className="border-b border-blue-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colLb')}</TableHead>
+                            <TableHead className="border-b border-blue-200 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-blue-700">{tr('cierre.tarifas.priceTarget.delta.colDeltaTotal')}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(reportData.formatCostSummary?.rows ?? [])
+                            .filter((r) => {
+                              const row = r as Record<string, unknown>;
+                              return Number(row.target_price_per_box ?? 0) > 0 || Number(row.delta_materiales ?? 0) !== 0;
+                            })
+                            .map((r, i) => {
+                              const row = r as Record<string, unknown>;
+                              const realPorCaja = Number(row.costo_materiales_real_por_caja ?? 0);
+                              const targetPorCaja = Number(row.target_price_per_box ?? 0);
+                              const deltaPorCaja = Number(row.delta_materiales_por_caja ?? 0);
+                              const deltaTotal = Number(row.delta_materiales ?? 0);
+                              const cajas = Number(row.cajas ?? 0);
+                              return (
+                                <TableRow key={i} className={cn('border-blue-100', i % 2 === 0 ? 'bg-white' : 'bg-blue-50/20')}>
+                                  <TableCell className="py-2.5 font-mono text-sm font-semibold text-slate-900">
+                                    {String(row.format_code ?? '')}
+                                  </TableCell>
+                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-700">
+                                    {formatMoney(realPorCaja)}
+                                  </TableCell>
+                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-blue-800">
+                                    {targetPorCaja > 0 ? formatMoney(targetPorCaja) : '—'}
+                                  </TableCell>
+                                  <TableCell className={cn(
+                                    'py-2.5 text-right font-mono text-sm font-semibold tabular-nums',
+                                    deltaPorCaja > 0 ? 'text-emerald-600' : deltaPorCaja < 0 ? 'text-rose-600' : 'text-slate-400'
+                                  )}>
+                                    {deltaPorCaja !== 0 ? `${deltaPorCaja > 0 ? '+' : ''}${formatMoney(deltaPorCaja)}` : '—'}
+                                  </TableCell>
+                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-600">
+                                    {formatBoxes(cajas)}
+                                  </TableCell>
+                                  <TableCell className={cn(
+                                    'py-2.5 text-right font-mono text-sm font-bold tabular-nums',
+                                    deltaTotal > 0 ? 'text-emerald-600' : deltaTotal < 0 ? 'text-rose-600' : 'text-slate-400'
+                                  )}>
+                                    {deltaTotal !== 0 ? `${deltaTotal > 0 ? '+' : ''}${formatMoney(deltaTotal)}` : '—'}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -4164,17 +4518,22 @@ export function ReportingPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900">{tr('periodo.title')}</p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {filters.fecha_desde ?? '—'} → {filters.fecha_hasta ?? '—'} · {tr('periodo.pagLabel')} {filters.page} · {filters.limit} {tr('periodo.filasLabel')}
+                  {tr('periodo.subtitle', {
+                    from: filters.fecha_desde ?? '—',
+                    to: filters.fecha_hasta ?? '—',
+                    page: filters.page,
+                    limit: filters.limit,
+                  })}
                 </p>
               </div>
               <Button
                 type="button"
                 className={cn(btnToolbarPrimary, 'gap-2 shrink-0')}
-                onClick={runMergedGenerate}
+                onClick={() => runMergedGenerate()}
                 disabled={generateMut.isPending}
               >
                 <RefreshCw className="h-4 w-4" />
-                {generateMut.isPending ? tr('periodo.generando') : tr('periodo.actualizar')}
+                {generateMut.isPending ? tr('periodo.updating') : tr('periodo.updateButton')}
               </Button>
             </div>
             <details
@@ -4186,7 +4545,7 @@ export function ReportingPage() {
               <summary className="cursor-pointer list-none px-5 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
                 <div className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800">
                   <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-                  {tr('periodo.filtros')}
+                  {tr('periodo.filtersLabel')}
                 </div>
               </summary>
               <div className="space-y-3 border-t border-slate-100 px-5 py-4">

@@ -23,6 +23,7 @@ import {
   UpsertMachineProcessingRateDto,
   UpsertPackingCostDto,
   UpsertMaterialCostAdjustmentDto,
+  UpsertMaterialPriceTargetDto,
   UpsertPackingFormatSurchargeDto,
 } from './reporting.dto';
 import { ReportingExportService } from './reporting-export.service';
@@ -143,6 +144,26 @@ export class ReportingController {
   @Roles(ROLES.ADMIN, ROLES.SUPERVISOR)
   deleteMaterialCostAdjustment(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteMaterialCostAdjustment(id);
+  }
+
+  @Get('material-price-targets')
+  @UseGuards(JwtAuthGuard)
+  getMaterialPriceTargets() {
+    return this.service.getMaterialPriceTargets();
+  }
+
+  @Post('material-price-targets')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor', 'admin')
+  upsertMaterialPriceTarget(@Body() dto: UpsertMaterialPriceTargetDto) {
+    return this.service.upsertMaterialPriceTarget(dto);
+  }
+
+  @Delete('material-price-targets/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('supervisor', 'admin')
+  deleteMaterialPriceTarget(@Param('id') id: string) {
+    return this.service.deleteMaterialPriceTarget(Number(id));
   }
 
   @Get('export')

@@ -2704,7 +2704,146 @@
       "emptyCierre": "This screen shows only financial settlement. Configure the period in Period filters (above) and click Refresh close.",
       "noFormatRows": "Format cost — no visible rows",
       "noFormatRowsDesc": "No formats with invoiced boxes > 0, or the filter left the view empty.",
-      "noFormatRowsHint": "Check «Include formats with 0 boxes» or verify recipes and invoices."
+      "noFormatRowsHint": "Check «Include formats with 0 boxes» or verify recipes and invoices.",
+      "tarifas": {
+        "title": "Packing rates",
+        "subtitle": "Price USD/lb per species · configure before closing",
+        "desc": "Packing service price in USD/lb per species. Applied to the period volume. If you use Manual packing price in filters, that value takes priority.",
+        "showInactive": "Show inactive",
+        "restoreHidden": "Restore hidden ({{count}})",
+        "cols": {
+          "species": "Species",
+          "season": "Season",
+          "priceLb": "$/lb",
+          "state": "Status",
+          "hide": "Hide"
+        },
+        "states": {
+          "manual": "Manual mode active",
+          "missing": "Missing active rate",
+          "active": "✓ Active",
+          "noRate": "No effective rate",
+          "inactive": "Inactive"
+        },
+        "saveRate": "Save rate",
+        "saving": "Saving…",
+        "surcharges": {
+          "title": "Additional surcharges by format",
+          "desc": "Extra charge in USD/lb for specific formats. Added to the base packing rate per species in the settlement.",
+          "formatLabel": "Format",
+          "formatAll": "All formats",
+          "rateLb": "Surcharge / lb",
+          "season": "Season (opt.)",
+          "notes": "Notes (opt.)",
+          "active": "Active",
+          "save": "Save surcharge",
+          "empty": "No format surcharges configured.",
+          "cols": {
+            "format": "Format",
+            "rate": "Surcharge/lb",
+            "season": "Season",
+            "notes": "Notes",
+            "state": "Status"
+          }
+        },
+        "machineRate": {
+          "title": "Machine processing rate",
+          "desc": "Additional USD/lb charge for machine-picked fruit (machine_picking). Added to the packing cost in the settlement.",
+          "rateLb": "Rate / lb",
+          "speciesLabel": "Species (blank = all)",
+          "speciesAll": "All species",
+          "season": "Season (opt.)",
+          "notes": "Notes (opt.)",
+          "active": "Active",
+          "save": "Save machine rate",
+          "empty": "No machine rates configured.",
+          "cols": {
+            "species": "Species",
+            "rate": "Rate/lb",
+            "season": "Season",
+            "notes": "Notes",
+            "state": "Status"
+          }
+        },
+        "materialAdj": {
+          "title": "Scenario adjustments — materials",
+          "desc": "Additional cost per box, lb or % on materials. Active = applied to closing. Internal PDF always shows real cost; producer PDF uses the active adjustment.",
+          "viewLabel": "Settlement view:",
+          "viewReal": "Real (internal)",
+          "viewAdj": "Adjusted (producer)",
+          "nameLabel": "Scenario name",
+          "namePlaceholder": "E.g. Peak season +15%",
+          "typeLabel": "Adjustment type",
+          "typePerBox": "Per box ($/box)",
+          "typePerLb": "Per lb ($/lb)",
+          "typePercent": "Percentage (% on mat.)",
+          "valueLabel": "Value",
+          "formatLabel": "Format (blank = all)",
+          "formatAll": "All formats",
+          "producerLabel": "Producer (blank = all)",
+          "producerAll": "All producers",
+          "season": "Season (opt.)",
+          "notes": "Notes (opt.)",
+          "active": "Active",
+          "save": "Save adjustment",
+          "saving": "Saving…",
+          "empty": "No scenario adjustments configured.",
+          "activeNote": "Adjusted view active: {{names}} · Press «Update closing» to apply.",
+          "cols": {
+            "scenario": "Scenario",
+            "type": "Type",
+            "value": "Value",
+            "format": "Format",
+            "producer": "Producer",
+            "state": "Status",
+            "remove": "Remove"
+          },
+          "types": {
+            "per_box": "$/box",
+            "per_lb": "$/lb",
+            "percent": "% mat."
+          }
+        },
+        "priceTarget": {
+          "title": "Target price — materials",
+          "desc": "Define a target $/box price per format to compare against the real material cost. The delta is shown in settlement, tables, PDF and Excel.",
+          "viewLabel": "Materials view:",
+          "viewReal": "Real",
+          "viewTarget": "Target",
+          "formatLabel": "Format (blank = all)",
+          "formatAll": "All formats",
+          "producerLabel": "Producer (blank = all)",
+          "producerAll": "All producers",
+          "priceLabel": "Target price $/box",
+          "pricePlaceholder": "E.g. 4.24",
+          "season": "Season (opt.)",
+          "notes": "Notes (opt.)",
+          "active": "Active",
+          "save": "Save target price",
+          "saving": "Saving…",
+          "empty": "No target prices configured.",
+          "activeNote": "Target view active — reports and Excel use the configured $/box price where applicable. Refresh closing if you changed the toggle.",
+          "cols": {
+            "format": "Format",
+            "producer": "Producer",
+            "targetLb": "Target $/box",
+            "notes": "Notes",
+            "state": "Status",
+            "remove": "Remove",
+            "all": "All"
+          },
+          "delta": {
+            "title": "Materials delta by format",
+            "subtitle": "Real vs target · based on last generated closing",
+            "colFormat": "Format",
+            "colRealLb": "Real $/box",
+            "colTargetLb": "Target $/box",
+            "colDeltaLb": "Delta $/box",
+            "colLb": "Period boxes",
+            "colDeltaTotal": "Total delta"
+          }
+        }
+      }
     },
     "cierreStatus": {
       "title": "Close status",
@@ -2762,6 +2901,10 @@
     },
     "periodo": {
       "title": "Settlement period",
+      "subtitle": "{{from}} → {{to}} · p. {{page}} · {{limit}} rows",
+      "filtersLabel": "Period filters (dates, pagination, producer, client, format…)",
+      "updateButton": "Update closing",
+      "updating": "Generating…",
       "desde": "From",
       "hasta": "To",
       "pagina": "Page",

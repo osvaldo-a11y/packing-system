@@ -5,6 +5,7 @@ import { PlantModule } from '../plant/plant.module';
 import {
   MachineProcessingRate,
   MaterialCostAdjustment,
+  MaterialPriceTarget,
   PackingCost,
   PackingFormatSurcharge,
   ReportSnapshot,
@@ -20,6 +21,7 @@ import { ReportingService } from './reporting.service';
       PackingCost,
       PackingFormatSurcharge,
       MaterialCostAdjustment,
+      MaterialPriceTarget,
       MachineProcessingRate,
     ]),
     PlantModule,

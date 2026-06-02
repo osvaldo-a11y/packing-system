@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ReportFilterDto {
@@ -12,6 +12,12 @@ export class ReportFilterDto {
   @IsOptional() @Type(() => Number) @IsInt() tarja_id?: number;
   @IsOptional() @IsString() format_code?: string;
   @IsOptional() @Type(() => Number) precio_packing_por_lb?: number;
+
+  /** Si true, liquidación/export usan costo_materiales_target (precio objetivo $/caja) donde esté configurado. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1' || value === 1)
+  @IsBoolean()
+  use_material_target_price?: boolean;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(9999) limit?: number;
@@ -59,6 +65,26 @@ export class UpsertMaterialCostAdjustmentDto {
   @IsOptional() @IsString() season?: string | null;
   @IsOptional() @IsString() notes?: string | null;
   @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class UpsertMaterialPriceTargetDto {
+  @IsOptional() @IsString()
+  format_code?: string | null;
+
+  @IsOptional() @IsInt() @Type(() => Number)
+  producer_id?: number | null;
+
+  @IsNumber() @Min(0) @Type(() => Number)
+  target_price_per_box!: number;
+
+  @IsOptional() @IsString()
+  season?: string | null;
+
+  @IsOptional() @IsBoolean() @Type(() => Boolean)
+  active?: boolean;
+
+  @IsOptional() @IsString()
+  notes?: string | null;
 }
 
 export class UpsertMachineProcessingRateDto {

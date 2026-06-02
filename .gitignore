@@ -35,5 +35,7 @@ frontend/.env.local
 *.tsbuildinfo
 local-zebra-print-service/node_modules/
 module-images/
+screenshots-pinebloom/
+docs/presentacion-comercial/*.pptx
 .cursor/
 .vscode/

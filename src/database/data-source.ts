@@ -44,6 +44,7 @@ import {
 import {
   MachineProcessingRate,
   MaterialCostAdjustment,
+  MaterialPriceTarget,
   PackingCost,
   PackingFormatSurcharge,
   ReportSnapshot,

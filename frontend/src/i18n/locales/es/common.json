@@ -2703,7 +2703,146 @@
       "emptyCierre": "Esta pantalla muestra solo liquidación económica. Configurá el período en Filtros del período (arriba) y pulsá Actualizar cierre.",
       "noFormatRows": "Costo por formato sin filas visibles",
       "noFormatRowsDesc": "No hay formatos con cajas facturadas > 0, o el filtro dejó la vista vacía.",
-      "noFormatRowsHint": "Marcá «Incluir formatos con cajas = 0» o verificá receta y facturas."
+      "noFormatRowsHint": "Marcá «Incluir formatos con cajas = 0» o verificá receta y facturas.",
+      "tarifas": {
+        "title": "Tarifas de packing",
+        "subtitle": "Precio USD/lb por especie · configurar antes del cierre",
+        "desc": "Precio de servicio de packing en USD/lb por especie. Se aplica sobre el volumen del período. Si usás Precio packing manual en filtros, ese valor tiene prioridad.",
+        "showInactive": "Mostrar inactivas",
+        "restoreHidden": "Restaurar ocultas ({{count}})",
+        "cols": {
+          "species": "Especie",
+          "season": "Temporada",
+          "priceLb": "$/lb",
+          "state": "Estado",
+          "hide": "Ocultar"
+        },
+        "states": {
+          "manual": "Modo manual activo",
+          "missing": "Falta tarifa activa",
+          "active": "✓ Activa",
+          "noRate": "Sin tarifa efectiva",
+          "inactive": "Inactivo"
+        },
+        "saveRate": "Guardar tarifa",
+        "saving": "Guardando…",
+        "surcharges": {
+          "title": "Recargos adicionales por formato",
+          "desc": "Cargo extra en USD/lb para formatos específicos. Se suma al packing base por especie en la liquidación.",
+          "formatLabel": "Formato",
+          "formatAll": "Todos los formatos",
+          "rateLb": "Recargo / lb",
+          "season": "Temporada (opc.)",
+          "notes": "Notas (opc.)",
+          "active": "Activo",
+          "save": "Guardar recargo",
+          "empty": "Sin recargos por formato configurados.",
+          "cols": {
+            "format": "Formato",
+            "rate": "Recargo/lb",
+            "season": "Temporada",
+            "notes": "Notas",
+            "state": "Estado"
+          }
+        },
+        "machineRate": {
+          "title": "Rate procesado máquina",
+          "desc": "Cargo adicional USD/lb para fruta de cosecha máquina (machine_picking). Se suma al costo de packing en la liquidación.",
+          "rateLb": "Rate / lb",
+          "speciesLabel": "Especie (vacío = todas)",
+          "speciesAll": "Todas las especies",
+          "season": "Temporada (opc.)",
+          "notes": "Notas (opc.)",
+          "active": "Activo",
+          "save": "Guardar rate máquina",
+          "empty": "Sin rates de máquina configurados.",
+          "cols": {
+            "species": "Especie",
+            "rate": "Rate/lb",
+            "season": "Temporada",
+            "notes": "Notas",
+            "state": "Estado"
+          }
+        },
+        "materialAdj": {
+          "title": "Ajustes de escenario — materiales",
+          "desc": "Costo adicional por caja, lb o % sobre materiales. Activo = se aplica al cierre. El PDF interno siempre muestra el costo real; el PDF productor usa el ajuste activo.",
+          "viewLabel": "Vista liquidación:",
+          "viewReal": "Real (interno)",
+          "viewAdj": "Ajustado (productor)",
+          "nameLabel": "Nombre del escenario",
+          "namePlaceholder": "Ej. Temporada alta +15%",
+          "typeLabel": "Tipo de ajuste",
+          "typePerBox": "Por caja ($/caja)",
+          "typePerLb": "Por lb ($/lb)",
+          "typePercent": "Porcentaje (% sobre mat.)",
+          "valueLabel": "Valor",
+          "formatLabel": "Formato (vacío = todos)",
+          "formatAll": "Todos los formatos",
+          "producerLabel": "Productor (vacío = todos)",
+          "producerAll": "Todos los productores",
+          "season": "Temporada (opc.)",
+          "notes": "Notas (opc.)",
+          "active": "Activo",
+          "save": "Guardar ajuste",
+          "saving": "Guardando…",
+          "empty": "Sin ajustes de escenario configurados.",
+          "activeNote": "Vista ajustada activa: {{names}} · Presioná «Actualizar cierre» para aplicar.",
+          "cols": {
+            "scenario": "Escenario",
+            "type": "Tipo",
+            "value": "Valor",
+            "format": "Formato",
+            "producer": "Productor",
+            "state": "Estado",
+            "remove": "Quitar"
+          },
+          "types": {
+            "per_box": "$/caja",
+            "per_lb": "$/lb",
+            "percent": "% mat."
+          }
+        },
+        "priceTarget": {
+          "title": "Precio objetivo — materiales",
+          "desc": "Define un precio $/caja objetivo por formato para comparar contra el costo real de materiales. El delta se muestra en liquidación, tablas, PDF y Excel.",
+          "viewLabel": "Vista materiales:",
+          "viewReal": "Real",
+          "viewTarget": "Objetivo",
+          "formatLabel": "Formato (vacío = todos)",
+          "formatAll": "Todos los formatos",
+          "producerLabel": "Productor (vacío = todos)",
+          "producerAll": "Todos los productores",
+          "priceLabel": "Precio objetivo $/caja",
+          "pricePlaceholder": "Ej. 4.24",
+          "season": "Temporada (opc.)",
+          "notes": "Notas (opc.)",
+          "active": "Activo",
+          "save": "Guardar precio objetivo",
+          "saving": "Guardando…",
+          "empty": "Sin precios objetivo configurados.",
+          "activeNote": "Vista objetivo activa — los informes y Excel usan el precio $/caja configurado donde aplique. Actualizá el cierre si cambiaste el toggle.",
+          "cols": {
+            "format": "Formato",
+            "producer": "Productor",
+            "targetLb": "Objetivo $/caja",
+            "notes": "Notas",
+            "state": "Estado",
+            "remove": "Quitar",
+            "all": "Todos"
+          },
+          "delta": {
+            "title": "Delta materiales por formato",
+            "subtitle": "Real vs objetivo · basado en el último cierre generado",
+            "colFormat": "Formato",
+            "colRealLb": "Real $/caja",
+            "colTargetLb": "Objetivo $/caja",
+            "colDeltaLb": "Delta $/caja",
+            "colLb": "Cajas período",
+            "colDeltaTotal": "Delta total"
+          }
+        }
+      }
     },
     "cierreStatus": {
       "title": "Estado del cierre",
@@ -2761,6 +2900,10 @@
     },
     "periodo": {
       "title": "Período de liquidación",
+      "subtitle": "{{from}} → {{to}} · pág. {{page}} · {{limit}} filas",
+      "filtersLabel": "Filtros del período (fechas, paginación, productor, cliente, formato…)",
+      "updateButton": "Actualizar cierre",
+      "updating": "Generando…",
       "desde": "Desde",
       "hasta": "Hasta",
       "pagina": "Página",
