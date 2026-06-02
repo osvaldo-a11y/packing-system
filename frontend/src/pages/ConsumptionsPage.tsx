@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCount, formatMoney } from '@/lib/number-format';
+import { formatCodeMatchKey } from '@/lib/format-code';
 import { cn } from '@/lib/utils';
 import { contentCard, pageHeaderRow, pageSubtitle, pageTitle, sectionTitle } from '@/lib/page-ui';
 import type { PackagingMaterialRow } from './MaterialsPage';
@@ -263,8 +264,11 @@ function fetchPresentationFormats() {
 }
 
 function findRecipeForTag(tag: PtTagApi, recipes: RecipeApi[]): RecipeApi | null {
-  const active = recipes.filter((x) => x.activo && x.format_code === tag.format_code);
-  const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : 0;
+  const tagKey = formatCodeMatchKey(tag.format_code ?? '');
+  const active = recipes.filter(
+    (x) => x.activo && formatCodeMatchKey(x.format_code ?? '') === tagKey,
+  );
+  const tagBrandId = tag.brand_id != null && Number(tag.brand_id) > 0 ? Number(tag.brand_id) : 0;
   if (tagBrandId > 0) {
     const exact = active.find((x) => (x.brand_id != null ? Number(x.brand_id) : 0) === tagBrandId);
     if (exact) return exact;

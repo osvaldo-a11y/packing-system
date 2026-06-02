@@ -161,41 +161,50 @@ export class PackagingService {
     return rows.find((f) => formatCodeMatchKey(f.format_code) === key) ?? null;
   }
 
+  /**
+   * Misma prioridad que Consumos (`findRecipeForTag`): marca tarja → genérica → receta de marca activa.
+   * Si la tarja no tiene marca pero solo existe receta PINEBLOOM (u otra marca), se usa esa.
+   */
+  private pickRecipeForPtTag(
+    formatId: number,
+    tagBrandId: number | null,
+    recipes: PackagingRecipe[],
+    preferredRecipeId?: number,
+  ): PackagingRecipe | null {
+    const active = recipes.filter(
+      (r) => r.activo && Number(r.presentation_format_id) === formatId,
+    );
+    const sortDesc = (a: PackagingRecipe, b: PackagingRecipe) => Number(b.id) - Number(a.id);
+    const brandCompatible = (r: PackagingRecipe) =>
+      tagBrandId == null || r.brand_id == null || Number(r.brand_id) === tagBrandId;
+
+    if (preferredRecipeId != null) {
+      const preferred = active.find((r) => Number(r.id) === preferredRecipeId);
+      if (preferred && brandCompatible(preferred)) return preferred;
+    }
+
+    if (tagBrandId != null && tagBrandId > 0) {
+      const branded = active
+        .filter((r) => Number(r.brand_id) === tagBrandId)
+        .sort(sortDesc)[0];
+      if (branded) return branded;
+    }
+
+    const generic = active.filter((r) => r.brand_id == null).sort(sortDesc)[0];
+    if (generic) return generic;
+
+    return active.filter((r) => r.brand_id != null && brandCompatible(r)).sort(sortDesc)[0] ?? null;
+  }
+
   private resolveRecipeForTagFromLists(
     tag: PtTag,
     formatId: number,
     recipes: PackagingRecipe[],
     preferredRecipeId?: number,
   ): PackagingRecipe | null {
-    const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : null;
-    const recipeMatchesTag = (r: PackagingRecipe | null): r is PackagingRecipe =>
-      !!r &&
-      r.activo &&
-      Number(r.presentation_format_id) === formatId &&
-      (tagBrandId == null || r.brand_id == null || Number(r.brand_id) === tagBrandId);
-
-    if (preferredRecipeId != null) {
-      const preferred = recipes.find((r) => Number(r.id) === preferredRecipeId) ?? null;
-      if (recipeMatchesTag(preferred)) return preferred;
-    }
-
-    if (tagBrandId != null) {
-      const branded = recipes
-        .filter((r) => recipeMatchesTag(r) && Number(r.brand_id) === tagBrandId)
-        .sort((a, b) => Number(b.id) - Number(a.id))[0];
-      if (branded) return branded;
-    }
-
-    return (
-      recipes
-        .filter(
-          (r) =>
-            r.activo &&
-            Number(r.presentation_format_id) === formatId &&
-            (r.brand_id == null || Number(r.brand_id) === 0),
-        )
-        .sort((a, b) => Number(b.id) - Number(a.id))[0] ?? null
-    );
+    const tagBrandId =
+      tag.brand_id != null && Number(tag.brand_id) > 0 ? Number(tag.brand_id) : null;
+    return this.pickRecipeForPtTag(formatId, tagBrandId, recipes, preferredRecipeId);
   }
 
   /**
@@ -321,32 +330,15 @@ export class PackagingService {
     if (!tag.format_code?.trim()) throw new BadRequestException('Tarja sin formato válido');
     const pf = await this.findPresentationFormatByCodeTx(em, tag.format_code);
     if (!pf) throw new BadRequestException(`Formato ${tag.format_code} no encontrado o inactivo`);
-    const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : null;
+    const tagBrandId =
+      tag.brand_id != null && Number(tag.brand_id) > 0 ? Number(tag.brand_id) : null;
 
-    const recipeMatchesTag = (r: PackagingRecipe | null): r is PackagingRecipe =>
-      !!r &&
-      r.activo &&
-      Number(r.presentation_format_id) === Number(pf.id) &&
-      (tagBrandId == null || r.brand_id == null || Number(r.brand_id) === tagBrandId);
-
-    if (preferredRecipeId != null) {
-      const preferred = await em.findOne(PackagingRecipe, { where: { id: preferredRecipeId } });
-      if (recipeMatchesTag(preferred)) return preferred;
-    }
-
-    if (tagBrandId != null) {
-      const branded = await em.findOne(PackagingRecipe, {
-        where: { presentation_format_id: Number(pf.id), brand_id: tagBrandId, activo: true },
-        order: { id: 'DESC' },
-      });
-      if (branded) return branded;
-    }
-
-    const generic = await em.findOne(PackagingRecipe, {
-      where: { presentation_format_id: Number(pf.id), brand_id: IsNull(), activo: true },
+    const formatRecipes = await em.find(PackagingRecipe, {
+      where: { presentation_format_id: Number(pf.id), activo: true },
       order: { id: 'DESC' },
     });
-    if (generic) return generic;
+    const recipe = this.pickRecipeForPtTag(Number(pf.id), tagBrandId, formatRecipes, preferredRecipeId);
+    if (recipe) return recipe;
 
     throw new BadRequestException(
       `No hay receta activa para formato ${tag.format_code}${tagBrandId != null ? ' y marca de la tarja' : ''}.`,
@@ -996,14 +988,15 @@ export class PackagingService {
       relations: ['presentation_format'],
     });
     if (!recipe) throw new NotFoundException('Receta no encontrada');
-    const recipeFormat = recipe.presentation_format?.format_code?.trim().toLowerCase();
-    const tagFormat = tag.format_code?.trim().toLowerCase();
-    if (!recipeFormat || !tagFormat || recipeFormat !== tagFormat) {
+    const recipeFormatKey = formatCodeMatchKey(recipe.presentation_format?.format_code ?? '');
+    const tagFormatKey = formatCodeMatchKey(tag.format_code ?? '');
+    if (!recipeFormatKey || !tagFormatKey || recipeFormatKey !== tagFormatKey) {
       throw new BadRequestException('La receta seleccionada no coincide con el formato de la tarja.');
     }
     if (recipe.brand_id != null) {
-      const tagBrandId = tag.brand_id != null ? Number(tag.brand_id) : null;
-      if (tagBrandId == null || Number(recipe.brand_id) !== tagBrandId) {
+      const tagBrandId =
+        tag.brand_id != null && Number(tag.brand_id) > 0 ? Number(tag.brand_id) : null;
+      if (tagBrandId != null && Number(recipe.brand_id) !== tagBrandId) {
         throw new BadRequestException('La receta seleccionada no coincide con la marca de la tarja.');
       }
     }
