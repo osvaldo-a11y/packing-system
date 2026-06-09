@@ -961,6 +961,44 @@ function settlementProducerLabelsWithZeroCostsButSales(summaryRows: Record<strin
   return out;
 }
 
+/** Una fila por formato: consolida recetas activas duplicadas y calcula delta total del período. */
+function aggregateMaterialDeltaByFormat(rows: Record<string, unknown>[]) {
+  const groups = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const target = Number(row.target_price_per_box ?? 0);
+    const delta = Number(row.delta_materiales ?? 0);
+    if (!(target > 0 || delta !== 0)) continue;
+    const key = formatCodeMatchKey(String(row.format_code ?? ''));
+    if (!key) continue;
+    const bucket = groups.get(key) ?? [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+
+  const aggregated = [...groups.entries()].map(([, group]) => {
+    const displayFormat = String(group[0]?.format_code ?? '');
+    const cajas = Number(group[0]?.cajas ?? 0);
+    const targetPorCaja = Number(
+      group.find((r) => Number(r.target_price_per_box ?? 0) > 0)?.target_price_per_box ?? 0,
+    );
+    const avgRealPorCaja =
+      group.reduce((sum, r) => sum + Number(r.costo_materiales_real_por_caja ?? 0), 0) / group.length;
+    const deltaPorCaja = targetPorCaja > 0 ? targetPorCaja - avgRealPorCaja : 0;
+    const deltaTotal = deltaPorCaja * cajas;
+    return {
+      format_code: displayFormat,
+      costo_materiales_real_por_caja: avgRealPorCaja,
+      target_price_per_box: targetPorCaja,
+      delta_materiales_por_caja: deltaPorCaja,
+      cajas,
+      delta_materiales: deltaTotal,
+      recipe_count: group.length,
+    };
+  });
+
+  return aggregated.sort((a, b) => a.format_code.localeCompare(b.format_code, 'es'));
+}
+
 function informeProducerReadinessForCierre(
   reportData: GenerateResponse,
   producerId: number | null,
@@ -3110,6 +3148,16 @@ export function ReportingPage() {
     return { ...s, rows, total: rows.length };
   }, [reportData?.formatCostSummary, showAllFormatCostRows]);
 
+  const materialDeltaByFormat = useMemo(
+    () => aggregateMaterialDeltaByFormat((reportData?.formatCostSummary?.rows ?? []) as Record<string, unknown>[]),
+    [reportData?.formatCostSummary?.rows],
+  );
+
+  const materialDeltaGrandTotal = useMemo(
+    () => materialDeltaByFormat.reduce((sum, row) => sum + Number(row.delta_materiales ?? 0), 0),
+    [materialDeltaByFormat],
+  );
+
   const hasFormatCostOnlyZeros =
     !showAllFormatCostRows &&
     (reportData?.formatCostSummary?.rows?.length ?? 0) > 0 &&
@@ -4459,47 +4507,61 @@ export function ReportingPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(reportData.formatCostSummary?.rows ?? [])
-                            .filter((r) => {
-                              const row = r as Record<string, unknown>;
-                              return Number(row.target_price_per_box ?? 0) > 0 || Number(row.delta_materiales ?? 0) !== 0;
-                            })
-                            .map((r, i) => {
-                              const row = r as Record<string, unknown>;
-                              const realPorCaja = Number(row.costo_materiales_real_por_caja ?? 0);
-                              const targetPorCaja = Number(row.target_price_per_box ?? 0);
-                              const deltaPorCaja = Number(row.delta_materiales_por_caja ?? 0);
-                              const deltaTotal = Number(row.delta_materiales ?? 0);
-                              const cajas = Number(row.cajas ?? 0);
-                              return (
-                                <TableRow key={i} className={cn('border-blue-100', i % 2 === 0 ? 'bg-white' : 'bg-blue-50/20')}>
-                                  <TableCell className="py-2.5 font-mono text-sm font-semibold text-slate-900">
-                                    {String(row.format_code ?? '')}
-                                  </TableCell>
-                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-700">
-                                    {formatMoney(realPorCaja)}
-                                  </TableCell>
-                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-blue-800">
-                                    {targetPorCaja > 0 ? formatMoney(targetPorCaja) : '—'}
-                                  </TableCell>
-                                  <TableCell className={cn(
-                                    'py-2.5 text-right font-mono text-sm font-semibold tabular-nums',
-                                    deltaPorCaja > 0 ? 'text-emerald-600' : deltaPorCaja < 0 ? 'text-rose-600' : 'text-slate-400'
-                                  )}>
-                                    {deltaPorCaja !== 0 ? `${deltaPorCaja > 0 ? '+' : ''}${formatMoney(deltaPorCaja)}` : '—'}
-                                  </TableCell>
-                                  <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-600">
-                                    {formatBoxes(cajas)}
-                                  </TableCell>
-                                  <TableCell className={cn(
-                                    'py-2.5 text-right font-mono text-sm font-bold tabular-nums',
-                                    deltaTotal > 0 ? 'text-emerald-600' : deltaTotal < 0 ? 'text-rose-600' : 'text-slate-400'
-                                  )}>
-                                    {deltaTotal !== 0 ? `${deltaTotal > 0 ? '+' : ''}${formatMoney(deltaTotal)}` : '—'}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                          {materialDeltaByFormat.map((row, i) => {
+                            const realPorCaja = Number(row.costo_materiales_real_por_caja ?? 0);
+                            const targetPorCaja = Number(row.target_price_per_box ?? 0);
+                            const deltaPorCaja = Number(row.delta_materiales_por_caja ?? 0);
+                            const deltaTotal = Number(row.delta_materiales ?? 0);
+                            const cajas = Number(row.cajas ?? 0);
+                            return (
+                              <TableRow key={row.format_code} className={cn('border-blue-100', i % 2 === 0 ? 'bg-white' : 'bg-blue-50/20')}>
+                                <TableCell className="py-2.5 font-mono text-sm font-semibold text-slate-900">
+                                  <span>{row.format_code}</span>
+                                  {row.recipe_count > 1 ? (
+                                    <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-blue-600">
+                                      {tr('cierre.tarifas.priceTarget.delta.recipes', { count: row.recipe_count })}
+                                    </span>
+                                  ) : null}
+                                </TableCell>
+                                <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-700">
+                                  {formatMoney(realPorCaja)}
+                                </TableCell>
+                                <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-blue-800">
+                                  {targetPorCaja > 0 ? formatMoney(targetPorCaja) : '—'}
+                                </TableCell>
+                                <TableCell className={cn(
+                                  'py-2.5 text-right font-mono text-sm font-semibold tabular-nums',
+                                  deltaPorCaja > 0 ? 'text-emerald-600' : deltaPorCaja < 0 ? 'text-rose-600' : 'text-slate-400'
+                                )}>
+                                  {deltaPorCaja !== 0 ? `${deltaPorCaja > 0 ? '+' : ''}${formatMoney(deltaPorCaja)}` : '—'}
+                                </TableCell>
+                                <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-slate-600">
+                                  {formatBoxes(cajas)}
+                                </TableCell>
+                                <TableCell className={cn(
+                                  'py-2.5 text-right font-mono text-sm font-bold tabular-nums',
+                                  deltaTotal > 0 ? 'text-emerald-600' : deltaTotal < 0 ? 'text-rose-600' : 'text-slate-400'
+                                )}>
+                                  {deltaTotal !== 0 ? `${deltaTotal > 0 ? '+' : ''}${formatMoney(deltaTotal)}` : '—'}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          {materialDeltaByFormat.length > 0 ? (
+                            <TableRow className="border-t-2 border-blue-300 bg-blue-100/60 font-semibold hover:bg-blue-100/60">
+                              <TableCell colSpan={5} className="py-3 text-right text-sm uppercase tracking-wide text-blue-900">
+                                {tr('cierre.tarifas.priceTarget.delta.grandTotal')}
+                              </TableCell>
+                              <TableCell className={cn(
+                                'py-3 text-right font-mono text-base font-bold tabular-nums',
+                                materialDeltaGrandTotal > 0 ? 'text-emerald-700' : materialDeltaGrandTotal < 0 ? 'text-rose-700' : 'text-slate-500'
+                              )}>
+                                {materialDeltaGrandTotal !== 0
+                                  ? `${materialDeltaGrandTotal > 0 ? '+' : ''}${formatMoney(materialDeltaGrandTotal)}`
+                                  : '—'}
+                              </TableCell>
+                            </TableRow>
+                          ) : null}
                         </TableBody>
                       </Table>
                     </div>

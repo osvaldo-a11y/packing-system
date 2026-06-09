@@ -2834,13 +2834,15 @@
           },
           "delta": {
             "title": "Materials delta by format",
-            "subtitle": "Real vs target · based on last generated closing",
+            "subtitle": "Real vs target · one row per format · based on last generated closing",
             "colFormat": "Format",
             "colRealLb": "Real $/box",
             "colTargetLb": "Target $/box",
             "colDeltaLb": "Delta $/box",
             "colLb": "Period boxes",
-            "colDeltaTotal": "Total delta"
+            "colDeltaTotal": "Total delta",
+            "grandTotal": "Period total delta",
+            "recipes": "{{count}} recipes"
           }
         }
       }

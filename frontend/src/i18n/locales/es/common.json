@@ -2833,13 +2833,15 @@
           },
           "delta": {
             "title": "Delta materiales por formato",
-            "subtitle": "Real vs objetivo · basado en el último cierre generado",
+            "subtitle": "Real vs objetivo · una fila por formato · basado en el último cierre generado",
             "colFormat": "Formato",
             "colRealLb": "Real $/caja",
             "colTargetLb": "Objetivo $/caja",
             "colDeltaLb": "Delta $/caja",
             "colLb": "Cajas período",
-            "colDeltaTotal": "Delta total"
+            "colDeltaTotal": "Delta total",
+            "grandTotal": "Delta total período",
+            "recipes": "{{count}} recetas"
           }
         }
       }
