@@ -8,10 +8,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -21,6 +23,7 @@ import { ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinalChargeImportService } from './final-charge-import.service';
 import { PhysicalBalanceImportService } from './physical-balance-import.service';
+import { SeasonExportService } from './season-export.service';
 import { SeasonReadService } from './season-read.service';
 import { GenerateSeasonSnapshotDto } from './seasons.dto';
 import { SeasonsService } from './seasons.service';
@@ -36,6 +39,7 @@ export class SeasonsController {
   constructor(
     private readonly seasons: SeasonsService,
     private readonly seasonRead: SeasonReadService,
+    private readonly seasonExport: SeasonExportService,
     private readonly finalChargeImport: FinalChargeImportService,
     private readonly physicalBalanceImport: PhysicalBalanceImportService,
   ) {}
@@ -74,6 +78,30 @@ export class SeasonsController {
     @Query('brand') brand?: string,
   ) {
     return this.seasonRead.getSettlementLines(year, { producer, format, bol, variety, brand });
+  }
+
+  @Get(':year/export/settlement.xlsx')
+  async exportSettlementXlsx(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
+    const { buffer, mime, filename } = await this.seasonExport.buildSettlementXlsx(year);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get(':year/export/mass-balance.xlsx')
+  async exportMassBalanceXlsx(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
+    const { buffer, mime, filename } = await this.seasonExport.buildMassBalanceXlsx(year);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get(':year/export/settlement.pdf')
+  async exportSettlementPdf(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
+    const { buffer, mime, filename } = await this.seasonExport.buildSettlementPdf(year);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Get(':year')

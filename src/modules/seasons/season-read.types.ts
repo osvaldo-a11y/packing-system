@@ -103,3 +103,32 @@ export type SettlementLineFilters = {
   variety?: string;
   brand?: string;
 };
+
+export type SettlementLineRow = {
+  id: number;
+  producer_id: number;
+  producer_name: string;
+  producer_raw: string | null;
+  brand_raw: string | null;
+  variety_raw: string | null;
+  format_code: string | null;
+  format_raw: string | null;
+  ship_date: string | null;
+  bol: string | null;
+  pallet_ref: string | null;
+  boxes: number;
+  pounds: number;
+  unit_price: number;
+  revenue: number;
+  grower_return: number;
+  source_row_no: number | null;
+};
+
+export type SettlementLinesResult = {
+  season_year: number;
+  source: SeasonDataSource;
+  filters: SettlementLineFilters;
+  line_count: number;
+  total_count: number;
+  lines: SettlementLineRow[];
+};

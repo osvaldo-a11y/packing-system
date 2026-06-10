@@ -15,6 +15,8 @@ import {
   SeasonListItem,
   SeasonOverview,
   SettlementLineFilters,
+  SettlementLineRow,
+  SettlementLinesResult,
   YearOverYearVariation,
 } from './season-read.types';
 
@@ -131,12 +133,29 @@ export class SeasonReadService {
     return { years, overviews, variations };
   }
 
-  async getSettlementLines(year: number, filters: SettlementLineFilters) {
-    await this.findSeason(year);
-    const params: unknown[] = [year];
-    const clauses = ['season_year = $1'];
+  async getSettlementLines(year: number, filters: SettlementLineFilters): Promise<SettlementLinesResult> {
+    const season = await this.findSeason(year);
+    const dataSource = await this.resolveDataSource(season);
+    return this.querySettlementLines(year, dataSource, filters, 5000);
+  }
 
-    const addIlike = (field: string, value: string | undefined, cols: string[]) => {
+  async getAllSettlementLines(year: number): Promise<SettlementLineRow[]> {
+    const season = await this.findSeason(year);
+    const dataSource = await this.resolveDataSource(season);
+    const result = await this.querySettlementLines(year, dataSource, {}, undefined);
+    return result.lines;
+  }
+
+  private async querySettlementLines(
+    year: number,
+    dataSource: SeasonDataSource,
+    filters: SettlementLineFilters,
+    limit?: number,
+  ): Promise<SettlementLinesResult> {
+    const params: unknown[] = [year];
+    const clauses = ['l.season_year = $1'];
+
+    const addIlike = (value: string | undefined, cols: string[]) => {
       if (!value?.trim()) return;
       params.push(`%${value.trim()}%`);
       const idx = params.length;
@@ -148,57 +167,78 @@ export class SeasonReadService {
       const p = filters.producer.trim();
       if (/^\d+$/.test(p)) {
         params.push(Number(p));
-        clauses.push(`producer_id = $${params.length}`);
+        clauses.push(`l.producer_id = $${params.length}`);
       } else {
-        addIlike('producer', p, ['producer_raw']);
+        addIlike(p, ['p.nombre', 'l.producer_raw']);
       }
     }
-    addIlike('format', filters.format, ['format_code', 'format_raw']);
-    addIlike('bol', filters.bol, ['bol']);
-    addIlike('variety', filters.variety, ['variety_raw']);
-    addIlike('brand', filters.brand, ['brand_raw']);
+    addIlike(filters.format, ['l.format_code', 'l.format_raw']);
+    addIlike(filters.bol, ['l.bol']);
+    addIlike(filters.variety, ['l.variety_raw']);
+    addIlike(filters.brand, ['l.brand_raw']);
 
+    const whereSql = clauses.join(' AND ');
+    const countRows = (await this.lineRepo.query(
+      `
+      SELECT COUNT(*)::int AS c
+      FROM season_settlement_lines l
+      LEFT JOIN producers p ON p.id = l.producer_id
+      WHERE ${whereSql}
+      `,
+      params,
+    )) as Array<{ c: number }>;
+    const totalCount = Number(countRows[0]?.c ?? 0);
+
+    const limitSql = limit != null ? `LIMIT ${Number(limit)}` : '';
     const rows = (await this.lineRepo.query(
       `
       SELECT
-        id, season_year, producer_id, producer_raw,
-        brand_id, brand_raw, variety_id, variety_raw,
-        format_code, format_raw, ship_date, pick_type,
-        bol, pallet_ref, customer_raw, market_raw,
-        boxes, pounds, unit_price, revenue, grower_return,
-        pack_fee, material_cost, grade_raw, invoice_ref, notes,
-        source_row_no
-      FROM season_settlement_lines
-      WHERE ${clauses.join(' AND ')}
-      ORDER BY producer_raw, source_row_no NULLS LAST, id
-      LIMIT 5000
+        l.id, l.season_year, l.producer_id,
+        COALESCE(p.nombre, l.producer_raw, '') AS producer_name,
+        l.producer_raw,
+        l.brand_raw, l.variety_raw,
+        l.format_code, l.format_raw, l.ship_date,
+        l.bol, l.pallet_ref,
+        l.boxes, l.pounds, l.unit_price, l.revenue, l.grower_return,
+        l.source_row_no
+      FROM season_settlement_lines l
+      LEFT JOIN producers p ON p.id = l.producer_id
+      WHERE ${whereSql}
+      ORDER BY COALESCE(p.nombre, l.producer_raw), l.source_row_no NULLS LAST, l.id
+      ${limitSql}
       `,
       params,
-    )) as SeasonSettlementLine[];
+    )) as Array<Record<string, unknown>>;
 
     return {
       season_year: year,
+      source: dataSource,
       filters,
       line_count: rows.length,
-      lines: rows.map((r) => ({
-        id: Number(r.id),
-        producer_id: Number(r.producer_id),
-        producer_raw: r.producer_raw,
-        brand_raw: r.brand_raw,
-        variety_raw: r.variety_raw,
-        format_code: r.format_code,
-        format_raw: r.format_raw,
-        ship_date: r.ship_date,
-        bol: r.bol,
-        pallet_ref: r.pallet_ref,
-        boxes: Number(r.boxes),
-        pounds: Number(r.pounds),
-        revenue: Number(r.revenue),
-        grower_return: Number(r.grower_return),
-        pack_fee: Number(r.pack_fee),
-        material_cost: Number(r.material_cost),
-        source_row_no: r.source_row_no,
-      })),
+      total_count: totalCount,
+      lines: rows.map((r) => this.mapSettlementLineRow(r)),
+    };
+  }
+
+  private mapSettlementLineRow(r: Record<string, unknown>): SettlementLineRow {
+    return {
+      id: Number(r.id),
+      producer_id: Number(r.producer_id),
+      producer_name: String(r.producer_name ?? ''),
+      producer_raw: r.producer_raw != null ? String(r.producer_raw) : null,
+      brand_raw: r.brand_raw != null ? String(r.brand_raw) : null,
+      variety_raw: r.variety_raw != null ? String(r.variety_raw) : null,
+      format_code: r.format_code != null ? String(r.format_code) : null,
+      format_raw: r.format_raw != null ? String(r.format_raw) : null,
+      ship_date: r.ship_date != null ? String(r.ship_date) : null,
+      bol: r.bol != null ? String(r.bol) : null,
+      pallet_ref: r.pallet_ref != null ? String(r.pallet_ref) : null,
+      boxes: this.num(r.boxes),
+      pounds: this.lb(r.pounds),
+      unit_price: this.money(r.unit_price),
+      revenue: this.money(r.revenue),
+      grower_return: this.money(r.grower_return),
+      source_row_no: r.source_row_no != null ? Number(r.source_row_no) : null,
     };
   }
 

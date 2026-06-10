@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import {
+  downloadSeasonMassBalanceXlsx,
+  downloadSeasonSettlementPdf,
+  downloadSeasonSettlementXlsx,
   fetchSeasonCompare,
   fetchSeasonList,
   fetchSeasonOverview,
@@ -9,6 +14,9 @@ import {
 } from '@/api/seasons';
 import { SeasonComparePanel } from '@/components/dashboard/SeasonComparePanel';
 import { SeasonSummaryPanel } from '@/components/dashboard/SeasonSummaryPanel';
+import { SeasonCommercialLinesPanel } from '@/components/reporting/SeasonCommercialLinesPanel';
+import { SeasonPhysicalBalancePanel } from '@/components/reporting/SeasonPhysicalBalancePanel';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export function SeasonReportingSection() {
@@ -19,6 +27,7 @@ export function SeasonReportingSection() {
   const [seasonYear, setSeasonYear] = useState<number | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [compareYearB, setCompareYearB] = useState<number | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const { data: seasonList } = useQuery({
     queryKey: ['seasons', 'list'],
@@ -40,6 +49,9 @@ export function SeasonReportingSection() {
 
   const selectedSeasonMeta = seasonList?.find((s) => s.season_year === seasonYear);
   const fineTraceability = selectedSeasonMeta?.capabilities.fine_traceability ?? false;
+  const canExport =
+    seasonYear != null &&
+    (selectedSeasonMeta?.capabilities.commercial || selectedSeasonMeta?.capabilities.mass_balance);
 
   const { data: seasonOverview, isLoading: seasonOverviewLoading } = useQuery({
     queryKey: ['seasons', 'overview', seasonYear],
@@ -59,6 +71,21 @@ export function SeasonReportingSection() {
     enabled: compareYearsKey != null,
     staleTime: 120_000,
   });
+
+  const runExport = async (kind: 'settlement-xlsx' | 'mass-xlsx' | 'settlement-pdf') => {
+    if (seasonYear == null) return;
+    setExporting(kind);
+    try {
+      if (kind === 'settlement-xlsx') await downloadSeasonSettlementXlsx(seasonYear);
+      else if (kind === 'mass-xlsx') await downloadSeasonMassBalanceXlsx(seasonYear);
+      else await downloadSeasonSettlementPdf(seasonYear);
+      toast.success(tr('exportDone'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -102,7 +129,7 @@ export function SeasonReportingSection() {
         {selectedSeasonMeta ? (
           <span
             className={cn(
-              'ml-auto text-[11px] font-medium',
+              'text-[11px] font-medium',
               fineTraceability ? 'text-[#0F6E56]' : 'text-slate-500',
             )}
           >
@@ -110,6 +137,48 @@ export function SeasonReportingSection() {
           </span>
         ) : null}
       </div>
+
+      {!compareMode && canExport ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            {tr('exportLabel')}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={exporting != null || !selectedSeasonMeta?.capabilities.commercial}
+            onClick={() => void runExport('settlement-xlsx')}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            {exporting === 'settlement-xlsx' ? tr('exporting') : tr('exportSettlementXlsx')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={exporting != null || !selectedSeasonMeta?.capabilities.mass_balance}
+            onClick={() => void runExport('mass-xlsx')}
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting === 'mass-xlsx' ? tr('exporting') : tr('exportMassXlsx')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={exporting != null || !selectedSeasonMeta?.capabilities.commercial}
+            onClick={() => void runExport('settlement-pdf')}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            {exporting === 'settlement-pdf' ? tr('exporting') : tr('exportSettlementPdf')}
+          </Button>
+          <p className="w-full text-[11px] text-slate-500 sm:ml-auto sm:w-auto">{tr('exportDisclaimer')}</p>
+        </div>
+      ) : null}
 
       {!fineTraceability && seasonYear != null ? (
         <p className="rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-2.5 text-xs text-amber-900/90">
@@ -125,7 +194,16 @@ export function SeasonReportingSection() {
           loading={seasonCompareLoading}
         />
       ) : (
-        <SeasonSummaryPanel overview={seasonOverview} loading={seasonOverviewLoading} />
+        <>
+          <SeasonSummaryPanel overview={seasonOverview} loading={seasonOverviewLoading} />
+          {seasonYear != null && selectedSeasonMeta?.capabilities.commercial_line_detail ? (
+            <SeasonCommercialLinesPanel
+              year={seasonYear}
+              enabled={!seasonOverviewLoading && Boolean(seasonOverview?.commercial)}
+            />
+          ) : null}
+          <SeasonPhysicalBalancePanel overview={seasonOverview} />
+        </>
       )}
     </div>
   );
