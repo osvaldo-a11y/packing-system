@@ -15,6 +15,7 @@ import { TraceabilityModule } from './modules/traceability/traceability.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImportModule } from './modules/import/import.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { SeasonsModule } from './modules/seasons/seasons.module';
 import { FinalPalletModule } from './modules/final-pallet/final-pallet.module';
 import { PtPackingListModule } from './modules/pt-packing-list/pt-packing-list.module';
 import { LabelsModule } from './modules/labels/labels.module';
@@ -52,6 +53,7 @@ const webImports = existsSync(webIndex)
     DocumentsModule,
     ImportModule,
     BackupModule,
+    SeasonsModule,
     ...webImports,
   ],
 })

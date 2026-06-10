@@ -49,6 +49,7 @@ import {
   PackingFormatSurcharge,
   ReportSnapshot,
 } from '../modules/reporting/reporting.entities';
+import { Season } from '../modules/seasons/season.entity';
 import { PlantSettings } from '../modules/plant/plant.entities';
 import { PrintJob } from '../modules/print-jobs/print-job.entity';
 import { ImportLog } from '../modules/import/import-log.entity';
@@ -126,6 +127,7 @@ const entities = [
   RepalletLineProvenance,
   FinishedPtInventory,
   ReportSnapshot,
+  Season,
   PackingCost,
   PackingFormatSurcharge,
   MaterialCostAdjustment,

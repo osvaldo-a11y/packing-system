@@ -1,5 +1,8 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
+/** Tipos de snapshot persistidos en `report_snapshots`. */
+export type ReportSnapshotType = 'season_closing' | 'user_saved';
+
 @Entity('report_snapshots')
 export class ReportSnapshot {
   @PrimaryGeneratedColumn('increment')
@@ -13,6 +16,27 @@ export class ReportSnapshot {
 
   @Column({ type: 'simple-json' })
   payload: Record<string, unknown>;
+
+  /** FK lógica a `seasons.id` (temporada congelada). Null en snapshots guardados por el usuario. */
+  @Column({ type: 'bigint', nullable: true })
+  season_id: number | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  snapshot_type: ReportSnapshotType | null;
+
+  @Column({ type: 'int', default: 1 })
+  version: number;
+
+  /** Solo un snapshot vigente por (season_id, snapshot_type); false en snapshots legacy/usuario. */
+  @Column({ type: 'boolean', default: false })
+  is_current: boolean;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  generated_by: string | null;
+
+  /** Sello de versión (commit/hash) al momento de generar. */
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  source_version: string | null;
 
   @CreateDateColumn()
   created_at: Date;
