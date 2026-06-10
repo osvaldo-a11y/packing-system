@@ -159,6 +159,14 @@ export class SeasonMassBalance {
   @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
   lb_rejected: string;
 
+  /** Stream congelado en recepción (Quality=FOR FROZEN). */
+  @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
+  lb_for_frozen: string;
+
+  /** (lb_received + lb_for_frozen) − lb_processed cuando hay frozen. */
+  @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
+  lb_frozen_to_frozen: string;
+
   @Column({ type: 'int', default: 0 })
   processes: number;
 

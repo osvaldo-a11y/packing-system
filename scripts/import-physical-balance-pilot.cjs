@@ -1,13 +1,15 @@
 /**
- * Piloto balance de masas — recepciones + procesos (+ opcional final pallet).
+ * Balance de masas legacy — recepciones + procesos (+ opcional final pallet).
  *
  * Uso:
  *   node scripts/import-physical-balance-pilot.cjs 2025
+ *   node scripts/import-physical-balance-pilot.cjs 2024
+ *   node scripts/import-physical-balance-pilot.cjs 2023   // FOR FROZEN + check por rango
  *
- * Archivos esperados en data/import/:
- *   recepciones_2025.xlsx
- *   procesos_2025.xlsx
- *   query_final_pallet_2025.xlsx (opcional)
+ * Archivos esperados en data/import/ (no versionados):
+ *   recepciones_<year>.xlsx
+ *   procesos_<year>.xlsx
+ *   query_final_pallet_<year>.xlsx (opcional)
  */
 require('dotenv').config();
 const fs = require('node:fs');

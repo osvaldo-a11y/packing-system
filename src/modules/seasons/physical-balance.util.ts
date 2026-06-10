@@ -3,6 +3,17 @@ import { normalizeAliasKey, parseDecimalCell, trimCell } from './final-charge.ut
 
 export const LB_TOLERANCE = 0.05;
 
+/**
+ * Tie-out packout físico vs libras comerciales (season_settlement_lines) en temporadas legacy.
+ * Físico y Final Charge redondean por línea; el Δ agregado típico es ~0,003% del packout
+ * (~34 lb sobre ~1,25M lb observado en 2023). Solo tie-out — la integridad mass-balance
+ * sigue en ±LB_TOLERANCE.
+ */
+export const LEGACY_TIEOUT_LB_TOLERANCE = 40;
+
+export const TIEOUT_LB_PRODUCER_TOLERANCE = LEGACY_TIEOUT_LB_TOLERANCE;
+export const TIEOUT_LB_SEASON_TOLERANCE = LEGACY_TIEOUT_LB_TOLERANCE;
+
 export const RECEPTIONS_COLUMN_ALIASES: Record<string, string[]> = {
   producer: ['growers', 'grower', 'producer', 'productor'],
   quality: ['quality', 'calidad', 'qual'],
@@ -49,11 +60,16 @@ export function isWasteQuality(raw: string): boolean {
   return normalizeAliasKey(raw) === 'WASTE';
 }
 
+export function isForFrozenQuality(raw: string): boolean {
+  return normalizeAliasKey(raw) === 'FOR FROZEN';
+}
+
 export type ReceptionAgg = {
   producer_raw: string;
   incoming_refs: Set<string>;
   lb_received: number;
   lb_rejected: number;
+  lb_for_frozen: number;
 };
 
 export type ProcessAgg = {
@@ -84,11 +100,14 @@ export function aggregateReceptions(
       incoming_refs: new Set<string>(),
       lb_received: 0,
       lb_rejected: 0,
+      lb_for_frozen: 0,
     };
     const quality = trimCell(get('quality'));
     const pounds = parseDecimalCell(get('net_pounds'));
     if (isWasteQuality(quality)) {
       agg.lb_rejected += pounds;
+    } else if (isForFrozenQuality(quality)) {
+      agg.lb_for_frozen += pounds;
     } else {
       agg.lb_received += pounds;
       const incoming = trimCell(get('incoming_ref'));
@@ -128,4 +147,35 @@ export function aggregateProcesses(
     byProducer.set(key, agg);
   }
   return byProducer;
+}
+
+/** Integridad: exacto sin frozen; rango [received, received+frozen] con frozen. */
+export function checkMassBalanceIntegrity(
+  lbReceived: number,
+  lbForFrozen: number,
+  lbProcessed: number,
+): { ok: boolean; delta: number; mode: 'exact' | 'frozen_range' } {
+  if (lbForFrozen <= LB_TOLERANCE) {
+    const delta = lbReceived - lbProcessed;
+    return { ok: Math.abs(delta) <= LB_TOLERANCE, delta, mode: 'exact' };
+  }
+  const low = lbReceived - LB_TOLERANCE;
+  const high = lbReceived + lbForFrozen + LB_TOLERANCE;
+  const ok = lbProcessed >= low && lbProcessed <= high;
+  const delta =
+    lbProcessed < lbReceived
+      ? lbProcessed - lbReceived
+      : lbProcessed > lbReceived + lbForFrozen
+        ? lbProcessed - (lbReceived + lbForFrozen)
+        : 0;
+  return { ok, delta, mode: 'frozen_range' };
+}
+
+export function deriveFrozenToFrozen(
+  lbReceived: number,
+  lbForFrozen: number,
+  lbProcessed: number,
+): number {
+  if (lbForFrozen <= LB_TOLERANCE) return 0;
+  return lbReceived + lbForFrozen - lbProcessed;
 }

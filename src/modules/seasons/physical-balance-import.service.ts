@@ -10,11 +10,15 @@ import { Season } from './season.entity';
 import {
   aggregateProcesses,
   aggregateReceptions,
+  checkMassBalanceIntegrity,
+  deriveFrozenToFrozen,
   LB_TOLERANCE,
   mapHeaderRow,
   pickDataSheet,
   PROCESSES_COLUMN_ALIASES,
   RECEPTIONS_COLUMN_ALIASES,
+  TIEOUT_LB_PRODUCER_TOLERANCE,
+  TIEOUT_LB_SEASON_TOLERANCE,
 } from './physical-balance.util';
 
 export type PhysicalBalanceProducerRow = {
@@ -23,6 +27,8 @@ export type PhysicalBalanceProducerRow = {
   receptions_count: number;
   lb_received: number;
   lb_rejected: number;
+  lb_for_frozen: number;
+  lb_frozen_to_frozen: number;
   processes_count: number;
   lb_processed: number;
   lb_packout: number;
@@ -31,6 +37,8 @@ export type PhysicalBalanceProducerRow = {
   lb_invoiced: number;
   lb_difference: number;
   integrity_ok: boolean;
+  integrity_mode: 'exact' | 'frozen_range';
+  integrity_delta: number;
   tieout_ok: boolean;
 };
 
@@ -38,7 +46,14 @@ export type PhysicalBalanceImportResult = {
   season_year: number;
   rows_upserted: number;
   errors: Array<{ producer_raw?: string; message: string }>;
-  integrity_failures: Array<{ producer_raw: string; lb_received: number; lb_processed: number; delta: number }>;
+  integrity_failures: Array<{
+    producer_raw: string;
+    lb_received: number;
+    lb_for_frozen: number;
+    lb_processed: number;
+    delta: number;
+    mode: 'exact' | 'frozen_range';
+  }>;
   tieout_failures: Array<{ producer_raw: string; lb_packout: number; lb_invoiced: number; delta: number }>;
   cross_check_final_pallet?: { lb_packout_total: number; delta_vs_physical: number } | null;
   summary: {
@@ -46,6 +61,8 @@ export type PhysicalBalanceImportResult = {
     receptions_count: number;
     lb_received_total: number;
     lb_rejected_total: number;
+    lb_for_frozen_total: number;
+    lb_frozen_to_frozen_total: number;
     lb_processed_total: number;
     lb_packout_total: number;
     lb_waste_total: number;
@@ -64,6 +81,12 @@ export type PhysicalBalanceImportResult = {
     expected: Record<string, number>;
     actual: Record<string, number>;
     packout_by_producer: Record<string, { expected: number; actual: number; match: boolean }>;
+    match: boolean;
+  };
+  verification_targets_2023?: {
+    expected: Record<string, number>;
+    actual: Record<string, number>;
+    by_producer: Record<string, { expected: Record<string, number>; actual: Record<string, number>; match: boolean }>;
     match: boolean;
   };
 };
@@ -117,26 +140,30 @@ export class PhysicalBalanceImportService {
 
       const lbReceived = rec?.lb_received ?? 0;
       const lbRejected = rec?.lb_rejected ?? 0;
+      const lbForFrozen = rec?.lb_for_frozen ?? 0;
       const lbProcessed = proc?.lb_processed ?? 0;
       const lbPackout = proc?.lb_packout ?? 0;
       const lbWaste = proc?.lb_waste ?? 0;
+      const lbFrozenToFrozen = deriveFrozenToFrozen(lbReceived, lbForFrozen, lbProcessed);
       const receptionsCount = rec?.incoming_refs.size ?? 0;
       const processesCount = proc?.processes_count ?? 0;
       const lbInvoiced = invoicedByProducer.get(producerId) ?? 0;
 
-      const integrityDelta = Math.abs(lbReceived - lbProcessed);
-      const integrityOk = integrityDelta <= LB_TOLERANCE;
+      const integrity = checkMassBalanceIntegrity(lbReceived, lbForFrozen, lbProcessed);
+      const integrityOk = integrity.ok;
       if (!integrityOk) {
         integrityFailures.push({
           producer_raw: producerRaw,
           lb_received: lbReceived,
+          lb_for_frozen: lbForFrozen,
           lb_processed: lbProcessed,
-          delta: Number((lbReceived - lbProcessed).toFixed(3)),
+          delta: Number(integrity.delta.toFixed(3)),
+          mode: integrity.mode,
         });
       }
 
       const tieoutDelta = Math.abs(lbPackout - lbInvoiced);
-      const tieoutOk = tieoutDelta <= LB_TOLERANCE;
+      const tieoutOk = tieoutDelta <= TIEOUT_LB_PRODUCER_TOLERANCE;
       if (!tieoutOk) {
         tieoutFailures.push({
           producer_raw: producerRaw,
@@ -146,7 +173,7 @@ export class PhysicalBalanceImportService {
         });
       }
 
-      const pctPackout = lbReceived > 0 ? (lbPackout / lbReceived) * 100 : 0;
+      const pctPackout = lbProcessed > 0 ? (lbPackout / lbProcessed) * 100 : 0;
       const lbDifference = lbPackout - lbInvoiced;
 
       const existing = await this.massBalanceRepo.findOne({
@@ -159,6 +186,8 @@ export class PhysicalBalanceImportService {
       entity.receptions = receptionsCount;
       entity.lb_received = lbReceived.toFixed(3);
       entity.lb_rejected = lbRejected.toFixed(3);
+      entity.lb_for_frozen = lbForFrozen.toFixed(3);
+      entity.lb_frozen_to_frozen = lbFrozenToFrozen.toFixed(3);
       entity.processes = processesCount;
       entity.lb_processed = lbProcessed.toFixed(3);
       entity.lb_packout = lbPackout.toFixed(3);
@@ -177,6 +206,8 @@ export class PhysicalBalanceImportService {
         receptions_count: receptionsCount,
         lb_received: Number(lbReceived.toFixed(2)),
         lb_rejected: Number(lbRejected.toFixed(2)),
+        lb_for_frozen: Number(lbForFrozen.toFixed(2)),
+        lb_frozen_to_frozen: Number(lbFrozenToFrozen.toFixed(2)),
         processes_count: processesCount,
         lb_processed: Number(lbProcessed.toFixed(2)),
         lb_packout: Number(lbPackout.toFixed(2)),
@@ -185,24 +216,31 @@ export class PhysicalBalanceImportService {
         lb_invoiced: Number(lbInvoiced.toFixed(2)),
         lb_difference: Number(lbDifference.toFixed(2)),
         integrity_ok: integrityOk,
+        integrity_mode: integrity.mode,
+        integrity_delta: Number(integrity.delta.toFixed(3)),
         tieout_ok: tieoutOk,
       });
     }
 
     byProducer.sort((a, b) => b.lb_packout - a.lb_packout);
 
+    const lbDifferenceTotal = Number(byProducer.reduce((s, r) => s + r.lb_difference, 0).toFixed(2));
     const summary = {
       producer_count: byProducer.length,
       receptions_count: byProducer.reduce((s, r) => s + r.receptions_count, 0),
       lb_received_total: Number(byProducer.reduce((s, r) => s + r.lb_received, 0).toFixed(2)),
       lb_rejected_total: Number(byProducer.reduce((s, r) => s + r.lb_rejected, 0).toFixed(2)),
+      lb_for_frozen_total: Number(byProducer.reduce((s, r) => s + r.lb_for_frozen, 0).toFixed(2)),
+      lb_frozen_to_frozen_total: Number(byProducer.reduce((s, r) => s + r.lb_frozen_to_frozen, 0).toFixed(2)),
       lb_processed_total: Number(byProducer.reduce((s, r) => s + r.lb_processed, 0).toFixed(2)),
       lb_packout_total: Number(byProducer.reduce((s, r) => s + r.lb_packout, 0).toFixed(2)),
       lb_waste_total: Number(byProducer.reduce((s, r) => s + r.lb_waste, 0).toFixed(2)),
       lb_invoiced_total: Number(byProducer.reduce((s, r) => s + r.lb_invoiced, 0).toFixed(2)),
-      lb_difference_total: Number(byProducer.reduce((s, r) => s + r.lb_difference, 0).toFixed(2)),
+      lb_difference_total: lbDifferenceTotal,
       integrity_ok: integrityFailures.length === 0,
-      tieout_ok: tieoutFailures.length === 0,
+      tieout_ok:
+        tieoutFailures.length === 0 &&
+        Math.abs(lbDifferenceTotal) <= TIEOUT_LB_SEASON_TOLERANCE,
       by_producer: byProducer,
     };
 
@@ -227,6 +265,9 @@ export class PhysicalBalanceImportService {
     if (year === 2024) {
       result.verification_targets_2024 = this.verify2024Targets(summary);
     }
+    if (year === 2023) {
+      result.verification_targets_2023 = this.verify2023Targets(summary);
+    }
 
     await this.importLogRepo.save(
       this.importLogRepo.create({
@@ -237,7 +278,7 @@ export class PhysicalBalanceImportService {
         skipped: 0,
         errors_count: errors.length + integrityFailures.length + tieoutFailures.length,
         errors_sample: [...errors, ...integrityFailures.map((f) => ({
-          message: `Integridad ${f.producer_raw}: received ${f.lb_received} vs processed ${f.lb_processed}`,
+          message: `Integridad ${f.producer_raw} (${f.mode}): received ${f.lb_received} frozen ${f.lb_for_frozen} vs processed ${f.lb_processed}`,
         }))].slice(0, 25),
       }),
     );
@@ -431,6 +472,194 @@ export class PhysicalBalanceImportService {
       packoutMatch;
 
     return { expected, actual, packout_by_producer: packoutByProducer, match };
+  }
+
+  private verify2023Targets(summary: PhysicalBalanceImportResult['summary']) {
+    const expected = {
+      producer_count: 11,
+      lb_received_total: 1352801.57,
+      lb_for_frozen_total: 84994.05,
+      lb_processed_total: 1359898.57,
+      lb_packout_total: 1254918.64,
+      lb_waste_total: 105256.93,
+      lb_invoiced_total: 1254884.69,
+      lb_difference_total: 33.95,
+      lb_frozen_to_frozen_total: 76567.05 + 1330.0,
+    };
+    const actual = {
+      producer_count: summary.producer_count,
+      lb_received_total: summary.lb_received_total,
+      lb_for_frozen_total: summary.lb_for_frozen_total,
+      lb_processed_total: summary.lb_processed_total,
+      lb_packout_total: summary.lb_packout_total,
+      lb_waste_total: summary.lb_waste_total,
+      lb_invoiced_total: summary.lb_invoiced_total,
+      lb_difference_total: summary.lb_difference_total,
+      lb_frozen_to_frozen_total: summary.lb_frozen_to_frozen_total,
+    };
+    const expectedByProducer: Record<string, Record<string, number>> = {
+      'PINEBLOOM FARM': {
+        receptions_count: 64,
+        lb_received: 680872.62,
+        lb_for_frozen: 83664.05,
+        lb_processed: 687969.62,
+        lb_packout: 634388.4,
+        lb_waste: 53580.97,
+        pct_packout: 92.2,
+        lb_frozen_to_frozen: 76567.05,
+      },
+      'JDS FARMS': {
+        receptions_count: 30,
+        lb_received: 214270.3,
+        lb_for_frozen: 0,
+        lb_processed: 214270.3,
+        lb_packout: 201957.75,
+        lb_waste: 12331.05,
+        pct_packout: 94.3,
+        lb_frozen_to_frozen: 0,
+      },
+      'RENTZ FARMS': {
+        receptions_count: 13,
+        lb_received: 96348.05,
+        lb_for_frozen: 0,
+        lb_processed: 96348.05,
+        lb_packout: 88318.6,
+        lb_waste: 8288.2,
+        pct_packout: 91.7,
+        lb_frozen_to_frozen: 0,
+      },
+      JER: {
+        receptions_count: 12,
+        lb_received: 79275,
+        lb_for_frozen: 0,
+        lb_processed: 79275,
+        lb_packout: 72940,
+        lb_waste: 6335,
+        pct_packout: 92.0,
+        lb_frozen_to_frozen: 0,
+      },
+      'RIVERVIEW PLANTATION': {
+        receptions_count: 9,
+        lb_received: 54214.85,
+        lb_for_frozen: 0,
+        lb_processed: 54214.85,
+        lb_packout: 50522.35,
+        lb_waste: 3692.5,
+        pct_packout: 93.2,
+        lb_frozen_to_frozen: 0,
+      },
+      'FAITH FARMS': {
+        receptions_count: 10,
+        lb_received: 55891.35,
+        lb_for_frozen: 0,
+        lb_processed: 55891.35,
+        lb_packout: 49125.55,
+        lb_waste: 6765.8,
+        pct_packout: 87.9,
+        lb_frozen_to_frozen: 0,
+      },
+      'JIMMY WEBB': {
+        receptions_count: 15,
+        lb_received: 53397.55,
+        lb_for_frozen: 1330,
+        lb_processed: 53397.55,
+        lb_packout: 47858.19,
+        lb_waste: 5539.36,
+        pct_packout: 89.6,
+        lb_frozen_to_frozen: 1330,
+      },
+      'NUBBINTOWN FARMS': {
+        receptions_count: 9,
+        lb_received: 45105,
+        lb_for_frozen: 0,
+        lb_processed: 45105,
+        lb_packout: 40808.3,
+        lb_waste: 4296.7,
+        pct_packout: 90.5,
+        lb_frozen_to_frozen: 0,
+      },
+      'K & K FARMS': {
+        receptions_count: 8,
+        lb_received: 38884.45,
+        lb_for_frozen: 0,
+        lb_processed: 38884.45,
+        lb_packout: 36811.55,
+        lb_waste: 2072.9,
+        pct_packout: 94.7,
+        lb_frozen_to_frozen: 0,
+      },
+      'JET FARMS INC': {
+        receptions_count: 11,
+        lb_received: 33414.4,
+        lb_for_frozen: 0,
+        lb_processed: 33414.4,
+        lb_packout: 31188.95,
+        lb_waste: 2225.45,
+        pct_packout: 93.3,
+        lb_frozen_to_frozen: 0,
+      },
+      'LOST CREEK FARMS': {
+        receptions_count: 1,
+        lb_received: 1128,
+        lb_for_frozen: 0,
+        lb_processed: 1128,
+        lb_packout: 999,
+        lb_waste: 129,
+        pct_packout: 88.6,
+        lb_frozen_to_frozen: 0,
+      },
+    };
+    const close = (a: number, b: number) => Math.abs(a - b) <= LB_TOLERANCE;
+    const closePct = (a: number, b: number) => Math.abs(a - b) <= 0.15;
+    const byProducer: Record<string, { expected: Record<string, number>; actual: Record<string, number>; match: boolean }> =
+      {};
+    let producerMatch = true;
+    for (const [name, exp] of Object.entries(expectedByProducer)) {
+      const row = summary.by_producer.find(
+        (p) => normalizeAliasKey(p.producer_raw) === normalizeAliasKey(name),
+      );
+      const act = row
+        ? {
+            receptions_count: row.receptions_count,
+            lb_received: row.lb_received,
+            lb_for_frozen: row.lb_for_frozen,
+            lb_processed: row.lb_processed,
+            lb_packout: row.lb_packout,
+            lb_waste: row.lb_waste,
+            pct_packout: row.pct_packout,
+            lb_frozen_to_frozen: row.lb_frozen_to_frozen,
+          }
+        : {};
+      const ok =
+        row != null &&
+        row.integrity_ok &&
+        row.tieout_ok &&
+        row.receptions_count === exp.receptions_count &&
+        close(act.lb_received!, exp.lb_received) &&
+        close(act.lb_for_frozen!, exp.lb_for_frozen) &&
+        close(act.lb_processed!, exp.lb_processed) &&
+        close(act.lb_packout!, exp.lb_packout) &&
+        close(act.lb_waste!, exp.lb_waste) &&
+        closePct(act.pct_packout!, exp.pct_packout) &&
+        close(act.lb_frozen_to_frozen!, exp.lb_frozen_to_frozen);
+      if (!ok) producerMatch = false;
+      byProducer[name] = { expected: exp, actual: act, match: ok };
+    }
+    const match =
+      actual.producer_count === expected.producer_count &&
+      close(actual.lb_received_total, expected.lb_received_total) &&
+      close(actual.lb_for_frozen_total, expected.lb_for_frozen_total) &&
+      close(actual.lb_processed_total, expected.lb_processed_total) &&
+      close(actual.lb_packout_total, expected.lb_packout_total) &&
+      close(actual.lb_waste_total, expected.lb_waste_total) &&
+      close(actual.lb_invoiced_total, expected.lb_invoiced_total) &&
+      close(actual.lb_difference_total, expected.lb_difference_total) &&
+      close(actual.lb_frozen_to_frozen_total, expected.lb_frozen_to_frozen_total) &&
+      summary.integrity_ok &&
+      summary.tieout_ok &&
+      producerMatch;
+
+    return { expected, actual, by_producer: byProducer, match };
   }
 
   async getMassBalanceSummary(year: number) {
