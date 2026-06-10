@@ -39,3 +39,14 @@ screenshots-pinebloom/
 docs/presentacion-comercial/*.pptx
 .cursor/
 .vscode/
+
+# Datos de importación local (Excel — no versionar)
+data/import/*.xlsx
+
+# Backups locales en la raíz del repo
+/packing_backup*.zip
+/*.zip
+
+# Archivos sueltos copiados desde Desktop al repo
+/desktop-*
+/*_from_desktop.*

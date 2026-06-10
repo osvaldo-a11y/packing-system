@@ -19,6 +19,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinalChargeImportService } from './final-charge-import.service';
+import { PhysicalBalanceImportService } from './physical-balance-import.service';
 import { GenerateSeasonSnapshotDto } from './seasons.dto';
 import { SeasonsService } from './seasons.service';
 
@@ -33,6 +34,7 @@ export class SeasonsController {
   constructor(
     private readonly seasons: SeasonsService,
     private readonly finalChargeImport: FinalChargeImportService,
+    private readonly physicalBalanceImport: PhysicalBalanceImportService,
   ) {}
 
   @Get(':year')
@@ -62,6 +64,11 @@ export class SeasonsController {
   @Get(':year/settlement/summary')
   getSettlementSummary(@Param('year', ParseIntPipe) year: number) {
     return this.finalChargeImport.getSettlementSummary(year);
+  }
+
+  @Get(':year/mass-balance/summary')
+  getMassBalanceSummary(@Param('year', ParseIntPipe) year: number) {
+    return this.physicalBalanceImport.getMassBalanceSummary(year);
   }
 
   @Post(':year/import/final-charge')

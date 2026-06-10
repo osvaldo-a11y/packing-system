@@ -6,6 +6,7 @@ import { ReportingModule } from '../reporting/reporting.module';
 import { Brand } from '../traceability/operational.entities';
 import { Producer, Variety } from '../traceability/traceability.entities';
 import { FinalChargeImportService } from './final-charge-import.service';
+import { PhysicalBalanceImportService } from './physical-balance-import.service';
 import { LegacyValueAlias, SeasonMassBalance, SeasonSettlementLine } from './legacy.entities';
 import { Season } from './season.entity';
 import { SeasonsController } from './seasons.controller';
@@ -27,7 +28,7 @@ import { SeasonsService } from './seasons.service';
     ReportingModule,
   ],
   controllers: [SeasonsController],
-  providers: [SeasonsService, FinalChargeImportService],
-  exports: [SeasonsService, FinalChargeImportService],
+  providers: [SeasonsService, FinalChargeImportService, PhysicalBalanceImportService],
+  exports: [SeasonsService, FinalChargeImportService, PhysicalBalanceImportService],
 })
 export class SeasonsModule {}

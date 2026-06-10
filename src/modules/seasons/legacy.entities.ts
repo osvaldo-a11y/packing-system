@@ -151,6 +151,10 @@ export class SeasonMassBalance {
   @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
   lb_received: string;
 
+  /** Rechazo en recepción (Quality=WASTE). */
+  @Column({ type: 'decimal', precision: 14, scale: 3, default: 0 })
+  lb_rejected: string;
+
   @Column({ type: 'int', default: 0 })
   processes: number;
 
