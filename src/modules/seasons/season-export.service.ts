@@ -25,7 +25,9 @@ export class SeasonExportService {
 
     const sourceLabel = this.sourceLabel(overview.source, year);
     const returnLabel =
-      overview.source === 'snapshot' ? 'Neto productor (snapshot)' : 'Retorno a productor';
+      overview.source === 'snapshot' || overview.source === 'live'
+        ? 'Neto productor'
+        : 'Retorno a productor';
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Packing system — Registro histórico';
@@ -193,7 +195,7 @@ export class SeasonExportService {
 
     const sourceLabel = this.sourceLabel(overview.source, year);
     const returnLabel =
-      overview.source === 'snapshot' ? 'Neto productor' : 'Retorno productor';
+      overview.source === 'snapshot' || overview.source === 'live' ? 'Neto productor' : 'Retorno productor';
 
     const doc = new PDFDocument({ margin: 48, size: 'A4', bufferPages: true });
     const chunks: Buffer[] = [];
@@ -248,6 +250,9 @@ export class SeasonExportService {
   }
 
   private sourceLabel(source: SeasonDataSource, year: number): string {
+    if (source === 'live') {
+      return `Fuente: operación en vivo (temporada ${year}, misma lógica que Cierre)`;
+    }
     if (source === 'snapshot') {
       return `Fuente: snapshot firmado (temporada ${year})`;
     }

@@ -61,9 +61,11 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
           {t('reporting.season.summaryTitle', { year: overview.season_year })}
         </h2>
         <p className={sectionHint}>
-          {overview.source === 'snapshot'
-            ? t('reporting.season.sourceSnapshot')
-            : t('reporting.season.sourceLegacy')}
+          {overview.source === 'live'
+            ? t('reporting.season.sourceLive')
+            : overview.source === 'snapshot'
+              ? t('reporting.season.sourceSnapshot')
+              : t('reporting.season.sourceLegacy')}
           {overview.commercial_field_notes ? ` · ${overview.commercial_field_notes}` : ''}
         </p>
       </div>
@@ -90,7 +92,7 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
           <p className="mt-2 text-2xl font-bold tabular-nums text-[#0F6E56] sm:text-3xl">
             {formatMoney(commercial.grower_return)}
           </p>
-          {commercial.producer_net != null && overview.source === 'snapshot' ? (
+          {commercial.producer_net != null && (overview.source === 'snapshot' || overview.source === 'live') ? (
             <p className="mt-1 text-[10px] text-[#0F6E56]/80">{t('reporting.season.producerNetNote')}</p>
           ) : null}
         </div>

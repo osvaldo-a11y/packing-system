@@ -5,7 +5,7 @@ require('dotenv').config();
 process.env.DATABASE_URL = process.env.DATABASE_URL || process.env.RAILWAY_URL;
 
 const TARGETS = {
-  2026: { sales: 5060410.0, grower_return: 3869237.17, lb_packout: 1425130.58, source: 'snapshot' },
+  2026: { sales: 5060410.0, grower_return: 3869237.17, lb_packout: 1425171.98, source: 'live' },
   2025: { sales: 4556301.38, grower_return: 3440695.32, lb_packout: 1354617.6, source: 'legacy' },
   2024: { sales: 3801096.3, grower_return: 2637298.66, lb_packout: 1442986.4, source: 'legacy' },
   2023: { sales: 3752584.0, grower_return: 2794375.82, lb_packout: 1254918.64, source: 'legacy' },

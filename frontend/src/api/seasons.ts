@@ -13,7 +13,7 @@ export type SeasonListItem = {
   status: string;
   source: string;
   capabilities: SeasonCapabilities;
-  data_source: 'snapshot' | 'legacy';
+  data_source: 'live' | 'snapshot' | 'legacy';
 };
 
 export type CommercialProducerRow = {
@@ -48,7 +48,7 @@ export type SeasonOverview = {
   season_year: number;
   season_status: string;
   season_source: string;
-  source: 'snapshot' | 'legacy';
+  source: 'live' | 'snapshot' | 'legacy';
   capabilities: SeasonCapabilities;
   commercial: {
     sales: number;
@@ -121,7 +121,7 @@ export type SettlementLineRow = {
 
 export type SettlementLinesResult = {
   season_year: number;
-  source: 'snapshot' | 'legacy';
+  source: 'live' | 'snapshot' | 'legacy';
   filters: { producer?: string; format?: string; bol?: string; variety?: string; brand?: string };
   line_count: number;
   total_count: number;

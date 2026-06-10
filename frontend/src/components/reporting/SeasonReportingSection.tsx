@@ -133,7 +133,11 @@ export function SeasonReportingSection() {
               fineTraceability ? 'text-[#0F6E56]' : 'text-slate-500',
             )}
           >
-            {fineTraceability ? tr('sourceSnapshot') : tr('sourceLegacy')}
+            {seasonOverview?.source === 'live'
+              ? tr('sourceLive')
+              : fineTraceability
+                ? tr('sourceSnapshot')
+                : tr('sourceLegacy')}
           </span>
         ) : null}
       </div>

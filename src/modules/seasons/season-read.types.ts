@@ -1,4 +1,4 @@
-export type SeasonDataSource = 'snapshot' | 'legacy';
+export type SeasonDataSource = 'live' | 'snapshot' | 'legacy';
 
 export type SeasonCapabilities = {
   commercial: boolean;

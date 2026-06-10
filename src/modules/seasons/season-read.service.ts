@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ReportFilterDto } from '../reporting/reporting.dto';
 import { ReportSnapshot } from '../reporting/reporting.entities';
+import { ReportingService } from '../reporting/reporting.service';
 import { SeasonMassBalance, SeasonSettlementLine } from './legacy.entities';
 import { Season } from './season.entity';
 import {
@@ -40,6 +42,7 @@ export class SeasonReadService {
     @InjectRepository(ReportSnapshot) private readonly snapshotRepo: Repository<ReportSnapshot>,
     @InjectRepository(SeasonSettlementLine) private readonly lineRepo: Repository<SeasonSettlementLine>,
     @InjectRepository(SeasonMassBalance) private readonly massBalanceRepo: Repository<SeasonMassBalance>,
+    private readonly reporting: ReportingService,
   ) {}
 
   async listSeasons(): Promise<SeasonListItem[]> {
@@ -62,22 +65,25 @@ export class SeasonReadService {
 
   async getOverview(year: number): Promise<SeasonOverview> {
     const season = await this.findSeason(year);
-    const dataSource = await this.resolveDataSource(season);
+    const useLive = this.isLiveOperationalSeason(season);
+    const dataSource = useLive ? 'live' : await this.resolveDataSource(season);
     const capabilities = await this.buildCapabilities(season, dataSource);
 
-    const commercial =
-      capabilities.commercial
-        ? dataSource === 'snapshot'
+    const commercial = capabilities.commercial
+      ? useLive
+        ? await this.commercialFromLive(year)
+        : dataSource === 'snapshot'
           ? await this.commercialFromSnapshot(season)
           : await this.commercialFromLegacy(year)
-        : null;
+      : null;
 
-    const mass_balance =
-      capabilities.mass_balance
-        ? dataSource === 'snapshot'
+    const mass_balance = capabilities.mass_balance
+      ? useLive
+        ? await this.massBalanceFromLive(year)
+        : dataSource === 'snapshot'
           ? await this.massBalanceFromSnapshot(season)
           : await this.massBalanceFromLegacy(year)
-        : null;
+      : null;
 
     return {
       season_year: year,
@@ -87,8 +93,9 @@ export class SeasonReadService {
       capabilities,
       commercial,
       mass_balance,
-      commercial_field_notes:
-        dataSource === 'snapshot'
+      commercial_field_notes: useLive
+        ? 'Datos operativos en vivo (misma lógica que Cierre y Balance de masas). El snapshot se congela al cerrar la temporada.'
+        : dataSource === 'snapshot'
           ? 'grower_return mapea producer_net del snapshot (neto productor, precio objetivo). No es comparable 1:1 con grower_return del Final Charge legacy.'
           : 'grower_return es la suma de grower_return del Final Charge importado.',
     };
@@ -248,7 +255,16 @@ export class SeasonReadService {
     return season;
   }
 
+  private isLiveOperationalSeason(season: Season): boolean {
+    return season.source === 'system' && season.status !== 'closed';
+  }
+
+  private seasonDateRange(year: number): { desde: string; hasta: string } {
+    return { desde: `${year}-01-01`, hasta: `${year}-12-31` };
+  }
+
   private async resolveDataSource(season: Season): Promise<SeasonDataSource> {
+    if (this.isLiveOperationalSeason(season)) return 'live';
     const snapshot = await this.snapshotRepo.findOne({
       where: {
         season_id: season.id,
@@ -267,8 +283,8 @@ export class SeasonReadService {
     const lineCount = await this.lineRepo.count({ where: { season_year: season.year } });
     const massCount = await this.massBalanceRepo.count({ where: { season_year: season.year } });
 
-    const hasCommercial = dataSource === 'snapshot' || lineCount > 0;
-    const hasMass = dataSource === 'snapshot' || massCount > 0;
+    const hasCommercial = dataSource === 'live' || dataSource === 'snapshot' || lineCount > 0;
+    const hasMass = dataSource === 'live' || dataSource === 'snapshot' || massCount > 0;
 
     return {
       commercial: hasCommercial,
@@ -318,6 +334,79 @@ export class SeasonReadService {
       producer_net: producerNetTotal,
       boxes: this.num(total.boxes ?? by_producer.reduce((s, r) => s + r.boxes, 0)),
       pounds: this.lb(total.pounds ?? by_producer.reduce((s, r) => s + r.pounds, 0)),
+      by_producer: by_producer.sort((a, b) => b.sales - a.sales),
+    };
+  }
+
+  private async massBalanceFromLive(year: number): Promise<MassBalanceOverview> {
+    const { desde, hasta } = this.seasonDateRange(year);
+    const raw = await this.reporting.getMassBalanceByProducer({ desde, hasta });
+    const by_producer: MassBalanceProducerRow[] = raw.producers.map((p) => ({
+      producer_id: p.productor_id,
+      producer_name: p.productor_nombre,
+      receptions: p.recepciones,
+      lb_received: this.lb(p.lb_recepcionado),
+      lb_rejected: 0,
+      lb_for_frozen: 0,
+      lb_frozen_to_frozen: 0,
+      processes: p.procesos,
+      lb_processed: this.lb(p.lb_procesado),
+      lb_packout: this.lb(p.lb_packout),
+      lb_waste: this.lb(p.lb_merma),
+      pct_packout: this.num(p.pct_packout),
+      lb_invoiced: this.lb(p.lb_facturado),
+      difference: this.lb(p.diferencia),
+    }));
+
+    const lbProcessed = this.lb(raw.totales.lb_procesado);
+    const lbPackout = this.lb(raw.totales.lb_packout);
+
+    return {
+      lb_received: this.lb(raw.totales.lb_recepcionado),
+      lb_processed: lbProcessed,
+      lb_packout: lbPackout,
+      lb_waste: this.lb(raw.totales.lb_merma),
+      pct_packout: lbProcessed > 0 ? this.pct(lbPackout / lbProcessed) : 0,
+      lb_rejected: 0,
+      lb_for_frozen: 0,
+      lb_frozen_to_frozen: 0,
+      by_producer: by_producer.sort((a, b) => b.lb_packout - a.lb_packout),
+    };
+  }
+
+  private async commercialFromLive(year: number): Promise<CommercialOverview> {
+    const { desde, hasta } = this.seasonDateRange(year);
+    const filter: ReportFilterDto = {
+      fecha_desde: desde,
+      fecha_hasta: hasta,
+      page: 1,
+      limit: 10000,
+    };
+    const { summaryRows } = await this.reporting.computeProducerSettlementRows(filter);
+
+    const by_producer: CommercialProducerRow[] = summaryRows
+      .filter((r) => r.productor_id != null)
+      .map((r) => {
+        const producerNet = this.money(r.neto_productor);
+        return {
+          producer_id: r.productor_id != null ? Number(r.productor_id) : null,
+          producer_name: String(r.productor_nombre ?? ''),
+          sales: this.money(r.ventas),
+          grower_return: producerNet,
+          producer_net: producerNet,
+          boxes: this.num(r.cajas),
+          pounds: this.lb(r.lb),
+        };
+      });
+
+    const producerNetTotal = this.money(by_producer.reduce((s, r) => s + (r.producer_net ?? 0), 0));
+
+    return {
+      sales: this.money(by_producer.reduce((s, r) => s + r.sales, 0)),
+      grower_return: producerNetTotal,
+      producer_net: producerNetTotal,
+      boxes: by_producer.reduce((s, r) => s + r.boxes, 0),
+      pounds: this.lb(by_producer.reduce((s, r) => s + r.pounds, 0)),
       by_producer: by_producer.sort((a, b) => b.sales - a.sales),
     };
   }
