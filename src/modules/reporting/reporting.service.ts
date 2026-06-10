@@ -2160,6 +2160,84 @@ export class ReportingService {
     };
   }
 
+  /**
+   * Libras facturadas por productor con el mismo reparto que liquidación (Cierre):
+   * tarjas mixtas → proporción por pt_tag_items; pallets mixtos → final_pallet_lines.
+   */
+  private async invoicedLbByProducerForMassBalance(
+    filter: { desde?: string; hasta?: string },
+  ): Promise<Map<number, number>> {
+    const dateParts: string[] = [];
+    if (filter.desde) dateParts.push(`d.fecha_despacho >= '${filter.desde}'`);
+    if (filter.hasta) dateParts.push(`d.fecha_despacho <= '${filter.hasta}'`);
+    const dateClause = dateParts.length ? `AND ${dateParts.join(' AND ')}` : '';
+
+    const lines = (await this.dataSource.query(
+      `
+      SELECT
+        ii.tarja_id,
+        ii.fruit_process_id,
+        ii.final_pallet_id,
+        CASE
+          WHEN ii.pounds IS NULL THEN 0::numeric
+          WHEN BTRIM(ii.pounds::text) = '' THEN 0::numeric
+          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$' THEN BTRIM(ii.pounds::text)::numeric
+          ELSE 0::numeric
+        END AS lb_line
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      WHERE 1=1 ${dateClause}
+      `,
+    )) as Array<{
+      tarja_id: number | null;
+      fruit_process_id: number | null;
+      final_pallet_id: number | null;
+      lb_line: string;
+    }>;
+
+    const tarjaIds = [...new Set(lines.map((l) => l.tarja_id).filter((x): x is number => x != null && Number(x) > 0))];
+    const { tagsByTarja, fpByTarja } = await this.loadTarjaProducerMaps(tarjaIds);
+    const fruitProcessIds = [
+      ...new Set(lines.map((l) => l.fruit_process_id).filter((x): x is number => x != null && Number(x) > 0)),
+    ];
+    const producerByFruitProcessId = new Map<number, number>();
+    if (fruitProcessIds.length) {
+      const fpRows = (await this.dataSource.query(
+        `SELECT id, productor_id FROM fruit_processes WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL`,
+        [fruitProcessIds],
+      )) as Array<{ id: number; productor_id: number }>;
+      for (const r of fpRows) producerByFruitProcessId.set(Number(r.id), Number(r.productor_id));
+    }
+    const fpIdsForPallet = [
+      ...new Set(lines.map((l) => l.final_pallet_id).filter((x): x is number => x != null && Number(x) > 0)),
+    ];
+    const palletSlicesByFpId = await this.loadPalletProducerSlices(fpIdsForPallet);
+    const repalletSlicesByResultId = await this.loadRepalletProvenanceProducerSlices(fpIdsForPallet);
+
+    const facturadoByProducer = new Map<number, number>();
+    for (const li of lines) {
+      const lbLine = Number(li.lb_line ?? 0);
+      if (lbLine <= 0) continue;
+      const { slices } = this.settlementSlicesForInvoiceLine(
+        li.tarja_id != null && Number(li.tarja_id) > 0 ? Number(li.tarja_id) : null,
+        li.fruit_process_id != null && Number(li.fruit_process_id) > 0 ? Number(li.fruit_process_id) : null,
+        li.final_pallet_id != null && Number(li.final_pallet_id) > 0 ? Number(li.final_pallet_id) : null,
+        tagsByTarja,
+        fpByTarja,
+        producerByFruitProcessId,
+        palletSlicesByFpId,
+        repalletSlicesByResultId,
+      );
+      for (const s of slices) {
+        if (s.productor_id == null || Number(s.productor_id) <= 0) continue;
+        const pid = Number(s.productor_id);
+        facturadoByProducer.set(pid, (facturadoByProducer.get(pid) ?? 0) + lbLine * s.frac);
+      }
+    }
+    return facturadoByProducer;
+  }
+
   async getMassBalanceByProducer(filter: { desde?: string; hasta?: string }): Promise<{
     producers: Array<{
       productor_id: number;
@@ -2243,27 +2321,7 @@ export class ReportingService {
       recepcionRows.map((r) => [Number(r.producer_id), Number(r.lb_recepcionado ?? 0)]),
     );
 
-    const facturadoRows = (await this.dataSource.query(
-      `
-      SELECT
-        fp.productor_id,
-        SUM(CASE
-          WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
-          THEN BTRIM(ii.pounds::text)::numeric
-          ELSE 0
-        END) as lb_facturado
-      FROM invoice_items ii
-      JOIN invoices inv ON inv.id = ii.invoice_id
-      JOIN dispatches d ON d.id = inv.dispatch_id
-      JOIN fruit_processes fp ON fp.id = ii.fruit_process_id
-      WHERE fp.deleted_at IS NULL
-        ${dateFilter('d.fecha_despacho')}
-      GROUP BY fp.productor_id
-    `,
-    )) as Array<Record<string, unknown>>;
-    const facturadoByProducer = new Map(
-      facturadoRows.map((r) => [Number(r.productor_id), Number(r.lb_facturado ?? 0)]),
-    );
+    const facturadoByProducer = await this.invoicedLbByProducerForMassBalance(filter);
 
     const detalleRows = (await this.dataSource.query(
       `
