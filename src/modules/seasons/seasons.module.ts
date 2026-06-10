@@ -9,6 +9,7 @@ import { FinalChargeImportService } from './final-charge-import.service';
 import { PhysicalBalanceImportService } from './physical-balance-import.service';
 import { LegacyValueAlias, SeasonMassBalance, SeasonSettlementLine } from './legacy.entities';
 import { Season } from './season.entity';
+import { SeasonReadService } from './season-read.service';
 import { SeasonsController } from './seasons.controller';
 import { SeasonsService } from './seasons.service';
 
@@ -28,7 +29,7 @@ import { SeasonsService } from './seasons.service';
     ReportingModule,
   ],
   controllers: [SeasonsController],
-  providers: [SeasonsService, FinalChargeImportService, PhysicalBalanceImportService],
-  exports: [SeasonsService, FinalChargeImportService, PhysicalBalanceImportService],
+  providers: [SeasonsService, SeasonReadService, FinalChargeImportService, PhysicalBalanceImportService],
+  exports: [SeasonsService, SeasonReadService, FinalChargeImportService, PhysicalBalanceImportService],
 })
 export class SeasonsModule {}
