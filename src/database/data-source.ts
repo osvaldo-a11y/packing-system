@@ -50,6 +50,11 @@ import {
   ReportSnapshot,
 } from '../modules/reporting/reporting.entities';
 import { Season } from '../modules/seasons/season.entity';
+import {
+  LegacyValueAlias,
+  SeasonMassBalance,
+  SeasonSettlementLine,
+} from '../modules/seasons/legacy.entities';
 import { PlantSettings } from '../modules/plant/plant.entities';
 import { PrintJob } from '../modules/print-jobs/print-job.entity';
 import { ImportLog } from '../modules/import/import-log.entity';
@@ -128,6 +133,9 @@ const entities = [
   FinishedPtInventory,
   ReportSnapshot,
   Season,
+  LegacyValueAlias,
+  SeasonSettlementLine,
+  SeasonMassBalance,
   PackingCost,
   PackingFormatSurcharge,
   MaterialCostAdjustment,
