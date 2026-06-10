@@ -156,10 +156,6 @@ export class FinalChargeImportService {
       }
 
       const shipDate = parseShipDate(get('ship_date'));
-      if (!shipDate) {
-        errors.push({ row: rowNum, field: 'ship_date', message: `Fecha inválida: "${trimCell(get('ship_date'))}"` });
-        continue;
-      }
 
       const bol = trimCell(get('bol')) || `NO-BOL-${rowNum}`;
       const palletRef = trimCell(get('pallet_ref'));
@@ -172,6 +168,7 @@ export class FinalChargeImportService {
 
       const rowHash = buildSettlementRowHash({
         season_year: year,
+        source_row_no: rowNum,
         bol,
         pallet_ref: palletRef,
         format_raw: formatRaw,
@@ -179,7 +176,9 @@ export class FinalChargeImportService {
         pounds,
       });
 
-      const existing = await this.lineRepo.findOne({ where: { season_year: year, row_hash: rowHash } });
+      const existing =
+        (await this.lineRepo.findOne({ where: { season_year: year, source_row_no: rowNum } })) ??
+        (await this.lineRepo.findOne({ where: { season_year: year, row_hash: rowHash } }));
       const entity = existing ?? this.lineRepo.create();
       const isUpdate = Boolean(existing);
 
@@ -210,6 +209,7 @@ export class FinalChargeImportService {
       entity.notes = trimCell(get('notes')) || null;
       entity.source = 'legacy_final_charge';
       entity.row_hash = rowHash;
+      entity.source_row_no = rowNum;
       entity.excel_row_number = rowNum;
 
       await this.lineRepo.save(entity);

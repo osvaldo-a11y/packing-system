@@ -69,8 +69,8 @@ export class SeasonSettlementLine {
   @Column({ type: 'varchar', length: 80 })
   format_raw: string;
 
-  @Column({ type: 'date' })
-  ship_date: string;
+  @Column({ type: 'date', nullable: true })
+  ship_date: string | null;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
   pick_type: 'hand' | 'machine' | null;
@@ -125,6 +125,10 @@ export class SeasonSettlementLine {
 
   @Column({ type: 'int', nullable: true })
   excel_row_number: number | null;
+
+  /** Índice de fila en el Excel origen (1-based, incl. header = fila 1). */
+  @Column({ type: 'int', nullable: true })
+  source_row_no: number | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

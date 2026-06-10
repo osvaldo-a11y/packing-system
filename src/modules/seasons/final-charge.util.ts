@@ -4,9 +4,10 @@ export function normalizeAliasKey(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toUpperCase();
 }
 
-/** Idempotencia: season_year + bol + pallet + format_raw + boxes + pounds */
+/** Idempotencia: season_year + source_row_no + bol + pallet + format_raw + boxes + pounds */
 export function buildSettlementRowHash(input: {
   season_year: number;
+  source_row_no: number;
   bol: string;
   pallet_ref: string;
   format_raw: string;
@@ -15,6 +16,7 @@ export function buildSettlementRowHash(input: {
 }): string {
   const payload = [
     input.season_year,
+    input.source_row_no,
     input.bol.trim(),
     input.pallet_ref.trim(),
     normalizeAliasKey(input.format_raw),
@@ -26,14 +28,14 @@ export function buildSettlementRowHash(input: {
 
 /** Mapeo flexible de encabezados Final Charge (20 columnas, sección 4.1 ESPEC). */
 export const FINAL_CHARGE_COLUMN_ALIASES: Record<string, string[]> = {
-  producer: ['producer', 'productor', 'grower', 'producer name', 'productor name', 'grower name'],
+  producer: ['growers', 'grower', 'producer', 'productor', 'producer name', 'productor name', 'grower name'],
   brand: ['brand', 'marca'],
   variety: ['variety', 'variedad'],
   format: ['format', 'packing', 'packaging', 'empaque', 'pack size', 'format code', 'packing code'],
   ship_date: ['date shipping', 'fecha despacho', 'ship date', 'shipping date', 'fecha shipping'],
   pick_type: ['type fruits', 'tipo fruta', 'pick type', 'tipo', 'type fruit'],
   bol: ['bol', 'bill of lading', 'b/l', 'bl', 'numero bol'],
-  pallet_ref: ['pallet', 'pallet #', 'pallet no', 'n pallet', 'pallet ref', '# pallet', 'pallet number'],
+  pallet_ref: ['# pallet', 'pallet', 'pallet #', 'pallet no', 'n pallet', 'pallet ref', 'pallet number'],
   boxes: ['boxes', 'cajas', 'qty boxes', 'quantity boxes', 'trays', 'qty'],
   pounds: ['pounds', 'lbs', 'lb', 'pounds net', 'net lb', 'net pounds', 'pounds shipped'],
   revenue: ['revenue', 'sales', 'ventas', 'total sales', 'total revenue', 'sales total'],
@@ -41,8 +43,8 @@ export const FINAL_CHARGE_COLUMN_ALIASES: Record<string, string[]> = {
   pack_fee: ['pack fee', 'packing fee', 'pack fee $', 'tarifa packing', 'packing cost', 'pack fee total'],
   material_cost: ['material cost', 'material cost $', 'costo material', 'materiales', 'materials', 'material'],
   customer: ['customer', 'cliente', 'client', 'customer name'],
-  market: ['market', 'mercado'],
-  unit_price: ['unit price', 'price per box', 'precio unitario', 'price/box', 'price box'],
+  market: ['specie', 'species', 'market', 'mercado'],
+  unit_price: ['price each', 'unit price', 'price per box', 'precio unitario', 'price/box', 'price box'],
   invoice_ref: ['invoice', 'invoice #', 'factura', 'invoice number', 'invoice no'],
   grade: ['grade', 'calidad', 'quality'],
   notes: ['notes', 'notas', 'reference', 'ref', 'comments'],
