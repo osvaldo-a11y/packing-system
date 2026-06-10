@@ -15,10 +15,18 @@ import {
   Truck,
   User,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import {
+  fetchSeasonCompare,
+  fetchSeasonList,
+  fetchSeasonOverview,
+  pickDefaultSeasonYear,
+} from '@/api/seasons';
 import { apiJson, isAccessTokenExpired } from '@/api';
+import { SeasonComparePanel } from '@/components/dashboard/SeasonComparePanel';
+import { SeasonSummaryPanel } from '@/components/dashboard/SeasonSummaryPanel';
 import { useAuth } from '@/AuthContext';
 import { isReadOnlySession } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -709,6 +717,50 @@ export function DashboardPage() {
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
+  const [seasonYear, setSeasonYear] = useState<number | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareYearB, setCompareYearB] = useState<number | null>(null);
+
+  const { data: seasonList } = useQuery({
+    queryKey: ['seasons', 'list'],
+    queryFn: fetchSeasonList,
+    enabled: canLoad,
+    staleTime: 120_000,
+  });
+
+  useEffect(() => {
+    if (!seasonList?.length || seasonYear != null) return;
+    setSeasonYear(pickDefaultSeasonYear(seasonList));
+  }, [seasonList, seasonYear]);
+
+  useEffect(() => {
+    if (!seasonList?.length || seasonYear == null) return;
+    if (compareYearB != null && seasonList.some((s) => s.season_year === compareYearB)) return;
+    const alt = seasonList.find((s) => s.season_year !== seasonYear);
+    if (alt) setCompareYearB(alt.season_year);
+  }, [seasonList, seasonYear, compareYearB]);
+
+  const selectedSeasonMeta = seasonList?.find((s) => s.season_year === seasonYear);
+  const fineTraceability = selectedSeasonMeta?.capabilities.fine_traceability ?? false;
+
+  const { data: seasonOverview, isLoading: seasonOverviewLoading } = useQuery({
+    queryKey: ['seasons', 'overview', seasonYear],
+    queryFn: () => fetchSeasonOverview(seasonYear!),
+    enabled: canLoad && seasonYear != null,
+    staleTime: 120_000,
+  });
+
+  const compareYearsKey =
+    compareMode && seasonYear != null && compareYearB != null
+      ? `${Math.min(seasonYear, compareYearB)},${Math.max(seasonYear, compareYearB)}`
+      : null;
+
+  const { data: seasonCompare, isLoading: seasonCompareLoading } = useQuery({
+    queryKey: ['seasons', 'compare', compareYearsKey],
+    queryFn: () => fetchSeasonCompare(compareYearsKey!),
+    enabled: canLoad && compareYearsKey != null,
+    staleTime: 120_000,
+  });
 
   const range = useMemo(() => periodRange(period), [period]);
   const queryParams = useMemo(() => {
@@ -1427,30 +1479,73 @@ export function DashboardPage() {
       ) : null}
 
       <section className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
-        <div className="flex h-10 flex-nowrap items-center gap-2 overflow-x-auto">
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {[
-              { key: 'today', label: t('dashboard.filters.today') },
-              { key: 'week', label: t('dashboard.filters.week') },
-              { key: 'accumulated', label: t('dashboard.filters.accumulated') },
-            ].map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key as DashboardPeriod)}
-                className={cn(
-                  'h-8 shrink-0 rounded-full border px-2.5 text-xs font-medium transition-colors',
-                  period === p.key
-                    ? 'border-[#1D9E75] bg-[#1D9E75] text-white'
-                    : 'border-border bg-background text-foreground hover:bg-muted/60',
-                )}
-              >
-                {p.label}
-              </button>
+        <div className="flex min-h-10 flex-wrap items-center gap-2 py-1">
+          <select
+            className="h-8 min-w-[7.5rem] rounded-full border border-[#1D9E75] bg-[#E7F7F1] px-3 py-1 text-xs font-medium text-[#0F6E56] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/40"
+            value={seasonYear ?? ''}
+            onChange={(e) => setSeasonYear(Number(e.target.value))}
+            disabled={!seasonList?.length}
+          >
+            {(seasonList ?? []).map((s) => (
+              <option key={s.season_year} value={s.season_year}>
+                {s.label || s.season_year}
+              </option>
             ))}
-          </div>
-          <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+          </select>
+          <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-xs font-medium">
+            <input
+              type="checkbox"
+              className="rounded border-slate-300"
+              checked={compareMode}
+              onChange={(e) => setCompareMode(e.target.checked)}
+            />
+            {t('dashboard.season.compareToggle')}
+          </label>
+          {compareMode ? (
+            <select
+              className="h-8 min-w-[7rem] rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm"
+              value={compareYearB ?? ''}
+              onChange={(e) => setCompareYearB(Number(e.target.value))}
+            >
+              {(seasonList ?? [])
+                .filter((s) => s.season_year !== seasonYear)
+                .map((s) => (
+                  <option key={s.season_year} value={s.season_year}>
+                    {s.label || s.season_year}
+                  </option>
+                ))}
+            </select>
+          ) : null}
+          {fineTraceability ? (
+            <>
+              <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {[
+                  { key: 'today', label: t('dashboard.filters.today') },
+                  { key: 'week', label: t('dashboard.filters.week') },
+                  { key: 'accumulated', label: t('dashboard.filters.accumulated') },
+                ].map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setPeriod(p.key as DashboardPeriod)}
+                    className={cn(
+                      'h-8 shrink-0 rounded-full border px-2.5 text-xs font-medium transition-colors',
+                      period === p.key
+                        ? 'border-[#1D9E75] bg-[#1D9E75] text-white'
+                        : 'border-border bg-background text-foreground hover:bg-muted/60',
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          {fineTraceability ? (
+            <>
+              <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
             <select
               className="h-8 min-w-[8rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[14rem] md:flex-initial"
               value={producerId === 'all' ? 'all' : String(producerId)}
@@ -1484,10 +1579,33 @@ export function DashboardPage() {
               <option value="hand">{t('dashboard.filters.hand')}</option>
               <option value="machine">{t('dashboard.filters.machine')}</option>
             </select>
-          </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </section>
 
+      {!fineTraceability && canLoad && seasonYear != null ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
+          {t('dashboard.season.legacyNotice')}
+        </p>
+      ) : null}
+
+      {compareMode && seasonYear != null && compareYearB != null ? (
+        <SeasonComparePanel
+          yearA={seasonYear}
+          yearB={compareYearB}
+          data={seasonCompare}
+          loading={seasonCompareLoading}
+        />
+      ) : null}
+
+      {!compareMode ? (
+        <SeasonSummaryPanel overview={seasonOverview} loading={seasonOverviewLoading} />
+      ) : null}
+
+      {fineTraceability ? (
+      <>
       <section className="space-y-3">
       <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
@@ -2068,7 +2186,10 @@ export function DashboardPage() {
           )}
         </div>
       </section>
+      </>
+      ) : null}
 
+      {fineTraceability ? (
       <section className="space-y-3">
         <h2 className={sectionTitle}>{t('dashboard.alerts.title')}</h2>
         <div className="space-y-2">
@@ -2120,7 +2241,9 @@ export function DashboardPage() {
           })}
         </div>
       </section>
+      ) : null}
 
+      {fineTraceability ? (
       <section className="space-y-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.quickAccess.title')}</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -2138,7 +2261,9 @@ export function DashboardPage() {
           </Button>
         </div>
       </section>
+      ) : null}
 
+      {fineTraceability ? (
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-medium text-slate-500">{t('dashboard.activity.title')}</h2>
@@ -2162,6 +2287,7 @@ export function DashboardPage() {
           )}
         </div>
       </section>
+      ) : null}
 
       <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
         <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
