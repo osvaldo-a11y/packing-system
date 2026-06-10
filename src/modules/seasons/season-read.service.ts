@@ -325,21 +325,24 @@ export class SeasonReadService {
     const rows = (await this.lineRepo.query(
       `
       SELECT
-        producer_id,
-        producer_raw,
-        COALESCE(SUM(boxes), 0)::numeric AS boxes,
-        COALESCE(SUM(pounds::numeric), 0)::numeric AS pounds,
-        COALESCE(SUM(revenue::numeric), 0)::numeric AS revenue,
-        COALESCE(SUM(grower_return::numeric), 0)::numeric AS grower_return
-      FROM season_settlement_lines
-      WHERE season_year = $1
-      GROUP BY producer_id, producer_raw
-      ORDER BY revenue DESC
+        l.producer_id,
+        MAX(l.producer_raw) AS producer_raw,
+        COALESCE(p.nombre, MAX(l.producer_raw), '') AS producer_name,
+        COALESCE(SUM(l.boxes), 0)::numeric AS boxes,
+        COALESCE(SUM(l.pounds::numeric), 0)::numeric AS pounds,
+        COALESCE(SUM(l.revenue::numeric), 0)::numeric AS revenue,
+        COALESCE(SUM(l.grower_return::numeric), 0)::numeric AS grower_return
+      FROM season_settlement_lines l
+      LEFT JOIN producers p ON p.id = l.producer_id
+      WHERE l.season_year = $1
+      GROUP BY l.producer_id, p.nombre
+      ORDER BY SUM(l.revenue::numeric) DESC
       `,
       [year],
     )) as Array<{
       producer_id: string;
       producer_raw: string;
+      producer_name: string;
       boxes: string;
       pounds: string;
       revenue: string;
@@ -347,8 +350,9 @@ export class SeasonReadService {
     }>;
 
     const by_producer: CommercialProducerRow[] = rows.map((r) => ({
-      producer_id: Number(r.producer_id),
-      producer_name: r.producer_raw,
+      producer_id: r.producer_id != null ? Number(r.producer_id) : null,
+      producer_name: String(r.producer_name ?? ''),
+      producer_raw: r.producer_raw ? String(r.producer_raw) : undefined,
       sales: this.money(r.revenue),
       grower_return: this.money(r.grower_return),
       boxes: this.num(r.boxes),
@@ -365,14 +369,49 @@ export class SeasonReadService {
   }
 
   private async massBalanceFromLegacy(year: number): Promise<MassBalanceOverview> {
-    const rows = await this.massBalanceRepo.find({
-      where: { season_year: year },
-      order: { lb_packout: 'DESC' },
-    });
+    const rows = (await this.massBalanceRepo.query(
+      `
+      SELECT
+        smb.producer_id,
+        COALESCE(p.nombre, smb.producer_name, '') AS producer_name,
+        smb.receptions,
+        smb.lb_received,
+        smb.lb_rejected,
+        smb.lb_for_frozen,
+        smb.lb_frozen_to_frozen,
+        smb.processes,
+        smb.lb_processed,
+        smb.lb_packout,
+        smb.lb_waste,
+        smb.pct_packout,
+        smb.lb_invoiced,
+        smb.difference
+      FROM season_mass_balance smb
+      LEFT JOIN producers p ON p.id = smb.producer_id
+      WHERE smb.season_year = $1
+      ORDER BY smb.lb_packout DESC
+      `,
+      [year],
+    )) as Array<{
+      producer_id: string;
+      producer_name: string;
+      receptions: number;
+      lb_received: string;
+      lb_rejected: string;
+      lb_for_frozen: string;
+      lb_frozen_to_frozen: string;
+      processes: number;
+      lb_processed: string;
+      lb_packout: string;
+      lb_waste: string;
+      pct_packout: string;
+      lb_invoiced: string;
+      difference: string;
+    }>;
 
     const by_producer: MassBalanceProducerRow[] = rows.map((r) => ({
       producer_id: Number(r.producer_id),
-      producer_name: r.producer_name,
+      producer_name: String(r.producer_name ?? ''),
       receptions: r.receptions,
       lb_received: this.lb(r.lb_received),
       lb_rejected: this.lb(r.lb_rejected),

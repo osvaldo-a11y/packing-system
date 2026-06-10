@@ -29,17 +29,17 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
   if (!overview?.commercial || !overview.mass_balance) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-sm text-slate-500">
-        {t('dashboard.season.noData')}
+        {t('reporting.season.noData')}
       </section>
     );
   }
 
   const { commercial, mass_balance: mb } = overview;
   const supportMetrics = [
-    { key: 'boxes', label: t('dashboard.season.boxes'), value: formatBoxes(commercial.boxes), show: commercial.boxes > 0 },
-    { key: 'pounds', label: t('dashboard.season.pounds'), value: `${formatLb(commercial.pounds)} lb`, show: commercial.pounds > 0 },
-    { key: 'rejected', label: t('dashboard.season.rejected'), value: `${formatLb(mb.lb_rejected)} lb`, show: mb.lb_rejected > 0 },
-    { key: 'frozen', label: t('dashboard.season.forFrozen'), value: `${formatLb(mb.lb_for_frozen)} lb`, show: mb.lb_for_frozen > 0 },
+    { key: 'boxes', label: t('reporting.season.boxes'), value: formatBoxes(commercial.boxes), show: commercial.boxes > 0 },
+    { key: 'pounds', label: t('reporting.season.pounds'), value: `${formatLb(commercial.pounds)} lb`, show: commercial.pounds > 0 },
+    { key: 'rejected', label: t('reporting.season.rejected'), value: `${formatLb(mb.lb_rejected)} lb`, show: mb.lb_rejected > 0 },
+    { key: 'frozen', label: t('reporting.season.forFrozen'), value: `${formatLb(mb.lb_for_frozen)} lb`, show: mb.lb_for_frozen > 0 },
   ].filter((m) => m.show);
 
   const rows = commercial.by_producer.map((cp) => {
@@ -58,12 +58,12 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
     <section className="space-y-4">
       <div>
         <h2 className={sectionTitle}>
-          {t('dashboard.season.summaryTitle', { year: overview.season_year })}
+          {t('reporting.season.summaryTitle', { year: overview.season_year })}
         </h2>
         <p className={sectionHint}>
           {overview.source === 'snapshot'
-            ? t('dashboard.season.sourceSnapshot')
-            : t('dashboard.season.sourceLegacy')}
+            ? t('reporting.season.sourceSnapshot')
+            : t('reporting.season.sourceLegacy')}
           {overview.commercial_field_notes ? ` · ${overview.commercial_field_notes}` : ''}
         </p>
       </div>
@@ -73,7 +73,7 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
           <div className="flex items-center gap-2 text-[#0F6E56]">
             <DollarSign className="h-4 w-4" />
             <span className="text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
-              {t('dashboard.season.sales')}
+              {t('reporting.season.sales')}
             </span>
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-[#0F6E56] sm:text-3xl">
@@ -84,29 +84,29 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
           <div className="flex items-center gap-2 text-[#0F6E56]">
             <TrendingUp className="h-4 w-4" />
             <span className="text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
-              {t('dashboard.season.growerReturn')}
+              {t('reporting.season.growerReturn')}
             </span>
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-[#0F6E56] sm:text-3xl">
             {formatMoney(commercial.grower_return)}
           </p>
           {commercial.producer_net != null && overview.source === 'snapshot' ? (
-            <p className="mt-1 text-[10px] text-[#0F6E56]/80">{t('dashboard.season.producerNetNote')}</p>
+            <p className="mt-1 text-[10px] text-[#0F6E56]/80">{t('reporting.season.producerNetNote')}</p>
           ) : null}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.season.packout')}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reporting.season.packout')}</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{formatLb(mb.lb_packout)} lb</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.season.waste')}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reporting.season.waste')}</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{formatLb(mb.lb_waste)} lb</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.season.pctPackout')}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reporting.season.pctPackout')}</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{mb.pct_packout.toFixed(1)}%</p>
         </div>
       </div>
@@ -127,10 +127,10 @@ export function SeasonSummaryPanel({ overview, loading }: Props) {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className={tableHeaderRow}>
-                <th className="px-4 py-3 font-medium text-slate-500">{t('dashboard.season.colProducer')}</th>
-                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('dashboard.season.colSales')}</th>
-                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('dashboard.season.colGrower')}</th>
-                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('dashboard.season.colPackout')}</th>
+                <th className="px-4 py-3 font-medium text-slate-500">{t('reporting.season.colProducer')}</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('reporting.season.colSales')}</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('reporting.season.colGrower')}</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">{t('reporting.season.colPackout')}</th>
                 <th className="px-4 py-3 text-right font-medium text-slate-500">% pkout</th>
               </tr>
             </thead>

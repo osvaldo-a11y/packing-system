@@ -2651,8 +2651,36 @@
     "tabs": {
       "operacion": { "label": "Operations", "subtitle": "What happened today? End of day first; shift KPIs; period at the end.", "excelHint": "In Documents you can export the full workbook with the same filters." },
       "decision":  { "label": "Decision",   "subtitle": "What should I produce? RM context and simulation — no financial report filters; settlement from Close.", "excelHint": "In Documents you can export the full workbook with the same filters." },
+      "temporadas": { "label": "Seasons", "subtitle": "Multi-year season summary and comparison; daily operational detail stays on the Dashboard.", "excelHint": "Compare two seasons with the Compare toggle." },
       "cierre":    { "label": "Close",      "subtitle": "How much did each producer earn? Settlement, packing by species and traceability.", "excelHint": "Export ALL (Excel) and PDF from the Documents tab." },
       "documentos":{ "label": "Documents",  "subtitle": "Mass balance by producer and unified Excel.", "excelHint": "Pick dates and download Excel per producer or all." }
+    },
+    "season": {
+      "compareToggle": "Compare",
+      "legacyNotice": "Daily detail is not available for prior seasons. Season summary and comparison are still available.",
+      "summaryTitle": "Season {{year}} summary",
+      "sourceSnapshot": "Source: signed snapshot",
+      "sourceLegacy": "Source: imported legacy layer",
+      "producerNetNote": "Producer net (target price, after costs)",
+      "sales": "Sales",
+      "growerReturn": "Grower return",
+      "packout": "Packout",
+      "waste": "Waste",
+      "pctPackout": "% Packout",
+      "boxes": "Boxes",
+      "pounds": "Commercial pounds",
+      "rejected": "Reception reject",
+      "forFrozen": "For frozen",
+      "colProducer": "Producer",
+      "colSales": "Sales",
+      "colGrower": "Return",
+      "colPackout": "Packout (lb)",
+      "noData": "No summary data for this season.",
+      "compareTitle": "Comparison {{yearA}} vs {{yearB}}",
+      "compareHint": "Bars by producer — dollar metrics first.",
+      "compareSales": "Sales by producer",
+      "compareGrower": "Return by producer",
+      "compareNoData": "No data to compare these seasons."
     },
     "operacion": {
       "kpisHint": "Daily KPIs (packed, cold-storage, shipped and RM in process) just below the end-of-day for the operative date."

@@ -19,6 +19,7 @@ export type SeasonListItem = {
 export type CommercialProducerRow = {
   producer_id: number | null;
   producer_name: string;
+  producer_raw?: string;
   sales: number;
   grower_return: number;
   producer_net?: number;

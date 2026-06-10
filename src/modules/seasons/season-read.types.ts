@@ -11,6 +11,8 @@ export type SeasonCapabilities = {
 export type CommercialProducerRow = {
   producer_id: number | null;
   producer_name: string;
+  /** Texto importado (auditoría); no usar para agrupar ni mostrar. */
+  producer_raw?: string;
   sales: number;
   /** Legacy Final Charge: grower_return. Snapshot 2026: mapeado desde producer_net (neto tras costos). */
   grower_return: number;

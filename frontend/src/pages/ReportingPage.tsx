@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BarChart2,
+  CalendarRange,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -61,6 +62,7 @@ import {
 import { cn } from '@/lib/utils';
 import { EodPlanningSection } from '@/components/reporting/EodPlanningSection';
 import { MassBalanceBlock } from '@/components/reporting/MassBalanceBlock';
+import { SeasonReportingSection } from '@/components/reporting/SeasonReportingSection';
 import { ReportSemanticBlock } from '@/components/reporting/ReportSemanticBlock';
 
 type ReportFilters = {
@@ -245,12 +247,13 @@ interface MaterialPriceTarget {
   created_at: string;
 }
 
-type ReportModuleTab = 'operacion' | 'decision' | 'cierre' | 'documentos';
+type ReportModuleTab = 'operacion' | 'decision' | 'cierre' | 'documentos' | 'temporadas';
 
 function getReportModuleTabs(t: (k: string) => string) {
   return [
     { id: 'operacion' as const, label: t('reporting.tabs.operacion.label'), subtitle: t('reporting.tabs.operacion.subtitle'), excelCtaHint: t('reporting.tabs.operacion.excelHint') },
     { id: 'decision' as const, label: t('reporting.tabs.decision.label'), subtitle: t('reporting.tabs.decision.subtitle'), excelCtaHint: t('reporting.tabs.decision.excelHint') },
+    { id: 'temporadas' as const, label: t('reporting.tabs.temporadas.label'), subtitle: t('reporting.tabs.temporadas.subtitle'), excelCtaHint: t('reporting.tabs.temporadas.excelHint') },
     { id: 'cierre' as const, label: t('reporting.tabs.cierre.label'), subtitle: t('reporting.tabs.cierre.subtitle'), excelCtaHint: t('reporting.tabs.cierre.excelHint') },
     { id: 'documentos' as const, label: t('reporting.tabs.documentos.label'), subtitle: t('reporting.tabs.documentos.subtitle'), excelCtaHint: t('reporting.tabs.documentos.excelHint') },
   ] as const;
@@ -3646,6 +3649,7 @@ export function ReportingPage() {
           const icons: Record<string, ReactNode> = {
             operacion: <BarChart2 className="h-3.5 w-3.5" aria-hidden />,
             decision: <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />,
+            temporadas: <CalendarRange className="h-3.5 w-3.5" aria-hidden />,
             cierre: <Layers className="h-3.5 w-3.5" aria-hidden />,
             documentos: <FileText className="h-3.5 w-3.5" aria-hidden />,
           };
@@ -4655,6 +4659,8 @@ export function ReportingPage() {
           {reportTab === 'decision' ? (
             <EodPlanningSection showCommercialOffer showDailyPlanningKpis={false} showFinDelDia={false} />
           ) : null}
+
+          {reportTab === 'temporadas' ? <SeasonReportingSection /> : null}
 
           {reportTab === 'cierre' && reportData ? (
             <div className="space-y-5">

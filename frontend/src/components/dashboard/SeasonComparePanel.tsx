@@ -14,6 +14,7 @@ type Props = {
 };
 
 type ProducerCompareRow = {
+  producerId: number | null;
   name: string;
   salesA: number;
   salesB: number;
@@ -21,15 +22,17 @@ type ProducerCompareRow = {
   growerB: number;
 };
 
-function normName(name: string) {
-  return name.trim().toUpperCase();
+function producerMergeKey(producerId: number | null, producerName: string): string {
+  if (producerId != null && Number.isFinite(producerId)) return `id:${producerId}`;
+  return `name:${producerName.trim().toUpperCase()}`;
 }
 
 function buildProducerRows(a: SeasonOverview, b: SeasonOverview): ProducerCompareRow[] {
   const map = new Map<string, ProducerCompareRow>();
   for (const p of a.commercial?.by_producer ?? []) {
-    const key = normName(p.producer_name);
+    const key = producerMergeKey(p.producer_id, p.producer_name);
     map.set(key, {
+      producerId: p.producer_id,
       name: p.producer_name,
       salesA: p.sales,
       salesB: 0,
@@ -38,14 +41,16 @@ function buildProducerRows(a: SeasonOverview, b: SeasonOverview): ProducerCompar
     });
   }
   for (const p of b.commercial?.by_producer ?? []) {
-    const key = normName(p.producer_name);
+    const key = producerMergeKey(p.producer_id, p.producer_name);
     const row = map.get(key) ?? {
+      producerId: p.producer_id,
       name: p.producer_name,
       salesA: 0,
       salesB: 0,
       growerA: 0,
       growerB: 0,
     };
+    row.name = p.producer_name || row.name;
     row.salesB = p.sales;
     row.growerB = p.grower_return;
     map.set(key, row);
@@ -81,7 +86,7 @@ function CompareBars({
         const pctA = (valA / max) * 100;
         const pctB = (valB / max) * 100;
         return (
-          <div key={`${r.name}-${field}`} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+          <div key={`${r.producerId ?? r.name}-${field}`} className="rounded-xl border border-slate-100 bg-white px-3 py-2.5">
             <p className="mb-2 truncate text-sm font-medium text-slate-800">{r.name}</p>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -139,7 +144,7 @@ export function SeasonComparePanel({ yearA, yearB, data, loading }: Props) {
 
   if (!overviewA || !overviewB) {
     return (
-      <p className="text-sm text-slate-500">{t('dashboard.season.compareNoData')}</p>
+      <p className="text-sm text-slate-500">{t('reporting.season.compareNoData')}</p>
     );
   }
 
@@ -148,14 +153,14 @@ export function SeasonComparePanel({ yearA, yearB, data, loading }: Props) {
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
       <div>
-        <h2 className={sectionTitle}>{t('dashboard.season.compareTitle', { yearA, yearB })}</h2>
-        <p className={sectionHint}>{t('dashboard.season.compareHint')}</p>
+        <h2 className={sectionTitle}>{t('reporting.season.compareTitle', { yearA, yearB })}</h2>
+        <p className={sectionHint}>{t('reporting.season.compareHint')}</p>
       </div>
 
       {variation ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-[#A6E6D3] bg-white p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Δ {t('dashboard.season.sales')}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Δ {t('reporting.season.sales')}</p>
             <p className={cn('mt-1 text-lg font-bold tabular-nums', variation.sales_delta >= 0 ? 'text-[#0F6E56]' : 'text-red-700')}>
               {deltaSign(variation.sales_delta)}
               {formatMoney(variation.sales_delta)} ({deltaSign(variation.sales_delta_pct)}
@@ -163,7 +168,7 @@ export function SeasonComparePanel({ yearA, yearB, data, loading }: Props) {
             </p>
           </div>
           <div className="rounded-xl border border-[#A6E6D3] bg-white p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Δ {t('dashboard.season.growerReturn')}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Δ {t('reporting.season.growerReturn')}</p>
             <p className={cn('mt-1 text-lg font-bold tabular-nums', variation.grower_return_delta >= 0 ? 'text-[#0F6E56]' : 'text-red-700')}>
               {deltaSign(variation.grower_return_delta)}
               {formatMoney(variation.grower_return_delta)} ({deltaSign(variation.grower_return_delta_pct)}
@@ -174,12 +179,12 @@ export function SeasonComparePanel({ yearA, yearB, data, loading }: Props) {
       ) : null}
 
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.season.compareSales')}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reporting.season.compareSales')}</h3>
         <CompareBars rows={rows} yearA={yearA} yearB={yearB} field="sales" formatValue={formatMoney} />
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('dashboard.season.compareGrower')}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reporting.season.compareGrower')}</h3>
         <CompareBars rows={rows} yearA={yearA} yearB={yearB} field="grower" formatValue={formatMoney} />
       </div>
     </section>
