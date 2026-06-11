@@ -134,6 +134,134 @@ export class SeasonSettlementLine {
   created_at: Date;
 }
 
+/** Línea de recepción histórica con fecha (Base B/C). */
+@Entity('season_reception_lines')
+export class SeasonReceptionLine {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
+
+  @Column({ type: 'int' })
+  season_year: number;
+
+  @Column({ type: 'bigint' })
+  producer_id: number;
+
+  @Column({ type: 'varchar', length: 200 })
+  producer_raw: string;
+
+  @Column({ type: 'date' })
+  reception_date: string;
+
+  @Column({ type: 'varchar', length: 20 })
+  quality: 'FRESH' | 'WASTE' | 'FOR_FROZEN';
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  specie: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  variety: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  incoming_no: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  line_no: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  reference: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  trays: number | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4, nullable: true })
+  quantity: string | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4 })
+  net_lb: string;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4, nullable: true })
+  gross_lb: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  fruit_type: 'hand' | 'machine' | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'legacy_assembled' })
+  source: string;
+
+  @Column({ type: 'varchar', length: 64 })
+  row_hash: string;
+
+  @Column({ type: 'int' })
+  source_row_no: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
+}
+
+/** Línea de proceso histórica con fecha (Base B/C). */
+@Entity('season_process_lines')
+export class SeasonProcessLine {
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id: number;
+
+  @Column({ type: 'int' })
+  season_year: number;
+
+  @Column({ type: 'bigint' })
+  producer_id: number;
+
+  @Column({ type: 'varchar', length: 200 })
+  producer_raw: string;
+
+  @Column({ type: 'date' })
+  process_date: string;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  op: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  specie: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  variety: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  format_code: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  format_raw: string | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4, nullable: true })
+  lb_domp: string | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4, default: 0 })
+  lb_fresh: string;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4, default: 0 })
+  lb_waste: string;
+
+  @Column({ type: 'decimal', precision: 14, scale: 4 })
+  lb_total: string;
+
+  @Column({ type: 'int', nullable: true })
+  boxes: number | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  fruit_type: 'hand' | 'machine' | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'legacy_assembled' })
+  source: string;
+
+  @Column({ type: 'varchar', length: 64 })
+  row_hash: string;
+
+  @Column({ type: 'int' })
+  source_row_no: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
+}
+
 /** Capa física por productor — se puebla en fase posterior (loader físico). */
 @Entity('season_mass_balance')
 export class SeasonMassBalance {

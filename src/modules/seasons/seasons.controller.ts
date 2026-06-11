@@ -10,11 +10,12 @@ import {
   Req,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -23,6 +24,7 @@ import { ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinalChargeImportService } from './final-charge-import.service';
 import { PhysicalBalanceImportService } from './physical-balance-import.service';
+import { PhysicalLinesImportService } from './physical-lines-import.service';
 import { SeasonExportService } from './season-export.service';
 import { SeasonReadService } from './season-read.service';
 import { GenerateSeasonSnapshotDto } from './seasons.dto';
@@ -42,6 +44,7 @@ export class SeasonsController {
     private readonly seasonExport: SeasonExportService,
     private readonly finalChargeImport: FinalChargeImportService,
     private readonly physicalBalanceImport: PhysicalBalanceImportService,
+    private readonly physicalLinesImport: PhysicalLinesImportService,
   ) {}
 
   @Get()
@@ -136,6 +139,50 @@ export class SeasonsController {
   @Get(':year/mass-balance/summary')
   getMassBalanceSummary(@Param('year', ParseIntPipe) year: number) {
     return this.physicalBalanceImport.getMassBalanceSummary(year);
+  }
+
+  @Get(':year/physical-lines/verify')
+  verifyPhysicalLines(@Param('year', ParseIntPipe) year: number) {
+    return this.physicalLinesImport.verifyAgainstMassBalance(year);
+  }
+
+  @Post(':year/import/physical-lines')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'receptions', maxCount: 1 },
+        { name: 'processes', maxCount: 1 },
+      ],
+      { limits: { fileSize: 25 * 1024 * 1024 } },
+    ),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        receptions: { type: 'string', format: 'binary' },
+        processes: { type: 'string', format: 'binary' },
+      },
+      required: ['receptions', 'processes'],
+    },
+  })
+  importPhysicalLines(
+    @Param('year', ParseIntPipe) year: number,
+    @UploadedFiles()
+    files: {
+      receptions?: Array<{ buffer: Buffer }>;
+      processes?: Array<{ buffer: Buffer }>;
+    },
+    @Req() req: JwtRequest,
+  ) {
+    const receptions = files.receptions?.[0]?.buffer;
+    const processes = files.processes?.[0]?.buffer;
+    if (!receptions?.length || !processes?.length) {
+      throw new BadRequestException('Adjunte recepciones y procesos en los campos receptions y processes');
+    }
+    const username = req.user?.username?.trim() || 'unknown';
+    return this.physicalLinesImport.importPhysicalLines(year, receptions, processes, username);
   }
 
   @Post(':year/import/final-charge')

@@ -53,6 +53,8 @@ import { Season } from '../modules/seasons/season.entity';
 import {
   LegacyValueAlias,
   SeasonMassBalance,
+  SeasonProcessLine,
+  SeasonReceptionLine,
   SeasonSettlementLine,
 } from '../modules/seasons/legacy.entities';
 import { PlantSettings } from '../modules/plant/plant.entities';
@@ -136,6 +138,8 @@ const entities = [
   LegacyValueAlias,
   SeasonSettlementLine,
   SeasonMassBalance,
+  SeasonReceptionLine,
+  SeasonProcessLine,
   PackingCost,
   PackingFormatSurcharge,
   MaterialCostAdjustment,

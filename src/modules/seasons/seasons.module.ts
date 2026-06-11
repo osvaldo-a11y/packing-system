@@ -7,7 +7,14 @@ import { Brand } from '../traceability/operational.entities';
 import { Producer, Variety } from '../traceability/traceability.entities';
 import { FinalChargeImportService } from './final-charge-import.service';
 import { PhysicalBalanceImportService } from './physical-balance-import.service';
-import { LegacyValueAlias, SeasonMassBalance, SeasonSettlementLine } from './legacy.entities';
+import { PhysicalLinesImportService } from './physical-lines-import.service';
+import {
+  LegacyValueAlias,
+  SeasonMassBalance,
+  SeasonProcessLine,
+  SeasonReceptionLine,
+  SeasonSettlementLine,
+} from './legacy.entities';
 import { Season } from './season.entity';
 import { SeasonExportService } from './season-export.service';
 import { SeasonReadService } from './season-read.service';
@@ -22,6 +29,8 @@ import { SeasonsService } from './seasons.service';
       LegacyValueAlias,
       SeasonSettlementLine,
       SeasonMassBalance,
+      SeasonReceptionLine,
+      SeasonProcessLine,
       Producer,
       Brand,
       Variety,
@@ -36,6 +45,7 @@ import { SeasonsService } from './seasons.service';
     SeasonExportService,
     FinalChargeImportService,
     PhysicalBalanceImportService,
+    PhysicalLinesImportService,
   ],
   exports: [
     SeasonsService,
@@ -43,6 +53,7 @@ import { SeasonsService } from './seasons.service';
     SeasonExportService,
     FinalChargeImportService,
     PhysicalBalanceImportService,
+    PhysicalLinesImportService,
   ],
 })
 export class SeasonsModule {}
