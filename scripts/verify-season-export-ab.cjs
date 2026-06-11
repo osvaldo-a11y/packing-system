@@ -11,6 +11,8 @@ const path = require('node:path');
 const TARGETS = {
   2025: {
     sales: 4556301.38,
+    material: 463998.0,
+    pack_fee: 651608.06,
     grower_return: 3440695.32,
     boxes: 143600,
     packout: 1354617.6,
@@ -18,7 +20,13 @@ const TARGETS = {
     process_lines: 151,
     sales_lines: 1227,
   },
+  2024: {
+    material: 458652.0,
+    pack_fee: 705145.65,
+  },
   2023: {
+    material: 390752.45,
+    pack_fee: 567455.73,
     reception_lines: 275,
     process_lines: 176,
     pinebloom_for_frozen_min: 80000,
@@ -53,7 +61,7 @@ function countDataRows(sheet) {
     fs.mkdirSync(outDir, { recursive: true });
 
     for (const lang of ['es', 'en']) {
-      for (const year of [2025, 2023]) {
+      for (const year of [2025, 2024, 2023]) {
         const { buffer, filename } = await svc.buildFullXlsx(year, lang);
         const fp = path.join(outDir, filename);
         fs.writeFileSync(fp, buffer);
@@ -75,22 +83,28 @@ function countDataRows(sheet) {
           sales_rows: sales ? countDataRows(sales) : 0,
         };
 
-        if (year === 2025 && summary) {
+        if (summary && TARGETS[year]?.material != null) {
           const totalRow = summary.lastRow;
           const sales = Number(totalRow?.getCell(2).value ?? 0);
-          const ret = Number(totalRow?.getCell(3).value ?? 0);
-          const boxes = Number(totalRow?.getCell(4).value ?? 0);
-          const packout = Number(totalRow?.getCell(8).value ?? 0);
-          const t = TARGETS[2025];
-          info.totals = { sales, ret, boxes, packout };
+          const material = Number(totalRow?.getCell(3).value ?? 0);
+          const packFee = Number(totalRow?.getCell(4).value ?? 0);
+          const ret = Number(totalRow?.getCell(5).value ?? 0);
+          const boxes = Number(totalRow?.getCell(6).value ?? 0);
+          const packout = Number(totalRow?.getCell(10).value ?? 0);
+          const t = TARGETS[year];
+          const breakdownOk = close(ret, sales - material - packFee, 0.25);
+          info.totals = { sales, material, pack_fee: packFee, ret, boxes, packout, breakdown_ok: breakdownOk };
           info.match =
-            close(sales, t.sales) &&
-            close(ret, t.grower_return) &&
-            boxes === t.boxes &&
-            close(packout, t.packout) &&
-            info.reception_rows === t.reception_lines &&
-            info.process_rows === t.process_lines &&
-            info.sales_rows === t.sales_lines;
+            close(sales, t.sales ?? sales) &&
+            close(material, t.material, 0.1) &&
+            close(packFee, t.pack_fee, 0.1) &&
+            close(ret, t.grower_return ?? ret) &&
+            breakdownOk &&
+            (t.boxes == null || boxes === t.boxes) &&
+            (t.packout == null || close(packout, t.packout)) &&
+            (t.reception_lines == null || info.reception_rows === t.reception_lines) &&
+            (t.process_lines == null || info.process_rows === t.process_lines) &&
+            (t.sales_lines == null || info.sales_rows === t.sales_lines);
         }
 
         if (year === 2023 && reception) {
@@ -104,10 +118,11 @@ function countDataRows(sheet) {
             }
           });
           info.pinebloom_for_frozen_lb = pineFrozen;
-          info.match =
+          const pineOk =
             info.reception_rows === TARGETS[2023].reception_lines &&
             info.process_rows === TARGETS[2023].process_lines &&
             pineFrozen >= TARGETS[2023].pinebloom_for_frozen_min;
+          info.match = (info.match ?? true) && pineOk;
         }
 
         console.log(JSON.stringify(info, null, 2));

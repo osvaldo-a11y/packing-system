@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   downloadSeasonFullXlsx,
-  downloadSeasonMassBalanceXlsx,
   downloadSeasonSummaryPdf,
   downloadSeasonSettlementXlsx,
   fetchSeasonCompare,
@@ -74,15 +73,12 @@ export function SeasonReportingSection() {
     staleTime: 120_000,
   });
 
-  const runExport = async (
-    kind: 'full-xlsx' | 'settlement-xlsx' | 'mass-xlsx' | 'summary-pdf',
-  ) => {
+  const runExport = async (kind: 'full-xlsx' | 'settlement-xlsx' | 'summary-pdf') => {
     if (seasonYear == null) return;
     setExporting(kind);
     try {
       if (kind === 'full-xlsx') await downloadSeasonFullXlsx(seasonYear, exportLang);
       else if (kind === 'settlement-xlsx') await downloadSeasonSettlementXlsx(seasonYear, exportLang);
-      else if (kind === 'mass-xlsx') await downloadSeasonMassBalanceXlsx(seasonYear, exportLang);
       else await downloadSeasonSummaryPdf(seasonYear, exportLang);
       toast.success(tr('exportDone'));
     } catch (e) {
@@ -176,17 +172,6 @@ export function SeasonReportingSection() {
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
             {exporting === 'settlement-xlsx' ? tr('exporting') : tr('exportSettlementXlsx')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            disabled={exporting != null || !selectedSeasonMeta?.capabilities.mass_balance}
-            onClick={() => void runExport('mass-xlsx')}
-          >
-            <Download className="h-3.5 w-3.5" />
-            {exporting === 'mass-xlsx' ? tr('exporting') : tr('exportMassXlsx')}
           </Button>
           <Button
             type="button"

@@ -89,18 +89,22 @@ export class SeasonExportService {
     doc.moveDown(0.35);
 
     const summaryCols = [
-      { w: 0.22, header: T.cols.producer, align: 'left' as const },
-      { w: 0.1, header: T.cols.sales, align: 'right' as const },
-      { w: 0.1, header: T.cols.growerReturn, align: 'right' as const },
-      { w: 0.08, header: T.cols.boxes, align: 'right' as const },
-      { w: 0.1, header: T.cols.pounds, align: 'right' as const },
-      { w: 0.1, header: T.cols.packout, align: 'right' as const },
-      { w: 0.08, header: T.cols.pctPackout, align: 'right' as const },
+      { w: 0.15, header: T.cols.producer, align: 'left' as const },
+      { w: 0.09, header: T.cols.sales, align: 'right' as const },
+      { w: 0.09, header: T.cols.material, align: 'right' as const },
+      { w: 0.09, header: T.cols.packFee, align: 'right' as const },
+      { w: 0.09, header: T.cols.growerReturn, align: 'right' as const },
+      { w: 0.07, header: T.cols.boxes, align: 'right' as const },
+      { w: 0.08, header: T.cols.pounds, align: 'right' as const },
+      { w: 0.08, header: T.cols.packout, align: 'right' as const },
+      { w: 0.07, header: T.cols.pctPackout, align: 'right' as const },
     ];
 
     const physById = new Map(mb.by_producer.map((p) => [p.producer_id, p]));
     const body: string[][] = [];
     let tSales = 0;
+    let tMaterial = 0;
+    let tPackFee = 0;
     let tReturn = 0;
     let tBoxes = 0;
     let tLb = 0;
@@ -109,13 +113,17 @@ export class SeasonExportService {
     for (const cp of commercial.by_producer) {
       const phys = cp.producer_id != null ? physById.get(cp.producer_id) : undefined;
       tSales += cp.sales;
+      tMaterial += cp.material_cost;
+      tPackFee += cp.pack_fee;
       tReturn += cp.grower_return;
       tBoxes += cp.boxes;
       tLb += cp.pounds;
       tPackout += phys?.lb_packout ?? 0;
       body.push([
-        ExportPdfLayout.clip(cp.producer_name, 28),
+        ExportPdfLayout.clip(cp.producer_name, 24),
         ExportPdfLayout.moneyUsd(cp.sales),
+        ExportPdfLayout.moneyUsd(cp.material_cost),
+        ExportPdfLayout.moneyUsd(cp.pack_fee),
         ExportPdfLayout.moneyUsd(cp.grower_return),
         ExportPdfLayout.qty(cp.boxes),
         ExportPdfLayout.qty(cp.pounds),
@@ -127,6 +135,8 @@ export class SeasonExportService {
     const totalRow = [
       T.pdf.total,
       ExportPdfLayout.moneyUsd(tSales),
+      ExportPdfLayout.moneyUsd(tMaterial),
+      ExportPdfLayout.moneyUsd(tPackFee),
       ExportPdfLayout.moneyUsd(tReturn),
       ExportPdfLayout.qty(tBoxes),
       ExportPdfLayout.qty(tLb),
@@ -173,23 +183,43 @@ export class SeasonExportService {
     this.sheetInfo(wb, overview, year, lang, this.formatEmission(lang));
 
     const summary = wb.addWorksheet(T.sheets.summary);
-    const returnLabel =
-      overview.source === 'snapshot' || overview.source === 'live' ? T.cols.growerReturn : T.cols.growerReturn;
-    const sumHeaders = [T.cols.producer, T.cols.boxes, T.cols.pounds, T.cols.sales, returnLabel];
+    const sumHeaders = [
+      T.cols.producer,
+      T.cols.boxes,
+      T.cols.pounds,
+      T.cols.sales,
+      T.cols.material,
+      T.cols.packFee,
+      T.cols.growerReturn,
+    ];
     this.styleHeaderRow(summary.addRow(sumHeaders));
     let tBoxes = 0;
     let tLb = 0;
     let tSales = 0;
+    let tMaterial = 0;
+    let tPackFee = 0;
     let tReturn = 0;
     for (const p of commercial.by_producer) {
-      summary.addRow([p.producer_name, p.boxes, p.pounds, p.sales, p.grower_return]);
+      summary.addRow([
+        p.producer_name,
+        p.boxes,
+        p.pounds,
+        p.sales,
+        p.material_cost,
+        p.pack_fee,
+        p.grower_return,
+      ]);
       tBoxes += p.boxes;
       tLb += p.pounds;
       tSales += p.sales;
+      tMaterial += p.material_cost;
+      tPackFee += p.pack_fee;
       tReturn += p.grower_return;
     }
-    this.styleTotalRow(summary.addRow([T.pdf.total, tBoxes, tLb, tSales, tReturn]));
-    this.applyMoneyFmt(summary, [4, 5]);
+    this.styleTotalRow(
+      summary.addRow([T.pdf.total, tBoxes, tLb, tSales, tMaterial, tPackFee, tReturn]),
+    );
+    this.applyMoneyFmt(summary, [4, 5, 6, 7]);
     this.applyLbFmt(summary, 3);
     summary.getColumn(1).width = 28;
 
@@ -301,6 +331,9 @@ export class SeasonExportService {
     const info = wb.addWorksheet(T.sheets.info);
     info.addRow([T.info.disclaimer]);
     info.addRow([this.sourceLabel(overview.source, year, lang)]);
+    if (overview.source === 'snapshot' || overview.source === 'live') {
+      info.addRow([T.info.packFeeSnapshotNote]);
+    }
     info.addRow([`${T.info.season} ${year}`]);
     info.addRow([`${T.info.generated}: ${emission}`]);
     info.getColumn(1).width = 90;
@@ -314,6 +347,8 @@ export class SeasonExportService {
     const headers = [
       T.cols.producer,
       T.cols.sales,
+      T.cols.material,
+      T.cols.packFee,
       T.cols.growerReturn,
       T.cols.boxes,
       T.cols.pounds,
@@ -330,6 +365,8 @@ export class SeasonExportService {
     const physById = new Map(mb.by_producer.map((p) => [p.producer_id, p]));
     const seen = new Set<number | string>();
     let tSales = 0;
+    let tMaterial = 0;
+    let tPackFee = 0;
     let tReturn = 0;
     let tBoxes = 0;
     let tLb = 0;
@@ -347,6 +384,8 @@ export class SeasonExportService {
       sheet.addRow([
         cp.producer_name,
         cp.sales,
+        cp.material_cost,
+        cp.pack_fee,
         cp.grower_return,
         cp.boxes,
         cp.pounds,
@@ -359,6 +398,8 @@ export class SeasonExportService {
         phys?.lb_for_frozen ?? 0,
       ]);
       tSales += cp.sales;
+      tMaterial += cp.material_cost;
+      tPackFee += cp.pack_fee;
       tReturn += cp.grower_return;
       tBoxes += cp.boxes;
       tLb += cp.pounds;
@@ -374,6 +415,8 @@ export class SeasonExportService {
       if (seen.has(phys.producer_id)) continue;
       sheet.addRow([
         phys.producer_name,
+        0,
+        0,
         0,
         0,
         0,
@@ -398,6 +441,8 @@ export class SeasonExportService {
       sheet.addRow([
         T.pdf.total,
         tSales,
+        tMaterial,
+        tPackFee,
         tReturn,
         tBoxes,
         tLb,
@@ -410,8 +455,8 @@ export class SeasonExportService {
         tFrozen,
       ]),
     );
-    this.applyMoneyFmt(sheet, [2, 3]);
-    this.applyLbFmt(sheet, [5, 6, 7, 8, 9, 11, 12]);
+    this.applyMoneyFmt(sheet, [2, 3, 4, 5]);
+    this.applyLbFmt(sheet, [7, 8, 9, 10, 11, 13, 14]);
     sheet.getColumn(1).width = 28;
   }
 

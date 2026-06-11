@@ -429,6 +429,8 @@ export class SeasonReadService {
         producer_id: p.producer_id != null ? Number(p.producer_id) : null,
         producer_name: String(p.producer_name ?? ''),
         sales: this.money(p.sales),
+        material_cost: this.money(p.material_cost),
+        pack_fee: this.money(p.total_packing),
         grower_return: producerNet,
         producer_net: producerNet,
         boxes: this.num(p.boxes),
@@ -440,6 +442,10 @@ export class SeasonReadService {
 
     return {
       sales: this.money(total.sales ?? by_producer.reduce((s, r) => s + r.sales, 0)),
+      material_cost: this.money(
+        total.material_cost ?? by_producer.reduce((s, r) => s + r.material_cost, 0),
+      ),
+      pack_fee: this.money(total.total_packing ?? by_producer.reduce((s, r) => s + r.pack_fee, 0)),
       grower_return: producerNetTotal,
       producer_net: producerNetTotal,
       boxes: this.num(total.boxes ?? by_producer.reduce((s, r) => s + r.boxes, 0)),
@@ -502,6 +508,8 @@ export class SeasonReadService {
           producer_id: r.productor_id != null ? Number(r.productor_id) : null,
           producer_name: String(r.productor_nombre ?? ''),
           sales: this.money(r.ventas),
+          material_cost: this.money(r.costo_materiales),
+          pack_fee: this.money(r.total_packing),
           grower_return: producerNet,
           producer_net: producerNet,
           boxes: this.num(r.cajas),
@@ -513,6 +521,8 @@ export class SeasonReadService {
 
     return {
       sales: this.money(by_producer.reduce((s, r) => s + r.sales, 0)),
+      material_cost: this.money(by_producer.reduce((s, r) => s + r.material_cost, 0)),
+      pack_fee: this.money(by_producer.reduce((s, r) => s + r.pack_fee, 0)),
       grower_return: producerNetTotal,
       producer_net: producerNetTotal,
       boxes: by_producer.reduce((s, r) => s + r.boxes, 0),
@@ -570,6 +580,8 @@ export class SeasonReadService {
         COALESCE(SUM(l.boxes), 0)::numeric AS boxes,
         COALESCE(SUM(l.pounds::numeric), 0)::numeric AS pounds,
         COALESCE(SUM(l.revenue::numeric), 0)::numeric AS revenue,
+        COALESCE(SUM(l.material_cost::numeric), 0)::numeric AS material_cost,
+        COALESCE(SUM(l.pack_fee::numeric), 0)::numeric AS pack_fee,
         COALESCE(SUM(l.grower_return::numeric), 0)::numeric AS grower_return
       FROM season_settlement_lines l
       LEFT JOIN producers p ON p.id = l.producer_id
@@ -585,6 +597,8 @@ export class SeasonReadService {
       boxes: string;
       pounds: string;
       revenue: string;
+      material_cost: string;
+      pack_fee: string;
       grower_return: string;
     }>;
 
@@ -593,6 +607,8 @@ export class SeasonReadService {
       producer_name: String(r.producer_name ?? ''),
       producer_raw: r.producer_raw ? String(r.producer_raw) : undefined,
       sales: this.money(r.revenue),
+      material_cost: this.money(r.material_cost),
+      pack_fee: this.money(r.pack_fee),
       grower_return: this.money(r.grower_return),
       boxes: this.num(r.boxes),
       pounds: this.lb(r.pounds),
@@ -600,6 +616,8 @@ export class SeasonReadService {
 
     return {
       sales: this.money(by_producer.reduce((s, r) => s + r.sales, 0)),
+      material_cost: this.money(by_producer.reduce((s, r) => s + r.material_cost, 0)),
+      pack_fee: this.money(by_producer.reduce((s, r) => s + r.pack_fee, 0)),
       grower_return: this.money(by_producer.reduce((s, r) => s + r.grower_return, 0)),
       boxes: by_producer.reduce((s, r) => s + r.boxes, 0),
       pounds: this.lb(by_producer.reduce((s, r) => s + r.pounds, 0)),

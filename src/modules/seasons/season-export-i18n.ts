@@ -18,6 +18,7 @@ type SeasonExportText = {
     sourceLive: string;
     sourceSnapshot: string;
     sourceLegacy: string;
+    packFeeSnapshotNote: string;
   };
   notes: {
     noReceptionLines: string;
@@ -56,6 +57,8 @@ const TEXT: Record<ExportLang, SeasonExportText> = {
     cols: {
       producer: 'Productor',
       sales: 'Ventas',
+      material: 'Material',
+      packFee: 'Pack fee / servicio',
       growerReturn: 'Retorno a productor',
       boxes: 'Cajas',
       pounds: 'Libras',
@@ -93,6 +96,8 @@ const TEXT: Record<ExportLang, SeasonExportText> = {
       sourceLive: 'Fuente: operación en vivo (misma lógica que Cierre)',
       sourceSnapshot: 'Fuente: snapshot firmado',
       sourceLegacy: 'Fuente: capa legacy importada (Final Charge / balance físico)',
+      packFeeSnapshotNote:
+        'Pack fee / servicio = packing base + recargo formato + procesamiento máquina (total_packing del snapshot).',
     },
     notes: {
       noReceptionLines:
@@ -138,6 +143,8 @@ const TEXT: Record<ExportLang, SeasonExportText> = {
     cols: {
       producer: 'Producer',
       sales: 'Sales',
+      material: 'Material',
+      packFee: 'Pack fee / service fee',
       growerReturn: 'Grower return',
       boxes: 'Boxes',
       pounds: 'Pounds',
@@ -175,6 +182,8 @@ const TEXT: Record<ExportLang, SeasonExportText> = {
       sourceLive: 'Source: live operations (same logic as Close)',
       sourceSnapshot: 'Source: signed snapshot',
       sourceLegacy: 'Source: imported legacy layer (Final Charge / physical balance)',
+      packFeeSnapshotNote:
+        'Pack fee / service fee = packing base + format surcharge + machine processing (snapshot total_packing).',
     },
     notes: {
       noReceptionLines:

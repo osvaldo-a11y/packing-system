@@ -14,6 +14,10 @@ export type CommercialProducerRow = {
   /** Texto importado (auditoría); no usar para agrupar ni mostrar. */
   producer_raw?: string;
   sales: number;
+  /** Legacy: SUM(material_cost). Snapshot/live: costo_materiales del cierre. */
+  material_cost: number;
+  /** Legacy: SUM(pack_fee). Snapshot/live: total_packing (base + recargo formato + máquina). */
+  pack_fee: number;
   /** Legacy Final Charge: grower_return. Snapshot 2026: mapeado desde producer_net (neto tras costos). */
   grower_return: number;
   /** Solo snapshot (precio objetivo / neto productor). */
@@ -24,6 +28,8 @@ export type CommercialProducerRow = {
 
 export type CommercialOverview = {
   sales: number;
+  material_cost: number;
+  pack_fee: number;
   grower_return: number;
   producer_net?: number;
   boxes: number;
