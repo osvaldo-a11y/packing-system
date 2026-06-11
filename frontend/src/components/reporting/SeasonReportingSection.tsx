@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
+  downloadSeasonFullXlsx,
   downloadSeasonMassBalanceXlsx,
-  downloadSeasonSettlementPdf,
+  downloadSeasonSummaryPdf,
   downloadSeasonSettlementXlsx,
   fetchSeasonCompare,
   fetchSeasonList,
@@ -20,7 +21,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export function SeasonReportingSection() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const exportLang = i18n.language?.toLowerCase().startsWith('en') ? 'en' : 'es';
   const tr = (k: string, opts?: Record<string, unknown>) =>
     String(t(`reporting.season.${k}`, opts as never));
 
@@ -72,13 +74,16 @@ export function SeasonReportingSection() {
     staleTime: 120_000,
   });
 
-  const runExport = async (kind: 'settlement-xlsx' | 'mass-xlsx' | 'settlement-pdf') => {
+  const runExport = async (
+    kind: 'full-xlsx' | 'settlement-xlsx' | 'mass-xlsx' | 'summary-pdf',
+  ) => {
     if (seasonYear == null) return;
     setExporting(kind);
     try {
-      if (kind === 'settlement-xlsx') await downloadSeasonSettlementXlsx(seasonYear);
-      else if (kind === 'mass-xlsx') await downloadSeasonMassBalanceXlsx(seasonYear);
-      else await downloadSeasonSettlementPdf(seasonYear);
+      if (kind === 'full-xlsx') await downloadSeasonFullXlsx(seasonYear, exportLang);
+      else if (kind === 'settlement-xlsx') await downloadSeasonSettlementXlsx(seasonYear, exportLang);
+      else if (kind === 'mass-xlsx') await downloadSeasonMassBalanceXlsx(seasonYear, exportLang);
+      else await downloadSeasonSummaryPdf(seasonYear, exportLang);
       toast.success(tr('exportDone'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -150,6 +155,20 @@ export function SeasonReportingSection() {
           <Button
             type="button"
             size="sm"
+            className="h-8 gap-1.5 text-xs bg-[#0F6E56] text-white hover:bg-[#0d5c48]"
+            disabled={
+              exporting != null ||
+              !selectedSeasonMeta?.capabilities.commercial ||
+              !selectedSeasonMeta?.capabilities.mass_balance
+            }
+            onClick={() => void runExport('full-xlsx')}
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting === 'full-xlsx' ? tr('exporting') : tr('exportFullXlsx')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
             variant="outline"
             className="h-8 gap-1.5 text-xs"
             disabled={exporting != null || !selectedSeasonMeta?.capabilities.commercial}
@@ -175,10 +194,10 @@ export function SeasonReportingSection() {
             variant="outline"
             className="h-8 gap-1.5 text-xs"
             disabled={exporting != null || !selectedSeasonMeta?.capabilities.commercial}
-            onClick={() => void runExport('settlement-pdf')}
+            onClick={() => void runExport('summary-pdf')}
           >
             <FileText className="h-3.5 w-3.5" />
-            {exporting === 'settlement-pdf' ? tr('exporting') : tr('exportSettlementPdf')}
+            {exporting === 'summary-pdf' ? tr('exporting') : tr('exportSettlementPdf')}
           </Button>
           <p className="w-full text-[11px] text-slate-500 sm:ml-auto sm:w-auto">{tr('exportDisclaimer')}</p>
         </div>

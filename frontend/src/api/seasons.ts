@@ -149,8 +149,19 @@ export function fetchSeasonSettlementLines(year: number, filters: SettlementLine
   );
 }
 
-async function downloadSeasonAttachment(path: string, fallbackFilename: string): Promise<void> {
-  const res = await apiFetch(path, { method: 'GET', psSkipForbiddenRedirect: true });
+function seasonExportLang(lang?: string): string {
+  const l = (lang ?? 'es').toLowerCase();
+  return l.startsWith('en') ? 'en' : 'es';
+}
+
+async function downloadSeasonAttachment(
+  path: string,
+  fallbackFilename: string,
+  lang?: string,
+): Promise<void> {
+  const q = path.includes('?') ? '&' : '?';
+  const url = `${path}${q}lang=${seasonExportLang(lang)}`;
+  const res = await apiFetch(url, { method: 'GET', psSkipForbiddenRedirect: true });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
     throw new Error(t.slice(0, 400) || `Error ${res.status}`);
@@ -159,37 +170,53 @@ async function downloadSeasonAttachment(path: string, fallbackFilename: string):
   const m = cd?.match(/filename="([^"]+)"/i);
   const filename = m?.[1] ?? fallbackFilename;
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = blobUrl;
   a.download = filename;
   a.rel = 'noopener';
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
 }
 
-export function downloadSeasonSettlementXlsx(year: number) {
+export function downloadSeasonFullXlsx(year: number, lang?: string) {
+  return downloadSeasonAttachment(
+    `/api/seasons/${year}/export/full.xlsx`,
+    `temporada-completa-${year}.xlsx`,
+    lang,
+  );
+}
+
+export function downloadSeasonSettlementXlsx(year: number, lang?: string) {
   return downloadSeasonAttachment(
     `/api/seasons/${year}/export/settlement.xlsx`,
     `liquidacion-historica-${year}.xlsx`,
+    lang,
   );
 }
 
-export function downloadSeasonMassBalanceXlsx(year: number) {
+export function downloadSeasonMassBalanceXlsx(year: number, lang?: string) {
   return downloadSeasonAttachment(
     `/api/seasons/${year}/export/mass-balance.xlsx`,
     `balance-masas-historico-${year}.xlsx`,
+    lang,
   );
 }
 
-export function downloadSeasonSettlementPdf(year: number) {
+export function downloadSeasonSummaryPdf(year: number, lang?: string) {
+  const l = seasonExportLang(lang);
   return downloadPdf(
-    `/api/seasons/${year}/export/settlement.pdf`,
-    `liquidacion-historica-${year}.pdf`,
+    `/api/seasons/${year}/export/summary.pdf?lang=${l}`,
+    l === 'en' ? `season-summary-${year}.pdf` : `resumen-temporada-${year}.pdf`,
   );
+}
+
+/** @deprecated Use downloadSeasonSummaryPdf */
+export function downloadSeasonSettlementPdf(year: number, lang?: string) {
+  return downloadSeasonSummaryPdf(year, lang);
 }
 
 /** Temporada operativa por defecto: activa, o la que tenga trazabilidad fina. */

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Post,
@@ -83,28 +84,70 @@ export class SeasonsController {
     return this.seasonRead.getSettlementLines(year, { producer, format, bol, variety, brand });
   }
 
+  @Get(':year/export/full.xlsx')
+  @ApiQuery({ name: 'lang', required: false, enum: ['es', 'en'] })
+  async exportFullXlsx(
+    @Param('year', ParseIntPipe) year: number,
+    @Query('lang') lang: string | undefined,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.seasonExport.buildFullXlsx(year, lang, acceptLanguage);
+    this.sendExport(res, file);
+  }
+
   @Get(':year/export/settlement.xlsx')
-  async exportSettlementXlsx(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
-    const { buffer, mime, filename } = await this.seasonExport.buildSettlementXlsx(year);
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
+  @ApiQuery({ name: 'lang', required: false, enum: ['es', 'en'] })
+  async exportSettlementXlsx(
+    @Param('year', ParseIntPipe) year: number,
+    @Query('lang') lang: string | undefined,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.seasonExport.buildSettlementXlsx(year, lang, acceptLanguage);
+    this.sendExport(res, file);
   }
 
   @Get(':year/export/mass-balance.xlsx')
-  async exportMassBalanceXlsx(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
-    const { buffer, mime, filename } = await this.seasonExport.buildMassBalanceXlsx(year);
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
+  @ApiQuery({ name: 'lang', required: false, enum: ['es', 'en'] })
+  async exportMassBalanceXlsx(
+    @Param('year', ParseIntPipe) year: number,
+    @Query('lang') lang: string | undefined,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.seasonExport.buildMassBalanceXlsx(year, lang, acceptLanguage);
+    this.sendExport(res, file);
+  }
+
+  @Get(':year/export/summary.pdf')
+  @ApiQuery({ name: 'lang', required: false, enum: ['es', 'en'] })
+  async exportSummaryPdf(
+    @Param('year', ParseIntPipe) year: number,
+    @Query('lang') lang: string | undefined,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.seasonExport.buildSummaryPdf(year, lang, acceptLanguage);
+    this.sendExport(res, file);
   }
 
   @Get(':year/export/settlement.pdf')
-  async exportSettlementPdf(@Param('year', ParseIntPipe) year: number, @Res() res: Response) {
-    const { buffer, mime, filename } = await this.seasonExport.buildSettlementPdf(year);
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
+  @ApiQuery({ name: 'lang', required: false, enum: ['es', 'en'] })
+  async exportSettlementPdf(
+    @Param('year', ParseIntPipe) year: number,
+    @Query('lang') lang: string | undefined,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.seasonExport.buildSettlementPdf(year, lang, acceptLanguage);
+    this.sendExport(res, file);
+  }
+
+  private sendExport(res: Response, file: { buffer: Buffer; mime: string; filename: string }) {
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    res.send(file.buffer);
   }
 
   @Get(':year')

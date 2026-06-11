@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ImportLog } from '../import/import-log.entity';
 import { ReportSnapshot } from '../reporting/reporting.entities';
+import { PlantModule } from '../plant/plant.module';
 import { ReportingModule } from '../reporting/reporting.module';
 import { Brand } from '../traceability/operational.entities';
 import { Producer, Variety } from '../traceability/traceability.entities';
@@ -37,6 +38,7 @@ import { SeasonsService } from './seasons.service';
       ImportLog,
     ]),
     ReportingModule,
+    PlantModule,
   ],
   controllers: [SeasonsController],
   providers: [

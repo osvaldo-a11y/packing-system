@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ReportFilterDto } from '../reporting/reporting.dto';
 import { ReportSnapshot } from '../reporting/reporting.entities';
 import { ReportingService } from '../reporting/reporting.service';
-import { SeasonMassBalance, SeasonSettlementLine } from './legacy.entities';
+import { SeasonMassBalance, SeasonProcessLine, SeasonReceptionLine, SeasonSettlementLine } from './legacy.entities';
 import { Season } from './season.entity';
 import {
   CommercialOverview,
@@ -16,6 +16,9 @@ import {
   SeasonDataSource,
   SeasonListItem,
   SeasonOverview,
+  DispatchExportGroup,
+  ProcessExportLine,
+  ReceptionExportLine,
   SettlementLineFilters,
   SettlementLineRow,
   SettlementLinesResult,
@@ -42,6 +45,8 @@ export class SeasonReadService {
     @InjectRepository(ReportSnapshot) private readonly snapshotRepo: Repository<ReportSnapshot>,
     @InjectRepository(SeasonSettlementLine) private readonly lineRepo: Repository<SeasonSettlementLine>,
     @InjectRepository(SeasonMassBalance) private readonly massBalanceRepo: Repository<SeasonMassBalance>,
+    @InjectRepository(SeasonReceptionLine) private readonly receptionLineRepo: Repository<SeasonReceptionLine>,
+    @InjectRepository(SeasonProcessLine) private readonly processLineRepo: Repository<SeasonProcessLine>,
     private readonly reporting: ReportingService,
   ) {}
 
@@ -151,6 +156,111 @@ export class SeasonReadService {
     const dataSource = await this.resolveDataSource(season);
     const result = await this.querySettlementLines(year, dataSource, {}, undefined);
     return result.lines;
+  }
+
+  async getReceptionExportLines(year: number): Promise<ReceptionExportLine[]> {
+    const rows = (await this.receptionLineRepo.query(
+      `
+      SELECT
+        r.producer_id,
+        COALESCE(p.nombre, r.producer_raw, '') AS producer_name,
+        r.reception_date::text AS reception_date,
+        r.variety,
+        r.quality,
+        r.incoming_no,
+        r.trays,
+        r.quantity::numeric AS quantity,
+        r.net_lb::numeric AS net_lb,
+        r.gross_lb::numeric AS gross_lb,
+        r.fruit_type
+      FROM season_reception_lines r
+      LEFT JOIN producers p ON p.id = r.producer_id
+      WHERE r.season_year = $1
+      ORDER BY r.reception_date, COALESCE(p.nombre, r.producer_raw), r.id
+      `,
+      [year],
+    )) as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      producer_id: Number(r.producer_id),
+      producer_name: String(r.producer_name ?? ''),
+      reception_date: String(r.reception_date ?? ''),
+      variety: r.variety != null ? String(r.variety) : null,
+      quality: String(r.quality ?? 'FRESH') as ReceptionExportLine['quality'],
+      incoming_no: r.incoming_no != null ? String(r.incoming_no) : null,
+      trays: r.trays != null ? Number(r.trays) : null,
+      quantity: r.quantity != null ? Number(r.quantity) : null,
+      net_lb: Number(r.net_lb ?? 0),
+      gross_lb: r.gross_lb != null ? Number(r.gross_lb) : null,
+      fruit_type: (r.fruit_type as ReceptionExportLine['fruit_type']) ?? null,
+    }));
+  }
+
+  async getProcessExportLines(year: number): Promise<ProcessExportLine[]> {
+    const rows = (await this.processLineRepo.query(
+      `
+      SELECT
+        pl.producer_id,
+        COALESCE(p.nombre, pl.producer_raw, '') AS producer_name,
+        pl.process_date::text AS process_date,
+        pl.op,
+        pl.variety,
+        COALESCE(pl.format_code, pl.format_raw) AS format_code,
+        pl.lb_total::numeric AS lb_total,
+        pl.lb_fresh::numeric AS lb_fresh,
+        pl.lb_waste::numeric AS lb_waste,
+        pl.boxes,
+        pl.fruit_type
+      FROM season_process_lines pl
+      LEFT JOIN producers p ON p.id = pl.producer_id
+      WHERE pl.season_year = $1
+      ORDER BY pl.process_date, COALESCE(p.nombre, pl.producer_raw), pl.id
+      `,
+      [year],
+    )) as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      producer_id: Number(r.producer_id),
+      producer_name: String(r.producer_name ?? ''),
+      process_date: String(r.process_date ?? ''),
+      op: r.op != null ? String(r.op) : null,
+      variety: r.variety != null ? String(r.variety) : null,
+      format_code: r.format_code != null ? String(r.format_code) : null,
+      lb_total: Number(r.lb_total ?? 0),
+      lb_fresh: Number(r.lb_fresh ?? 0),
+      lb_waste: Number(r.lb_waste ?? 0),
+      boxes: r.boxes != null ? Number(r.boxes) : null,
+      fruit_type: (r.fruit_type as ProcessExportLine['fruit_type']) ?? null,
+    }));
+  }
+
+  async getDispatchExportGroups(year: number): Promise<DispatchExportGroup[]> {
+    const rows = (await this.lineRepo.query(
+      `
+      SELECT
+        l.bol,
+        l.ship_date::text AS ship_date,
+        STRING_AGG(DISTINCT COALESCE(p.nombre, l.producer_raw, ''), ', ' ORDER BY COALESCE(p.nombre, l.producer_raw, '')) AS producers,
+        COALESCE(SUM(l.boxes), 0)::int AS boxes,
+        COALESCE(SUM(l.pounds::numeric), 0)::numeric AS pounds,
+        COALESCE(SUM(l.revenue::numeric), 0)::numeric AS revenue
+      FROM season_settlement_lines l
+      LEFT JOIN producers p ON p.id = l.producer_id
+      WHERE l.season_year = $1
+      GROUP BY l.bol, l.ship_date
+      ORDER BY l.ship_date NULLS LAST, l.bol
+      `,
+      [year],
+    )) as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      bol: String(r.bol ?? ''),
+      ship_date: r.ship_date != null ? String(r.ship_date) : null,
+      producers: String(r.producers ?? ''),
+      boxes: Number(r.boxes ?? 0),
+      pounds: Number(r.pounds ?? 0),
+      revenue: Number(r.revenue ?? 0),
+    }));
   }
 
   private async querySettlementLines(

@@ -2707,6 +2707,7 @@
       "physicalProcesses": "Procesos",
       "frozenToFrozen": "Frozen→congelado",
       "exportLabel": "Exportar registro histórico",
+      "exportFullXlsx": "Excel temporada completa",
       "exportSettlementXlsx": "Excel liquidación",
       "exportMassXlsx": "Excel balance",
       "exportSettlementPdf": "PDF resumen",

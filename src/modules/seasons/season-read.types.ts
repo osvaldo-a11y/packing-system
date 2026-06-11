@@ -132,3 +132,40 @@ export type SettlementLinesResult = {
   total_count: number;
   lines: SettlementLineRow[];
 };
+
+export type ReceptionExportLine = {
+  producer_id: number;
+  producer_name: string;
+  reception_date: string;
+  variety: string | null;
+  quality: 'FRESH' | 'WASTE' | 'FOR_FROZEN';
+  incoming_no: string | null;
+  trays: number | null;
+  quantity: number | null;
+  net_lb: number;
+  gross_lb: number | null;
+  fruit_type: 'hand' | 'machine' | null;
+};
+
+export type ProcessExportLine = {
+  producer_id: number;
+  producer_name: string;
+  process_date: string;
+  op: string | null;
+  variety: string | null;
+  format_code: string | null;
+  lb_total: number;
+  lb_fresh: number;
+  lb_waste: number;
+  boxes: number | null;
+  fruit_type: 'hand' | 'machine' | null;
+};
+
+export type DispatchExportGroup = {
+  bol: string;
+  ship_date: string | null;
+  producers: string;
+  boxes: number;
+  pounds: number;
+  revenue: number;
+};
