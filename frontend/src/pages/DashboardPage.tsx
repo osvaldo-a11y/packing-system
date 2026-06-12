@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { useAuth } from '@/AuthContext';
 import { isReadOnlySession } from '@/lib/roles';
+import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -1650,6 +1651,8 @@ export function DashboardPage() {
           </div>
         )}
       </section>
+
+      <SeasonPaceSection enabled={canLoad} />
 
       <section className="space-y-3">
         <div>

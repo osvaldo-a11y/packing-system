@@ -21,12 +21,13 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/
 import type { Request } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ROLES } from '../../common/roles';
+import { READ_ACCESS_ROLES, ROLES } from '../../common/roles';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FinalChargeImportService } from './final-charge-import.service';
 import { PhysicalBalanceImportService } from './physical-balance-import.service';
 import { PhysicalLinesImportService } from './physical-lines-import.service';
 import { SeasonExportService } from './season-export.service';
+import { SeasonPaceService } from './season-pace.service';
 import { SeasonReadService } from './season-read.service';
 import { GenerateSeasonSnapshotDto } from './seasons.dto';
 import { SeasonsService } from './seasons.service';
@@ -42,6 +43,7 @@ export class SeasonsController {
   constructor(
     private readonly seasons: SeasonsService,
     private readonly seasonRead: SeasonReadService,
+    private readonly seasonPace: SeasonPaceService,
     private readonly seasonExport: SeasonExportService,
     private readonly finalChargeImport: FinalChargeImportService,
     private readonly physicalBalanceImport: PhysicalBalanceImportService,
@@ -51,6 +53,12 @@ export class SeasonsController {
   @Get()
   listSeasons() {
     return this.seasonRead.listSeasons();
+  }
+
+  @Get('pace')
+  @Roles(...READ_ACCESS_ROLES)
+  getPace() {
+    return this.seasonPace.getPace();
   }
 
   @Get('compare')

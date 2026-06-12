@@ -18,6 +18,7 @@ import {
 } from './legacy.entities';
 import { Season } from './season.entity';
 import { SeasonExportService } from './season-export.service';
+import { SeasonPaceService } from './season-pace.service';
 import { SeasonReadService } from './season-read.service';
 import { SeasonsController } from './seasons.controller';
 import { SeasonsService } from './seasons.service';
@@ -44,6 +45,7 @@ import { SeasonsService } from './seasons.service';
   providers: [
     SeasonsService,
     SeasonReadService,
+    SeasonPaceService,
     SeasonExportService,
     FinalChargeImportService,
     PhysicalBalanceImportService,

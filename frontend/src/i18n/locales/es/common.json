@@ -227,6 +227,24 @@
       "pricePerLb": "Precio prom. / lb",
       "weightedAvg": "Promedio ponderado del período"
     },
+    "pace": {
+      "title": "Ritmo de temporada",
+      "subtitle": "{{active}} vs {{previous}} · semana {{week}} · día 1: {{day1}} (ant. {{prevDay1}})",
+      "subtitleLoading": "Comparación acumulada por semana de temporada (activa vs anterior).",
+      "received": "Recibido",
+      "packout": "Empacado",
+      "sold": "Vendido",
+      "boxes": "Cajas",
+      "vsPrior": "vs mismo punto año ant.",
+      "chartMetric": "Métrica",
+      "weekAxis": "Semana de temporada",
+      "weekTooltip": "Semana {{week}}",
+      "currentWeek": "Semana actual",
+      "seriesActive": "{{year}} (activa)",
+      "seriesPrevious": "{{year}} (anterior)",
+      "seriesProjection": "Proyección al ritmo del año pasado",
+      "loadError": "No se pudo cargar el ritmo de temporada."
+    },
     "gauges": {
       "title": "Avance de pedidos pendientes",
       "hintWithBalance": "Hasta 5 pedidos con saldo. Cámara: reserva en cooler, BOL en existencias o cajas en packing list del pedido. Salida física: Sí/No según despacho completo.",

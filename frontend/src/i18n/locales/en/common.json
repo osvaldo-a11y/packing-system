@@ -227,6 +227,24 @@
       "pricePerLb": "Avg. price / lb",
       "weightedAvg": "Weighted average for the period"
     },
+    "pace": {
+      "title": "Season pace",
+      "subtitle": "{{active}} vs {{previous}} · week {{week}} · day 1: {{day1}} (prior {{prevDay1}})",
+      "subtitleLoading": "Cumulative comparison by season week (active vs prior year).",
+      "received": "Received",
+      "packout": "Packed",
+      "sold": "Sold",
+      "boxes": "Boxes",
+      "vsPrior": "vs same point prior year",
+      "chartMetric": "Metric",
+      "weekAxis": "Season week",
+      "weekTooltip": "Week {{week}}",
+      "currentWeek": "Current week",
+      "seriesActive": "{{year}} (active)",
+      "seriesPrevious": "{{year}} (prior)",
+      "seriesProjection": "Projection at prior-year pace",
+      "loadError": "Could not load season pace."
+    },
     "gauges": {
       "title": "Pending orders progress",
       "hintWithBalance": "Up to 5 orders with balance. Camera: cooler reserve, BOL in stock or boxes in order packing list. Physical exit: Yes/No based on complete dispatch.",
