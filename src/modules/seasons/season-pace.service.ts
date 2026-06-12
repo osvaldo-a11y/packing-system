@@ -3,16 +3,22 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Not, Repository } from 'typeorm';
 import { Season } from './season.entity';
 import type {
+  PaceMetricBlock,
   PaceMetricComparison,
   PaceMetricKey,
   PaceSeasonSeries,
-  PaceWeekPoint,
   SeasonPaceResult,
 } from './season-pace.types';
 
 type DailyRow = { date: string; received_lb: number; packout_lb: number; sold_usd: number; boxes: number };
 
 const METRIC_KEYS: PaceMetricKey[] = ['received_lb', 'packout_lb', 'sold_usd', 'boxes'];
+const EMPTY_BLOCK = (): PaceMetricBlock => ({
+  received_lb: 0,
+  packout_lb: 0,
+  sold_usd: 0,
+  boxes: 0,
+});
 
 @Injectable()
 export class SeasonPaceService {
@@ -43,6 +49,7 @@ export class SeasonPaceService {
     if (!previousDay1) throw new NotFoundException(`Sin recepciones históricas para temporada ${previousYear}`);
 
     const today = new Date().toISOString().slice(0, 10);
+    const currentIsoWeek = this.isoWeek(today);
     const activeRange = yearRange(activeYear);
 
     const [activeDaily, previousDaily] = await Promise.all([
@@ -53,17 +60,30 @@ export class SeasonPaceService {
     const activeSeries = this.buildSeries(activeYear, activeDay1, activeDaily);
     const previousSeries = this.buildSeries(previousYear, previousDay1, previousDaily);
 
-    const currentWeek = this.weekIndex(activeDay1, today);
-    const maxWeek = Math.max(activeSeries.week_count, previousSeries.week_count, currentWeek);
+    const allIsoWeeks = [...activeSeries.weeks, ...previousSeries.weeks].map((w) => w.iso_week);
+    const isoWeekMin = allIsoWeeks.length ? Math.min(...allIsoWeeks) : currentIsoWeek;
+    const isoWeekMax = allIsoWeeks.length
+      ? Math.max(...allIsoWeeks, currentIsoWeek)
+      : currentIsoWeek;
 
     const comparisons = METRIC_KEYS.map((metric) =>
-      this.compareMetric(metric, activeSeries, previousSeries, currentWeek, maxWeek),
+      this.compareMetric(
+        metric,
+        activeDaily,
+        activeDay1,
+        today,
+        previousSeries,
+        currentIsoWeek,
+        isoWeekMax,
+      ),
     );
 
     return {
       active_year: activeYear,
       previous_year: previousYear,
-      current_week: currentWeek,
+      current_iso_week: currentIsoWeek,
+      iso_week_min: isoWeekMin,
+      iso_week_max: isoWeekMax,
       active: activeSeries,
       previous: previousSeries,
       comparisons,
@@ -72,22 +92,23 @@ export class SeasonPaceService {
 
   private compareMetric(
     metric: PaceMetricKey,
-    active: PaceSeasonSeries,
+    activeDaily: DailyRow[],
+    activeDay1: string,
+    today: string,
     previous: PaceSeasonSeries,
-    currentWeek: number,
-    maxWeek: number,
+    currentIsoWeek: number,
+    isoWeekMax: number,
   ): PaceMetricComparison {
-    const activeVal = this.cumulativeAt(active.weeks, currentWeek, metric);
-    const previousVal = this.cumulativeAt(previous.weeks, currentWeek, metric);
+    const activeVal = this.sumDailyThroughDate(activeDaily, activeDay1, today, metric);
+    const previousVal = this.cumulativeAtIsoWeek(previous, currentIsoWeek, metric);
     const deltaAbs = activeVal - previousVal;
     const deltaPct = previousVal !== 0 ? Number(((deltaAbs / previousVal) * 100).toFixed(2)) : null;
 
-    const prevAtCurrent = previousVal;
     const prevTotal = previous.totals[metric];
-    const isLastWeek = currentWeek >= maxWeek;
+    const isLastWeek = currentIsoWeek >= isoWeekMax;
     let projectedFinal: number | null = null;
-    if (prevAtCurrent > 0 && !isLastWeek && activeVal >= 0) {
-      projectedFinal = Number((activeVal * (prevTotal / prevAtCurrent)).toFixed(2));
+    if (previousVal > 0 && !isLastWeek && activeVal >= 0) {
+      projectedFinal = Number((activeVal * (prevTotal / previousVal)).toFixed(2));
     }
 
     return {
@@ -100,77 +121,95 @@ export class SeasonPaceService {
     };
   }
 
-  private cumulativeAt(weeks: PaceWeekPoint[], weekIndex: number, metric: PaceMetricKey): number {
-    if (!weeks.length) return 0;
-    const row = weeks.find((w) => w.week_index === weekIndex) ?? weeks[weeks.length - 1];
-    if (weekIndex > (weeks[weeks.length - 1]?.week_index ?? 0)) {
-      return weeks[weeks.length - 1]?.[metric] ?? 0;
+  private sumDailyThroughDate(
+    daily: DailyRow[],
+    day1: string,
+    through: string,
+    metric: PaceMetricKey,
+  ): number {
+    let sum = 0;
+    for (const row of daily) {
+      if (row.date < day1 || row.date > through) continue;
+      sum += row[metric];
     }
-    return row?.[metric] ?? 0;
+    if (metric === 'boxes') return Math.round(sum);
+    return Number(sum.toFixed(2));
+  }
+
+  private cumulativeAtIsoWeek(
+    series: PaceSeasonSeries,
+    isoWeek: number,
+    metric: PaceMetricKey,
+  ): number {
+    let best = 0;
+    for (const w of series.weeks) {
+      if (w.iso_week <= isoWeek) {
+        best = w.cumulative[metric];
+      }
+    }
+    return best;
   }
 
   private buildSeries(year: number, day1: string, daily: DailyRow[]): PaceSeasonSeries {
-    const weekly = new Map<number, DailyRow>();
+    const weeklyByIso = new Map<number, PaceMetricBlock>();
 
     for (const row of daily) {
-      const wi = this.weekIndex(day1, row.date);
-      const cur = weekly.get(wi) ?? { date: row.date, received_lb: 0, packout_lb: 0, sold_usd: 0, boxes: 0 };
+      const iw = this.isoWeek(row.date);
+      const cur = weeklyByIso.get(iw) ?? EMPTY_BLOCK();
       cur.received_lb += row.received_lb;
       cur.packout_lb += row.packout_lb;
       cur.sold_usd += row.sold_usd;
       cur.boxes += row.boxes;
-      weekly.set(wi, cur);
+      weeklyByIso.set(iw, cur);
     }
 
-    const maxWeek = weekly.size > 0 ? Math.max(...weekly.keys()) : 0;
-    const weeks: PaceWeekPoint[] = [];
-    let acc = { received_lb: 0, packout_lb: 0, sold_usd: 0, boxes: 0 };
+    const isoWeeks = [...weeklyByIso.keys()].sort((a, b) => a - b);
+    const weeks = isoWeeks.map((iso_week) => {
+      const w = weeklyByIso.get(iso_week)!;
+      return {
+        iso_week,
+        weekly: {
+          received_lb: Number(w.received_lb.toFixed(2)),
+          packout_lb: Number(w.packout_lb.toFixed(2)),
+          sold_usd: Number(w.sold_usd.toFixed(2)),
+          boxes: Math.round(w.boxes),
+        },
+        cumulative: EMPTY_BLOCK(),
+      };
+    });
 
-    for (let w = 1; w <= maxWeek; w++) {
-      const inc = weekly.get(w);
-      if (inc) {
-        acc = {
-          received_lb: Number((acc.received_lb + inc.received_lb).toFixed(2)),
-          packout_lb: Number((acc.packout_lb + inc.packout_lb).toFixed(2)),
-          sold_usd: Number((acc.sold_usd + inc.sold_usd).toFixed(2)),
-          boxes: Math.round(acc.boxes + inc.boxes),
-        };
-      }
-      weeks.push({ week_index: w, ...acc });
+    let acc = EMPTY_BLOCK();
+    for (const pt of weeks) {
+      acc = {
+        received_lb: Number((acc.received_lb + pt.weekly.received_lb).toFixed(2)),
+        packout_lb: Number((acc.packout_lb + pt.weekly.packout_lb).toFixed(2)),
+        sold_usd: Number((acc.sold_usd + pt.weekly.sold_usd).toFixed(2)),
+        boxes: Math.round(acc.boxes + pt.weekly.boxes),
+      };
+      pt.cumulative = { ...acc };
     }
 
-    const totals = weeks.length
-      ? { ...weeks[weeks.length - 1] }
-      : { received_lb: 0, packout_lb: 0, sold_usd: 0, boxes: 0 };
+    const totals = weeks.length ? { ...weeks[weeks.length - 1].cumulative } : EMPTY_BLOCK();
 
     return {
       season_year: year,
       day1,
-      week_count: maxWeek,
+      start_iso_week: this.isoWeek(day1),
       weeks,
-      totals: {
-        received_lb: totals.received_lb,
-        packout_lb: totals.packout_lb,
-        sold_usd: totals.sold_usd,
-        boxes: totals.boxes,
-      },
+      totals,
     };
   }
 
-  private weekIndex(day1: string, date: string): number {
-    const diff = this.daysBetween(day1, date);
-    if (diff < 0) return 1;
-    return Math.floor(diff / 7) + 1;
-  }
-
-  private daysBetween(day1: string, date: string): number {
-    const d0 = this.parseDate(day1).getTime();
-    const d = this.parseDate(date).getTime();
-    return Math.round((d - d0) / 86_400_000);
-  }
-
-  private parseDate(s: string): Date {
-    return new Date(`${s}T12:00:00`);
+  /** ISO 8601 week number (1–53). */
+  isoWeek(dateStr: string): number {
+    const d = new Date(`${dateStr}T12:00:00`);
+    const dayNum = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - dayNum + 3);
+    const firstThursday = d.getTime();
+    const jan4 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const jan4Day = (jan4.getUTCDay() + 6) % 7;
+    jan4.setUTCDate(jan4.getUTCDate() - jan4Day + 3);
+    return 1 + Math.round((firstThursday - jan4.getTime()) / 604_800_000);
   }
 
   private async day1Live(year: number): Promise<string | null> {

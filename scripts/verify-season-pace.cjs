@@ -1,17 +1,27 @@
 /**
- * Verificación Mejora C — ritmo intra-temporada (ancla 2025 última semana).
+ * Verificación Mejora C — ritmo ISO + campana 2025.
  */
 require('dotenv').config();
 process.env.DATABASE_URL = process.env.DATABASE_URL || process.env.RAILWAY_URL;
 
-const TARGETS_2025 = {
+const CAMPANA_2025 = {
+  16: 19259,
+  17: 211646,
+  18: 268527,
+  19: 275511,
+  20: 482241,
+  21: 312838,
+  22: 44102,
+};
+
+const TOTALS_2025 = {
   received_lb: 1614123.61,
   packout_lb: 1354617.6,
   sold_usd: 4556301.38,
   boxes: 143600,
 };
 
-function close(a, b, tol = 1) {
+function close(a, b, tol = 5) {
   return Math.abs(a - b) <= tol;
 }
 
@@ -24,30 +34,38 @@ function close(a, b, tol = 1) {
   try {
     const svc = app.get(SeasonPaceService);
     const pace = await svc.getPace();
-
     const prev = pace.previous;
+
+    const campana = {};
+    for (const [iw, target] of Object.entries(CAMPANA_2025)) {
+      const w = prev.weeks.find((x) => x.iso_week === Number(iw));
+      const got = w?.weekly.received_lb ?? 0;
+      campana[iw] = { got, target, ok: close(got, target, 10) };
+    }
+
     const last = prev.weeks[prev.weeks.length - 1];
-    const totals = prev.totals;
+    const cum = last?.cumulative ?? {};
 
     const info = {
       active_year: pace.active_year,
       previous_year: pace.previous_year,
-      current_week: pace.current_week,
+      current_iso_week: pace.current_iso_week,
+      iso_week_range: [pace.iso_week_min, pace.iso_week_max],
+      previous_start_iso: prev.start_iso_week,
       previous_day1: prev.day1,
-      previous_week_count: prev.week_count,
-      last_week_index: last?.week_index,
-      last_week: last,
-      totals,
+      campana_2025_received: campana,
+      campana_sum: Object.values(campana).reduce((s, x) => s + x.got, 0),
+      cumulative_totals: cum,
       anchor_match: {
-        received_lb: close(last?.received_lb ?? 0, TARGETS_2025.received_lb, 5),
-        packout_lb: close(last?.packout_lb ?? 0, TARGETS_2025.packout_lb, 5),
-        sold_usd: close(last?.sold_usd ?? 0, TARGETS_2025.sold_usd, 5),
-        boxes: last?.boxes === TARGETS_2025.boxes,
+        received_lb: close(cum.received_lb, TOTALS_2025.received_lb),
+        packout_lb: close(cum.packout_lb, TOTALS_2025.packout_lb),
+        sold_usd: close(cum.sold_usd, TOTALS_2025.sold_usd),
+        boxes: cum.boxes === TOTALS_2025.boxes,
       },
-      comparisons: pace.comparisons,
     };
 
-    info.match = Object.values(info.anchor_match).every(Boolean);
+    info.campana_match = Object.values(campana).every((x) => x.ok);
+    info.match = info.campana_match && Object.values(info.anchor_match).every(Boolean);
     console.log(JSON.stringify(info, null, 2));
     if (!info.match) process.exit(1);
   } finally {

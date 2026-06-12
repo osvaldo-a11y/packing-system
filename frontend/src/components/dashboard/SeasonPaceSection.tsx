@@ -15,9 +15,10 @@ import {
 } from 'recharts';
 import {
   fetchSeasonPace,
+  type PaceIsoWeekPoint,
   type PaceMetricComparison,
   type PaceMetricKey,
-  type PaceWeekPoint,
+  type PaceSeasonSeries,
   type SeasonPaceResult,
 } from '@/api/seasonPace';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,10 +26,15 @@ import { formatMoney } from '@/lib/number-format';
 import { cn } from '@/lib/utils';
 
 const METRICS: PaceMetricKey[] = ['received_lb', 'packout_lb', 'sold_usd', 'boxes'];
+type ChartView = 'weekly' | 'cumulative';
 
-function metricValue(week: PaceWeekPoint | undefined, metric: PaceMetricKey): number | null {
-  if (!week) return null;
-  return week[metric];
+function metricFromPoint(
+  point: PaceIsoWeekPoint | undefined,
+  metric: PaceMetricKey,
+  view: ChartView,
+): number | null {
+  if (!point) return null;
+  return view === 'weekly' ? point.weekly[metric] : point.cumulative[metric];
 }
 
 function formatMetricValue(metric: PaceMetricKey, value: number, locale: string): string {
@@ -44,7 +50,7 @@ function deltaTone(delta: number): string {
 }
 
 type ChartRow = {
-  week: number;
+  iso_week: number;
   active: number | null;
   previous: number | null;
   projection: number | null;
@@ -53,49 +59,48 @@ type ChartRow = {
   labelProjection?: string;
 };
 
+function findWeek(series: PaceSeasonSeries, isoWeek: number): PaceIsoWeekPoint | undefined {
+  return series.weeks.find((w) => w.iso_week === isoWeek);
+}
+
 function buildChartRows(
   data: SeasonPaceResult,
   metric: PaceMetricKey,
+  view: ChartView,
   locale: string,
 ): ChartRow[] {
-  const { active, previous, current_week: currentWeek } = data;
-  const maxWeek = Math.max(active.week_count, previous.week_count, currentWeek);
+  const { active, previous, current_iso_week: currentIso, iso_week_min: minW, iso_week_max: maxW } =
+    data;
 
-  const activeAtCurrent = metricValue(
-    active.weeks.find((w) => w.week_index === currentWeek),
-    metric,
-  );
-  const prevAtCurrent = metricValue(
-    previous.weeks.find((w) => w.week_index === currentWeek),
-    metric,
-  );
+  const activeAtCurrent = metricFromPoint(findWeek(active, currentIso), metric, 'cumulative');
+  const prevAtCurrent = metricFromPoint(findWeek(previous, currentIso), metric, 'cumulative');
 
   const rows: ChartRow[] = [];
-  for (let w = 1; w <= maxWeek; w++) {
-    const a = metricValue(active.weeks.find((p) => p.week_index === w), metric);
-    const p = metricValue(previous.weeks.find((p) => p.week_index === w), metric);
+  for (let w = minW; w <= maxW; w++) {
+    const a = metricFromPoint(findWeek(active, w), metric, view);
+    const p = metricFromPoint(findWeek(previous, w), metric, view);
 
     let projection: number | null = null;
     if (
-      w >= currentWeek &&
+      view === 'cumulative' &&
+      w >= currentIso &&
       activeAtCurrent != null &&
       prevAtCurrent != null &&
       prevAtCurrent > 0
     ) {
       const prevAtW =
-        metricValue(previous.weeks.find((x) => x.week_index === w), metric) ??
-        previous.totals[metric];
+        metricFromPoint(findWeek(previous, w), metric, 'cumulative') ?? previous.totals[metric];
       projection = Number((activeAtCurrent * (prevAtW / prevAtCurrent)).toFixed(2));
     }
 
-    const row: ChartRow = { week: w, active: a, previous: p, projection };
-    if (w === currentWeek && a != null) {
+    const row: ChartRow = { iso_week: w, active: a, previous: p, projection };
+    if (view === 'cumulative' && w === currentIso && a != null) {
       row.labelActive = formatMetricValue(metric, a, locale);
     }
-    if (w === maxWeek && p != null) {
+    if (w === maxW && p != null) {
       row.labelPrevious = formatMetricValue(metric, p, locale);
     }
-    if (w === maxWeek && projection != null) {
+    if (view === 'cumulative' && w === maxW && projection != null) {
       row.labelProjection = formatMetricValue(metric, projection, locale);
     }
     rows.push(row);
@@ -145,6 +150,7 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
     String(t(`dashboard.pace.${k}`, opts as never));
 
   const [metric, setMetric] = useState<PaceMetricKey>('received_lb');
+  const [chartView, setChartView] = useState<ChartView>('weekly');
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['seasons', 'pace'],
@@ -163,11 +169,11 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
     }),
     [t, i18n.language],
   );
-  const vsPriorLabel = tr('vsPrior');
+  const vsPriorLabel = tr('vsPriorIso');
 
   const chartRows = useMemo(
-    () => (data ? buildChartRows(data, metric, locale) : []),
-    [data, metric, locale],
+    () => (data ? buildChartRows(data, metric, chartView, locale) : []),
+    [data, metric, chartView, locale],
   );
 
   if (!enabled) return null;
@@ -178,12 +184,14 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
         <h2 className="text-base font-semibold text-slate-900 sm:text-lg">{tr('title')}</h2>
         <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
           {data
-            ? tr('subtitle', {
+            ? tr('subtitleIso', {
                 active: data.active_year,
                 previous: data.previous_year,
-                week: data.current_week,
-                day1: data.active.day1,
+                activeIso: data.active.start_iso_week,
+                activeDay1: data.active.day1,
+                prevIso: data.previous.start_iso_week,
                 prevDay1: data.previous.day1,
+                currentIso: data.current_iso_week,
               })
             : tr('subtitleLoading')}
         </p>
@@ -219,6 +227,33 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setChartView('weekly')}
+                  className={cn(
+                    'h-7 rounded-full px-3 text-xs font-medium transition-colors',
+                    chartView === 'weekly'
+                      ? 'bg-white text-[#0F6E56] shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  {tr('viewWeekly')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartView('cumulative')}
+                  className={cn(
+                    'h-7 rounded-full px-3 text-xs font-medium transition-colors',
+                    chartView === 'cumulative'
+                      ? 'bg-white text-[#0F6E56] shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  {tr('viewCumulative')}
+                </button>
+              </div>
+              <span className="hidden h-5 border-l border-slate-200 sm:block" aria-hidden />
               <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                 {tr('chartMetric')}
               </span>
@@ -244,10 +279,10 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                 <LineChart data={chartRows} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis
-                    dataKey="week"
+                    dataKey="iso_week"
                     tick={{ fontSize: 11 }}
                     label={{
-                      value: tr('weekAxis'),
+                      value: tr('isoWeekAxis'),
                       position: 'insideBottom',
                       offset: -2,
                       fontSize: 11,
@@ -258,9 +293,7 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                     tickFormatter={(v: number) =>
                       metric === 'sold_usd'
                         ? `$${(v / 1000).toFixed(0)}k`
-                        : metric === 'boxes'
-                          ? `${(v / 1000).toFixed(0)}k`
-                          : `${(v / 1000).toFixed(0)}k`
+                        : `${(v / 1000).toFixed(0)}k`
                     }
                   />
                   <Tooltip
@@ -268,20 +301,22 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                       formatMetricValue(metric, Number(value ?? 0), locale),
                       '',
                     ]}
-                    labelFormatter={(w) => tr('weekTooltip', { week: w })}
+                    labelFormatter={(w) => tr('isoWeekTooltip', { week: w })}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine
-                    x={data.current_week}
-                    stroke="#1D9E75"
-                    strokeDasharray="4 4"
-                    label={{
-                      value: tr('currentWeek'),
-                      position: 'insideTopLeft',
-                      fontSize: 10,
-                      fill: '#0F6E56',
-                    }}
-                  />
+                  {chartView === 'cumulative' ? (
+                    <ReferenceLine
+                      x={data.current_iso_week}
+                      stroke="#1D9E75"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: tr('currentIsoWeek'),
+                        position: 'insideTopLeft',
+                        fontSize: 10,
+                        fill: '#0F6E56',
+                      }}
+                    />
+                  ) : null}
                   <Line
                     type="monotone"
                     dataKey="active"
@@ -291,12 +326,9 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                     dot={false}
                     connectNulls
                   >
-                    <LabelList
-                      dataKey="labelActive"
-                      position="top"
-                      fontSize={10}
-                      fill="#0F6E56"
-                    />
+                    {chartView === 'cumulative' ? (
+                      <LabelList dataKey="labelActive" position="top" fontSize={10} fill="#0F6E56" />
+                    ) : null}
                   </Line>
                   <Line
                     type="monotone"
@@ -315,23 +347,25 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                       fill="#64748b"
                     />
                   </Line>
-                  <Line
-                    type="monotone"
-                    dataKey="projection"
-                    name={tr('seriesProjection')}
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    strokeDasharray="3 3"
-                    dot={false}
-                    connectNulls
-                  >
-                    <LabelList
-                      dataKey="labelProjection"
-                      position="top"
-                      fontSize={10}
-                      fill="#6366f1"
-                    />
-                  </Line>
+                  {chartView === 'cumulative' ? (
+                    <Line
+                      type="monotone"
+                      dataKey="projection"
+                      name={tr('seriesProjection')}
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      connectNulls
+                    >
+                      <LabelList
+                        dataKey="labelProjection"
+                        position="top"
+                        fontSize={10}
+                        fill="#6366f1"
+                      />
+                    </Line>
+                  ) : null}
                 </LineChart>
               </ResponsiveContainer>
             </div>

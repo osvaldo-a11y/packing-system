@@ -2,25 +2,25 @@ import { apiJson } from '@/api';
 
 export type PaceMetricKey = 'received_lb' | 'packout_lb' | 'sold_usd' | 'boxes';
 
-export type PaceWeekPoint = {
-  week_index: number;
+export type PaceMetricBlock = {
   received_lb: number;
   packout_lb: number;
   sold_usd: number;
   boxes: number;
 };
 
+export type PaceIsoWeekPoint = {
+  iso_week: number;
+  weekly: PaceMetricBlock;
+  cumulative: PaceMetricBlock;
+};
+
 export type PaceSeasonSeries = {
   season_year: number;
   day1: string;
-  week_count: number;
-  weeks: PaceWeekPoint[];
-  totals: {
-    received_lb: number;
-    packout_lb: number;
-    sold_usd: number;
-    boxes: number;
-  };
+  start_iso_week: number;
+  weeks: PaceIsoWeekPoint[];
+  totals: PaceMetricBlock;
 };
 
 export type PaceMetricComparison = {
@@ -35,7 +35,9 @@ export type PaceMetricComparison = {
 export type SeasonPaceResult = {
   active_year: number;
   previous_year: number;
-  current_week: number;
+  current_iso_week: number;
+  iso_week_min: number;
+  iso_week_max: number;
   active: PaceSeasonSeries;
   previous: PaceSeasonSeries;
   comparisons: PaceMetricComparison[];
