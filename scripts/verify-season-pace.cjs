@@ -51,6 +51,10 @@ function close(a, b, tol = 5) {
       previous_year: pace.previous_year,
       current_iso_week: pace.current_iso_week,
       iso_week_range: [pace.iso_week_min, pace.iso_week_max],
+      iso_week_range_ok:
+        pace.iso_week_min >= 12 &&
+        pace.iso_week_max <= 26 &&
+        pace.iso_week_max >= pace.current_iso_week,
       previous_start_iso: prev.start_iso_week,
       previous_day1: prev.day1,
       campana_2025_received: campana,
@@ -65,7 +69,10 @@ function close(a, b, tol = 5) {
     };
 
     info.campana_match = Object.values(campana).every((x) => x.ok);
-    info.match = info.campana_match && Object.values(info.anchor_match).every(Boolean);
+    info.match =
+      info.campana_match &&
+      Object.values(info.anchor_match).every(Boolean) &&
+      info.iso_week_range_ok;
     console.log(JSON.stringify(info, null, 2));
     if (!info.match) process.exit(1);
   } finally {

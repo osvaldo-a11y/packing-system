@@ -60,11 +60,11 @@ export class SeasonPaceService {
     const activeSeries = this.buildSeries(activeYear, activeDay1, activeDaily);
     const previousSeries = this.buildSeries(previousYear, previousDay1, previousDaily);
 
-    const allIsoWeeks = [...activeSeries.weeks, ...previousSeries.weeks].map((w) => w.iso_week);
-    const isoWeekMin = allIsoWeeks.length ? Math.min(...allIsoWeeks) : currentIsoWeek;
-    const isoWeekMax = allIsoWeeks.length
-      ? Math.max(...allIsoWeeks, currentIsoWeek)
-      : currentIsoWeek;
+    const { min: isoWeekMin, max: isoWeekMax } = this.isoWeekBounds(
+      activeSeries,
+      previousSeries,
+      currentIsoWeek,
+    );
 
     const comparisons = METRIC_KEYS.map((metric) =>
       this.compareMetric(
@@ -148,6 +148,35 @@ export class SeasonPaceService {
       }
     }
     return best;
+  }
+
+  /** Semanas ISO con volumen físico de temporada (recibido o packout > 0 en cualquier temporada). */
+  private isoWeekBounds(
+    active: PaceSeasonSeries,
+    previous: PaceSeasonSeries,
+    currentIsoWeek: number,
+  ): { min: number; max: number } {
+    const weeks: number[] = [];
+    for (const s of [active, previous]) {
+      for (const w of s.weeks) {
+        if (this.weekHasChartVolume(w)) weeks.push(w.iso_week);
+      }
+    }
+    if (!weeks.length) {
+      return { min: currentIsoWeek, max: currentIsoWeek };
+    }
+    return {
+      min: Math.min(...weeks),
+      max: Math.max(...weeks, currentIsoWeek),
+    };
+  }
+
+  private weekHasChartVolume(w: {
+    weekly: PaceMetricBlock;
+  }): boolean {
+    const v = w.weekly;
+    // Excluye semanas solo comerciales (sold_usd/cajas sin recepción ni packout).
+    return v.received_lb > 0 || v.packout_lb > 0;
   }
 
   private buildSeries(year: number, day1: string, daily: DailyRow[]): PaceSeasonSeries {

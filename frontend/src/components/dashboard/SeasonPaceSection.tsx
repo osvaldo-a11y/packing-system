@@ -63,14 +63,22 @@ function findWeek(series: PaceSeasonSeries, isoWeek: number): PaceIsoWeekPoint |
   return series.weeks.find((w) => w.iso_week === isoWeek);
 }
 
+/** Dominio del eje X: rango con datos ±1 semana; incluye semana ISO actual si queda fuera. */
+function chartIsoDomain(data: SeasonPaceResult): { min: number; max: number } {
+  const margin = 1;
+  const min = Math.max(1, data.iso_week_min - margin);
+  const max = Math.max(data.iso_week_max + margin, data.current_iso_week);
+  return { min, max };
+}
+
 function buildChartRows(
   data: SeasonPaceResult,
   metric: PaceMetricKey,
   view: ChartView,
   locale: string,
 ): ChartRow[] {
-  const { active, previous, current_iso_week: currentIso, iso_week_min: minW, iso_week_max: maxW } =
-    data;
+  const { active, previous, current_iso_week: currentIso } = data;
+  const { min: minW, max: maxW } = chartIsoDomain(data);
 
   const activeAtCurrent = metricFromPoint(findWeek(active, currentIso), metric, 'cumulative');
   const prevAtCurrent = metricFromPoint(findWeek(previous, currentIso), metric, 'cumulative');
@@ -171,10 +179,25 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
   );
   const vsPriorLabel = tr('vsPriorIso');
 
+  const chartDomain = useMemo(() => (data ? chartIsoDomain(data) : null), [data]);
+
   const chartRows = useMemo(
     () => (data ? buildChartRows(data, metric, chartView, locale) : []),
     [data, metric, chartView, locale],
   );
+
+  const xTicks = useMemo(() => {
+    if (!chartDomain) return [];
+    const n = chartDomain.max - chartDomain.min + 1;
+    if (n > 18) {
+      const step = Math.ceil(n / 12);
+      const ticks: number[] = [];
+      for (let w = chartDomain.min; w <= chartDomain.max; w += step) ticks.push(w);
+      if (ticks[ticks.length - 1] !== chartDomain.max) ticks.push(chartDomain.max);
+      return ticks;
+    }
+    return Array.from({ length: n }, (_, i) => chartDomain.min + i);
+  }, [chartDomain]);
 
   if (!enabled) return null;
 
@@ -279,7 +302,11 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                 <LineChart data={chartRows} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis
+                    type="number"
                     dataKey="iso_week"
+                    domain={chartDomain ? [chartDomain.min, chartDomain.max] : undefined}
+                    allowDataOverflow
+                    ticks={xTicks}
                     tick={{ fontSize: 11 }}
                     label={{
                       value: tr('isoWeekAxis'),
@@ -304,7 +331,9 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
                     labelFormatter={(w) => tr('isoWeekTooltip', { week: w })}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  {chartView === 'cumulative' ? (
+                  {chartDomain &&
+                  data.current_iso_week >= chartDomain.min &&
+                  data.current_iso_week <= chartDomain.max ? (
                     <ReferenceLine
                       x={data.current_iso_week}
                       stroke="#1D9E75"
