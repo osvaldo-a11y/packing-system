@@ -80,16 +80,6 @@ type ProducerRow = { id: number; nombre: string; codigo: string | null };
 type ClientRow = { id: number; codigo: string; nombre: string };
 type FormatRow = { id: number; format_code: string; max_boxes_per_pallet?: number | null; activo?: boolean };
 
-function toDayKey(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 function parseNum(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -150,38 +140,6 @@ function describePeriodDashboard(period: DashboardPeriod): string {
   if (period === 'today') return 'Hoy (00:00–23:59, horario local)';
   if (period === 'week') return 'Semana en curso (lun–ahora)';
   return 'Últimos 90 días aprox.';
-}
-
-/** Lunes local de la semana para una fecha yyyy-mm-dd. */
-function mondayKeyFromDayKey(dayKey: string): string {
-  const [y, m, d] = dayKey.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const day = dt.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  dt.setDate(dt.getDate() + diff);
-  const yy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, '0');
-  const dd = String(dt.getDate()).padStart(2, '0');
-  return `${yy}-${mm}-${dd}`;
-}
-
-function formatWeekRangeLabel(mondayYmd: string): string {
-  const [y, m, d] = mondayYmd.split('-').map(Number);
-  const start = new Date(y, m - 1, d);
-  const end = new Date(y, m - 1, d + 6);
-  const f = (dt: Date) =>
-    dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }).replace(/\.$/, '');
-  return `${f(start)} – ${f(end)}`;
-}
-
-/** Semana ISO (lun–dom) a partir del lunes yyyy-mm-dd. */
-function isoWeekFromMondayKey(mondayYmd: string): { isoYear: number; week: number } {
-  const [y, m, d] = mondayYmd.split('-').map(Number);
-  const thursday = new Date(y, m - 1, d + 3);
-  const isoYear = thursday.getFullYear();
-  const firstThursday = new Date(isoYear, 0, 4);
-  const week = 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / 604_800_000);
-  return { isoYear, week };
 }
 
 function inDateRange(iso: string | null | undefined, from: Date, to: Date): boolean {
@@ -578,127 +536,6 @@ function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number
   return true;
 }
 
-type ChartGranularity = 'day' | 'week';
-
-function ReceivedPackedAreaChart({
-  points,
-  granularity,
-}: {
-  points: Array<{ label: string; title?: string; received: number; packed: number; sortKey: string }>;
-  granularity: ChartGranularity;
-}) {
-  if (!points.length) {
-    return (
-      <div className="flex h-64 items-center justify-center rounded-xl border border-slate-100 bg-slate-50/35 text-sm text-slate-500">
-        Sin datos en el período
-      </div>
-    );
-  }
-  const W = 720;
-  const H = 260;
-  const padL = 52;
-  const padR = 20;
-  const padT = 28;
-  const padB = granularity === 'week' ? 36 : 44;
-  const innerW = W - padL - padR;
-  const innerH = H - padT - padB;
-  const baseline = padT + innerH;
-  const n = points.length;
-  const maxVal = Math.max(1, ...points.flatMap((p) => [p.received, p.packed]));
-  const xAt = (i: number) => (n <= 1 ? padL + innerW / 2 : padL + (innerW * i) / (n - 1));
-  const yAt = (v: number) => baseline - (maxVal > 0 ? (innerH * v) / maxVal : 0);
-
-  const lineToArea = (vals: number[]) => {
-    if (n === 0) return '';
-    let d = `M ${xAt(0)} ${baseline}`;
-    for (let i = 0; i < n; i++) d += ` L ${xAt(i)} ${yAt(vals[i] ?? 0)}`;
-    d += ` L ${xAt(n - 1)} ${baseline} Z`;
-    return d;
-  };
-
-  const receivedVals = points.map((p) => p.received);
-  const packedVals = points.map((p) => p.packed);
-  const tickStep =
-    granularity === 'week' ? Math.max(1, n <= 16 ? 1 : Math.ceil(n / 14)) : Math.max(1, Math.ceil(n / 10));
-
-  return (
-    <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/35 p-3">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-3 rounded-sm bg-sky-500/85" />
-            Recibido (lb)
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-3 rounded-sm bg-emerald-600/85" />
-            Empacado (lb)
-          </span>
-        </div>
-        <span className="text-slate-400">
-          Máx. eje: {maxVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })} lb
-        </span>
-      </div>
-      <svg
-        className="mx-auto w-full max-w-[720px]"
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Recibido y empacado en libras"
-      >
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-          const y = baseline - innerH * t;
-          const val = maxVal * t;
-          return (
-            <g key={t}>
-              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#E2E8F0" strokeWidth={1} />
-              <text x={padL - 8} y={y + 4} textAnchor="end" className="fill-slate-400 text-[10px]">
-                {val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-              </text>
-            </g>
-          );
-        })}
-        <path d={lineToArea(packedVals)} fill="rgba(5, 150, 105, 0.22)" stroke="none" />
-        <path
-          d={`M ${xAt(0)} ${yAt(packedVals[0] ?? 0)}${packedVals
-            .slice(1)
-            .map((v, i) => ` L ${xAt(i + 1)} ${yAt(v)}`)
-            .join('')}`}
-          fill="none"
-          stroke="#059669"
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-        <path d={lineToArea(receivedVals)} fill="rgba(14, 165, 233, 0.2)" stroke="none" />
-        <path
-          d={`M ${xAt(0)} ${yAt(receivedVals[0] ?? 0)}${receivedVals
-            .slice(1)
-            .map((v, i) => ` L ${xAt(i + 1)} ${yAt(v)}`)
-            .join('')}`}
-          fill="none"
-          stroke="#0ea5e9"
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-        {points.map((p, i) =>
-          i % tickStep === 0 || i === n - 1 ? (
-            <g key={`${p.sortKey}-${i}`}>
-              {p.title ? <title>{p.title}</title> : null}
-              <text
-                x={xAt(i)}
-                y={H - 10}
-                textAnchor={n <= 3 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
-                className={`fill-slate-500 ${granularity === 'week' ? 'text-[10px] font-medium' : 'text-[9px]'}`}
-                transform={`rotate(${granularity === 'day' && n > 14 ? -35 : 0}, ${xAt(i)}, ${H - 10})`}
-              >
-                {p.label}
-              </text>
-            </g>
-          ) : null,
-        )}
-      </svg>
-    </div>
-  );
-}
-
 export function DashboardPage() {
   const { t } = useTranslation('common');
   const { username, role, token } = useAuth();
@@ -706,7 +543,6 @@ export function DashboardPage() {
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
 
   const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
-  const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('week');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
@@ -1203,51 +1039,6 @@ export function DashboardPage() {
       };
     });
   }, [recipesQ.data, formatsQ.data, matsQ.data, clientsQ.data, ordersQ.data]);
-
-  const receivedPackedChartPoints = useMemo(() => {
-    const recMap = new Map<string, number>();
-    const packMap = new Map<string, number>();
-    for (const r of receptionsFiltered) {
-      const k = toDayKey(r.received_at);
-      if (!k) continue;
-      recMap.set(k, (recMap.get(k) ?? 0) + receptionNetLb(r));
-    }
-    for (const t of ptTagsFiltered) {
-      const k = toDayKey(t.fecha);
-      if (!k) continue;
-      packMap.set(k, (packMap.get(k) ?? 0) + ptTagPackoutLbForProducer(t, producerId, processById));
-    }
-    const dayKeys = [...new Set([...recMap.keys(), ...packMap.keys()])].sort((a, b) => a.localeCompare(b));
-    if (dayKeys.length === 0) return [];
-    if (chartGranularity === 'week') {
-      const wRec = new Map<string, number>();
-      const wPack = new Map<string, number>();
-      for (const k of dayKeys) {
-        const wk = mondayKeyFromDayKey(k);
-        wRec.set(wk, (wRec.get(wk) ?? 0) + (recMap.get(k) ?? 0));
-        wPack.set(wk, (wPack.get(wk) ?? 0) + (packMap.get(k) ?? 0));
-      }
-      const wKeys = [...new Set([...wRec.keys(), ...wPack.keys()])].sort((a, b) => a.localeCompare(b));
-      const weekMeta = wKeys.map((wk) => ({ wk, ...isoWeekFromMondayKey(wk) }));
-      const isoYears = new Set(weekMeta.map((w) => w.isoYear));
-      const showIsoYear = isoYears.size > 1;
-      return weekMeta.map(({ wk, isoYear, week }) => ({
-        sortKey: wk,
-        label: showIsoYear
-          ? t('dashboard.chart.weekAxisYear', { week, year: isoYear })
-          : t('dashboard.chart.weekAxis', { week }),
-        title: formatWeekRangeLabel(wk),
-        received: wRec.get(wk) ?? 0,
-        packed: wPack.get(wk) ?? 0,
-      }));
-    }
-    return dayKeys.map((k) => ({
-      sortKey: k,
-      label: k.slice(5),
-      received: recMap.get(k) ?? 0,
-      packed: packMap.get(k) ?? 0,
-    }));
-  }, [receptionsFiltered, ptTagsFiltered, chartGranularity, producerId, processById, t]);
 
   const productionByClient = useMemo(() => {
     const clientsMap = new Map((clientsQ.data ?? []).map((c) => [c.id, c.nombre]));
@@ -1987,37 +1778,6 @@ export function DashboardPage() {
               );
             })}
           </div>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-          <div>
-            <h2 className={sectionTitle}>{t('dashboard.chart.title')}</h2>
-            <p className={sectionHint}>
-              {t('dashboard.chart.hint')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dashboard.chart.axisLabel')}</span>
-              <select
-                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
-                value={chartGranularity}
-                onChange={(e) => setChartGranularity(e.target.value as ChartGranularity)}
-              >
-                <option value="day">{t('dashboard.chart.byDay')}</option>
-                <option value="week">{t('dashboard.chart.byWeek')}</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        {!canLoad ? (
-          <p className={emptyStateBanner}>{t('dashboard.chart.noSession')}</p>
-        ) : recQ.isPending || tagsQ.isPending ? (
-          <Skeleton className="h-64 rounded-2xl" />
-        ) : (
-          <ReceivedPackedAreaChart points={receivedPackedChartPoints} granularity={chartGranularity} />
         )}
       </section>
 

@@ -296,16 +296,6 @@
       "labelsByClient": "Etiquetas por cliente",
       "noClients": "Sin clientes exigidos para este formato en pedidos activos."
     },
-    "chart": {
-      "title": "Recibido vs empacado (lb)",
-      "hint": "Mismos filtros que arriba (período, productor, especie, modo). Compará entrada de fruta vs packout PT.",
-      "axisLabel": "Eje temporal",
-      "byDay": "Por día",
-      "byWeek": "Por semana (lun–dom)",
-      "weekAxis": "Sem. {{week}}",
-      "weekAxisYear": "Sem. {{week}} · {{year}}",
-      "noSession": "Gráfico no disponible sin sesión."
-    },
     "production": {
       "title": "Producción por cliente",
       "hint": "Barras relativas al producido (referencia 100%). En cámara estimado como producido − despachado para la vista.",

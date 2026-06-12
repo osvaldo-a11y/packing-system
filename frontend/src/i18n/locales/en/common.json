@@ -296,16 +296,6 @@
       "labelsByClient": "Labels by client",
       "noClients": "No clients required for this format in active orders."
     },
-    "chart": {
-      "title": "Received vs packed (lb)",
-      "hint": "Same filters as above (period, producer, species, mode). Compare fruit intake vs PT packout.",
-      "axisLabel": "Time axis",
-      "byDay": "By day",
-      "byWeek": "By week (Mon–Sun)",
-      "weekAxis": "Wk {{week}}",
-      "weekAxisYear": "Wk {{week}} · {{year}}",
-      "noSession": "Chart not available without session."
-    },
     "production": {
       "title": "Production by client",
       "hint": "Bars relative to produced (100% reference). Camera estimated as produced − dispatched for this view.",
