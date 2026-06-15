@@ -97,6 +97,9 @@ function parseNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Pallets físicos por contenedor (tripaje y capacidad en Home). */
+const PALLETS_PER_CONTAINER = 28;
+
 function clampPct(v: number): number {
   if (!Number.isFinite(v)) return 0;
   return Math.max(0, Math.min(100, v));
@@ -956,7 +959,7 @@ export function DashboardPage() {
   const tripajeCards = useMemo(() => {
     const mats = (matsQ.data ?? []).filter((m) => m.activo);
     const defs: Array<{ key: string; icon: string; label: string; unitsPerPallet: number; matcher: RegExp }> = [
-      { key: 'esquineros', icon: '📐', label: t('dashboard.tripaje.labels.esquineros'), unitsPerPallet: 96, matcher: /esquiner|corner|angulo/ },
+      { key: 'esquineros', icon: '📐', label: t('dashboard.tripaje.labels.esquineros'), unitsPerPallet: 4, matcher: /esquiner|corner|angulo/ },
       { key: 'interconectores', icon: '🔗', label: t('dashboard.tripaje.labels.interconectores'), unitsPerPallet: 24, matcher: /interconector|interconnect|clip/ },
       { key: 'pallets', icon: '🪵', label: t('dashboard.tripaje.labels.pallets'), unitsPerPallet: 1, matcher: /pallet|tarima|palet/ },
       { key: 'fleje', icon: '📎', label: t('dashboard.tripaje.labels.fleje'), unitsPerPallet: 1, matcher: /fleje|strap/ },
@@ -970,7 +973,7 @@ export function DashboardPage() {
           qty += materialOperationalStock(m.id, m.cantidad_disponible, operationalStockByMaterialId);
         }
       }
-      const containers = qty / Math.max(1e-9, d.unitsPerPallet) / 24;
+      const containers = qty / Math.max(1e-9, d.unitsPerPallet) / PALLETS_PER_CONTAINER;
       return { ...d, qty, containers };
     });
   }, [matsQ.data, operationalStockByMaterialId, t]);
@@ -1032,7 +1035,7 @@ export function DashboardPage() {
           if (!materialAppliesToFormatAndClient(m, fmt.id, cid)) continue;
           stock += parseNum(m.cantidad_disponible);
         }
-        const containers = stock / maxBoxesPerPallet / 24;
+        const containers = stock / maxBoxesPerPallet / PALLETS_PER_CONTAINER;
         return {
           clientId: cid,
           clientName: clientById.get(cid) ?? `Cliente #${cid}`,
@@ -1045,8 +1048,8 @@ export function DashboardPage() {
         etiquetasByClient.length > 0
           ? Math.min(...etiquetasByClient.map((r) => r.containers))
           : Number.POSITIVE_INFINITY;
-      const boxesContainers = boxesPossible / maxBoxesPerPallet / 24;
-      const clamshellContainers = clamshellPossible / maxBoxesPerPallet / 24;
+      const boxesContainers = boxesPossible / maxBoxesPerPallet / PALLETS_PER_CONTAINER;
+      const clamshellContainers = clamshellPossible / maxBoxesPerPallet / PALLETS_PER_CONTAINER;
       const bottleneckContainers = Math.min(
         boxesContainers,
         clamshellContainers,
@@ -1670,7 +1673,7 @@ export function DashboardPage() {
       <section className="space-y-3">
         <div>
           <h2 className={sectionTitle}>{t('dashboard.tripaje.title')}</h2>
-          <p className={sectionHint}>{t('dashboard.tripaje.hint')}</p>
+          <p className={sectionHint}>{t('dashboard.tripaje.hint', { pallets: PALLETS_PER_CONTAINER })}</p>
               </div>
         {matsQ.isPending ? (
           <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

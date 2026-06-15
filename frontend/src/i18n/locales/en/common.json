@@ -277,7 +277,7 @@
     },
     "tripaje": {
       "title": "Shared lashing resources",
-      "hint": "Available for all orders · minimum 1 cont = 24 pallets",
+      "hint": "Available for all orders · minimum 1 cont = {{pallets}} pallets",
       "criticalBadge": "⚠ Critical",
       "containers": "≈ {{value}} possible cont",
       "labels": {

@@ -277,7 +277,7 @@
     },
     "tripaje": {
       "title": "Recursos de tripaje compartidos",
-      "hint": "Disponibles para todos los pedidos · mínimo 1 cont = 24 pallets",
+      "hint": "Disponibles para todos los pedidos · mínimo 1 cont = {{pallets}} pallets",
       "criticalBadge": "⚠ Crítico",
       "containers": "≈ {{value}} cont posibles",
       "labels": {
