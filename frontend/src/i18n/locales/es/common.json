@@ -1997,7 +1997,16 @@
       "material_categories": "Cat. materiales",
       "reception_types": "Tipos recepción",
       "document_states": "Estados doc.",
-      "containers": "Envases"
+      "containers": "Envases",
+      "packing_suppliers": "Prov. empaque"
+    },
+    "packingSuppliers": {
+      "add": "Nuevo proveedor",
+      "addTitle": "Alta proveedor de empaque",
+      "editTitle": "Editar proveedor de empaque",
+      "deleteTitle": "Borrar proveedor de empaque",
+      "categoriesLabel": "Categorías que suministra",
+      "categoriesCol": "Categorías"
     },
     "sections": {
       "processMachines": "Líneas de proceso",
@@ -2013,7 +2022,9 @@
       "mercados": "Mercados",
       "materialCategories": "Categorías de materiales",
       "receptionTypes": "Tipos de recepción",
-      "documentStates": "Estados de documento"
+      "documentStates": "Estados de documento",
+      "packingSuppliers": "Proveedores de empaque",
+      "packingSuppliersDesc": "Proveedores de materiales de empaque y categorías que suministran (caja, clamshell, etiqueta, etc.)."
     },
     "col": {
       "code": "Código",
@@ -2129,6 +2140,9 @@
       "containerCreated": "Envase creado",
       "containerUpdated": "Envase actualizado",
       "containerDeleted": "Envase borrado",
+      "packingSupplierCreated": "Proveedor de empaque creado",
+      "packingSupplierUpdated": "Proveedor de empaque actualizado",
+      "packingSupplierDeleted": "Proveedor de empaque borrado",
       "qualityCreated": "Calidad creada",
       "qualityUpdated": "Calidad actualizada",
       "qualityDeleted": "Calidad borrada",
@@ -2229,6 +2243,9 @@
       "step3": "Datos del movimiento",
       "supplierLabel": "Proveedor",
       "supplierPlaceholder": "Seleccionar…",
+      "supplierLoading": "Cargando proveedores…",
+      "supplierEmpty": "No hay proveedores configurados para esta categoría.",
+      "supplierEmptyLink": "Configurar en Maestros",
       "qtyLabel": "Cantidad",
       "qtyPlaceholder": "Ej. 500",
       "qtyExitPlaceholder": "Ej. -20",
@@ -2289,7 +2306,8 @@
       "fixButton": "Corregir",
       "editButton": "Editar",
       "deleteButton": "Eliminar",
-      "kardexButton": "Kardex"
+      "kardexButton": "Kardex",
+      "suppliersButton": "Proveedores"
     },
     "linkDialog": {
       "title": "Proveedor y texto de guía",

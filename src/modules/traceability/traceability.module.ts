@@ -13,6 +13,7 @@ import {
   FinishedPtStock,
   PackingMaterialSupplier,
   PackingSupplier,
+  PackingSupplierMaterialCategory,
   ReturnableContainer,
 } from './operational.entities';
 import {
@@ -50,6 +51,7 @@ import { TraceabilityService } from './traceability.service';
       Client,
       Brand,
       PackingSupplier,
+      PackingSupplierMaterialCategory,
       PackingMaterialSupplier,
       ReturnableContainer,
       FinishedPtStock,

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -31,6 +31,7 @@ import {
   CreateReceptionTypeDto,
   CreateReturnableContainerDto,
   LinkMaterialSupplierDto,
+  SetPackingSupplierCategoriesDto,
   UpdatePackingMaterialLinkDto,
   UpdateBrandDto,
   UpdateClientDto,
@@ -306,8 +307,39 @@ export class MastersController {
 
   @Get('packing-suppliers')
   @Roles(...READ_ACCESS_ROLES)
-  listPackingSuppliers(@Query('include_inactive') includeInactive?: string) {
-    return this.operational.listPackingSuppliers(parseIncludeInactive(includeInactive));
+  listPackingSuppliers(
+    @Query('include_inactive') includeInactive?: string,
+    @Query('include_categories') includeCategories?: string,
+  ) {
+    return this.operational.listPackingSuppliers(
+      parseIncludeInactive(includeInactive),
+      includeCategories === '1' || includeCategories === 'true',
+    );
+  }
+
+  @Get('packing-suppliers/for-purchase')
+  @Roles(...READ_ACCESS_ROLES)
+  suppliersForPurchase(@Query('material_id') materialId: string) {
+    const mid = Number(materialId);
+    if (!Number.isFinite(mid) || mid <= 0) {
+      throw new BadRequestException('material_id inválido');
+    }
+    return this.operational.resolveSuppliersForPurchase(mid);
+  }
+
+  @Get('packing-suppliers/:id/categories')
+  @Roles(...READ_ACCESS_ROLES)
+  getPackingSupplierCategories(@Param('id', ParseIntPipe) id: number) {
+    return this.operational.getPackingSupplierCategories(id);
+  }
+
+  @Put('packing-suppliers/:id/categories')
+  @Roles(ROLES.SUPERVISOR, ROLES.ADMIN)
+  setPackingSupplierCategories(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SetPackingSupplierCategoriesDto,
+  ) {
+    return this.operational.setPackingSupplierCategories(id, dto);
   }
 
   @Post('packing-suppliers')

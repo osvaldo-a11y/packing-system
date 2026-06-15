@@ -91,6 +91,19 @@ export class PackingSupplier {
   created_at: Date;
 }
 
+@Entity('packing_supplier_material_categories')
+export class PackingSupplierMaterialCategory {
+  @PrimaryColumn({ type: 'bigint' })
+  supplier_id: number;
+
+  @PrimaryColumn({ type: 'bigint' })
+  material_category_id: number;
+
+  @ManyToOne(() => PackingSupplier, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: PackingSupplier;
+}
+
 @Entity('packing_material_suppliers')
 export class PackingMaterialSupplier {
   @PrimaryColumn({ type: 'bigint' })

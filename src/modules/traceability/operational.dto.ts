@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateClientDto {
   @IsString() @MinLength(1) @MaxLength(40) codigo: string;
@@ -85,6 +85,10 @@ export class UpdatePackingSupplierDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(40) codigo?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(200) nombre?: string;
   @IsOptional() @IsBoolean() activo?: boolean;
+}
+
+export class SetPackingSupplierCategoriesDto {
+  @IsArray() @Type(() => Number) @IsInt({ each: true }) material_category_ids: number[];
 }
 
 export class LinkMaterialSupplierDto {

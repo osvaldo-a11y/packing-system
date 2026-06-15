@@ -12,6 +12,7 @@ import {
   Info,
   Layers,
   LayoutGrid,
+  Link2,
   Package,
   PackageOpen,
   Plus,
@@ -138,6 +139,13 @@ type PatchMaterialBody = {
 };
 
 type PackingSupplierRow = { id: number; codigo: string; nombre: string; activo: boolean };
+
+type PurchaseSuppliersResult = {
+  material_id: number;
+  material_category_id: number;
+  suppliers: PackingSupplierRow[];
+  preferred_supplier_id: number | null;
+};
 
 type PackingMaterialLinkRow = {
   material_id: number;
@@ -503,12 +511,21 @@ export function MaterialsPage() {
     enabled: linkDialogMaterialId > 0,
   });
 
-  const { data: kardexMaterialLinks } = useQuery({
-    queryKey: ['masters', 'packing-material-links', 'kardex', kardexMaterialId],
+  const { data: purchaseSuppliers, isLoading: purchaseSuppliersLoading } = useQuery({
+    queryKey: ['masters', 'packing-suppliers', 'for-purchase', kardexMaterialId],
     queryFn: () =>
-      apiJson<PackingMaterialLinkRow[]>(`/api/masters/packing-material-links?material_id=${kardexMaterialId}`),
-    enabled: kardexMaterialId > 0 && kardexOpen,
+      apiJson<PurchaseSuppliersResult>(
+        `/api/masters/packing-suppliers/for-purchase?material_id=${kardexMaterialId}`,
+      ),
+    enabled: kardexMaterialId > 0 && kardexOpen && moveRefType === 'compra',
+    staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (moveRefType !== 'compra' || !purchaseSuppliers) return;
+    const pref = purchaseSuppliers.preferred_supplier_id;
+    setMoveSupplierId(pref != null && pref > 0 ? pref : 0);
+  }, [purchaseSuppliers, moveRefType, kardexMaterialId]);
 
   const form = useForm<CreateMaterialForm>({
     mode: 'onTouched',
@@ -690,7 +707,7 @@ export function MaterialsPage() {
       }
       if (moveRefType === 'compra') {
         if (moveSupplierId > 0) {
-          const s = (kardexMaterialLinks ?? []).find((x) => x.supplier_id === moveSupplierId)?.supplier;
+          const s = (purchaseSuppliers?.suppliers ?? []).find((x) => x.id === moveSupplierId);
           if (s) parts.push(`Proveedor: ${s.nombre}`);
         }
         if (moveUnitCostRef.trim()) parts.push(`Costo unitario ref: ${moveUnitCostRef.trim()}`);
@@ -750,6 +767,7 @@ export function MaterialsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masters', 'packing-material-links'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers', 'for-purchase'] });
       toast.success(t('materials.toast.supplierLinked'));
     },
     onError: (e: Error) => toast.error(e.message || t('materials.toast.errLink')),
@@ -1423,18 +1441,32 @@ export function MaterialsPage() {
                               <>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
                                   <Label className="text-xs text-slate-600">{t('materials.kardexDialog.supplierLabel')}</Label>
-                                  <select
-                                    className={filterSelectClass}
-                                    value={moveSupplierId}
-                                    onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
-                                  >
-                                    <option value={0}>{t('materials.kardexDialog.supplierPlaceholder')}</option>
-                                    {(kardexMaterialLinks ?? []).map((lnk) => (
-                                      <option key={lnk.supplier_id} value={lnk.supplier_id}>
-                                        {lnk.supplier.nombre}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {purchaseSuppliersLoading ? (
+                                    <p className="text-xs text-slate-500">{t('materials.kardexDialog.supplierLoading')}</p>
+                                  ) : (purchaseSuppliers?.suppliers.length ?? 0) === 0 ? (
+                                    <p className="text-xs text-amber-800">
+                                      {t('materials.kardexDialog.supplierEmpty')}{' '}
+                                      <Link
+                                        to="/masters?tab=packing_suppliers"
+                                        className="font-medium text-[#0F6E56] underline underline-offset-2"
+                                      >
+                                        {t('materials.kardexDialog.supplierEmptyLink')}
+                                      </Link>
+                                    </p>
+                                  ) : (
+                                    <select
+                                      className={filterSelectClass}
+                                      value={moveSupplierId}
+                                      onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
+                                    >
+                                      <option value={0}>{t('materials.kardexDialog.supplierPlaceholder')}</option>
+                                      {(purchaseSuppliers?.suppliers ?? []).map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.nombre}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
                                   <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
@@ -1854,6 +1886,19 @@ export function MaterialsPage() {
                           onClick={() => setRenameRow(row)}
                         >
                           {t('materials.inventory.editButton')}
+                        </Button>
+                      </div>
+                      <div className="mt-1.5 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 px-2 text-[10px] text-slate-600"
+                          onClick={() => setLinkDialogMaterialId(row.id)}
+                          title={t('materials.inventory.suppliersButton')}
+                        >
+                          <Link2 className="h-3 w-3" aria-hidden />
+                          {t('materials.inventory.suppliersButton')}
                         </Button>
                       </div>
                       {canDelete ? (

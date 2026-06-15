@@ -1998,7 +1998,16 @@
       "material_categories": "Material cat.",
       "reception_types": "Reception types",
       "document_states": "Doc. states",
-      "containers": "Containers"
+      "containers": "Containers",
+      "packing_suppliers": "Pack. suppliers"
+    },
+    "packingSuppliers": {
+      "add": "New supplier",
+      "addTitle": "New packaging supplier",
+      "editTitle": "Edit packaging supplier",
+      "deleteTitle": "Delete packaging supplier",
+      "categoriesLabel": "Categories supplied",
+      "categoriesCol": "Categories"
     },
     "sections": {
       "processMachines": "Process lines",
@@ -2014,7 +2023,9 @@
       "mercados": "Markets",
       "materialCategories": "Material categories",
       "receptionTypes": "Reception types",
-      "documentStates": "Document states"
+      "documentStates": "Document states",
+      "packingSuppliers": "Packaging suppliers",
+      "packingSuppliersDesc": "Suppliers of packaging materials and the categories they supply (box, clamshell, label, etc.)."
     },
     "col": {
       "code": "Code",
@@ -2130,6 +2141,9 @@
       "containerCreated": "Container created",
       "containerUpdated": "Container updated",
       "containerDeleted": "Container deleted",
+      "packingSupplierCreated": "Packaging supplier created",
+      "packingSupplierUpdated": "Packaging supplier updated",
+      "packingSupplierDeleted": "Packaging supplier deleted",
       "qualityCreated": "Quality created",
       "qualityUpdated": "Quality updated",
       "qualityDeleted": "Quality deleted",
@@ -2230,6 +2244,9 @@
       "step3": "Movement data",
       "supplierLabel": "Supplier",
       "supplierPlaceholder": "Select…",
+      "supplierLoading": "Loading suppliers…",
+      "supplierEmpty": "No suppliers configured for this category.",
+      "supplierEmptyLink": "Configure in Masters",
       "qtyLabel": "Quantity",
       "qtyPlaceholder": "E.g. 500",
       "qtyExitPlaceholder": "E.g. -20",
@@ -2290,7 +2307,8 @@
       "fixButton": "Correct",
       "editButton": "Edit",
       "deleteButton": "Delete",
-      "kardexButton": "Kardex"
+      "kardexButton": "Kardex",
+      "suppliersButton": "Suppliers"
     },
     "linkDialog": {
       "title": "Supplier and guide text",

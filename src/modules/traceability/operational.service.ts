@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, In, Repository } from 'typeorm';
 import { QueryFailedError } from 'typeorm';
 import { PackagingMaterial } from '../packaging/packaging.entities';
 import {
@@ -9,6 +9,7 @@ import {
   FinishedPtStock,
   PackingMaterialSupplier,
   PackingSupplier,
+  PackingSupplierMaterialCategory,
   ReturnableContainer,
 } from './operational.entities';
 import {
@@ -21,6 +22,7 @@ import {
   CreateReceptionTypeDto,
   CreateReturnableContainerDto,
   LinkMaterialSupplierDto,
+  SetPackingSupplierCategoriesDto,
   UpdatePackingMaterialLinkDto,
   UpdateBrandDto,
   UpdateClientDto,
@@ -40,6 +42,8 @@ export class OperationalService {
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>,
     @InjectRepository(Brand) private readonly brandRepo: Repository<Brand>,
     @InjectRepository(PackingSupplier) private readonly packingSupplierRepo: Repository<PackingSupplier>,
+    @InjectRepository(PackingSupplierMaterialCategory)
+    private readonly supplierCategoryRepo: Repository<PackingSupplierMaterialCategory>,
     @InjectRepository(PackingMaterialSupplier) private readonly pmsRepo: Repository<PackingMaterialSupplier>,
     @InjectRepository(ReturnableContainer) private readonly containerRepo: Repository<ReturnableContainer>,
     @InjectRepository(FinishedPtStock) private readonly ptStockRepo: Repository<FinishedPtStock>,
@@ -439,11 +443,98 @@ export class OperationalService {
     return { ok: true };
   }
 
-  listPackingSuppliers(includeInactive = false) {
-    return this.packingSupplierRepo.find({
-      where: includeInactive ? {} : { activo: true },
-      order: { nombre: 'ASC' },
+  listPackingSuppliers(includeInactive = false, includeCategories = false) {
+    const load = async () => {
+      const rows = await this.packingSupplierRepo.find({
+        where: includeInactive ? {} : { activo: true },
+        order: { nombre: 'ASC' },
+      });
+      if (!includeCategories) return rows;
+      const links = await this.supplierCategoryRepo.find();
+      const bySupplier = new Map<number, number[]>();
+      for (const l of links) {
+        const sid = Number(l.supplier_id);
+        const arr = bySupplier.get(sid) ?? [];
+        arr.push(Number(l.material_category_id));
+        bySupplier.set(sid, arr);
+      }
+      return rows.map((s) => ({
+        ...s,
+        material_category_ids: (bySupplier.get(Number(s.id)) ?? []).sort((a, b) => a - b),
+      }));
+    };
+    return load();
+  }
+
+  async getPackingSupplierCategories(supplierId: number) {
+    const s = await this.packingSupplierRepo.findOne({ where: { id: supplierId } });
+    if (!s) throw new NotFoundException('Proveedor no encontrado');
+    const rows = await this.supplierCategoryRepo.find({ where: { supplier_id: supplierId } });
+    return {
+      supplier_id: supplierId,
+      material_category_ids: rows.map((r) => Number(r.material_category_id)).sort((a, b) => a - b),
+    };
+  }
+
+  async setPackingSupplierCategories(supplierId: number, dto: SetPackingSupplierCategoriesDto) {
+    const s = await this.packingSupplierRepo.findOne({ where: { id: supplierId } });
+    if (!s) throw new NotFoundException('Proveedor no encontrado');
+    const ids = [...new Set(dto.material_category_ids.filter((id) => Number.isFinite(id) && id > 0))];
+    if (ids.length) {
+      const cats = await this.materialCategoryRepo.find({ where: { id: In(ids) } });
+      if (cats.length !== ids.length) throw new BadRequestException('material_category_ids inválidos');
+    }
+    await this.supplierCategoryRepo.delete({ supplier_id: supplierId });
+    if (ids.length) {
+      await this.supplierCategoryRepo.save(
+        ids.map((material_category_id) =>
+          this.supplierCategoryRepo.create({ supplier_id: supplierId, material_category_id }),
+        ),
+      );
+    }
+    return this.getPackingSupplierCategories(supplierId);
+  }
+
+  /** Proveedores sugeridos al registrar compra: todos los de la categoría del material. */
+  async resolveSuppliersForPurchase(materialId: number) {
+    const material = await this.materialRepo.findOne({ where: { id: materialId } });
+    if (!material) throw new NotFoundException('Material no encontrado');
+    const categoryId = Number(material.material_category_id);
+
+    const categoryLinks = await this.supplierCategoryRepo.find({
+      where: { material_category_id: categoryId },
     });
+    const supplierIds = [
+      ...new Set(categoryLinks.map((l) => Number(l.supplier_id)).filter((id) => id > 0)),
+    ];
+    const suppliers =
+      supplierIds.length > 0
+        ? await this.packingSupplierRepo.find({
+            where: { id: In(supplierIds), activo: true },
+            order: { nombre: 'ASC' },
+          })
+        : [];
+
+    const materialLinks = await this.pmsRepo.find({ where: { material_id: materialId } });
+    const linkedIds = materialLinks.map((l) => Number(l.supplier_id));
+    const supplierIdSet = new Set(suppliers.map((s) => Number(s.id)));
+    let preferred_supplier_id: number | null = null;
+    for (const lid of linkedIds) {
+      if (supplierIdSet.has(lid)) {
+        preferred_supplier_id = lid;
+        break;
+      }
+    }
+    if (preferred_supplier_id == null && suppliers.length === 1) {
+      preferred_supplier_id = Number(suppliers[0].id);
+    }
+
+    return {
+      material_id: materialId,
+      material_category_id: categoryId,
+      suppliers,
+      preferred_supplier_id,
+    };
   }
 
   async createPackingSupplier(dto: CreatePackingSupplierDto) {

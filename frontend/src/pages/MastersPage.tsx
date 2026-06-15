@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -560,7 +561,8 @@ type TabKey =
   | 'material_categories'
   | 'reception_types'
   | 'document_states'
-  | 'containers';
+  | 'containers'
+  | 'packing_suppliers';
 
 export function MastersPage() {
   const { t } = useTranslation('common');
@@ -568,8 +570,31 @@ export function MastersPage() {
   const canWrite = canEditMasters(role);
   const viewerBrowseOnly = isViewer(role);
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<TabKey>('species');
   const [rowFilter, setRowFilter] = useState('');
+
+  useEffect(() => {
+    const q = searchParams.get('tab');
+    const allowed: TabKey[] = [
+      'species',
+      'producers',
+      'varieties',
+      'formats',
+      'quality',
+      'process_machines',
+      'process_results',
+      'brands',
+      'clients',
+      'mercados',
+      'material_categories',
+      'reception_types',
+      'document_states',
+      'containers',
+      'packing_suppliers',
+    ];
+    if (q && (allowed as string[]).includes(q)) setTab(q as TabKey);
+  }, [searchParams]);
 
   const { data: speciesList } = useQuery({
     queryKey: ['masters', 'species'],
@@ -620,7 +645,7 @@ export function MastersPage() {
   });
 
   const { data: materialCategoriesList } = useQuery({
-    queryKey: ['masters', 'material-categories'],
+    queryKey: ['masters', 'material-categories', { includeInactive: true }],
     queryFn: () =>
       apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>(
         '/api/masters/material-categories?include_inactive=true',
@@ -659,6 +684,7 @@ export function MastersPage() {
     { key: 'reception_types' as const, label: t('masters.tabs.reception_types') },
     { key: 'document_states' as const, label: t('masters.tabs.document_states') },
     { key: 'containers' as const, label: t('masters.tabs.containers') },
+    { key: 'packing_suppliers' as const, label: t('masters.tabs.packing_suppliers') },
   ];
 
   return (
@@ -797,7 +823,7 @@ export function MastersPage() {
                 list={materialCategoriesList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
-                queryKey={['masters', 'material-categories']}
+                queryKey={['masters', 'material-categories', { includeInactive: true }]}
                 apiPath="material-categories"
               />
             )}
@@ -823,6 +849,13 @@ export function MastersPage() {
             )}
             {tab === 'containers' && (
               <ContainersSection list={containersList ?? []} canWrite={canWrite} queryClient={queryClient} />
+            )}
+            {tab === 'packing_suppliers' && (
+              <PackingSuppliersSection
+                canWrite={canWrite}
+                queryClient={queryClient}
+                materialCategories={materialCategoriesList ?? []}
+              />
             )}
           </div>
         </div>
@@ -1408,6 +1441,394 @@ function BrandEditForm({
         </Button>
         <Button type="submit" disabled={pending}>
           Guardar
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+const packingSupplierSchema = z.object({
+  codigo: z.string().min(1, 'Código requerido'),
+  nombre: z.string().min(1, 'Nombre requerido'),
+  material_category_ids: z.array(z.coerce.number().int().positive()).default([]),
+});
+
+type PackingSupplierMasterRow = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  material_category_ids?: number[];
+};
+
+function PackingSuppliersSection({
+  canWrite,
+  queryClient,
+  materialCategories,
+}: {
+  canWrite: boolean;
+  queryClient: ReturnType<typeof useQueryClient>;
+  materialCategories: { id: number; codigo: string; nombre: string; activo: boolean }[];
+}) {
+  const { t } = useTranslation('common');
+  const { filter } = useMastersRowFilter();
+  const { data: list } = useQuery({
+    queryKey: ['masters', 'packing-suppliers'],
+    queryFn: () =>
+      apiJson<PackingSupplierMasterRow[]>(
+        '/api/masters/packing-suppliers?include_inactive=true&include_categories=true',
+      ),
+  });
+  const rows = useMemo(
+    () =>
+      filterRows(
+        list ?? [],
+        filter,
+        (r) =>
+          `${r.codigo} ${r.nombre} ${(r.material_category_ids ?? [])
+            .map((id) => materialCategories.find((c) => c.id === id)?.nombre ?? '')
+            .join(' ')}`,
+      ),
+    [list, filter, materialCategories],
+  );
+  const categoryById = useMemo(
+    () => new Map(materialCategories.map((c) => [c.id, c])),
+    [materialCategories],
+  );
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ id: number; label: string } | null>(null);
+
+  const form = useForm<z.infer<typeof packingSupplierSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
+    resolver: zodResolver(packingSupplierSchema),
+    defaultValues: { codigo: '', nombre: '', material_category_ids: [] },
+  });
+
+  const saveCategories = async (supplierId: number, ids: number[]) => {
+    await apiJson(`/api/masters/packing-suppliers/${supplierId}/categories`, {
+      method: 'PUT',
+      body: JSON.stringify({ material_category_ids: ids }),
+    });
+  };
+
+  const createMut = useMutation({
+    mutationFn: async (body: z.infer<typeof packingSupplierSchema>) => {
+      const created = await apiJson<PackingSupplierMasterRow>('/api/masters/packing-suppliers', {
+        method: 'POST',
+        body: JSON.stringify({ codigo: body.codigo.trim(), nombre: body.nombre.trim() }),
+      });
+      await saveCategories(created.id, body.material_category_ids ?? []);
+      return created;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers', 'for-purchase'] });
+      toast.success(t('masters.toast.packingSupplierCreated'));
+      setOpen(false);
+      form.reset({ codigo: '', nombre: '', material_category_ids: [] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: Partial<z.infer<typeof packingSupplierSchema>> & { activo?: boolean };
+    }) => {
+      if (body.codigo != null || body.nombre != null || body.activo != null) {
+        await apiJson(`/api/masters/packing-suppliers/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            codigo: body.codigo?.trim(),
+            nombre: body.nombre?.trim(),
+            activo: body.activo,
+          }),
+        });
+      }
+      if (body.material_category_ids != null) {
+        await saveCategories(id, body.material_category_ids);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers'] });
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers', 'for-purchase'] });
+      toast.success(t('masters.toast.packingSupplierUpdated'));
+      setEditId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActivoMut = useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      apiJson(`/api/masters/packing-suppliers/${id}`, { method: 'PUT', body: JSON.stringify({ activo }) }),
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers'] });
+      setConfirmDeactivate(null);
+      toast.success(v.activo ? t('masters.toast.reactivated') : t('masters.toast.deactivated'));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      apiJson(buildMasterDeleteEndpoint('/api/masters/packing-suppliers', id, force), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['masters', 'packing-suppliers'] });
+      setConfirmDeactivate(null);
+      toast.success(t('masters.toast.packingSupplierDeleted'));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editing = editId != null ? (list ?? []).find((r) => r.id === editId) : null;
+
+  const CategoryPicker = ({
+    value,
+    onChange,
+  }: {
+    value: number[];
+    onChange: (ids: number[]) => void;
+  }) => (
+    <div className="grid max-h-40 gap-2 overflow-y-auto rounded-lg border border-slate-200 p-2 sm:grid-cols-2">
+      {materialCategories
+        .filter((c) => c.activo)
+        .map((c) => {
+          const checked = value.includes(c.id);
+          return (
+            <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-slate-300"
+                checked={checked}
+                onChange={() =>
+                  onChange(checked ? value.filter((id) => id !== c.id) : [...value, c.id])
+                }
+              />
+              <span>{c.nombre}</span>
+            </label>
+          );
+        })}
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <div>
+          <CardTitle className="text-base">{t('masters.sections.packingSuppliers')}</CardTitle>
+          <CardDescription>{t('masters.sections.packingSuppliersDesc')}</CardDescription>
+        </div>
+        {canWrite ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                {t('masters.packingSuppliers.add')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t('masters.packingSuppliers.addTitle')}</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={form.handleSubmit((v) => createMut.mutate(v))}
+                className="grid gap-3"
+              >
+                <div className="grid gap-2">
+                  <Label>{t('masters.label.code')}</Label>
+                  <Input {...form.register('codigo')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>{t('masters.label.name')}</Label>
+                  <Input {...form.register('nombre')} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>{t('masters.packingSuppliers.categoriesLabel')}</Label>
+                  <CategoryPicker
+                    value={form.watch('material_category_ids') ?? []}
+                    onChange={(ids) => form.setValue('material_category_ids', ids)}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    {t('masters.action.cancel')}
+                  </Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    {createMut.isPending ? t('masters.action.save') : t('masters.action.create')}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+      </CardHeader>
+      <CardContent className={tableShell}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('masters.col.code')}</TableHead>
+              <TableHead>{t('masters.col.name')}</TableHead>
+              <TableHead>{t('masters.packingSuppliers.categoriesCol')}</TableHead>
+              <TableHead>{t('masters.col.active')}</TableHead>
+              {canWrite ? <TableHead className="w-[120px]" /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-sm">{r.codigo}</TableCell>
+                <TableCell>{r.nombre}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {(r.material_category_ids ?? []).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      (r.material_category_ids ?? []).map((cid) => (
+                        <Badge key={cid} variant="secondary" className="text-[10px]">
+                          {categoryById.get(cid)?.nombre ?? `#${cid}`}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={r.activo ? 'default' : 'secondary'}>
+                    {r.activo ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                </TableCell>
+                {canWrite ? (
+                  <TableCell>
+                    <MasterRowActions
+                      canWrite
+                      activo={r.activo}
+                      onEdit={() => setEditId(r.id)}
+                      onDeleteClick={() =>
+                        setConfirmDeactivate({ id: r.id, label: `${r.codigo} — ${r.nombre}` })
+                      }
+                      onReactivate={() => setActivoMut.mutate({ id: r.id, activo: true })}
+                      reactivatePending={setActivoMut.isPending}
+                    />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+
+      {canWrite && editing ? (
+        <Dialog open={editId != null} onOpenChange={(o) => !o && setEditId(null)}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{t('masters.packingSuppliers.editTitle')}</DialogTitle>
+            </DialogHeader>
+            <PackingSupplierEditForm
+              row={editing}
+              materialCategories={materialCategories}
+              onClose={() => setEditId(null)}
+              onSave={(body) => updateMut.mutate({ id: editing.id, body })}
+              pending={updateMut.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      <MasterDeleteDialog
+        open={confirmDeactivate != null}
+        onOpenChange={(o) => !o && setConfirmDeactivate(null)}
+        title={t('masters.packingSuppliers.deleteTitle')}
+        label={confirmDeactivate?.label ?? ''}
+        pending={deleteMut.isPending}
+        onConfirm={() =>
+          confirmDeactivate != null && deleteMut.mutate({ id: confirmDeactivate.id })
+        }
+      />
+    </Card>
+  );
+}
+
+function PackingSupplierEditForm({
+  row,
+  materialCategories,
+  onClose,
+  onSave,
+  pending,
+}: {
+  row: PackingSupplierMasterRow;
+  materialCategories: { id: number; codigo: string; nombre: string; activo: boolean }[];
+  onClose: () => void;
+  onSave: (body: z.infer<typeof packingSupplierSchema>) => void;
+  pending: boolean;
+}) {
+  const { t } = useTranslation('common');
+  const f = useForm<z.infer<typeof packingSupplierSchema>>({
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
+    resolver: zodResolver(packingSupplierSchema),
+    defaultValues: {
+      codigo: row.codigo,
+      nombre: row.nombre,
+      material_category_ids: row.material_category_ids ?? [],
+    },
+  });
+
+  return (
+    <form
+      onSubmit={f.handleSubmit((v) =>
+        onSave({
+          codigo: v.codigo.trim(),
+          nombre: v.nombre.trim(),
+          material_category_ids: v.material_category_ids ?? [],
+        }),
+      )}
+      className="grid gap-3"
+    >
+      <div className="grid gap-2">
+        <Label>{t('masters.label.code')}</Label>
+        <Input {...f.register('codigo')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>{t('masters.label.name')}</Label>
+        <Input {...f.register('nombre')} />
+      </div>
+      <div className="grid gap-2">
+        <Label>{t('masters.packingSuppliers.categoriesLabel')}</Label>
+        <div className="grid max-h-40 gap-2 overflow-y-auto rounded-lg border border-slate-200 p-2 sm:grid-cols-2">
+          {materialCategories
+            .filter((c) => c.activo)
+            .map((c) => {
+              const ids = f.watch('material_category_ids') ?? [];
+              const checked = ids.includes(c.id);
+              return (
+                <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300"
+                    checked={checked}
+                    onChange={() =>
+                      f.setValue(
+                        'material_category_ids',
+                        checked ? ids.filter((id) => id !== c.id) : [...ids, c.id],
+                      )
+                    }
+                  />
+                  <span>{c.nombre}</span>
+                </label>
+              );
+            })}
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          {t('masters.action.cancel')}
+        </Button>
+        <Button type="submit" disabled={pending}>
+          {t('masters.action.save')}
         </Button>
       </DialogFooter>
     </form>
