@@ -645,7 +645,7 @@ export function MastersPage() {
   });
 
   const { data: materialCategoriesList } = useQuery({
-    queryKey: ['masters', 'material-categories', { includeInactive: true }],
+    queryKey: ['masters', 'material-categories', 'with-inactive'],
     queryFn: () =>
       apiJson<{ id: number; codigo: string; nombre: string; activo: boolean }[]>(
         '/api/masters/material-categories?include_inactive=true',
@@ -823,7 +823,7 @@ export function MastersPage() {
                 list={materialCategoriesList ?? []}
                 canWrite={canWrite}
                 queryClient={queryClient}
-                queryKey={['masters', 'material-categories', { includeInactive: true }]}
+                queryKey={['masters', 'material-categories', 'with-inactive']}
                 apiPath="material-categories"
               />
             )}
