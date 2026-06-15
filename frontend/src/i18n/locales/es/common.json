@@ -2423,7 +2423,8 @@
       "ptConsumptionNote": "Σ cajas de todas las unidades PT × factor de receta (misma lógica que Consumos).",
       "ptRegisteredNote": "Registrado en kardex (consumos cargados): {{value}} {{uom}}.",
       "finalStock": "Stock final",
-      "finalStockNote": "Inv. inicial + compras − consumo PT = {{value}} {{uom}}",
+      "finalStockNote": "Inv. inicial + compras + otros mov. − consumo PT.",
+      "finalStockKardexNote": "Saldo según movimientos cargados: {{value}} {{uom}} (puede diferir si el consumo PT aún no se registró).",
       "includesMov": "Incluye {{count}} mov. sin consumo PT en el modelo."
     },
     "byFormat": {

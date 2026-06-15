@@ -2424,7 +2424,8 @@
       "ptConsumptionNote": "Sum of all PT unit boxes × recipe factor (same logic as Consumptions).",
       "ptRegisteredNote": "Recorded in kardex (posted consumptions): {{value}} {{uom}}.",
       "finalStock": "Final stock",
-      "finalStockNote": "Init. inv. + purchases − PT consumption = {{value}} {{uom}}",
+      "finalStockNote": "Initial inv. + purchases + other mov. − PT consumption.",
+      "finalStockKardexNote": "Balance from posted movements: {{value}} {{uom}} (may differ if PT consumption is not yet posted).",
       "includesMov": "Includes {{count}} mov. without PT consumption in the model."
     },
     "byFormat": {

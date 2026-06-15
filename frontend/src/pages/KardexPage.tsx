@@ -289,9 +289,15 @@ export function KardexPage() {
   }
 
   const uom = selectedMaterial?.unidad_medida ?? '';
-  const saldoKpiClass = selectedMaterial
-    ? stockSaldoClass(stockSaldoTone(Number(selectedMaterial.cantidad_disponible)))
-    : '';
+  const stockOperativo = kardexOp?.stock_segun_inv_compras_y_pt ?? 0;
+  const stockKardex = kardexOp?.stock_final ?? Number(selectedMaterial?.cantidad_disponible ?? 0);
+  const stockKardexDiffers =
+    kardexOp != null && Math.abs(stockKardex - stockOperativo) > 0.01;
+  const saldoKpiClass = kardexOp
+    ? stockSaldoClass(stockSaldoTone(stockOperativo))
+    : selectedMaterial
+      ? stockSaldoClass(stockSaldoTone(Number(selectedMaterial.cantidad_disponible)))
+      : '';
 
   const kardexFilterLabelClass = 'text-[11px] uppercase tracking-wide text-muted-foreground';
 
@@ -448,14 +454,17 @@ export function KardexPage() {
                   <Layers className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-slate-200" aria-hidden />
                   <p className={kpiLabel}>{t('kardex.summary.finalStock')}</p>
                   <p className={cn(kpiValueMd, saldoKpiClass)}>
-                    {formatInventoryQty(kardexOp.stock_final)} <span className="text-sm font-normal text-slate-500">{uom}</span>
+                    {formatInventoryQty(stockOperativo)} <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
-                  <p className={cn(kpiFootnote, 'mt-2')}>
-                    {t('kardex.summary.finalStockNote', {
-                      value: formatInventoryQty(kardexOp.stock_segun_inv_compras_y_pt),
-                      uom,
-                    })}
-                  </p>
+                  <p className={cn(kpiFootnote, 'mt-2')}>{t('kardex.summary.finalStockNote')}</p>
+                  {stockKardexDiffers ? (
+                    <p className={cn(kpiFootnote, 'mt-1 text-[11px] text-slate-600')}>
+                      {t('kardex.summary.finalStockKardexNote', {
+                        value: formatInventoryQty(stockKardex),
+                        uom,
+                      })}
+                    </p>
+                  ) : null}
                   {kardexOp.movimientos_sin_consumo_pt !== 0 ? (
                     <p className={cn(kpiFootnote, 'mt-1 text-[11px] text-sky-900/80')} title="Conteo desde motor operativo">
                       {t('kardex.summary.includesMov', { count: formatCount(kardexOp.movimientos_sin_consumo_pt) })}
