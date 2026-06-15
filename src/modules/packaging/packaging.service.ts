@@ -1146,6 +1146,14 @@ export class PackagingService {
         ref_type: dto.ref_type ?? 'manual',
         ref_id: dto.ref_id ?? null,
         nota: dto.nota ?? null,
+        occurred_at:
+          dto.occurred_at != null && String(dto.occurred_at).trim() !== ''
+            ? (() => {
+                const d = new Date(dto.occurred_at!);
+                if (Number.isNaN(d.getTime())) throw new BadRequestException('occurred_at inválida');
+                return d;
+              })()
+            : null,
       });
       await em.save(mov);
       return mat;

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateMaterialDto {
   @IsString() nombre_material: string;
@@ -76,4 +76,6 @@ export class RecordMaterialMovementDto {
   @IsOptional() @IsString() nota?: string;
   @IsOptional() @IsString() ref_type?: string;
   @IsOptional() @Type(() => Number) @IsInt() ref_id?: number;
+  /** Fecha operativa (p. ej. recepción de compra); si no viene, la UI usa created_at. */
+  @IsOptional() @IsDateString() occurred_at?: string;
 }

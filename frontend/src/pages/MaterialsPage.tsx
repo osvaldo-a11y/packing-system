@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { localDateYmd } from '@/lib/date-filter';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
@@ -123,6 +124,7 @@ type MaterialMovementRow = {
   ref_id: number | null;
   nota: string | null;
   created_at: string;
+  occurred_at: string | null;
 };
 
 type PatchMaterialBody = {
@@ -460,6 +462,7 @@ export function MaterialsPage() {
   const [moveInvoiceRef, setMoveInvoiceRef] = useState('');
   const [moveNota, setMoveNota] = useState('');
   const [moveUnitCostRef, setMoveUnitCostRef] = useState('');
+  const [moveOccurredDate, setMoveOccurredDate] = useState(() => localDateYmd());
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState(0);
   const [materialPickerSearch, setMaterialPickerSearch] = useState('');
@@ -720,6 +723,7 @@ export function MaterialsPage() {
           nota: parts.length ? parts.join(' · ') : undefined,
           ref_type: moveRefType,
           ref_id: moveSupplierId > 0 ? moveSupplierId : undefined,
+          occurred_at: moveRefType === 'compra' && moveOccurredDate.trim() ? moveOccurredDate.trim() : undefined,
         }),
       });
     },
@@ -735,6 +739,7 @@ export function MaterialsPage() {
       setMoveSupplierId(0);
       setMoveNota('');
       setMoveUnitCostRef('');
+      setMoveOccurredDate(localDateYmd());
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -916,12 +921,12 @@ export function MaterialsPage() {
     if (!selectedKardexMaterial) return false;
     const delta = Number(moveDelta);
     if (!Number.isFinite(delta) || delta === 0) return false;
-    if (moveRefType === 'compra') return moveSupplierId > 0;
+    if (moveRefType === 'compra') return moveSupplierId > 0 && moveOccurredDate.trim().length > 0;
     if (moveRefType === 'salida') return moveNota.trim().length > 0;
     if (moveRefType === 'manual') return moveNota.trim().length > 0;
     if (moveRefType === 'inventario_inicial') return true;
     return false;
-  }, [selectedKardexMaterial, moveDelta, moveRefType, moveSupplierId, moveNota]);
+  }, [selectedKardexMaterial, moveDelta, moveRefType, moveSupplierId, moveNota, moveOccurredDate]);
 
   const savingId = updateMut.isPending && updateMut.variables ? updateMut.variables.id : null;
 
@@ -984,6 +989,7 @@ export function MaterialsPage() {
               setMoveSupplierId(0);
               setMoveNota('');
               setMoveUnitCostRef('');
+              setMoveOccurredDate(localDateYmd());
               setMaterialPickerSearch('');
               setKardexOpen(true);
             }}
@@ -1469,6 +1475,15 @@ export function MaterialsPage() {
                                   )}
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
+                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.purchaseDateLabel')}</Label>
+                                  <Input
+                                    type="date"
+                                    value={moveOccurredDate}
+                                    onChange={(e) => setMoveOccurredDate(e.target.value)}
+                                    className={filterInputClass}
+                                  />
+                                </div>
+                                <div className="grid min-w-0 gap-1.5">
                                   <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
                                   <Input
                                     value={moveDelta}
@@ -1658,7 +1673,7 @@ export function MaterialsPage() {
                                   (movements ?? []).map((mv) => (
                                     <TableRow key={mv.id}>
                                       <TableCell className="whitespace-nowrap text-xs">
-                                        {new Date(mv.created_at).toLocaleString('es')}
+                                        {new Date(mv.occurred_at?.trim() ? mv.occurred_at : mv.created_at).toLocaleString('es')}
                                       </TableCell>
                                       <TableCell className="font-mono text-xs">{mv.quantity_delta}</TableCell>
                                       <TableCell className="text-xs">
@@ -1851,6 +1866,7 @@ export function MaterialsPage() {
                             setMoveSupplierId(0);
                             setMoveNota('');
                             setMoveUnitCostRef('');
+                            setMoveOccurredDate(localDateYmd());
                             setMaterialPickerSearch('');
                             setKardexOpen(true);
                           }}
@@ -1872,6 +1888,7 @@ export function MaterialsPage() {
                             setMoveSupplierId(0);
                             setMoveNota('');
                             setMoveUnitCostRef('');
+                            setMoveOccurredDate(localDateYmd());
                             setMaterialPickerSearch('');
                             setKardexOpen(true);
                           }}
