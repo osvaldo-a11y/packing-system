@@ -214,6 +214,23 @@ export function KardexPage() {
     enabled: materialId > 0,
   });
 
+  const { data: operationalStockSummary } = useQuery({
+    queryKey: ['packaging', 'materials', 'operational-stock'],
+    queryFn: () =>
+      apiJson<{ items: Array<{ material_id: number; stock_operativo: number; stock_kardex: number }> }>(
+        '/api/packaging/materials/operational-stock',
+      ),
+    staleTime: 60_000,
+  });
+
+  const operationalStockByMaterialId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const row of operationalStockSummary?.items ?? []) {
+      map.set(row.material_id, row.stock_operativo);
+    }
+    return map;
+  }, [operationalStockSummary]);
+
   const reconcileDelta = useMemo(() => {
     const target = Number(reconcileTarget);
     const current = kardexOp?.inventario_inicial ?? 0;
@@ -247,6 +264,7 @@ export function KardexPage() {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'movements', materialId] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', materialId, 'kardex-operational'] });
+      queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'operational-stock'] });
       toast.success(t('kardex.reconcileInitial.success'));
       setReconcileOpen(false);
       setReconcileMotivo('');
@@ -411,11 +429,18 @@ export function KardexPage() {
               onChange={(e) => onPickMaterial(Number(e.target.value) || 0)}
             >
               <option value="">{t('kardex.filters.materialPlaceholder')}</option>
-              {materialOptions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nombre_material} · {formatInventoryQtyFromString(m.cantidad_disponible)} {m.unidad_medida}
-                </option>
-              ))}
+              {materialOptions.map((m) => {
+                const stockOp = operationalStockByMaterialId.get(m.id);
+                const stockLabel =
+                  stockOp != null && Number.isFinite(stockOp)
+                    ? formatInventoryQty(stockOp)
+                    : formatInventoryQtyFromString(m.cantidad_disponible);
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre_material} · {stockLabel} {m.unidad_medida}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="lg:col-span-2">

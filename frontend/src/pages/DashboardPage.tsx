@@ -80,6 +80,18 @@ type ProducerRow = { id: number; nombre: string; codigo: string | null };
 type ClientRow = { id: number; codigo: string; nombre: string };
 type FormatRow = { id: number; format_code: string; max_boxes_per_pallet?: number | null; activo?: boolean };
 
+type OperationalStockRow = { material_id: number; stock_operativo: number; stock_kardex: number };
+
+function materialOperationalStock(
+  materialId: number,
+  fallback: unknown,
+  byId: Map<number, number>,
+): number {
+  const op = byId.get(materialId);
+  if (op != null && Number.isFinite(op)) return op;
+  return parseNum(fallback);
+}
+
 function parseNum(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -644,6 +656,23 @@ export function DashboardPage() {
     ],
   });
 
+  const operationalStockQ = useQuery({
+    queryKey: ['packaging', 'materials', 'operational-stock'],
+    queryFn: () =>
+      apiJson<{ items: OperationalStockRow[] }>('/api/packaging/materials/operational-stock'),
+    enabled: canLoad,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const operationalStockByMaterialId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const row of operationalStockQ.data?.items ?? []) {
+      map.set(row.material_id, row.stock_operativo);
+    }
+    return map;
+  }, [operationalStockQ.data]);
+
   const receptionsFiltered = useMemo(() => {
     const rows = recQ.data ?? [];
     return rows.filter((r) => {
@@ -937,12 +966,14 @@ export function DashboardPage() {
       let qty = 0;
       for (const m of mats) {
         const slug = materialCodeSlug(m);
-        if (d.matcher.test(slug)) qty += parseNum(m.cantidad_disponible);
+        if (d.matcher.test(slug)) {
+          qty += materialOperationalStock(m.id, m.cantidad_disponible, operationalStockByMaterialId);
+        }
       }
       const containers = qty / Math.max(1e-9, d.unitsPerPallet) / 24;
       return { ...d, qty, containers };
     });
-  }, [matsQ.data, t]);
+  }, [matsQ.data, operationalStockByMaterialId, t]);
 
   const capacityCards = useMemo(() => {
     const recipes = (recipesQ.data ?? []).filter((r) => r.activo);

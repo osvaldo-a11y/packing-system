@@ -730,6 +730,7 @@ export function MaterialsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
       queryClient.invalidateQueries({ queryKey: ['packaging', 'movements', kardexMaterialId] });
+      queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', 'operational-stock'] });
       toast.success(t('materials.toast.movementSaved'));
       setMoveDelta('');
       setMoveRefType('compra');

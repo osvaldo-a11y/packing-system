@@ -35,6 +35,11 @@ export class PackagingController {
     return this.service.materialsSummaryByFormat();
   }
 
+  @Get('materials/operational-stock')
+  listOperationalStock() {
+    return this.service.listOperationalStockSummary();
+  }
+
   @Get('materials')
   listMaterials() {
     return this.service.listMaterials();

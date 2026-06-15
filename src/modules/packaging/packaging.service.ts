@@ -208,6 +208,84 @@ export class PackagingService {
   }
 
   /**
+   * Consumo comprometido total por material (Σ cajas PT × receta), una pasada sobre tarjas.
+   */
+  private async computeCommittedConsumptionTotals(): Promise<Map<number, number>> {
+    const materials = await this.materialRepo.find();
+    const materialById = new Map(materials.map((m) => [Number(m.id), m]));
+
+    const formats = await this.presentationFormatRepo.find({ where: { activo: true } });
+    const formatIdByMatchKey = new Map(
+      formats.map((f) => [formatCodeMatchKey(f.format_code), Number(f.id)]),
+    );
+    const maxBpByFormatId = new Map(
+      formats.map((f) => {
+        const n = f.max_boxes_per_pallet != null ? Number(f.max_boxes_per_pallet) : 0;
+        return [Number(f.id), Number.isFinite(n) && n > 0 ? Math.floor(n) : 0];
+      }),
+    );
+
+    const recipes = await this.recipeRepo.find({
+      where: { activo: true },
+      relations: ['presentation_format'],
+    });
+    const recipeIds = recipes.map((r) => Number(r.id));
+    const allItems =
+      recipeIds.length > 0
+        ? await this.recipeItemRepo.find({ where: { recipe_id: In(recipeIds) } })
+        : [];
+    const itemsByRecipeId = new Map<number, PackagingRecipeItem[]>();
+    for (const it of allItems) {
+      const rid = Number(it.recipe_id);
+      const list = itemsByRecipeId.get(rid) ?? [];
+      list.push(it);
+      itemsByRecipeId.set(rid, list);
+    }
+
+    const tags = await this.ptTagRepo.find({ order: { id: 'ASC' } });
+    const skipRepallet = await this.repalletUnifiedTarjaIds(tags.map((t) => Number(t.id)));
+
+    const totals = new Map<number, number>();
+
+    for (const tag of tags) {
+      const tagId = Number(tag.id);
+      if (skipRepallet.has(tagId)) continue;
+      const formatCode = tag.format_code?.trim();
+      if (!formatCode) continue;
+      const matchKey = formatCodeMatchKey(formatCode);
+      const formatId = formatIdByMatchKey.get(matchKey);
+      if (formatId == null) continue;
+
+      const tagClientId = tag.client_id != null ? Number(tag.client_id) : null;
+      const recipe = this.resolveRecipeForTagFromLists(tag, formatId, recipes);
+      if (!recipe || Number(recipe.presentation_format_id) !== formatId) continue;
+
+      const items = itemsByRecipeId.get(Number(recipe.id)) ?? [];
+      if (!items.length) continue;
+
+      const boxes = Number(tag.total_cajas) || 0;
+      if (boxes <= 0) continue;
+      const maxBp = maxBpByFormatId.get(formatId) ?? 0;
+      const palletsEquiv = maxBp > 0 ? boxes / maxBp : Number(tag.total_pallets) || 0;
+
+      for (const it of items) {
+        const matId = Number(it.material_id);
+        const mat = materialById.get(matId);
+        if (!mat) continue;
+        if (!this.materialAppliesToTagClient(mat, tagClientId)) continue;
+        const qtyUnit = Number(it.qty_per_unit);
+        if (!Number.isFinite(qtyUnit) || qtyUnit <= 0) continue;
+        const factor = it.base_unidad === 'box' ? boxes : palletsEquiv;
+        const lineQty = qtyUnit * factor;
+        if (lineQty <= 0) continue;
+        totals.set(matId, (totals.get(matId) ?? 0) + lineQty);
+      }
+    }
+
+    return totals;
+  }
+
+  /**
    * Consumo comprometido por formato: Σ (cajas PT × qty receta) para este material,
    * alineado con la pantalla de Consumos (todas las tarjas, no solo consumos registrados).
    */
@@ -1301,6 +1379,89 @@ export class PackagingService {
       stock_final,
       por_formato,
     };
+  }
+
+  /** Stock operativo (inv + compras + otros − consumo PT) para todos los materiales activos. */
+  async listOperationalStockSummary() {
+    const materials = await this.materialRepo.find({
+      where: { activo: true },
+      order: { nombre_material: 'ASC' },
+    });
+    if (materials.length === 0) return { items: [] as Array<{ material_id: number; stock_operativo: number; stock_kardex: number }> };
+
+    const materialIds = materials.map((m) => Number(m.id));
+    const movements = await this.movementRepo.find({
+      where: { material_id: In(materialIds) },
+      order: { id: 'ASC' },
+    });
+
+    type MovAgg = {
+      inventario_inicial: number;
+      compras_total: number;
+      otros_movimientos_neto: number;
+      consumoNetDelta: number;
+    };
+    const aggs = new Map<number, MovAgg>();
+    const ensureAgg = (id: number): MovAgg => {
+      let a = aggs.get(id);
+      if (!a) {
+        a = { inventario_inicial: 0, compras_total: 0, otros_movimientos_neto: 0, consumoNetDelta: 0 };
+        aggs.set(id, a);
+      }
+      return a;
+    };
+
+    for (const m of movements) {
+      const id = Number(m.material_id);
+      const d = Number(m.quantity_delta) || 0;
+      const rt = (m.ref_type ?? '').trim().toLowerCase();
+      const a = ensureAgg(id);
+      if (rt === 'consumption' || rt === 'consumption_revert') {
+        a.consumoNetDelta += d;
+        continue;
+      }
+      if (rt === 'inventario_inicial') a.inventario_inicial += d;
+      else if (rt === 'compra' || rt === 'entrada') a.compras_total += d;
+      else a.otros_movimientos_neto += d;
+    }
+
+    const breakdownRows = await this.breakdownRepo
+      .createQueryBuilder('b')
+      .select('b.material_id', 'material_id')
+      .addSelect('COALESCE(SUM(b.qty_used::numeric), 0)', 'total')
+      .where('b.material_id IN (:...ids)', { ids: materialIds })
+      .groupBy('b.material_id')
+      .getRawMany<{ material_id: string; total: string }>();
+    const breakdownByMaterial = new Map<number, number>();
+    for (const row of breakdownRows) {
+      breakdownByMaterial.set(Number(row.material_id), Number(row.total) || 0);
+    }
+
+    const committedTotals = await this.computeCommittedConsumptionTotals();
+
+    const items = materials.map((mat) => {
+      const id = Number(mat.id);
+      const a = aggs.get(id) ?? {
+        inventario_inicial: 0,
+        compras_total: 0,
+        otros_movimientos_neto: 0,
+        consumoNetDelta: 0,
+      };
+      const consumoPorMovimientos = Math.max(0, -a.consumoNetDelta);
+      const fromBreakdown = breakdownByMaterial.get(id) ?? 0;
+      const consumoRegistrado = fromBreakdown > 0 ? fromBreakdown : consumoPorMovimientos;
+      const consumoComprometido = committedTotals.get(id) ?? 0;
+      const consumoPtTotal = consumoComprometido > 0 ? consumoComprometido : consumoRegistrado;
+      const stockOperativo =
+        a.inventario_inicial + a.compras_total + a.otros_movimientos_neto - consumoPtTotal;
+      return {
+        material_id: id,
+        stock_operativo: stockOperativo,
+        stock_kardex: Number(mat.cantidad_disponible) || 0,
+      };
+    });
+
+    return { items };
   }
 
   async listConsumptions() {
