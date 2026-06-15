@@ -2239,7 +2239,7 @@
       "typeManual": "Corrección",
       "typeManualHint": "Ajuste delta +/- del saldo.",
       "typeInitial": "Inventario inicial",
-      "typeInitialHint": "Primera carga histórica.",
+      "typeInitialHint": "Primera carga histórica. Para corregir un valor ya cargado, usá «Cuadrar inventario inicial» en Kardex.",
       "step3": "Datos del movimiento",
       "supplierLabel": "Proveedor",
       "supplierPlaceholder": "Seleccionar…",
@@ -2426,6 +2426,24 @@
       "finalStockNote": "Inv. inicial + compras + otros mov. − consumo PT.",
       "finalStockKardexNote": "Saldo según movimientos cargados: {{value}} {{uom}} (puede diferir si el consumo PT aún no se registró).",
       "includesMov": "Incluye {{count}} mov. sin consumo PT en el modelo."
+    },
+    "reconcileInitial": {
+      "button": "Cuadrar inventario inicial",
+      "title": "Cuadrar inventario inicial",
+      "description": "Define el inventario inicial correcto. Se registra un movimiento inventario_inicial por la diferencia y se actualiza el stock del material.",
+      "currentLabel": "Inventario inicial actual (suma en kardex)",
+      "targetLabel": "Nuevo inventario inicial",
+      "targetPlaceholder": "Ej. 1200",
+      "dateLabel": "Fecha del ajuste",
+      "reasonLabel": "Motivo",
+      "reasonPlaceholder": "Ej. error de carga, conteo físico de apertura…",
+      "deltaPreview": "Ajuste a registrar: {{value}} {{uom}}",
+      "notaPrefix": "Cuadratura inventario inicial",
+      "cancel": "Cancelar",
+      "save": "Registrar cuadratura",
+      "saving": "Guardando…",
+      "success": "Inventario inicial actualizado.",
+      "errNoChange": "El valor ingresado coincide con el actual o no es válido."
     },
     "byFormat": {
       "title": "Consumo por formato",

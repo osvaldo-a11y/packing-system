@@ -1,16 +1,29 @@
-﻿import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowLeftRight, Boxes, Layers, Package, Warehouse } from 'lucide-react';
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowDownRight, ArrowLeftRight, Boxes, Layers, Package, Pencil, Warehouse } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { apiJson } from '@/api';
+import { useAuth } from '@/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { localDateYmd } from '@/lib/date-filter';
 import { describeAlcance, movementRefTypeLabel, stockSaldoClass, stockSaldoTone } from '@/lib/materials-inventory-ux';
+import { canOperate } from '@/lib/roles';
 import {
   contentCard,
   filterInputClass,
@@ -112,12 +125,19 @@ function refOriginLine(ref: string | null, refId: number | null, t: (key: string
 
 export function KardexPage() {
   const { t } = useTranslation('common');
+  const { role } = useAuth();
+  const canAdjust = canOperate(role);
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [materialId, setMaterialId] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState(0);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [moveType, setMoveType] = useState(MOVE_FILTER_ALL);
+  const [reconcileOpen, setReconcileOpen] = useState(false);
+  const [reconcileTarget, setReconcileTarget] = useState('');
+  const [reconcileMotivo, setReconcileMotivo] = useState('');
+  const [reconcileDate, setReconcileDate] = useState(() => localDateYmd());
 
   const { data: materials, isPending, isError, error } = useQuery({
     queryKey: ['packaging', 'materials'],
@@ -193,6 +213,54 @@ export function KardexPage() {
     queryFn: () => apiJson<KardexOperational>(`/api/packaging/materials/${materialId}/kardex-operational`),
     enabled: materialId > 0,
   });
+
+  const reconcileDelta = useMemo(() => {
+    const target = Number(reconcileTarget);
+    const current = kardexOp?.inventario_inicial ?? 0;
+    if (!Number.isFinite(target) || target < 0) return NaN;
+    return target - current;
+  }, [reconcileTarget, kardexOp?.inventario_inicial]);
+
+  const canSubmitReconcile =
+    materialId > 0 &&
+    reconcileMotivo.trim().length > 0 &&
+    reconcileDate.trim().length > 0 &&
+    Number.isFinite(reconcileDelta) &&
+    reconcileDelta !== 0 &&
+    Number(reconcileTarget) >= 0;
+
+  const reconcileMut = useMutation({
+    mutationFn: async () => {
+      if (!canSubmitReconcile) throw new Error(t('kardex.reconcileInitial.errNoChange'));
+      const nota = `${t('kardex.reconcileInitial.notaPrefix')}: ${reconcileMotivo.trim()}`;
+      return apiJson(`/api/packaging/materials/${materialId}/movements`, {
+        method: 'POST',
+        body: JSON.stringify({
+          quantity_delta: reconcileDelta,
+          ref_type: 'inventario_inicial',
+          nota,
+          occurred_at: reconcileDate.trim(),
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['packaging', 'materials'] });
+      queryClient.invalidateQueries({ queryKey: ['packaging', 'movements', materialId] });
+      queryClient.invalidateQueries({ queryKey: ['packaging', 'materials', materialId, 'kardex-operational'] });
+      toast.success(t('kardex.reconcileInitial.success'));
+      setReconcileOpen(false);
+      setReconcileMotivo('');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const openReconcileDialog = () => {
+    const current = kardexOp?.inventario_inicial ?? 0;
+    setReconcileTarget(String(current));
+    setReconcileMotivo('');
+    setReconcileDate(localDateYmd());
+    setReconcileOpen(true);
+  };
 
   const { ordered, balanceById } = useMemo(() => {
     const raw = movements ?? [];
@@ -399,6 +467,18 @@ export function KardexPage() {
                     {formatInventoryQty(kardexOp.inventario_inicial)}{' '}
                     <span className="text-sm font-normal text-slate-500">{uom}</span>
                   </p>
+                  {canAdjust ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="relative z-10 mt-2 h-7 gap-1 px-2 text-[11px]"
+                      onClick={openReconcileDialog}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      {t('kardex.reconcileInitial.button')}
+                    </Button>
+                  ) : null}
                 </div>
                 <div className={cn(kpiCardSm, 'relative overflow-hidden border border-emerald-100/90 bg-emerald-50/25')}>
                   <Package className="pointer-events-none absolute right-2.5 top-2.5 h-9 w-9 text-emerald-100" aria-hidden />
@@ -642,6 +722,68 @@ export function KardexPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={reconcileOpen} onOpenChange={setReconcileOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('kardex.reconcileInitial.title')}</DialogTitle>
+            <DialogDescription>{t('kardex.reconcileInitial.description')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-1">
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">{t('kardex.reconcileInitial.currentLabel')}</Label>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">
+                {formatInventoryQty(kardexOp?.inventario_inicial ?? 0)} {uom}
+              </p>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">{t('kardex.reconcileInitial.targetLabel')}</Label>
+              <Input
+                value={reconcileTarget}
+                onChange={(e) => setReconcileTarget(e.target.value)}
+                placeholder={t('kardex.reconcileInitial.targetPlaceholder')}
+                className={filterInputClass}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">{t('kardex.reconcileInitial.dateLabel')}</Label>
+              <Input
+                type="date"
+                value={reconcileDate}
+                onChange={(e) => setReconcileDate(e.target.value)}
+                className={filterInputClass}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-slate-600">
+                {t('kardex.reconcileInitial.reasonLabel')} <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={reconcileMotivo}
+                onChange={(e) => setReconcileMotivo(e.target.value)}
+                placeholder={t('kardex.reconcileInitial.reasonPlaceholder')}
+                className={filterInputClass}
+              />
+            </div>
+            {Number.isFinite(reconcileDelta) && reconcileDelta !== 0 ? (
+              <p className="text-xs text-slate-600">
+                {t('kardex.reconcileInitial.deltaPreview', {
+                  value: `${reconcileDelta >= 0 ? '+' : ''}${formatInventoryQty(reconcileDelta)}`,
+                  uom,
+                })}
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setReconcileOpen(false)}>
+              {t('kardex.reconcileInitial.cancel')}
+            </Button>
+            <Button type="button" disabled={!canSubmitReconcile || reconcileMut.isPending} onClick={() => reconcileMut.mutate()}>
+              {reconcileMut.isPending ? t('kardex.reconcileInitial.saving') : t('kardex.reconcileInitial.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

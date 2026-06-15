@@ -2240,7 +2240,7 @@
       "typeManual": "Correction",
       "typeManualHint": "Delta adjustment +/- of balance.",
       "typeInitial": "Initial inventory",
-      "typeInitialHint": "First historical load.",
+      "typeInitialHint": "First historical load. To fix an existing value, use «Reconcile initial inventory» in Kardex.",
       "step3": "Movement data",
       "supplierLabel": "Supplier",
       "supplierPlaceholder": "Select…",
@@ -2427,6 +2427,24 @@
       "finalStockNote": "Initial inv. + purchases + other mov. − PT consumption.",
       "finalStockKardexNote": "Balance from posted movements: {{value}} {{uom}} (may differ if PT consumption is not yet posted).",
       "includesMov": "Includes {{count}} mov. without PT consumption in the model."
+    },
+    "reconcileInitial": {
+      "button": "Reconcile initial inventory",
+      "title": "Reconcile initial inventory",
+      "description": "Set the correct initial inventory. An inventario_inicial movement is posted for the difference and material stock is updated.",
+      "currentLabel": "Current initial inventory (kardex sum)",
+      "targetLabel": "New initial inventory",
+      "targetPlaceholder": "e.g. 1200",
+      "dateLabel": "Adjustment date",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g. load error, opening physical count…",
+      "deltaPreview": "Adjustment to post: {{value}} {{uom}}",
+      "notaPrefix": "Initial inventory reconciliation",
+      "cancel": "Cancel",
+      "save": "Post reconciliation",
+      "saving": "Saving…",
+      "success": "Initial inventory updated.",
+      "errNoChange": "The entered value matches the current one or is invalid."
     },
     "byFormat": {
       "title": "Consumption by format",
