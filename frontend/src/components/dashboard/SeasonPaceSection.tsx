@@ -63,11 +63,11 @@ function findWeek(series: PaceSeasonSeries, isoWeek: number): PaceIsoWeekPoint |
   return series.weeks.find((w) => w.iso_week === isoWeek);
 }
 
-/** Dominio del eje X: rango con datos ±1 semana; incluye semana ISO actual si queda fuera. */
+/** Dominio del eje X: rango con datos ±1 semana (sin extender a la semana ISO calendario actual). */
 function chartIsoDomain(data: SeasonPaceResult): { min: number; max: number } {
   const margin = 1;
   const min = Math.max(1, data.iso_week_min - margin);
-  const max = Math.max(data.iso_week_max + margin, data.current_iso_week);
+  const max = data.iso_week_max + margin;
   return { min, max };
 }
 

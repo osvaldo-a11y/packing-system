@@ -53,8 +53,7 @@ function close(a, b, tol = 5) {
       iso_week_range: [pace.iso_week_min, pace.iso_week_max],
       iso_week_range_ok:
         pace.iso_week_min >= 12 &&
-        pace.iso_week_max <= 26 &&
-        pace.iso_week_max >= pace.current_iso_week,
+        pace.iso_week_max <= pace.current_iso_week,
       previous_start_iso: prev.start_iso_week,
       previous_day1: prev.day1,
       campana_2025_received: campana,

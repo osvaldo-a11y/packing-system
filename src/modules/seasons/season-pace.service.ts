@@ -150,25 +150,43 @@ export class SeasonPaceService {
     return best;
   }
 
-  /** Semanas ISO con volumen físico de temporada (recibido o packout > 0 en cualquier temporada). */
+  /** Semanas ISO: inicio por recepción/packout en ambas temporadas; fin por último despacho de la temporada activa. */
   private isoWeekBounds(
     active: PaceSeasonSeries,
     previous: PaceSeasonSeries,
     currentIsoWeek: number,
   ): { min: number; max: number } {
-    const weeks: number[] = [];
+    const startWeeks: number[] = [];
     for (const s of [active, previous]) {
       for (const w of s.weeks) {
-        if (this.weekHasChartVolume(w)) weeks.push(w.iso_week);
+        if (this.weekHasChartVolume(w)) startWeeks.push(w.iso_week);
       }
     }
-    if (!weeks.length) {
+
+    const activeEndWeeks = active.weeks
+      .filter((w) => this.weekHasDispatchVolume(w) || this.weekHasChartVolume(w))
+      .map((w) => w.iso_week);
+    const previousChartWeeks = previous.weeks
+      .filter((w) => this.weekHasChartVolume(w))
+      .map((w) => w.iso_week);
+
+    const maxCandidates =
+      activeEndWeeks.length > 0
+        ? activeEndWeeks
+        : previousChartWeeks.length > 0
+          ? previousChartWeeks
+          : [];
+
+    if (!startWeeks.length && !maxCandidates.length) {
       return { min: currentIsoWeek, max: currentIsoWeek };
     }
-    return {
-      min: Math.min(...weeks),
-      max: Math.max(...weeks, currentIsoWeek),
-    };
+    const min = startWeeks.length ? Math.min(...startWeeks) : Math.min(...maxCandidates);
+    const max = maxCandidates.length ? Math.max(...maxCandidates) : Math.max(...startWeeks);
+    return { min, max };
+  }
+
+  private weekHasDispatchVolume(w: { weekly: PaceMetricBlock }): boolean {
+    return w.weekly.sold_usd > 0 || w.weekly.boxes > 0;
   }
 
   private weekHasChartVolume(w: {
