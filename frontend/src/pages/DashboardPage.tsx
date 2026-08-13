@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
+import { fetchSeasonPace, type SeasonPaceResult } from '@/api/seasonPace';
 import { useAuth } from '@/AuthContext';
 import { isReadOnlySession } from '@/lib/roles';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
@@ -126,19 +127,78 @@ function isoFromUnknown(raw: unknown): string | null {
   return d.toISOString();
 }
 
-function periodRange(period: DashboardPeriod): { from: Date; to: Date } {
-  const now = new Date();
-  const to = new Date(now);
-  to.setHours(23, 59, 59, 999);
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
 
-  const from = new Date(now);
-  from.setHours(0, 0, 0, 0);
+function endOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+
+/** Temporada a mostrar en Acumulado: la última con recepción; al arrancar la siguiente, esa pasa a ser la actual. */
+function operationalSeasonAnchor(
+  receptions: Array<{ received_at?: string | null }>,
+  pace: SeasonPaceResult | null | undefined,
+): { year: number; from: Date } {
+  let latestRecYear = 0;
+  let firstOfLatest: Date | null = null;
+  for (const r of receptions) {
+    const iso = isoFromUnknown(r.received_at);
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) continue;
+    const y = d.getFullYear();
+    if (y > latestRecYear) {
+      latestRecYear = y;
+      firstOfLatest = d;
+    } else if (y === latestRecYear && firstOfLatest && d < firstOfLatest) {
+      firstOfLatest = d;
+    }
+  }
+
+  const paceYear = pace?.active_year;
+  const paceDay1 = pace?.active?.day1;
+
+  if (latestRecYear > 0 && (paceYear == null || latestRecYear > paceYear) && firstOfLatest) {
+    return { year: latestRecYear, from: startOfLocalDay(firstOfLatest) };
+  }
+
+  if (paceYear != null && paceDay1) {
+    const from = new Date(`${paceDay1}T00:00:00`);
+    if (!Number.isNaN(from.getTime())) {
+      return { year: paceYear, from: startOfLocalDay(from) };
+    }
+  }
+
+  if (firstOfLatest && latestRecYear > 0) {
+    return { year: latestRecYear, from: startOfLocalDay(firstOfLatest) };
+  }
+
+  const now = new Date();
+  return { year: now.getFullYear(), from: new Date(now.getFullYear(), 0, 1) };
+}
+
+function periodRange(
+  period: DashboardPeriod,
+  seasonFrom?: Date | null,
+): { from: Date; to: Date } {
+  const now = new Date();
+  const to = endOfLocalDay(now);
+
+  const from = startOfLocalDay(now);
   if (period === 'week') {
     const day = from.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
     from.setDate(from.getDate() + mondayOffset);
   } else if (period === 'accumulated') {
-    from.setMonth(from.getMonth() - 3);
+    if (seasonFrom && !Number.isNaN(seasonFrom.getTime())) {
+      return { from: startOfLocalDay(seasonFrom), to };
+    }
+    from.setMonth(0, 1);
   }
   return { from, to };
 }
@@ -149,12 +209,6 @@ function inclusiveCalendarDays(from: Date, to: Date): number {
   const ms = b.getTime() - a.getTime();
   const d = Math.floor(ms / 86_400_000) + 1;
   return Number.isFinite(d) && d > 0 ? d : 1;
-}
-
-function describePeriodDashboard(period: DashboardPeriod): string {
-  if (period === 'today') return 'Hoy (00:00–23:59, horario local)';
-  if (period === 'week') return 'Semana en curso (lun–ahora)';
-  return 'Últimos 90 días aprox.';
 }
 
 function inDateRange(iso: string | null | undefined, from: Date, to: Date): boolean {
@@ -561,8 +615,6 @@ export function DashboardPage() {
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
-
-  const range = useMemo(() => periodRange(period), [period]);
   const queryParams = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('period', period);
@@ -675,6 +727,24 @@ export function DashboardPage() {
     }
     return map;
   }, [operationalStockQ.data]);
+
+  const paceQ = useQuery({
+    queryKey: ['seasons', 'pace'],
+    queryFn: fetchSeasonPace,
+    enabled: canLoad,
+    staleTime: 120_000,
+    refetchInterval: 120_000,
+  });
+
+  const seasonAnchor = useMemo(
+    () => operationalSeasonAnchor(recQ.data ?? [], paceQ.data),
+    [recQ.data, paceQ.data],
+  );
+
+  const range = useMemo(
+    () => periodRange(period, seasonAnchor.from),
+    [period, seasonAnchor.from],
+  );
 
   const receptionsFiltered = useMemo(() => {
     const rows = recQ.data ?? [];
@@ -1193,7 +1263,8 @@ export function DashboardPage() {
       matsQ.isPending ||
       recipesQ.isPending ||
       formatsQ.isPending ||
-      clientsQ.isPending);
+      clientsQ.isPending ||
+      (period === 'accumulated' && paceQ.isPending));
 
   const dashboardListError =
     recQ.isError ||
@@ -1317,7 +1388,13 @@ export function DashboardPage() {
       <section className="space-y-3">
       <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
-          <p className="mt-1 text-[11px] text-slate-500">{describePeriodDashboard(period)}</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {period === 'today'
+              ? t('dashboard.filters.periodToday')
+              : period === 'week'
+                ? t('dashboard.filters.periodWeek')
+                : t('dashboard.filters.periodSeason', { year: seasonAnchor.year })}
+          </p>
       </div>
         {!canLoad ? (
           <div className={emptyStateBanner}>
