@@ -20,6 +20,7 @@ import { FinalPalletModule } from './modules/final-pallet/final-pallet.module';
 import { PtPackingListModule } from './modules/pt-packing-list/pt-packing-list.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { PrintJobsModule } from './modules/print-jobs/print-jobs.module';
+import { DemoSandboxModule } from './modules/demo-sandbox/demo-sandbox.module';
 
 const webIndex = join(process.cwd(), 'frontend', 'dist', 'index.html');
 const webImports = existsSync(webIndex)
@@ -54,6 +55,7 @@ const webImports = existsSync(webIndex)
     ImportModule,
     BackupModule,
     SeasonsModule,
+    DemoSandboxModule,
     ...webImports,
   ],
 })

@@ -43,7 +43,9 @@ Railway suele crear variables como `PGHOST`, `PGUSER`, `DATABASE_URL`, etc., en 
 | `JWT_SECRET` | Una cadena larga y aleatoria (no la compartas). |
 | `NODE_ENV` | `production` |
 | `AUTH_USERS_JSON` | Usuarios de login (JSON en una línea). Generar hash: `npm run auth:hash-password -- tu_clave`. |
-| `DEMO_USER_ENABLED` | `true` (default) o `false`. Si está activo y no existe el usuario demo en `AUTH_USERS_JSON`, se agrega automáticamente con rol `viewer` (solo lectura). |
+| `DEMO_USER_ENABLED` | `true` (default) o `false`. Si está activo y no existe el usuario demo en `AUTH_USERS_JSON`, se agrega automáticamente. |
+| `DEMO_SANDBOX` | `true` solo en el **servicio demo** (otra BD). Habilita grabación y `POST /api/demo/reset`. **Nunca** en producción. Ver [DEMO-SANDBOX.md](./DEMO-SANDBOX.md). |
+| `DEMO_USER_ROLE` | En sandbox: `admin` (default), `operator`, etc. Fuera de sandbox el demo es siempre `viewer`. |
 | `DEMO_USERNAME` / `DEMO_PASSWORD` | Credenciales del demo (default `demo` / `demo123`). Opcional: `DEMO_PASSWORD_HASH` (bcrypt). |
 
 12. Si al referenciar Postgres **no** aparece `DATABASE_URL` en el plugin, en el servicio **Postgres** abre **Variables** / **Connect** y copia la **Connection URL**; luego en el servicio de la app crea `DATABASE_URL` manualmente pegando esa URL.

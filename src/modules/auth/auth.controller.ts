@@ -17,8 +17,18 @@ export class AuthController {
     return this.auth.login(user);
   }
 
+  /** Info pública del acceso demo (sin auth). No expone secretos de producción. */
+  @Get('demo-info')
+  demoInfo() {
+    return this.auth.getPublicDemoInfo();
+  }
+
   @Get('health')
   health() {
-    return { status: 'ok', service: 'packing-system' };
+    return {
+      status: 'ok',
+      service: 'packing-system',
+      demo_sandbox: this.auth.isDemoSandbox(),
+    };
   }
 }

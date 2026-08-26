@@ -28,8 +28,10 @@
   },
   "login": {
     "subtitle": "Access to the operations panel",
+    "subtitleSandbox": "Demo environment — you can enter sample data",
     "cardTitle": "Sign in",
     "cardDescription": "Username and password defined in your `.env` file (`AUTH_USERS_JSON`).",
+    "cardDescriptionSandbox": "Isolated evaluation environment. Data does not affect production.",
     "fieldUsername": "Username",
     "fieldPassword": "Password",
     "errorUsernameRequired": "Username is required",
@@ -40,13 +42,18 @@
     "toastSuccess": "Session started",
     "demoTitle": "Demo mode",
     "demoDesc": "Explore the full system in read-only mode: it will not create or change operational data.",
+    "sandboxTitle": "Try the system",
+    "sandboxDesc": "Sales sandbox: create masters, receptions, processes, and dispatches. This database is separate from production.",
     "demoCredentials": "User {{user}} · password {{pass}}",
-    "demoSubmit": "Sign in as demo"
+    "demoSubmit": "Sign in as demo",
+    "sandboxSubmit": "Sign in and try with data"
   },
   "auth": {
     "viewerBanner": "Read-only session (viewer): you can browse, print, and export reports; you cannot create or change records.",
     "demoBannerTitle": "Demo mode — read only",
-    "demoBannerDesc": "Browse home, operations, PT stock, orders, dispatches, and reports; download PDFs and print labels. Create and edit actions are hidden."
+    "demoBannerDesc": "Browse home, operations, PT stock, orders, dispatches, and reports; download PDFs and print labels. Create and edit actions are hidden.",
+    "sandboxBannerTitle": "Trial environment (sandbox)",
+    "sandboxBannerDesc": "You can create and edit data. This database is independent from production; use it to evaluate the full flow."
   },
   "about": {
     "pageTitle": "About the system",

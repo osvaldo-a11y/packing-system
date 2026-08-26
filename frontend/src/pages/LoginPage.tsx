@@ -6,6 +6,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiFetch } from '@/api';
+import { useDemoInfo } from '@/api/demoInfo';
 import { useAuth } from '@/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageToggle } from '@/components/LanguageToggle';
 
-/** Credenciales públicas de demostración (solo lectura / rol viewer). */
-const DEMO_USERNAME = import.meta.env.VITE_DEMO_USERNAME || 'demo';
-const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || 'demo123';
-const SHOW_DEMO_LOGIN = import.meta.env.VITE_DEMO_LOGIN !== 'false';
+const FALLBACK_DEMO_USER = 'demo';
+const FALLBACK_DEMO_PASS = 'demo123';
 
 export function LoginPage() {
   const { t } = useTranslation('common');
   const [demoSubmitting, setDemoSubmitting] = useState(false);
+  const { data: demoInfo } = useDemoInfo();
 
   const loginSchema = z.object({
     username: z.string().min(1, t('login.errorUsernameRequired')),
@@ -39,6 +39,11 @@ export function LoginPage() {
   });
 
   if (token) return <Navigate to="/" replace />;
+
+  const showDemo = demoInfo?.enabled !== false;
+  const sandbox = Boolean(demoInfo?.sandbox);
+  const demoUser = demoInfo?.username || FALLBACK_DEMO_USER;
+  const demoPass = demoInfo?.password || FALLBACK_DEMO_PASS;
 
   async function signIn(values: LoginForm) {
     const res = await apiFetch('/api/auth/login', {
@@ -65,10 +70,10 @@ export function LoginPage() {
 
   async function onDemoLogin() {
     setDemoSubmitting(true);
-    form.setValue('username', DEMO_USERNAME);
-    form.setValue('password', DEMO_PASSWORD);
+    form.setValue('username', demoUser);
+    form.setValue('password', demoPass);
     try {
-      await signIn({ username: DEMO_USERNAME, password: DEMO_PASSWORD });
+      await signIn({ username: demoUser, password: demoPass });
     } finally {
       setDemoSubmitting(false);
     }
@@ -83,12 +88,16 @@ export function LoginPage() {
         <h1 className={pageTitle}>
           Pinebloom <span className="text-primary">Packing</span>
         </h1>
-        <p className="mt-1.5 text-[13px] text-slate-500">{t('login.subtitle')}</p>
+        <p className="mt-1.5 text-[13px] text-slate-500">
+          {sandbox ? t('login.subtitleSandbox') : t('login.subtitle')}
+        </p>
       </div>
       <Card className={cn(contentCard, 'w-full max-w-md shadow-lg shadow-slate-200/50')}>
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-slate-900">{t('login.cardTitle')}</CardTitle>
-          <CardDescription className="text-[13px]">{t('login.cardDescription')}</CardDescription>
+          <CardDescription className="text-[13px]">
+            {sandbox ? t('login.cardDescriptionSandbox') : t('login.cardDescription')}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
@@ -111,21 +120,51 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {SHOW_DEMO_LOGIN ? (
-            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-3">
-              <p className="text-sm font-medium text-emerald-950">{t('login.demoTitle')}</p>
-              <p className="mt-1 text-[12px] leading-snug text-emerald-900/85">{t('login.demoDesc')}</p>
-              <p className="mt-2 font-mono text-[12px] text-emerald-900/90">
-                {t('login.demoCredentials', { user: DEMO_USERNAME, pass: DEMO_PASSWORD })}
+          {showDemo ? (
+            <div
+              className={
+                sandbox
+                  ? 'rounded-lg border border-amber-200/80 bg-amber-50/70 px-3 py-3'
+                  : 'rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-3'
+              }
+            >
+              <p className={sandbox ? 'text-sm font-medium text-amber-950' : 'text-sm font-medium text-emerald-950'}>
+                {sandbox ? t('login.sandboxTitle') : t('login.demoTitle')}
+              </p>
+              <p
+                className={
+                  sandbox
+                    ? 'mt-1 text-[12px] leading-snug text-amber-900/85'
+                    : 'mt-1 text-[12px] leading-snug text-emerald-900/85'
+                }
+              >
+                {sandbox ? t('login.sandboxDesc') : t('login.demoDesc')}
+              </p>
+              <p
+                className={
+                  sandbox
+                    ? 'mt-2 font-mono text-[12px] text-amber-900/90'
+                    : 'mt-2 font-mono text-[12px] text-emerald-900/90'
+                }
+              >
+                {t('login.demoCredentials', { user: demoUser, pass: demoPass })}
               </p>
               <Button
                 type="button"
                 variant="outline"
-                className="mt-3 w-full border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50"
+                className={
+                  sandbox
+                    ? 'mt-3 w-full border-amber-300 bg-white text-amber-950 hover:bg-amber-50'
+                    : 'mt-3 w-full border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-50'
+                }
                 disabled={form.formState.isSubmitting || demoSubmitting}
                 onClick={() => void onDemoLogin()}
               >
-                {demoSubmitting ? t('login.submitting') : t('login.demoSubmit')}
+                {demoSubmitting
+                  ? t('login.submitting')
+                  : sandbox
+                    ? t('login.sandboxSubmit')
+                    : t('login.demoSubmit')}
               </Button>
             </div>
           ) : null}

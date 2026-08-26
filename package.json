@@ -28,6 +28,8 @@
     "packaging:kardex-zero-entrances": "node scripts/zero-kardex-inventario-compra-entrada.cjs",
     "packaging:reset-all-stock": "node scripts/reset-all-packaging-material-stock.cjs",
     "seed:validation": "node scripts/seed-validation-flow.cjs",
+    "seed:demo": "node scripts/seed-demo-sandbox.cjs",
+    "demo:reset": "node scripts/reset-demo-sandbox.cjs",
     "auth:hash-password": "node scripts/hash-auth-password.cjs",
     "screenshots:app": "node scripts/capture-app-screenshots.mjs",
     "screenshots:presentation": "node scripts/capture-presentation-screenshots.mjs",

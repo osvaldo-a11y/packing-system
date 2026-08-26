@@ -28,8 +28,10 @@
   },
   "login": {
     "subtitle": "Acceso al panel de operaciones",
+    "subtitleSandbox": "Entorno de demostración — podés cargar datos de prueba",
     "cardTitle": "Iniciar sesión",
     "cardDescription": "Usuario y contraseña definidos en tu archivo `.env` (`AUTH_USERS_JSON`).",
+    "cardDescriptionSandbox": "Entorno aislado para evaluación. Los datos no afectan producción.",
     "fieldUsername": "Usuario",
     "fieldPassword": "Contraseña",
     "errorUsernameRequired": "Usuario requerido",
@@ -40,13 +42,18 @@
     "toastSuccess": "Sesión iniciada",
     "demoTitle": "Modo demostración",
     "demoDesc": "Recorré el sistema completo en solo lectura: no crea ni modifica datos de operación.",
+    "sandboxTitle": "Prueba el sistema",
+    "sandboxDesc": "Entorno de ventas: cargá maestros, recepciones, procesos y despachos. Es una base aparte de producción.",
     "demoCredentials": "Usuario {{user}} · clave {{pass}}",
-    "demoSubmit": "Entrar como demo"
+    "demoSubmit": "Entrar como demo",
+    "sandboxSubmit": "Entrar y probar con datos"
   },
   "auth": {
     "viewerBanner": "Sesión de solo lectura (observador): podés consultar, imprimir y exportar informes; no podés crear ni modificar registros.",
     "demoBannerTitle": "Modo demostración — solo lectura",
-    "demoBannerDesc": "Podés recorrer inicio, operación, stock PT, pedidos, despachos y reportes; descargar PDFs e imprimir etiquetas. Los botones de alta y edición están ocultos."
+    "demoBannerDesc": "Podés recorrer inicio, operación, stock PT, pedidos, despachos y reportes; descargar PDFs e imprimir etiquetas. Los botones de alta y edición están ocultos.",
+    "sandboxBannerTitle": "Entorno de prueba (sandbox)",
+    "sandboxBannerDesc": "Podés crear y editar datos. Esta base es independiente de producción; usala para evaluar el flujo completo."
   },
   "about": {
     "pageTitle": "Acerca del sistema",

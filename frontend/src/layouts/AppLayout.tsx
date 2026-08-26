@@ -25,6 +25,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DemoModeBanner } from '@/components/DemoModeBanner';
 import { useAuth } from '@/AuthContext';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
+import { useDemoInfo } from '@/api/demoInfo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -123,6 +124,9 @@ export function AppLayout() {
   const { username, role, logout } = useAuth();
   const isAdminRole = isAdmin(role);
   const readOnlySession = isReadOnlySession(role);
+  const { data: demoInfo } = useDemoInfo(Boolean(username));
+  const sandboxWritable = Boolean(demoInfo?.sandbox && demoInfo?.writable);
+  const showDemoBanner = readOnlySession || sandboxWritable;
   const { pathname } = useLocation();
 
   return (
@@ -290,7 +294,7 @@ export function AppLayout() {
             key={pathname}
             className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8"
           >
-            {readOnlySession ? <DemoModeBanner /> : null}
+            {showDemoBanner ? <DemoModeBanner writable={sandboxWritable} /> : null}
             <Outlet />
           </div>
         </main>
