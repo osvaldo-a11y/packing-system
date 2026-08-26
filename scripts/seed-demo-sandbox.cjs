@@ -44,10 +44,29 @@ async function login(username, password) {
 
 async function ensureByCodigo(token, getPath, postPath, codigo, body) {
   const cur = await req('GET', getPath, { token });
-  const arr = Array.isArray(cur) ? cur : [];
-  const found = arr.find((x) => x.codigo === codigo);
+  const arr = Array.isArray(cur) ? cur : Array.isArray(cur?.items) ? cur.items : [];
+  const found = arr.find(
+    (x) =>
+      String(x.codigo ?? '').toLowerCase() === String(codigo).toLowerCase() ||
+      String(x.nombre ?? '').toLowerCase() === String(body.nombre ?? '').toLowerCase(),
+  );
   if (found) return found;
-  return req('POST', postPath, { token, body });
+  try {
+    return await req('POST', postPath, { token, body });
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (/400|ya existe|already exists/i.test(msg)) {
+      const again = await req('GET', getPath, { token });
+      const list = Array.isArray(again) ? again : Array.isArray(again?.items) ? again.items : [];
+      const hit = list.find(
+        (x) =>
+          String(x.codigo ?? '').toLowerCase() === String(codigo).toLowerCase() ||
+          String(x.nombre ?? '').toLowerCase() === String(body.nombre ?? '').toLowerCase(),
+      );
+      if (hit) return hit;
+    }
+    throw e;
+  }
 }
 
 async function main() {
