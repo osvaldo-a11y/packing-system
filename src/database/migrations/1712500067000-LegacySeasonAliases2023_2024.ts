@@ -32,7 +32,8 @@ export class LegacySeasonAliases2023_20241712500067000 implements MigrationInter
     await queryRunner.query(`
       INSERT INTO presentation_formats (format_code, species_id, descripcion, activo, net_weight_lb_per_box)
       SELECT '2 POUND', 2, 'Bulk histórico 2 lb (legacy import)', true, 2.0
-      WHERE NOT EXISTS (
+      WHERE EXISTS (SELECT 1 FROM species WHERE id = 2)
+        AND NOT EXISTS (
         SELECT 1 FROM presentation_formats pf WHERE UPPER(TRIM(pf.format_code)) = '2 POUND'
       )
     `);
@@ -67,7 +68,8 @@ export class LegacySeasonAliases2023_20241712500067000 implements MigrationInter
         `
         INSERT INTO varieties (species_id, codigo, nombre, activo)
         SELECT 2, $1::varchar, $2::varchar, true
-        WHERE NOT EXISTS (
+        WHERE EXISTS (SELECT 1 FROM species WHERE id = 2)
+          AND NOT EXISTS (
           SELECT 1 FROM varieties v
           WHERE UPPER(TRIM(v.codigo)) = UPPER(TRIM($1::varchar))
              OR UPPER(TRIM(v.nombre)) = UPPER(TRIM($2::varchar))

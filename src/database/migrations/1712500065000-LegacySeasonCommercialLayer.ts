@@ -132,7 +132,8 @@ export class LegacySeasonCommercialLayer1712500065000 implements MigrationInterf
     await queryRunner.query(`
       INSERT INTO presentation_formats (format_code, species_id, descripcion, activo, net_weight_lb_per_box)
       SELECT 'Bulk3.6 Kg', 2, 'Bulk histórico 3.6 Kg (legacy import)', true, 7.94
-      WHERE NOT EXISTS (
+      WHERE EXISTS (SELECT 1 FROM species WHERE id = 2)
+        AND NOT EXISTS (
         SELECT 1 FROM presentation_formats pf WHERE UPPER(TRIM(pf.format_code)) = 'BULK3.6 KG'
       )
     `);

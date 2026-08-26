@@ -13,7 +13,8 @@ export class VarietyDescripcionMultiBeauty1712500057000 implements MigrationInte
     await queryRunner.query(`
       INSERT INTO varieties (species_id, codigo, nombre, activo, descripcion)
       SELECT 2, 'MULTI', 'Multivariety', true, 'Lote con mezcla de variedades'
-      WHERE NOT EXISTS (
+      WHERE EXISTS (SELECT 1 FROM species WHERE id = 2)
+        AND NOT EXISTS (
         SELECT 1 FROM varieties v
         WHERE v.species_id = 2 AND v.codigo IS NOT NULL AND LOWER(TRIM(v.codigo)) = 'multi'
       )
@@ -22,7 +23,8 @@ export class VarietyDescripcionMultiBeauty1712500057000 implements MigrationInte
     await queryRunner.query(`
       INSERT INTO varieties (species_id, codigo, nombre, activo, descripcion)
       SELECT 2, 'BEAUTY', 'Beauty', true, NULL
-      WHERE NOT EXISTS (
+      WHERE EXISTS (SELECT 1 FROM species WHERE id = 2)
+        AND NOT EXISTS (
         SELECT 1 FROM varieties v
         WHERE v.species_id = 2 AND v.codigo IS NOT NULL AND LOWER(TRIM(v.codigo)) = 'beauty'
       )
