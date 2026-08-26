@@ -37,7 +37,11 @@
     "errorInvalidCredentials": "Invalid credentials",
     "submitting": "Signing in…",
     "submit": "Sign in",
-    "toastSuccess": "Session started"
+    "toastSuccess": "Session started",
+    "demoTitle": "Demo mode",
+    "demoDesc": "Explore the full system in read-only mode: it will not create or change operational data.",
+    "demoCredentials": "User {{user}} · password {{pass}}",
+    "demoSubmit": "Sign in as demo"
   },
   "auth": {
     "viewerBanner": "Read-only session (viewer): you can browse, print, and export reports; you cannot create or change records.",

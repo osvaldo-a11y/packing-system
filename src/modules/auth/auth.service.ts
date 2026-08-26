@@ -13,24 +13,50 @@ type AuthUserRecord = {
   passwordHash?: string;
 };
 
+const DEFAULT_USERS: AuthUserRecord[] = [
+  { username: 'admin', password: 'admin123', role: 'admin' },
+  { username: 'supervisor', password: 'sup123', role: 'supervisor' },
+  { username: 'operator', password: 'op123', role: 'operator' },
+  { username: 'viewer', password: 'view123', role: 'viewer' },
+  { username: 'demo', password: 'demo123', role: 'viewer' },
+];
+
 @Injectable()
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
   private loadUsers(): AuthUserRecord[] {
-    const raw =
-      process.env.AUTH_USERS_JSON ||
-      JSON.stringify([
-        { username: 'admin', password: 'admin123', role: 'admin' },
-        { username: 'supervisor', password: 'sup123', role: 'supervisor' },
-        { username: 'operator', password: 'op123', role: 'operator' },
-        { username: 'viewer', password: 'view123', role: 'viewer' },
-      ]);
+    const raw = process.env.AUTH_USERS_JSON || JSON.stringify(DEFAULT_USERS);
+    let users: AuthUserRecord[] = [];
     try {
-      return JSON.parse(raw) as AuthUserRecord[];
+      users = JSON.parse(raw) as AuthUserRecord[];
     } catch {
-      return [];
+      users = [];
     }
+
+    return this.ensureDemoUser(users);
+  }
+
+  /**
+   * Usuario demo de solo lectura (rol viewer): recorre el sistema sin grabar.
+   * Se agrega si falta, sin reemplazar usuarios ya definidos en AUTH_USERS_JSON.
+   * Desactivar: DEMO_USER_ENABLED=false
+   */
+  private ensureDemoUser(users: AuthUserRecord[]): AuthUserRecord[] {
+    if (process.env.DEMO_USER_ENABLED === 'false') return users;
+
+    const username = (process.env.DEMO_USERNAME || 'demo').trim() || 'demo';
+    if (users.some((u) => u.username === username)) return users;
+
+    const passwordHash = process.env.DEMO_PASSWORD_HASH?.trim();
+    const password = process.env.DEMO_PASSWORD?.trim() || 'demo123';
+
+    const demo: AuthUserRecord = {
+      username,
+      role: 'viewer',
+      ...(passwordHash ? { passwordHash } : { password }),
+    };
+    return [...users, demo];
   }
 
   async validateUser(username: string, password: string): Promise<JwtUserPayload> {

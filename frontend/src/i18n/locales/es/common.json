@@ -37,7 +37,11 @@
     "errorInvalidCredentials": "Credenciales inválidas",
     "submitting": "Entrando…",
     "submit": "Entrar",
-    "toastSuccess": "Sesión iniciada"
+    "toastSuccess": "Sesión iniciada",
+    "demoTitle": "Modo demostración",
+    "demoDesc": "Recorré el sistema completo en solo lectura: no crea ni modifica datos de operación.",
+    "demoCredentials": "Usuario {{user}} · clave {{pass}}",
+    "demoSubmit": "Entrar como demo"
   },
   "auth": {
     "viewerBanner": "Sesión de solo lectura (observador): podés consultar, imprimir y exportar informes; no podés crear ni modificar registros.",

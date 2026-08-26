@@ -79,6 +79,7 @@ Endpoints publicos: `POST /api/auth/login`, `GET /api/auth/health`, `GET /api/pl
 | Rol | Uso |
 | --- | --- |
 | `viewer` | Consulta en toda la operación, PDFs e impresión; reportes y export; sin crear ni editar datos |
+| `demo` (usuario) | Mismo rol `viewer`: recorrido de demostración sin afectar datos. Default: `demo` / `demo123` (desactivar con `DEMO_USER_ENABLED=false`) |
 | `admin` | Edicion de parametros planta, borrado de reportes guardados |
 | `supervisor` | Edicion de tarjas, pedidos, crear/editar reportes guardados |
 | `operator` | Lectura de reportes, listados y export; operación en planta |
