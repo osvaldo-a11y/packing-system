@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { brandMarkParts } from '@/lib/branding';
 
 const FALLBACK_DEMO_USER = 'demo';
 const FALLBACK_DEMO_PASS = 'demo123';
@@ -86,7 +87,7 @@ export function LoginPage() {
       </div>
       <div className="mb-8 text-center">
         <h1 className={pageTitle}>
-          Pinebloom <span className="text-primary">Packing</span>
+          {brandMarkParts().company} <span className="text-primary">{brandMarkParts().product}</span>
         </h1>
         <p className="mt-1.5 text-[13px] text-slate-500">
           {sandbox ? t('login.subtitleSandbox') : t('login.subtitle')}
