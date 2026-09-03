@@ -132,12 +132,13 @@
   "nav": {
     "groups": {
       "principal": "Main",
-      "config": "Plant & data",
-      "packaging": "Packaging",
+      "config": "Settings",
+      "packaging": "Packing",
       "operacion": "Operations",
-      "comercial": "Commercial & logistics",
+      "comercial": "Commercial",
+      "gestion": "Management",
       "analisis": "Analytics",
-      "sistema": "Help",
+      "sistema": "System",
       "admin": "Administration"
     },
     "items": {
@@ -150,8 +151,8 @@
       "consumos": "Consumptions",
       "recepciones": "Receptions",
       "procesos": "Processes",
-      "unidadPt": "PT Unit",
-      "existenciasPt": "PT Stock",
+      "unidadPt": "Finished goods",
+      "existenciasPt": "Stock / Cooler",
       "pedidos": "Sales orders",
       "despachos": "Dispatches",
       "reportes": "Reports",
@@ -159,11 +160,34 @@
       "acerca": "About",
       "cargaMasiva": "Bulk import",
       "apiDocs": "API docs"
-    }
+    },
+    "ariaMain": "Main navigation",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "logout": "Sign out",
+    "headerHint": "Packing operations"
   },
   "dashboard": {
-    "title": "Operations hub",
-    "subtitle": "Intake, processing, output, commercial risk and capacity in one view.",
+    "title": "Operations",
+    "subtitle": "What do you need to do?",
+    "subtitleHint": "Available options depend on the type of fruit.",
+    "opsTitle": "Operations modules",
+    "opsHint": "Each card opens a module. There is no single mandatory path for all fruit.",
+    "executiveTitle": "Season summary",
+    "executiveHint": "Indicators and analysis. They do not block daily operations.",
+    "executiveToggleShow": "Show season summary",
+    "executiveToggleHide": "Hide summary",
+    "moreFilters": "More filters",
+    "lessFilters": "Fewer filters",
+    "moduleGo": "Open →",
+    "moduleReceptionMetric": "{{count}} receptions",
+    "moduleProcessMetric": "{{count}} processes",
+    "modulePtMetric": "{{count}} PT units",
+    "moduleStockMetric": "{{boxes}} boxes in cooler",
+    "moduleDispatchMetric": "{{count}} dispatches",
+    "moduleMaterialsMetric": "{{count}} active materials",
     "session": "Session",
     "noAuth": {
       "title": "No data until you sign in.",
@@ -171,8 +195,10 @@
       "link": "Go to sign in"
     },
     "loadError": {
-      "title": "Some lists could not be loaded.",
-      "desc": "Try again later or check your connection; KPIs may be incomplete.",
+      "title": "We could not load some data.",
+      "desc": "You can keep working as usual.",
+      "retry": "Retry",
+      "retrying": "Retrying…",
       "demoTitle": "Some commercial data is not available for this session.",
       "demoDesc": "The rest of the dashboard is still useful for the demo. If permissions were just updated, sign out and sign in again."
     },
@@ -343,11 +369,8 @@
       "kindDispatch": "Dispatch"
     },
     "footer": {
-      "plant": "Plant",
-      "masters": "Masters",
-      "reports": "Reports",
-      "guide": "Guide",
-      "about": "About"
+      "season": "Season {{year}}",
+      "version": "v{{version}}"
     }
   },
   "eod": {

@@ -132,26 +132,27 @@
   "nav": {
     "groups": {
       "principal": "Principal",
-      "config": "Planta y datos",
-      "packaging": "Packaging",
+      "config": "Configuración",
+      "packaging": "Packing",
       "operacion": "Operación",
-      "comercial": "Comercial y logística",
+      "comercial": "Comercial",
+      "gestion": "Gestión",
       "analisis": "Análisis",
-      "sistema": "Ayuda",
+      "sistema": "Sistema",
       "admin": "Administración"
     },
     "items": {
       "inicio": "Inicio",
       "planta": "Planta",
-      "mantenedores": "Mantenedores",
+      "mantenedores": "Maestros",
       "materiales": "Materiales",
       "kardex": "Kardex",
       "recetas": "Recetas",
       "consumos": "Consumos",
       "recepciones": "Recepciones",
       "procesos": "Procesos",
-      "unidadPt": "Unidad PT",
-      "existenciasPt": "Existencias PT",
+      "unidadPt": "Producto terminado",
+      "existenciasPt": "Stock / Cámara",
       "pedidos": "Pedidos",
       "despachos": "Despachos",
       "reportes": "Reportes",
@@ -159,11 +160,34 @@
       "acerca": "Acerca",
       "cargaMasiva": "Carga masiva",
       "apiDocs": "API docs"
-    }
+    },
+    "ariaMain": "Navegación principal",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "expandSidebar": "Expandir menú",
+    "collapseSidebar": "Contraer menú",
+    "logout": "Cerrar sesión",
+    "headerHint": "Operación de packing"
   },
   "dashboard": {
-    "title": "Inicio operativo",
-    "subtitle": "Entrada, proceso, salida, riesgo comercial y capacidad en una sola vista.",
+    "title": "Operación",
+    "subtitle": "¿Qué necesitas hacer?",
+    "subtitleHint": "Las opciones disponibles dependen del tipo de fruta.",
+    "opsTitle": "Módulos de operación",
+    "opsHint": "Cada tarjeta abre el módulo. No hay un único camino obligatorio para toda la fruta.",
+    "executiveTitle": "Resumen de temporada",
+    "executiveHint": "Indicadores y análisis. No bloquean la operación diaria.",
+    "executiveToggleShow": "Ver resumen de temporada",
+    "executiveToggleHide": "Ocultar resumen",
+    "moreFilters": "Más filtros",
+    "lessFilters": "Menos filtros",
+    "moduleGo": "Abrir →",
+    "moduleReceptionMetric": "{{count}} recepciones",
+    "moduleProcessMetric": "{{count}} procesos",
+    "modulePtMetric": "{{count}} unidades PT",
+    "moduleStockMetric": "{{boxes}} cajas en cámara",
+    "moduleDispatchMetric": "{{count}} despachos",
+    "moduleMaterialsMetric": "{{count}} materiales activos",
     "session": "Sesión",
     "noAuth": {
       "title": "No hay datos hasta iniciar sesión.",
@@ -171,8 +195,10 @@
       "link": "Ir a iniciar sesión"
     },
     "loadError": {
-      "title": "No se pudieron cargar algunos listados.",
-      "desc": "Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos.",
+      "title": "No pudimos cargar algunos datos.",
+      "desc": "Puedes seguir trabajando normalmente.",
+      "retry": "Reintentar",
+      "retrying": "Reintentando…",
       "demoTitle": "Algunos datos comerciales no están disponibles para esta sesión.",
       "demoDesc": "El resto del tablero sigue siendo útil para la demo. Si acabás de actualizar permisos, cerrá sesión y volvé a entrar."
     },
@@ -343,11 +369,8 @@
       "kindDispatch": "Despacho"
     },
     "footer": {
-      "plant": "Planta",
-      "masters": "Mantenedores",
-      "reports": "Reportes",
-      "guide": "Guía",
-      "about": "Acerca"
+      "season": "Temporada {{year}}",
+      "version": "v{{version}}"
     }
   },
   "eod": {
