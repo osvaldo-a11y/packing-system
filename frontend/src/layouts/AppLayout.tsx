@@ -219,21 +219,26 @@ function NavList({
           </ul>
         </div>
       ) : null}
-      <div className="mt-auto border-t border-slate-100/80 pt-2">
-        <a
-          href="/api/docs"
-          target="_blank"
-          rel="noreferrer"
-          className={cn(
-            'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800',
-            collapsed && 'justify-center px-2',
-          )}
-          title={collapsed ? t('nav.items.apiDocs') : undefined}
-        >
-          <BookOpen className="h-[15px] w-[15px] shrink-0 text-slate-400" aria-hidden />
-          {!collapsed ? t('nav.items.apiDocs') : null}
-        </a>
-      </div>
+      {/* API docs: solo admin (herramienta técnica). URLs directas siguen disponibles. */}
+      {isAdminRole ? (
+        <div className="mt-auto border-t border-slate-100/80 pt-2">
+          <a
+            href="/api/docs"
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+              collapsed && 'justify-center px-2',
+            )}
+            title={collapsed ? t('nav.items.apiDocs') : undefined}
+          >
+            <BookOpen className="h-[15px] w-[15px] shrink-0 text-slate-400" aria-hidden />
+            {!collapsed ? t('nav.items.apiDocs') : null}
+          </a>
+        </div>
+      ) : (
+        <div className="mt-auto" />
+      )}
     </nav>
   );
 }
@@ -261,10 +266,10 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[hsl(210_20%_97%)]">
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — lg+ only */}
       <aside
         className={cn(
-          'sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-slate-200/60 bg-white transition-[width] duration-200 md:flex',
+          'sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-slate-200/60 bg-white transition-[width] duration-200 lg:flex',
           collapsed ? 'w-[72px]' : 'w-[248px]',
         )}
       >
@@ -292,9 +297,9 @@ export function AppLayout() {
         <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
       </aside>
 
-      {/* Mobile drawer */}
+      {/* Tablet/mobile drawer — below lg */}
       {mobileOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-slate-900/40"
@@ -328,16 +333,16 @@ export function AppLayout() {
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 w-9 p-0 md:hidden"
+              className="h-9 w-9 p-0 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label={t('nav.openMenu')}
             >
               <Menu className="h-4 w-4" />
             </Button>
-            <div className="min-w-0 md:hidden">
+            <div className="min-w-0 lg:hidden">
               <BrandWordmark className="truncate text-[14px]" />
             </div>
-            <div className="hidden min-w-0 md:block">
+            <div className="hidden min-w-0 lg:block">
               <p className="truncate text-[13px] font-medium text-slate-700">{brandMarkParts().company}</p>
               <p className="truncate text-[11px] text-slate-400">{t('nav.headerHint')}</p>
             </div>
@@ -380,7 +385,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-4 md:px-4 md:py-5 lg:px-5 lg:py-6">
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6">
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8">
             {showDemoBanner ? <DemoModeBanner writable={sandboxWritable} /> : null}
             <Outlet />

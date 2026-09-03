@@ -31,12 +31,13 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group flex min-h-[7.5rem] flex-col justify-between rounded-2xl border-2 p-4 transition-all sm:min-h-[8.5rem] sm:p-5',
+        'group flex min-h-[7.5rem] flex-col justify-between rounded-2xl border-2 border-l-4 p-4 transition-all sm:min-h-[8.5rem] sm:p-5',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         tok.surface,
         tok.border,
+        tok.stripe,
         tok.ring,
-        'hover:brightness-[0.98] hover:shadow-md active:scale-[0.99]',
+        'hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
         emphasis === 'primary' ? 'sm:col-span-1' : 'opacity-95',
         className,
       )}
@@ -51,14 +52,23 @@ export function OperationalModuleCard({
         >
           <Icon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2.25} />
         </span>
-        <span className={cn('text-right text-xs font-medium uppercase tracking-wide opacity-80', tok.ink)}>
-          {hint}
-        </span>
+        {hint ? (
+          <span
+            className={cn(
+              'text-right text-sm font-semibold tracking-wide opacity-90 transition-transform group-hover:translate-x-0.5',
+              tok.ink,
+            )}
+          >
+            {hint}
+          </span>
+        ) : null}
       </div>
       <div className="mt-3 min-w-0">
         <p className={cn('text-lg font-bold leading-tight sm:text-xl', tok.ink)}>{label}</p>
         {metric ? (
-          <p className={cn('mt-1 truncate text-2xl font-semibold tabular-nums sm:text-3xl', tok.ink)}>{metric}</p>
+          <p className={cn('mt-1 text-xl font-semibold leading-snug tabular-nums sm:text-2xl', tok.ink)}>
+            {metric}
+          </p>
         ) : null}
       </div>
     </Link>

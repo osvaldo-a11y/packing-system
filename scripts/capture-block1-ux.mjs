@@ -61,6 +61,7 @@ async function loginApi() {
 
 async function setLang(page, lang) {
   await page.evaluate((l) => {
+    localStorage.setItem('lang', l);
     localStorage.setItem('i18nextLng', l);
     localStorage.setItem('ps_lang', l);
   }, lang);

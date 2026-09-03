@@ -171,7 +171,8 @@
   },
   "dashboard": {
     "title": "Operación",
-    "subtitle": "Elegí el módulo. La fruta puede seguir distintos caminos según la especie.",
+    "subtitle": "¿Qué necesitas hacer?",
+    "subtitleHint": "Las opciones disponibles dependen del tipo de fruta.",
     "opsTitle": "Módulos de operación",
     "opsHint": "Cada tarjeta abre el módulo. No hay un único camino obligatorio para toda la fruta.",
     "executiveTitle": "Resumen de temporada",
@@ -180,7 +181,7 @@
     "executiveToggleHide": "Ocultar resumen",
     "moreFilters": "Más filtros",
     "lessFilters": "Menos filtros",
-    "moduleGo": "Abrir",
+    "moduleGo": "Abrir →",
     "moduleReceptionMetric": "{{count}} recepciones",
     "moduleProcessMetric": "{{count}} procesos",
     "modulePtMetric": "{{count}} unidades PT",
@@ -194,8 +195,10 @@
       "link": "Ir a iniciar sesión"
     },
     "loadError": {
-      "title": "No se pudieron cargar algunos listados.",
-      "desc": "Reintentá más tarde o revisá tu conexión; los KPI pueden salir incompletos.",
+      "title": "No pudimos cargar algunos datos.",
+      "desc": "Puedes seguir trabajando normalmente.",
+      "retry": "Reintentar",
+      "retrying": "Reintentando…",
       "demoTitle": "Algunos datos comerciales no están disponibles para esta sesión.",
       "demoDesc": "El resto del tablero sigue siendo útil para la demo. Si acabás de actualizar permisos, cerrá sesión y volvé a entrar."
     },
@@ -366,11 +369,8 @@
       "kindDispatch": "Despacho"
     },
     "footer": {
-      "plant": "Planta",
-      "masters": "Mantenedores",
-      "reports": "Reportes",
-      "guide": "Guía",
-      "about": "Acerca"
+      "season": "Temporada {{year}}",
+      "version": "v{{version}}"
     }
   },
   "eod": {

@@ -8,11 +8,8 @@ import {
   ChevronUp,
   ClipboardList,
   DollarSign,
-  Factory,
-  GitBranch,
   Import,
   Info,
-  Library,
   Package,
   Tag,
   TrendingUp,
@@ -50,6 +47,8 @@ import type { ReceptionRow } from './ReceptionPage';
 import type { RecipeApi } from './RecipesPage';
 import { isOrderCanceled } from '@/lib/sales-order-status';
 import type { SalesOrderRow } from './SalesOrdersPage';
+
+const WEB_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
 
 type DashboardMaterial = PackagingMaterialRow & {
   material_category?: { id: number; codigo: string; nombre: string };
@@ -613,10 +612,11 @@ function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number
 }
 
 export function DashboardPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { username, role, token } = useAuth();
   const demoReadOnly = isReadOnlySession(role);
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
+  const dateLocale = i18n.language?.startsWith('en') ? 'en-US' : 'es-AR';
 
   const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
@@ -1297,6 +1297,26 @@ export function DashboardPage() {
     formatsQ.isError ||
     clientsQ.isError;
 
+  const [retryingLists, setRetryingLists] = useState(false);
+  const retryDashboardLists = async () => {
+    setRetryingLists(true);
+    try {
+      await Promise.all([
+        recQ.refetch(),
+        procQ.refetch(),
+        dispQ.refetch(),
+        tagsQ.refetch(),
+        ordersQ.refetch(),
+        matsQ.refetch(),
+        recipesQ.refetch(),
+        formatsQ.refetch(),
+        clientsQ.refetch(),
+      ]);
+    } finally {
+      setRetryingLists(false);
+    }
+  };
+
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1304,6 +1324,7 @@ export function DashboardPage() {
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">{appBranding.displayName}</p>
           <h1 className={pageTitle}>{t('dashboard.title')}</h1>
           <p className={pageSubtitle}>{t('dashboard.subtitle')}</p>
+          <p className="text-[12px] text-slate-400">{t('dashboard.subtitleHint')}</p>
         </div>
         <div className="space-y-1 text-left sm:text-right">
           <p className="text-sm text-slate-700">
@@ -1312,7 +1333,7 @@ export function DashboardPage() {
           </p>
           <p className="text-[11px] text-slate-500">
             <Calendar className="mr-1 inline h-3.5 w-3.5" />
-            {new Date().toLocaleDateString(undefined, {
+            {new Date().toLocaleDateString(dateLocale, {
               weekday: 'short',
               day: '2-digit',
               month: 'short',
@@ -1335,16 +1356,30 @@ export function DashboardPage() {
       {canLoad && dashboardListError ? (
         <div
           className={cn(
-            'rounded-2xl px-4 py-3 text-sm',
+            'flex flex-col gap-2 rounded-2xl px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between',
             demoReadOnly
               ? 'border border-amber-200/90 bg-amber-50/90 text-amber-950'
-              : 'border border-red-200 bg-red-50/90 text-red-900',
+              : 'border border-amber-200/90 bg-amber-50/90 text-amber-950',
           )}
         >
-          <strong className="font-semibold">
-            {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
-          </strong>{' '}
-          {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
+          <p>
+            <strong className="font-semibold">
+              {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
+            </strong>{' '}
+            {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
+          </p>
+          {!demoReadOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-xl border-amber-300 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-100"
+              disabled={retryingLists}
+              onClick={() => void retryDashboardLists()}
+            >
+              {retryingLists ? t('dashboard.loadError.retrying') : t('dashboard.loadError.retry')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -1492,41 +1527,41 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button
               variant="outline"
-              className="h-14 justify-start rounded-2xl border-2 border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-reception-ink))]"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-reception-ink))]"
               asChild
             >
               <Link to="/receptions">
-                <Import className="mr-2 h-5 w-5" />
+                <Import className="mr-2 h-5 w-5 shrink-0" />
                 {t('dashboard.quickAccess.newReception')}
               </Link>
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start rounded-2xl border-2 border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
               asChild
             >
               <Link to="/processes">
-                <ClipboardList className="mr-2 h-5 w-5" />
+                <ClipboardList className="mr-2 h-5 w-5 shrink-0" />
                 {t('dashboard.quickAccess.newProcess')}
               </Link>
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start rounded-2xl border-2 border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
               asChild
             >
               <Link to="/pt-tags">
-                <Tag className="mr-2 h-5 w-5" />
+                <Tag className="mr-2 h-5 w-5 shrink-0" />
                 {t('dashboard.quickAccess.newPtUnit')}
               </Link>
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start rounded-2xl border-2 border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
               asChild
             >
               <Link to="/dispatches">
-                <Truck className="mr-2 h-5 w-5" />
+                <Truck className="mr-2 h-5 w-5 shrink-0" />
                 {t('dashboard.quickAccess.newDispatch')}
               </Link>
             </Button>
@@ -2190,26 +2225,14 @@ export function DashboardPage() {
         ) : null}
       </section>
 
-      <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
-        <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Factory className="h-3.5 w-3.5" />
-          {t('dashboard.footer.plant')}
-        </Link>
-        <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Library className="h-3.5 w-3.5" />
-          {t('dashboard.footer.masters')}
-        </Link>
-        <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
-          {t('dashboard.footer.reports')}
-        </Link>
-        <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <GitBranch className="h-3.5 w-3.5" />
-          {t('dashboard.footer.guide')}
-        </Link>
-        <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Info className="h-3.5 w-3.5" />
-          {t('dashboard.footer.about')}
-        </Link>
+      <footer className="border-t border-slate-100 pt-8 text-[11px] text-slate-400">
+        <p>
+          {appBranding.displayName}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.season', { year: seasonAnchor.year })}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.version', { version: WEB_VERSION })}
+        </p>
       </footer>
     </div>
   );

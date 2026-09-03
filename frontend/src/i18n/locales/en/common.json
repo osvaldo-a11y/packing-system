@@ -171,7 +171,8 @@
   },
   "dashboard": {
     "title": "Operations",
-    "subtitle": "Pick a module. Fruit may follow different paths by species.",
+    "subtitle": "What do you need to do?",
+    "subtitleHint": "Available options depend on the type of fruit.",
     "opsTitle": "Operations modules",
     "opsHint": "Each card opens a module. There is no single mandatory path for all fruit.",
     "executiveTitle": "Season summary",
@@ -180,7 +181,7 @@
     "executiveToggleHide": "Hide summary",
     "moreFilters": "More filters",
     "lessFilters": "Fewer filters",
-    "moduleGo": "Open",
+    "moduleGo": "Open →",
     "moduleReceptionMetric": "{{count}} receptions",
     "moduleProcessMetric": "{{count}} processes",
     "modulePtMetric": "{{count}} PT units",
@@ -194,8 +195,10 @@
       "link": "Go to sign in"
     },
     "loadError": {
-      "title": "Some lists could not be loaded.",
-      "desc": "Try again later or check your connection; KPIs may be incomplete.",
+      "title": "We could not load some data.",
+      "desc": "You can keep working as usual.",
+      "retry": "Retry",
+      "retrying": "Retrying…",
       "demoTitle": "Some commercial data is not available for this session.",
       "demoDesc": "The rest of the dashboard is still useful for the demo. If permissions were just updated, sign out and sign in again."
     },
@@ -366,11 +369,8 @@
       "kindDispatch": "Dispatch"
     },
     "footer": {
-      "plant": "Plant",
-      "masters": "Masters",
-      "reports": "Reports",
-      "guide": "Guide",
-      "about": "About"
+      "season": "Season {{year}}",
+      "version": "v{{version}}"
     }
   },
   "eod": {
