@@ -53,7 +53,11 @@
     "demoBannerTitle": "Modo demostración — solo lectura",
     "demoBannerDesc": "Podés recorrer inicio, operación, stock PT, pedidos, despachos y reportes; descargar PDFs e imprimir etiquetas. Los botones de alta y edición están ocultos.",
     "sandboxBannerTitle": "Entorno de prueba (sandbox)",
-    "sandboxBannerDesc": "Podés crear y editar datos. Esta base es independiente de producción; usala para evaluar el flujo completo."
+    "sandboxBannerDesc": "Podés crear y editar datos. Esta base es independiente de producción; usala para evaluar el flujo completo.",
+    "demoChipReadonly": "DEMO",
+    "demoChipSandbox": "DEMO",
+    "demoChipTooltip": "Entorno de prueba. Esta base es independiente de producción.",
+    "sandboxChipTooltip": "Entorno de prueba. Esta base es independiente de producción."
   },
   "about": {
     "pageTitle": "Acerca del sistema",
@@ -167,7 +171,10 @@
     "expandSidebar": "Expandir menú",
     "collapseSidebar": "Contraer menú",
     "logout": "Cerrar sesión",
-    "headerHint": "Operación de packing"
+    "headerHint": "Operación de packing",
+    "moreTitle": "Más módulos",
+    "moreShort": "Más",
+    "bottomAria": "Navegación operacional"
   },
   "dashboard": {
     "title": "Operación",
@@ -371,7 +378,9 @@
     "footer": {
       "season": "Temporada {{year}}",
       "version": "v{{version}}"
-    }
+    },
+    "askWhat": "¿Qué necesitas hacer?",
+    "askHint": "Elegí el módulo para operar."
   },
   "eod": {
     "title": "Fin del día",
@@ -411,8 +420,29 @@
       "camara": "En cámara",
       "shipped": "Shipped",
       "pageTitle": "Fin del día PT",
-      "days": ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
-      "months": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+      "days": [
+        "domingo",
+        "lunes",
+        "martes",
+        "miércoles",
+        "jueves",
+        "viernes",
+        "sábado"
+      ],
+      "months": [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre"
+      ],
       "dateFormat": "{{day}} {{date}} de {{month}}, {{year}}"
     }
   },
@@ -529,7 +559,11 @@
       "lines": "Líneas / lotes",
       "linesNote": "Lotes distintos: {{count}}",
       "voided": "Anulados",
-      "voidedNote": "Documentos anulados"
+      "voidedNote": "Documentos anulados",
+      "todayShort": "Hoy",
+      "pendingShort": "Pendientes",
+      "weightShort": "Peso",
+      "producersShort": "Productores"
     },
     "alerts": {
       "title": "Avisos",
@@ -2790,11 +2824,31 @@
     "subtitle": "Operación y Decisión usan la fecha operativa — Cierre y Documentos usan el período de liquidación.",
     "guideLink": "Guía del sistema",
     "tabs": {
-      "operacion": { "label": "Operación", "subtitle": "¿Qué pasó hoy? Fin del día primero; KPIs del turno; período al final.", "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros." },
-      "decision":  { "label": "Decisión",  "subtitle": "¿Qué debo producir? Contexto de MP y simulación — sin filtros del reporte económico; liquidación desde Cierre.", "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros." },
-      "temporadas": { "label": "Temporadas", "subtitle": "Resumen y comparación multi-año por temporada; detalle diario operativo sigue en el Dashboard.", "excelHint": "Compará dos temporadas con el toggle Comparar." },
-      "cierre":    { "label": "Cierre",    "subtitle": "¿Cuánto ganó cada productor? Liquidación, packing por especie y trazabilidad.", "excelHint": "Exportar TODO (Excel) y PDF desde la pestaña Documentos." },
-      "documentos":{ "label": "Documentos","subtitle": "Balance de masas por productor y Excel unificado.", "excelHint": "Elegí fechas y descargá el Excel desde cada productor o todos." }
+      "operacion": {
+        "label": "Operación",
+        "subtitle": "¿Qué pasó hoy? Fin del día primero; KPIs del turno; período al final.",
+        "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros."
+      },
+      "decision": {
+        "label": "Decisión",
+        "subtitle": "¿Qué debo producir? Contexto de MP y simulación — sin filtros del reporte económico; liquidación desde Cierre.",
+        "excelHint": "En Documentos podés exportar el libro completo con los mismos filtros."
+      },
+      "temporadas": {
+        "label": "Temporadas",
+        "subtitle": "Resumen y comparación multi-año por temporada; detalle diario operativo sigue en el Dashboard.",
+        "excelHint": "Compará dos temporadas con el toggle Comparar."
+      },
+      "cierre": {
+        "label": "Cierre",
+        "subtitle": "¿Cuánto ganó cada productor? Liquidación, packing por especie y trazabilidad.",
+        "excelHint": "Exportar TODO (Excel) y PDF desde la pestaña Documentos."
+      },
+      "documentos": {
+        "label": "Documentos",
+        "subtitle": "Balance de masas por productor y Excel unificado.",
+        "excelHint": "Elegí fechas y descargá el Excel desde cada productor o todos."
+      }
     },
     "season": {
       "compareToggle": "Comparar",

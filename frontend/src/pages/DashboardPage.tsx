@@ -2,19 +2,18 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   AlertTriangle,
-  Box,
-  Calendar,
   ChevronDown,
   ChevronUp,
   ClipboardList,
   DollarSign,
   Import,
+  PackageOpen,
+  Cog,
   Info,
   Package,
   Tag,
   TrendingUp,
   Truck,
-  User,
   Warehouse,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -612,11 +611,11 @@ function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number
 }
 
 export function DashboardPage() {
-  const { t, i18n } = useTranslation('common');
-  const { username, role, token } = useAuth();
+  const { t } = useTranslation('common');
+  const { role, token } = useAuth();
   const demoReadOnly = isReadOnlySession(role);
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
-  const dateLocale = i18n.language?.startsWith('en') ? 'en-US' : 'es-AR';
+
 
   const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
@@ -1319,27 +1318,10 @@ export function DashboardPage() {
 
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">{appBranding.displayName}</p>
-          <h1 className={pageTitle}>{t('dashboard.title')}</h1>
-          <p className={pageSubtitle}>{t('dashboard.subtitle')}</p>
-          <p className="text-[12px] text-slate-400">{t('dashboard.subtitleHint')}</p>
-        </div>
-        <div className="space-y-1 text-left sm:text-right">
-          <p className="text-sm text-slate-700">
-            <User className="mr-1 inline h-4 w-4 text-slate-400" />
-            {username ?? t('dashboard.session')} {role ? <span className="text-slate-400">· {role}</span> : null}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            <Calendar className="mr-1 inline h-3.5 w-3.5" />
-            {new Date().toLocaleDateString(dateLocale, {
-              weekday: 'short',
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </p>
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
+          <h1 className={pageTitle}>{t('dashboard.askWhat')}</h1>
+          <p className={pageSubtitle}>{t('dashboard.askHint')}</p>
         </div>
       </header>
 
@@ -1383,8 +1365,8 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:px-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="border-b border-slate-200/80 pb-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {[
             { key: 'today', label: t('dashboard.filters.today') },
             { key: 'week', label: t('dashboard.filters.week') },
@@ -1395,7 +1377,7 @@ export function DashboardPage() {
               type="button"
               onClick={() => setPeriod(p.key as DashboardPeriod)}
               className={cn(
-                'h-10 min-w-[5.5rem] rounded-xl border px-3 text-sm font-semibold transition-colors',
+                'h-8 min-w-[4.5rem] rounded-lg border px-2.5 text-[13px] font-semibold transition-colors',
                 period === p.key
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
@@ -1406,7 +1388,7 @@ export function DashboardPage() {
           ))}
           <button
             type="button"
-            className="ml-auto inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="ml-auto inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
             onClick={() => setShowMoreFilters((v) => !v)}
             aria-expanded={showMoreFilters}
           >
@@ -1460,26 +1442,20 @@ export function DashboardPage() {
         </p>
       </section>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className={sectionTitle}>{t('dashboard.opsTitle')}</h2>
-          <p className={sectionHint}>{t('dashboard.opsHint')}</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="space-y-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
-            icon={Import}
+            icon={PackageOpen}
             label={t('nav.items.recepciones')}
             semantic="reception"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length })}
           />
           <OperationalModuleCard
             to="/processes"
-            icon={Box}
+            icon={Cog}
             label={t('nav.items.procesos')}
             semantic="process"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.moduleProcessMetric', { count: processesFiltered.length })}
           />
           <OperationalModuleCard
@@ -1487,7 +1463,6 @@ export function DashboardPage() {
             icon={Tag}
             label={t('nav.items.unidadPt')}
             semantic="pt"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.modulePtMetric', { count: ptTagsFiltered.length })}
           />
           <OperationalModuleCard
@@ -1495,7 +1470,6 @@ export function DashboardPage() {
             icon={Warehouse}
             label={t('nav.items.existenciasPt')}
             semantic="stock"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.moduleStockMetric', {
               boxes: Math.round(stockBoxesApprox).toLocaleString(),
             })}
@@ -1505,7 +1479,6 @@ export function DashboardPage() {
             icon={Truck}
             label={t('nav.items.despachos')}
             semantic="dispatch"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length })}
           />
           <OperationalModuleCard
@@ -1513,7 +1486,6 @@ export function DashboardPage() {
             icon={Package}
             label={t('nav.items.materiales')}
             semantic="materials"
-            hint={t('dashboard.moduleGo')}
             metric={t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount })}
           />
         </div>
@@ -1527,7 +1499,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button
               variant="outline"
-              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-reception-ink))]"
+              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3 text-sm font-semibold text-[hsl(var(--proc-reception-ink))]"
               asChild
             >
               <Link to="/receptions">
@@ -1537,7 +1509,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
+              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
               asChild
             >
               <Link to="/processes">
@@ -1547,7 +1519,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
+              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
               asChild
             >
               <Link to="/pt-tags">
@@ -1557,7 +1529,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
+              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
               asChild
             >
               <Link to="/dispatches">

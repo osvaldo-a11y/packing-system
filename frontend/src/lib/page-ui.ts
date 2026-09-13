@@ -6,16 +6,16 @@
  */
 
 /** Contenedor vertical estándar entre secciones (el ancho lo limita AppLayout). */
-export const pageStack = 'space-y-8';
+export const pageStack = 'space-y-5';
 
 /** Fila de título + acciones (desktop: acciones a la derecha). */
-export const pageHeaderRow = 'flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between';
+export const pageHeaderRow = 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between';
 
 /** Título principal de módulo (único estilo en toda la app). */
-export const pageTitle = 'text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.65rem]';
+export const pageTitle = 'text-[1.375rem] font-semibold tracking-tight text-slate-900 sm:text-[1.5rem]';
 
 /** Subtítulo bajo el título. */
-export const pageSubtitle = 'text-xs text-slate-400 sm:text-[13px]';
+export const pageSubtitle = 'text-[12px] text-slate-500 sm:text-[13px]';
 
 /** Botón circular de ayuda / info (tooltip). */
 export const pageInfoButton =
@@ -28,22 +28,22 @@ export const kpiGrid6 = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6
 
 /** Card KPI fila principal (4 cols). */
 export const kpiCard =
-  'flex min-h-[132px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-5 shadow-sm';
+  'flex min-h-[72px] flex-col justify-center rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-none';
 
 /** Card KPI filas secundarias / más compactas. */
 export const kpiCardSm =
-  'flex min-h-[120px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-5 shadow-sm';
+  'flex min-h-[64px] flex-col justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-none';
 
 /** Dashboard u otros layouts con celdas más altas. */
 export const kpiCardLg =
-  'flex min-h-[148px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-5 shadow-sm';
+  'flex min-h-[88px] flex-col justify-center rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-none';
 
 export const kpiLabel = 'text-[11px] font-medium uppercase tracking-[0.06em] text-slate-400';
 
 export const kpiValueLg =
-  'text-[1.75rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900';
+  'text-[1.35rem] font-semibold tabular-nums leading-none tracking-tight text-slate-900';
 
-export const kpiValueMd = 'text-[1.65rem] font-semibold tabular-nums leading-none text-slate-900';
+export const kpiValueMd = 'text-[1.25rem] font-semibold tabular-nums leading-none text-slate-900';
 
 /** Valor XL (p. ej. dashboard 6 KPIs). */
 export const kpiValueXl =
@@ -54,7 +54,7 @@ export const kpiFootnoteLead = 'mt-3 text-[11px] leading-snug text-slate-400';
 
 /** Panel de filtros unificado. */
 export const filterPanel =
-  'rounded-2xl border border-slate-100 bg-white/90 px-4 py-4 shadow-sm sm:px-5';
+  'rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-none sm:px-3.5';
 
 export const filterLabel = 'text-xs text-slate-500';
 
@@ -70,7 +70,7 @@ export const formReadonlyValueClass =
 
 /** Contenedor de tabla con borde y scroll. */
 export const tableShell =
-  'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm [&>div]:rounded-none [&>div]:border-0 [&>div]:shadow-none';
+  'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none [&>div]:rounded-none [&>div]:border-0 [&>div]:shadow-none';
 
 export const tableHeaderRow = 'border-slate-100 hover:bg-transparent';
 export const tableBodyRow = 'border-slate-100/90 hover:bg-slate-50/60';

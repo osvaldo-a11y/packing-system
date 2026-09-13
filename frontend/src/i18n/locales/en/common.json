@@ -53,7 +53,11 @@
     "demoBannerTitle": "Demo mode — read only",
     "demoBannerDesc": "Browse home, operations, PT stock, orders, dispatches, and reports; download PDFs and print labels. Create and edit actions are hidden.",
     "sandboxBannerTitle": "Trial environment (sandbox)",
-    "sandboxBannerDesc": "You can create and edit data. This database is independent from production; use it to evaluate the full flow."
+    "sandboxBannerDesc": "You can create and edit data. This database is independent from production; use it to evaluate the full flow.",
+    "demoChipReadonly": "DEMO",
+    "demoChipSandbox": "DEMO",
+    "demoChipTooltip": "Test environment. This database is independent from production.",
+    "sandboxChipTooltip": "Test environment. This database is independent from production."
   },
   "about": {
     "pageTitle": "About the system",
@@ -167,7 +171,10 @@
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
     "logout": "Sign out",
-    "headerHint": "Packing operations"
+    "headerHint": "Packing operations",
+    "moreTitle": "More modules",
+    "moreShort": "More",
+    "bottomAria": "Operational navigation"
   },
   "dashboard": {
     "title": "Operations",
@@ -371,7 +378,9 @@
     "footer": {
       "season": "Season {{year}}",
       "version": "v{{version}}"
-    }
+    },
+    "askWhat": "What do you need to do?",
+    "askHint": "Pick a module to operate."
   },
   "eod": {
     "title": "End of day",
@@ -411,8 +420,29 @@
       "camara": "In cooler",
       "shipped": "Shipped",
       "pageTitle": "End of day PT",
-      "days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-      "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      "days": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "months": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ],
       "dateFormat": "{{day}} {{date}} {{month}}, {{year}}"
     }
   },
@@ -469,7 +499,7 @@
       "fruitTypeHand": "Hand",
       "fruitTypeMachine": "Machine",
       "choosePlaceholder": "Choose…",
-      "sectionLines": "Lot lines",
+      "sectionLines": "Lots",
       "linesHint": "You can add one or more lot lines on the same reception.",
       "copyLastLine": "Copy last line",
       "applyVariety": "Apply variety to lines of the same species",
@@ -529,7 +559,11 @@
       "lines": "Lines / lots",
       "linesNote": "Distinct lots: {{count}}",
       "voided": "Voided",
-      "voidedNote": "Voided documents"
+      "voidedNote": "Voided documents",
+      "todayShort": "Today",
+      "pendingShort": "Pending",
+      "weightShort": "Weight",
+      "producersShort": "Growers"
     },
     "alerts": {
       "title": "Notices",
@@ -2791,11 +2825,31 @@
     "subtitle": "Operations and Decision use the operative date — Close and Documents use the settlement period.",
     "guideLink": "System guide",
     "tabs": {
-      "operacion": { "label": "Operations", "subtitle": "What happened today? End of day first; shift KPIs; period at the end.", "excelHint": "In Documents you can export the full workbook with the same filters." },
-      "decision":  { "label": "Decision",   "subtitle": "What should I produce? RM context and simulation — no financial report filters; settlement from Close.", "excelHint": "In Documents you can export the full workbook with the same filters." },
-      "temporadas": { "label": "Seasons", "subtitle": "Multi-year season summary and comparison; daily operational detail stays on the Dashboard.", "excelHint": "Compare two seasons with the Compare toggle." },
-      "cierre":    { "label": "Close",      "subtitle": "How much did each producer earn? Settlement, packing by species and traceability.", "excelHint": "Export ALL (Excel) and PDF from the Documents tab." },
-      "documentos":{ "label": "Documents",  "subtitle": "Mass balance by producer and unified Excel.", "excelHint": "Pick dates and download Excel per producer or all." }
+      "operacion": {
+        "label": "Operations",
+        "subtitle": "What happened today? End of day first; shift KPIs; period at the end.",
+        "excelHint": "In Documents you can export the full workbook with the same filters."
+      },
+      "decision": {
+        "label": "Decision",
+        "subtitle": "What should I produce? RM context and simulation — no financial report filters; settlement from Close.",
+        "excelHint": "In Documents you can export the full workbook with the same filters."
+      },
+      "temporadas": {
+        "label": "Seasons",
+        "subtitle": "Multi-year season summary and comparison; daily operational detail stays on the Dashboard.",
+        "excelHint": "Compare two seasons with the Compare toggle."
+      },
+      "cierre": {
+        "label": "Close",
+        "subtitle": "How much did each producer earn? Settlement, packing by species and traceability.",
+        "excelHint": "Export ALL (Excel) and PDF from the Documents tab."
+      },
+      "documentos": {
+        "label": "Documents",
+        "subtitle": "Mass balance by producer and unified Excel.",
+        "excelHint": "Pick dates and download Excel per producer or all."
+      }
     },
     "season": {
       "compareToggle": "Compare",

@@ -47,11 +47,8 @@ import {
   filterInputClass,
   filterPanel,
   filterSelectClass,
-  kpiCard,
   kpiCardSm,
-  kpiFootnote,
   kpiLabel,
-  kpiValueLg,
   kpiValueMd,
   modalFormLineCard,
   modalFormPrimaryButton,
@@ -1285,7 +1282,7 @@ export function ReceptionPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -1468,12 +1465,11 @@ export function ReceptionPage() {
                   >
                     <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 flex-wrap items-start gap-2">
-                        <span className={operationalModalStepBadge}>2–3</span>
+                        <span className={operationalModalStepBadge}>2</span>
                         <div>
                           <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionLines')}</h3>
                           <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                            {t('reception.dialog.stepFruitHint')}{' '}
-                            {t('reception.dialog.stepWeightHint')}
+                            {t('reception.dialog.stepFruitHint')} · {t('reception.dialog.stepWeightHint')}
                           </p>
                         </div>
                       </div>
@@ -1899,8 +1895,8 @@ export function ReceptionPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
           <h2 className={pageTitle}>{t('reception.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <p className={pageSubtitle}>{t('reception.pageSubtitle')}</p>
@@ -1912,7 +1908,7 @@ export function ReceptionPage() {
         {canOperateReception ? (
           <Button
             className={cn(
-              'h-12 shrink-0 gap-2 rounded-xl px-5 text-base font-semibold text-white shadow-sm',
+              'h-10 shrink-0 gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-none',
               receptionTok.accent,
               'hover:opacity-95',
             )}
@@ -1933,28 +1929,24 @@ export function ReceptionPage() {
             {showSummary ? t('reception.hideSummary') : t('reception.viewSummary')}
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <div className={cn(kpiCard, receptionTok.surface, receptionTok.border, 'border-l-4', receptionTok.stripe)}>
-            <p className={kpiLabel}>{t('reception.kpi.todayCount')}</p>
-            <p className={cn(kpiValueLg, receptionTok.ink)}>{formatCount(todayOpsKpis.count)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.todayCountNote')}</p>
+        <div className="flex flex-wrap items-stretch gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l-[3px] px-3 py-2.5', receptionTok.stripe)}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.todayShort')}</p>
+            <p className={cn('text-[1.25rem] font-semibold tabular-nums leading-none', receptionTok.ink)}>{formatCount(todayOpsKpis.count)}</p>
           </div>
-          <div className={cn(kpiCard, todayOpsKpis.pending > 0 ? 'border-amber-200 bg-amber-50' : '')}>
-            <p className={kpiLabel}>{t('reception.kpi.pending')}</p>
-            <p className={cn(kpiValueLg, todayOpsKpis.pending > 0 ? 'text-amber-800' : '')}>
+          <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5', todayOpsKpis.pending > 0 ? 'bg-amber-50/70' : '')}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.pendingShort')}</p>
+            <p className={cn('text-[1.25rem] font-semibold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-800' : 'text-slate-900')}>
               {formatCount(todayOpsKpis.pending)}
             </p>
-            <p className={kpiFootnote}>{t('reception.kpi.pendingNote')}</p>
           </div>
-          <div className={cn(kpiCard, 'border-sky-200 bg-sky-50')}>
-            <p className={kpiLabel}>{t('reception.kpi.todayNetLb')}</p>
-            <p className={cn(kpiValueLg, 'text-sky-800')}>{formatLb(todayOpsKpis.totalNet, 2)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.todayNetLbNote')}</p>
+          <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.weightShort')}</p>
+            <p className="text-[1.25rem] font-semibold tabular-nums leading-none text-slate-900">{formatLb(todayOpsKpis.totalNet, 2)} <span className="text-[11px] font-medium text-slate-500">lb</span></p>
           </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('reception.kpi.todayProducers')}</p>
-            <p className={kpiValueLg}>{formatCount(todayOpsKpis.producers)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.todayProducersNote')}</p>
+          <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.producersShort')}</p>
+            <p className="text-[1.25rem] font-semibold tabular-nums leading-none text-slate-900">{formatCount(todayOpsKpis.producers)}</p>
           </div>
         </div>
         {showSummary ? (
@@ -2017,7 +2009,7 @@ export function ReceptionPage() {
         ) : null}
       </section>
 
-      <div className={cn(filterPanel, 'space-y-3')}>
+      <div className={cn(filterPanel, 'space-y-2')}>
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
@@ -2032,7 +2024,7 @@ export function ReceptionPage() {
               size="sm"
               variant={datePreset === key ? 'default' : 'outline'}
               className={cn(
-                'h-9 rounded-full px-4',
+                'h-8 rounded-lg px-3 text-[13px]',
                 datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
               )}
               onClick={() => applyDatePreset(key)}
