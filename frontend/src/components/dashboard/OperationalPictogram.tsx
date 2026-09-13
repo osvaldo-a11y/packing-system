@@ -22,7 +22,7 @@ type PictogramDef = {
 
 const PICTOGRAMS: Record<Exclude<ProcessSemantic, 'error' | 'admin'>, PictogramDef> = {
   reception: { primary: PackageOpen, secondary: ArrowDownToLine },
-  process: { primary: Boxes, secondary: Workflow },
+  process: { primary: Boxes, secondary: RefreshCw },
   pt: { primary: PackageCheck },
   stock: { primary: Warehouse, secondary: Archive },
   dispatch: { primary: Truck, secondary: ArrowUpRight },
