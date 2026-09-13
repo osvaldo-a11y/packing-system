@@ -1290,12 +1290,14 @@ export function ReceptionPage() {
         }}
       >
         <DialogContent
+          hideCloseButton
+          fullScreenMobile
           className={cn(
             operationalModalContentClass,
             'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
-          <DialogHeader className={cn(operationalModalHeaderClass, 'border-b px-6 py-4')}>
+          <DialogHeader className={cn(operationalModalHeaderClass, 'border-b px-4 py-3 sm:px-6 sm:py-4')}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2 text-base')}>
@@ -1321,7 +1323,7 @@ export function ReceptionPage() {
           ) : null}
 
           <form onSubmit={form.handleSubmit(onSubmit)} className={operationalModalFormClass}>
-            <div className={cn(operationalModalBodyClass, 'min-w-0 overflow-y-auto px-0 py-0 sm:px-2')}>
+            <div className={cn(operationalModalBodyClass, 'min-w-0 overflow-y-auto px-0 py-0 max-md:px-0 sm:px-2')}>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                 <section
                   className={cn(
@@ -1332,7 +1334,7 @@ export function ReceptionPage() {
                   <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                     <span className={operationalModalStepBadge}>1</span>
                     <div>
-                      <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepOrigin')}</h3>
+                      <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepOriginTitle', { defaultValue: t('reception.dialog.stepOrigin') })}</h3>
                       <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                         {t('reception.dialog.stepOriginHint')}
                       </p>
@@ -1392,19 +1394,9 @@ export function ReceptionPage() {
                         />
                       </div>
                       <div className="min-w-0 space-y-1.5">
-                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
-                        <Input
-                          disabled={lockNonStateFields}
-                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
-                          maxLength={10}
-                          placeholder={t('reception.dialog.fieldDocPlaceholder')}
-                          {...form.register('document_number')}
-                        />
-                      </div>
-                      <div className="min-w-0 space-y-1.5">
                         <label className={compactFieldLabelClass}>{t('reception.dialog.fieldFruitType')}</label>
                         <select
-                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs max-md:min-h-11"
                           disabled={lockNonStateFields}
                           {...form.register('reception_type_id', { valueAsNumber: true })}
                         >
@@ -1420,6 +1412,22 @@ export function ReceptionPage() {
                               </option>
                             ))}
                         </select>
+                      </div>
+                    </div>
+                    <details className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                      <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-700">
+                        {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                      </summary>
+                      <div className="mt-3 grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
+                        <Input
+                          disabled={lockNonStateFields}
+                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
+                          maxLength={10}
+                          placeholder={t('reception.dialog.fieldDocPlaceholder')}
+                          {...form.register('document_number')}
+                        />
                       </div>
                       <div className="min-w-0 space-y-1.5">
                         <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
@@ -1454,7 +1462,8 @@ export function ReceptionPage() {
                             ))}
                         </select>
                       </div>
-                    </div>
+                      </div>
+                    </details>
                     <input type="hidden" {...form.register('plant_code')} />
                   </div>
                 </section>
@@ -1474,24 +1483,6 @@ export function ReceptionPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                        <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={copyFromPreviousLine}
-                            disabled={lockNonStateFields}
-                            onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
-                          />
-                          {t('reception.dialog.copyLastLine')}
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={applyVarietyToInvolvedLines}
-                            disabled={lockNonStateFields}
-                            onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
-                          />
-                          {t('reception.dialog.applyVariety')}
-                        </label>
                         <button
                           type="button"
                           className={modalFormSoftGreenButton}
@@ -1509,6 +1500,24 @@ export function ReceptionPage() {
                         >
                           {t('reception.dialog.addLine')}
                         </button>
+                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-500">
+                          <input
+                            type="checkbox"
+                            checked={copyFromPreviousLine}
+                            disabled={lockNonStateFields}
+                            onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
+                          />
+                          {t('reception.dialog.copyLastLine')}
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-500">
+                          <input
+                            type="checkbox"
+                            checked={applyVarietyToInvolvedLines}
+                            disabled={lockNonStateFields}
+                            onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
+                          />
+                          {t('reception.dialog.applyVariety')}
+                        </label>
                       </div>
                     </div>
 
@@ -1752,7 +1761,7 @@ export function ReceptionPage() {
 
                   <section className={cn(operationalModalSectionCard, 'shrink-0 px-4 py-[14px]')}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                      <span className={operationalModalStepBadge}>4</span>
+                      <span className={operationalModalStepBadge}>3</span>
                       <div>
                         <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepReview')}</h3>
                         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
@@ -1842,7 +1851,7 @@ export function ReceptionPage() {
                       ? t('reception.dialog.savingButton')
                       : adminStateOnlyEdit
                         ? t('reception.dialog.saveStateButton')
-                        : t('reception.dialog.saveButton')}
+                        : t('reception.dialog.saveReception', { defaultValue: t('reception.dialog.saveButton') })}
                   </button>
                 ) : null}
               </div>
@@ -1932,21 +1941,21 @@ export function ReceptionPage() {
         <div className="flex flex-wrap items-stretch gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l-[3px] px-3 py-2.5', receptionTok.stripe)}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.todayShort')}</p>
-            <p className={cn('text-[1.25rem] font-semibold tabular-nums leading-none', receptionTok.ink)}>{formatCount(todayOpsKpis.count)}</p>
+            <p className={cn('text-[1.5rem] font-bold tabular-nums leading-none', receptionTok.ink)}>{formatCount(todayOpsKpis.count)}</p>
           </div>
           <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5', todayOpsKpis.pending > 0 ? 'bg-amber-50/70' : '')}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.pendingShort')}</p>
-            <p className={cn('text-[1.25rem] font-semibold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-800' : 'text-slate-900')}>
+            <p className={cn('text-[1.5rem] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-800' : 'text-slate-900')}>
               {formatCount(todayOpsKpis.pending)}
             </p>
           </div>
           <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.weightShort')}</p>
-            <p className="text-[1.25rem] font-semibold tabular-nums leading-none text-slate-900">{formatLb(todayOpsKpis.totalNet, 2)} <span className="text-[11px] font-medium text-slate-500">lb</span></p>
+            <p className="text-[1.5rem] font-bold tabular-nums leading-none text-slate-900">{formatLb(todayOpsKpis.totalNet, 2)} <span className="text-[11px] font-medium text-slate-500">lb</span></p>
           </div>
           <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.producersShort')}</p>
-            <p className="text-[1.25rem] font-semibold tabular-nums leading-none text-slate-900">{formatCount(todayOpsKpis.producers)}</p>
+            <p className="text-[1.5rem] font-bold tabular-nums leading-none text-slate-900">{formatCount(todayOpsKpis.producers)}</p>
           </div>
         </div>
         {showSummary ? (
@@ -2024,7 +2033,7 @@ export function ReceptionPage() {
               size="sm"
               variant={datePreset === key ? 'default' : 'outline'}
               className={cn(
-                'h-8 rounded-lg px-3 text-[13px]',
+                'h-8 rounded-md px-3 text-[13px] font-semibold',
                 datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
               )}
               onClick={() => applyDatePreset(key)}
@@ -2034,7 +2043,7 @@ export function ReceptionPage() {
           ))}
           <div className="min-w-[12rem] flex-1">
             <Input
-              className={cn(filterInputClass, 'h-9')}
+              className={cn(filterInputClass, 'h-8')}
               placeholder={t('reception.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -2045,7 +2054,7 @@ export function ReceptionPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-9"
+            className="h-8"
             onClick={() => setShowMoreFilters((v) => !v)}
           >
             {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
@@ -2058,7 +2067,7 @@ export function ReceptionPage() {
               <Label className="text-xs text-slate-500">{t('reception.filters.dateFrom')}</Label>
               <Input
                 type="date"
-                className={cn(filterInputClass, 'h-9')}
+                className={cn(filterInputClass, 'h-8')}
                 value={filterDateFrom}
                 onChange={(e) => {
                   setDatePreset('all');
@@ -2070,7 +2079,7 @@ export function ReceptionPage() {
               <Label className="text-xs text-slate-500">{t('reception.filters.dateTo')}</Label>
               <Input
                 type="date"
-                className={cn(filterInputClass, 'h-9')}
+                className={cn(filterInputClass, 'h-8')}
                 value={filterDateTo}
                 onChange={(e) => {
                   setDatePreset('all');
@@ -2281,7 +2290,7 @@ export function ReceptionPage() {
                           <Button
                             type="button"
                             size="sm"
-                            className={cn('h-8 gap-1 px-2.5 text-xs font-semibold text-white', receptionTok.accent)}
+                            className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
                             onClick={() => runPrimaryAction(r)}
                           >
                             {primaryActionLabel(r.document_state?.codigo)}
@@ -2338,7 +2347,7 @@ export function ReceptionPage() {
                                   <Button
                                     type="button"
                                     size="sm"
-                                    className={cn('h-8 gap-1 px-2.5 text-xs font-semibold text-white', receptionTok.accent)}
+                                    className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
                                     onClick={() => runPrimaryAction(r)}
                                   >
                                     {primaryActionLabel(r.document_state?.codigo)}
@@ -2420,7 +2429,7 @@ export function ReceptionPage() {
                 const tone = receptionVisualTone(r);
                 const netLb = receptionNetLb(r);
                 return (
-                  <div key={r.id} className={cn('rounded-lg border border-border/70 bg-white p-3', tone.rowHover)}>
+                  <div key={r.id} className={cn('rounded-xl border border-slate-200 bg-white p-3.5 shadow-none', tone.rowHover)}>
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
                       <span className={cn('text-sm font-semibold tabular-nums', netLb > 0 && netLb < 400 ? 'text-amber-700' : 'text-slate-900')}>
@@ -2442,12 +2451,12 @@ export function ReceptionPage() {
                       <Button
                         type="button"
                         size="sm"
-                        className={cn('h-8 gap-1 px-2.5 text-xs font-semibold text-white', receptionTok.accent)}
+                        className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
                         onClick={() => runPrimaryAction(r)}
                       >
                         {primaryActionLabel(r.document_state?.codigo)}
                       </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => void printReceptionPdf(r.id)}>
+                      <Button type="button" variant="outline" size="sm" className="h-10 gap-1 px-2.5 text-xs" onClick={() => void printReceptionPdf(r.id)}>
                         <Printer className="h-3.5 w-3.5" />
                         {t('reception.table.actionReport')}
                       </Button>
@@ -2513,7 +2522,7 @@ export function ReceptionPage() {
                               <Button
                                 type="button"
                                 size="sm"
-                                className={cn('h-8 gap-1 px-2.5 text-xs font-semibold text-white', receptionTok.accent)}
+                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
                                 onClick={() => runPrimaryAction(r)}
                               >
                                 {primaryActionLabel(r.document_state?.codigo)}

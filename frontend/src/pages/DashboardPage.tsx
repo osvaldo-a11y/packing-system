@@ -1219,7 +1219,7 @@ export function DashboardPage() {
         to: '/dispatches',
       });
     }
-    return rows.sort((a, b) => b.ts - a.ts).slice(0, 8);
+    return rows.sort((a, b) => b.ts - a.ts).slice(0, 5);
   }, [receptionsFiltered, processesFiltered, dispatchesFiltered, t]);
 
   type DashboardAlertVariant = 'material_critical' | 'tripaje_critical' | 'order_risk' | 'info';
@@ -1443,7 +1443,7 @@ export function DashboardPage() {
       </section>
 
       <section className="space-y-2.5">
-        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
             icon={PackageOpen}
@@ -1499,7 +1499,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button
               variant="outline"
-              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3 text-sm font-semibold text-[hsl(var(--proc-reception-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-reception-ink))]"
               asChild
             >
               <Link to="/receptions">
@@ -1509,7 +1509,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-process-ink))]"
               asChild
             >
               <Link to="/processes">
@@ -1519,7 +1519,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-pt-ink))]"
               asChild
             >
               <Link to="/pt-tags">
@@ -1529,7 +1529,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-11 justify-start whitespace-normal rounded-xl border border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-dispatch-ink))]"
               asChild
             >
               <Link to="/dispatches">
@@ -1541,7 +1541,37 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+      <section className="space-y-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          {t('dashboard.recentActivity.title')}
+        </h2>
+        {activityRows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-500">
+            {t('dashboard.recentActivity.empty')}
+          </p>
+        ) : (
+          <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {activityRows.map((row, idx) => (
+              <li key={row.id} className={cn(idx > 0 && 'border-t border-slate-100')}>
+                <Link
+                  to={row.to}
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-slate-900">
+                      {row.kind} · {row.detail}
+                    </p>
+                    <p className="truncate text-[11px] text-slate-500">{row.when}</p>
+                  </div>
+                  <span className="shrink-0 text-[12px] font-medium text-slate-400">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-2 text-left"
@@ -1552,7 +1582,7 @@ export function DashboardPage() {
             <h2 className={sectionTitle}>{t('dashboard.executiveTitle')}</h2>
             <p className={sectionHint}>{t('dashboard.executiveHint')}</p>
           </div>
-          <span className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-600">
+          <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600">
             {showExecutive ? t('dashboard.executiveToggleHide') : t('dashboard.executiveToggleShow')}
             {showExecutive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </span>
@@ -2170,29 +2200,6 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-medium text-slate-500">{t('dashboard.activity.title')}</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">{t('dashboard.activity.hint')}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white px-4 py-2">
-          {activityRows.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-slate-400">{t('dashboard.activity.noData')}</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {activityRows.map((row) => (
-                <li key={row.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5">
-                  <span className="w-36 shrink-0 text-[11px] tabular-nums text-slate-400">{row.when}</span>
-                  <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">{row.kind}</span>
-                  <Link to={row.to} className="min-w-0 flex-1 truncate text-sm text-slate-800 underline-offset-2 hover:underline">
-                    {row.detail}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
           </div>
         ) : null}
       </section>

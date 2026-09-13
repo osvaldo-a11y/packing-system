@@ -28,43 +28,44 @@
     --radius: 0.75rem;
 
     /* Semántica de proceso: reception / process / pt / stock / dispatch / materials */
-    --proc-reception-surface: 152 30% 98%;
-    --proc-reception-border: 152 40% 72%;
+    /* Superficies semánticas casi blancas pero perceptibles (no pastel saturado). */
+    --proc-reception-surface: 152 38% 93%;
+    --proc-reception-border: 152 36% 78%;
     --proc-reception-ink: 158 72% 24%;
     --proc-reception-accent: 158 55% 38%;
 
-    --proc-process-surface: 214 40% 98%;
-    --proc-process-border: 214 55% 75%;
+    --proc-process-surface: 214 48% 93%;
+    --proc-process-border: 214 48% 78%;
     --proc-process-ink: 221 70% 32%;
     --proc-process-accent: 221 70% 48%;
 
-    --proc-pt-surface: 270 30% 98%;
-    --proc-pt-border: 270 35% 78%;
+    --proc-pt-surface: 270 36% 93%;
+    --proc-pt-border: 270 32% 80%;
     --proc-pt-ink: 272 55% 32%;
     --proc-pt-accent: 272 48% 45%;
 
-    --proc-stock-surface: 190 30% 98%;
-    --proc-stock-border: 190 40% 70%;
+    --proc-stock-surface: 190 38% 93%;
+    --proc-stock-border: 190 36% 76%;
     --proc-stock-ink: 192 70% 26%;
     --proc-stock-accent: 192 55% 36%;
 
-    --proc-dispatch-surface: 28 50% 98%;
-    --proc-dispatch-border: 28 70% 75%;
+    --proc-dispatch-surface: 28 62% 93%;
+    --proc-dispatch-border: 28 60% 78%;
     --proc-dispatch-ink: 24 80% 32%;
     --proc-dispatch-accent: 24 85% 48%;
 
-    --proc-materials-surface: 42 40% 98%;
-    --proc-materials-border: 42 55% 72%;
+    --proc-materials-surface: 42 48% 93%;
+    --proc-materials-border: 42 48% 76%;
     --proc-materials-ink: 36 70% 28%;
     --proc-materials-accent: 38 75% 42%;
 
-    --proc-error-surface: 0 70% 96%;
-    --proc-error-border: 0 55% 80%;
+    --proc-error-surface: 0 62% 94%;
+    --proc-error-border: 0 50% 82%;
     --proc-error-ink: 0 65% 36%;
     --proc-error-accent: 0 72% 48%;
 
-    --proc-admin-surface: 215 20% 96%;
-    --proc-admin-border: 215 16% 82%;
+    --proc-admin-surface: 215 18% 94%;
+    --proc-admin-border: 215 14% 84%;
     --proc-admin-ink: 215 20% 32%;
     --proc-admin-accent: 215 16% 42%;
   }
@@ -94,5 +95,32 @@
 
   #root {
     @apply min-h-[100dvh] w-full min-w-0;
+  }
+
+  /* Nueva recepción (y modales operativos): full-screen sheet en mobile */
+  @media (max-width: 767px) {
+    [data-operational-modal='true'],
+    .operational-modal-fs {
+      position: fixed !important;
+      inset: 0 !important;
+      left: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      max-width: none !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      transform: none !important;
+      border-radius: 0 !important;
+      border-width: 0 !important;
+      margin: 0 !important;
+    }
+
+    [data-operational-modal='true'] input:not([type='checkbox']):not([type='hidden']),
+    [data-operational-modal='true'] select,
+    [data-operational-modal='true'] textarea {
+      min-height: 44px;
+    }
   }
 }

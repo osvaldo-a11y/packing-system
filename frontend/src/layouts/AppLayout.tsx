@@ -291,11 +291,11 @@ function NavList({
 }
 
 const BOTTOM_PRIMARY = [
-  { to: '/', end: true as const, icon: House, labelKey: 'nav.items.inicio' },
-  { to: '/receptions', icon: PackageOpen, labelKey: 'nav.items.recepciones' },
-  { to: '/processes', icon: Cog, labelKey: 'nav.items.procesos' },
-  { to: '/existencias-pt', icon: Warehouse, labelKey: 'nav.items.existenciasPt' },
-  { to: '/dispatches', icon: Truck, labelKey: 'nav.items.despachos' },
+  { to: '/', end: true as const, icon: House, labelKey: 'nav.bottom.home' },
+  { to: '/receptions', icon: PackageOpen, labelKey: 'nav.bottom.receive' },
+  { to: '/processes', icon: Cog, labelKey: 'nav.bottom.process' },
+  { to: '/existencias-pt', icon: Warehouse, labelKey: 'nav.bottom.stock' },
+  { to: '/dispatches', icon: Truck, labelKey: 'nav.bottom.dispatch' },
 ];
 
 export function AppLayout() {
@@ -533,7 +533,7 @@ export function AppLayout() {
                 end={'end' in item ? item.end : false}
                 className={({ isActive }) =>
                   cn(
-                    'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-medium',
+                    'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
                     isActive ? 'text-sky-700' : 'text-slate-500',
                   )
                 }
@@ -554,7 +554,7 @@ export function AppLayout() {
           <button
             type="button"
             className={cn(
-              'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-medium',
+              'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
               moreOpen ? 'text-sky-700' : 'text-slate-500',
             )}
             onClick={() => setMoreOpen(true)}

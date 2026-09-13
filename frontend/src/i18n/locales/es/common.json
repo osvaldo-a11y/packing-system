@@ -174,7 +174,14 @@
     "headerHint": "Operación de packing",
     "moreTitle": "Más módulos",
     "moreShort": "Más",
-    "bottomAria": "Navegación operacional"
+    "bottomAria": "Navegación operacional",
+    "bottom": {
+      "home": "Inicio",
+      "receive": "Recibir",
+      "process": "Proceso",
+      "stock": "Stock",
+      "dispatch": "Despacho"
+    }
   },
   "dashboard": {
     "title": "Operación",
@@ -189,12 +196,12 @@
     "moreFilters": "Más filtros",
     "lessFilters": "Menos filtros",
     "moduleGo": "Abrir →",
-    "moduleReceptionMetric": "{{count}} recepciones",
-    "moduleProcessMetric": "{{count}} procesos",
-    "modulePtMetric": "{{count}} unidades PT",
-    "moduleStockMetric": "{{boxes}} cajas en cámara",
-    "moduleDispatchMetric": "{{count}} despachos",
-    "moduleMaterialsMetric": "{{count}} materiales activos",
+    "moduleReceptionMetric": "{{count}} hoy",
+    "moduleProcessMetric": "{{count}} abiertos",
+    "modulePtMetric": "{{count}} disponibles",
+    "moduleStockMetric": "{{boxes}} cajas",
+    "moduleDispatchMetric": "{{count}} listos",
+    "moduleMaterialsMetric": "{{count}} activos",
     "session": "Sesión",
     "noAuth": {
       "title": "No hay datos hasta iniciar sesión.",
@@ -380,7 +387,14 @@
       "version": "v{{version}}"
     },
     "askWhat": "¿Qué necesitas hacer?",
-    "askHint": "Elegí el módulo para operar."
+    "askHint": "Elegí una operación.",
+    "recentActivity": {
+      "title": "Actividad reciente",
+      "empty": "Sin movimientos recientes.",
+      "reception": "Recepción",
+      "process": "Proceso",
+      "dispatch": "Despacho"
+    }
   },
   "eod": {
     "title": "Fin del día",
@@ -476,14 +490,14 @@
       "new": "Nueva recepción",
       "closeAriaLabel": "Cerrar",
       "adminNotice": "Modo administrador: solo podés cambiar el estado del documento. El resto queda bloqueado. «Anulado» usa el mismo flujo que siempre (p. ej. no se permite si ya hay procesos con MP de esta recepción).",
-      "stepOrigin": "1. Origen",
-      "stepOriginHint": "Quién entrega la fruta y con qué guía.",
-      "stepFruit": "2. Fruta",
-      "stepFruitHint": "Especie, variedad y calidad de cada partida.",
-      "stepWeight": "3. Peso",
-      "stepWeightHint": "Pesos, cantidad de envases y temperatura.",
-      "stepReview": "4. Revisión",
-      "stepReviewHint": "Revisá el resumen antes de guardar.",
+      "stepOrigin": "Origen",
+      "stepOriginHint": "¿Quién entrega la fruta?",
+      "stepFruit": "Fruta",
+      "stepFruitHint": "Especie, variedad y calidad.",
+      "stepWeight": "Peso",
+      "stepWeightHint": "Pesos y envases.",
+      "stepReview": "Revisión",
+      "stepReviewHint": "Confirmá antes de guardar.",
       "sectionDoc": "Documento",
       "fieldDatetime": "Fecha y hora",
       "fieldProducer": "Productor",
@@ -503,7 +517,8 @@
       "linesHint": "Podés cargar una o varias partidas en la misma recepción.",
       "copyLastLine": "Copiar última partida",
       "applyVariety": "Aplicar variedad a partidas de la misma especie",
-      "addLine": "+ Agregar partida",
+      "addLine": "+ Otra partida",
+      "moreData": "Más datos",
       "lineLabel": "Partida {{n}}",
       "colSpecies": "Especie",
       "colVariety": "Variedad",
@@ -533,7 +548,9 @@
       "cancelButton": "Cancelar",
       "savingButton": "Guardando…",
       "saveStateButton": "Guardar estado",
-      "saveButton": "Guardar"
+      "saveButton": "Guardar recepción",
+      "saveReception": "Guardar recepción",
+      "stepOriginTitle": "Origen"
     },
     "kpi": {
       "todayCount": "Recepciones hoy",

@@ -23,16 +23,20 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   /** Oculta la X por defecto (p. ej. cuando el modal define cabecera propia con cierre). */
   hideCloseButton?: boolean;
+  /** En <768px ocupa viewport completo (flujo operativo, no modal flotante). */
+  fullScreenMobile?: boolean;
 };
 
 const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
-  ({ className, children, hideCloseButton, ...props }, ref) => (
+  ({ className, children, hideCloseButton, fullScreenMobile, ...props }, ref) => (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={fullScreenMobile ? 'max-md:bg-background max-md:backdrop-blur-none' : undefined} />
       <DialogPrimitive.Content
         ref={ref}
+        data-operational-modal={fullScreenMobile ? 'true' : undefined}
         className={cn(
           'fixed left-[50%] top-[50%] z-50 grid w-full min-w-0 max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-card p-6 shadow-lg sm:rounded-xl',
+          fullScreenMobile && 'operational-modal-fs',
           className,
         )}
         {...props}

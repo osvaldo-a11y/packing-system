@@ -15,7 +15,10 @@ type Props = {
   className?: string;
 };
 
-/** Selector operacional: superficie neutra + acento semántico (no dashboard pastel). */
+/**
+ * Botón de operación (no card de dashboard).
+ * Icono protagonista + nombre + métrica; toda la superficie es clickeable.
+ */
 export function OperationalModuleCard({
   to,
   icon: Icon,
@@ -30,34 +33,35 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group relative flex min-h-[6.75rem] flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 transition-colors sm:min-h-[7.75rem] sm:p-4',
-        'border-l-[3px] shadow-none',
+        'group relative flex min-h-[150px] cursor-pointer flex-col justify-between overflow-hidden rounded-[10px] border-2 p-3.5 transition-all duration-150 sm:min-h-[168px] sm:p-4',
+        'border-l-[5px] shadow-none',
+        tok.surface,
+        tok.border,
         tok.stripe,
-        'hover:border-slate-300 hover:bg-slate-50/80',
+        'hover:-translate-y-1 hover:border-opacity-100 hover:shadow-md',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         tok.ring,
-        'active:scale-[0.995]',
+        'active:translate-y-0 active:scale-[0.99]',
         emphasis === 'secondary' && 'opacity-95',
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className={cn(
-            'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white sm:h-12 sm:w-12',
-            tok.accent,
-          )}
-          aria-hidden
-        >
-          <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2.25} />
-        </span>
-      </div>
+      <span
+        className={cn(
+          'inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-white sm:h-16 sm:w-16',
+          tok.accent,
+          'transition-transform duration-150 group-hover:scale-[1.04]',
+        )}
+        aria-hidden
+      >
+        <Icon className="h-7 w-7 sm:h-[34px] sm:w-[34px]" strokeWidth={2.4} />
+      </span>
       <div className="mt-2.5 min-w-0">
-        <p className="text-[14px] font-semibold leading-snug tracking-tight text-slate-900 sm:text-[17px]">
+        <p className="text-[17px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[19px]">
           {label}
         </p>
         {metric ? (
-          <p className={cn('mt-1 text-[15px] font-medium leading-snug tabular-nums sm:text-[16px]', tok.ink)}>
+          <p className={cn('mt-1 text-[15px] font-semibold leading-snug tabular-nums sm:text-[16px]', tok.ink)}>
             {metric}
           </p>
         ) : null}

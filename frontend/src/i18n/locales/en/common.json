@@ -174,7 +174,14 @@
     "headerHint": "Packing operations",
     "moreTitle": "More modules",
     "moreShort": "More",
-    "bottomAria": "Operational navigation"
+    "bottomAria": "Operational navigation",
+    "bottom": {
+      "home": "Home",
+      "receive": "Receive",
+      "process": "Process",
+      "stock": "Stock",
+      "dispatch": "Dispatch"
+    }
   },
   "dashboard": {
     "title": "Operations",
@@ -189,12 +196,12 @@
     "moreFilters": "More filters",
     "lessFilters": "Fewer filters",
     "moduleGo": "Open →",
-    "moduleReceptionMetric": "{{count}} receptions",
-    "moduleProcessMetric": "{{count}} processes",
-    "modulePtMetric": "{{count}} PT units",
-    "moduleStockMetric": "{{boxes}} boxes in cooler",
-    "moduleDispatchMetric": "{{count}} dispatches",
-    "moduleMaterialsMetric": "{{count}} active materials",
+    "moduleReceptionMetric": "{{count}} today",
+    "moduleProcessMetric": "{{count}} open",
+    "modulePtMetric": "{{count}} available",
+    "moduleStockMetric": "{{boxes}} boxes",
+    "moduleDispatchMetric": "{{count}} ready",
+    "moduleMaterialsMetric": "{{count}} active",
     "session": "Session",
     "noAuth": {
       "title": "No data until you sign in.",
@@ -361,7 +368,7 @@
       "okDesc": "No major blockers with current filters."
     },
     "quickAccess": {
-      "title": "Quick access",
+      "title": "Quick actions",
       "newReception": "New reception",
       "newProcess": "New process",
       "newPtUnit": "New PT unit",
@@ -380,7 +387,14 @@
       "version": "v{{version}}"
     },
     "askWhat": "What do you need to do?",
-    "askHint": "Pick a module to operate."
+    "askHint": "Pick an operation.",
+    "recentActivity": {
+      "title": "Recent activity",
+      "empty": "No recent activity.",
+      "reception": "Reception",
+      "process": "Process",
+      "dispatch": "Dispatch"
+    }
   },
   "eod": {
     "title": "End of day",
@@ -476,14 +490,14 @@
       "new": "New reception",
       "closeAriaLabel": "Close",
       "adminNotice": "Admin mode: you can only change the document state. Everything else is locked. «Voided» follows the same flow as always (e.g. not allowed if there are processes with raw fruit from this reception).",
-      "stepOrigin": "1. Origin",
-      "stepOriginHint": "Who delivers the fruit and which guide.",
-      "stepFruit": "2. Fruit",
-      "stepFruitHint": "Species, variety and quality for each lot line.",
-      "stepWeight": "3. Weight",
-      "stepWeightHint": "Weights, container count and temperature.",
-      "stepReview": "4. Review",
-      "stepReviewHint": "Check the summary before saving.",
+      "stepOrigin": "Origin",
+      "stepOriginHint": "Who is delivering the fruit?",
+      "stepFruit": "Fruit",
+      "stepFruitHint": "Species, variety and quality.",
+      "stepWeight": "Weight",
+      "stepWeightHint": "Weights and packages.",
+      "stepReview": "Review",
+      "stepReviewHint": "Confirm before saving.",
       "sectionDoc": "Document",
       "fieldDatetime": "Date and time",
       "fieldProducer": "Producer",
@@ -503,8 +517,9 @@
       "linesHint": "You can add one or more lot lines on the same reception.",
       "copyLastLine": "Copy last line",
       "applyVariety": "Apply variety to lines of the same species",
-      "addLine": "+ Add lot line",
-      "lineLabel": "Lot line {{n}}",
+      "addLine": "+ Another lot",
+      "moreData": "More details",
+      "lineLabel": "Lot {{n}}",
       "colSpecies": "Species",
       "colVariety": "Variety",
       "colQuality": "Quality",
@@ -533,7 +548,9 @@
       "cancelButton": "Cancel",
       "savingButton": "Saving…",
       "saveStateButton": "Save state",
-      "saveButton": "Save"
+      "saveButton": "Save reception",
+      "saveReception": "Save reception",
+      "stepOriginTitle": "Origin"
     },
     "kpi": {
       "todayCount": "Receptions today",
