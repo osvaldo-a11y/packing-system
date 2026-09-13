@@ -1,14 +1,15 @@
 import { toJsonRecord } from '../../common/to-json-record';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, IsNull } from 'typeorm';
 import { Repository } from 'typeorm';
 import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entities';
 import { FinalPalletService, type UnidadPtTraceability } from '../final-pallet/final-pallet.service';
 import { SalesOrderProgressService } from './sales-order-progress.service';
 import { FinishedPtInventory } from '../final-pallet/finished-pt-inventory.entity';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
-import { PresentationFormat, Variety } from '../traceability/traceability.entities';
+import { PresentationFormat, Species, Variety } from '../traceability/traceability.entities';
+import { RawInventoryService } from '../traceability/raw-inventory.service';
 import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import {
   AddDispatchTagDto,
@@ -29,10 +30,12 @@ import { groupFinalPalletsForCommercialInvoice, resolveBrandFromFinalPallet } fr
 import {
   Dispatch,
   DispatchPtPackingList,
+  DispatchReceptionLine,
   DispatchTagItem,
   Invoice,
   InvoiceItem,
   PackingList,
+  ReceptionLineDirectAllocation,
   SalesOrder,
   SalesOrderLine,
   SalesOrderModification,
@@ -67,6 +70,7 @@ function mapInvoiceLine(it: InvoiceItem) {
     brand: it.brand,
     trays: it.trays,
     pounds: it.pounds,
+    reception_line_id: it.reception_line_id != null ? Number(it.reception_line_id) : null,
     packing_list_ref: it.packing_list_ref,
     manual_description: it.manual_description ?? null,
     manual_line_kind: it.manual_line_kind ?? null,
@@ -113,13 +117,20 @@ function enrichInvoiceLine(
 export class DispatchBillingService {
   constructor(
     private readonly finalPalletService: FinalPalletService,
+    private readonly rawInventory: RawInventoryService,
+    @InjectDataSource() private readonly ds: DataSource,
     @InjectRepository(SalesOrder) private readonly soRepo: Repository<SalesOrder>,
     @InjectRepository(SalesOrderLine) private readonly soLineRepo: Repository<SalesOrderLine>,
     @InjectRepository(Brand) private readonly brandRepo: Repository<Brand>,
     @InjectRepository(Client) private readonly clientRepo: Repository<Client>,
     @InjectRepository(Variety) private readonly varietyRepo: Repository<Variety>,
+    @InjectRepository(Species) private readonly speciesRepo: Repository<Species>,
     @InjectRepository(Dispatch) private readonly dispatchRepo: Repository<Dispatch>,
     @InjectRepository(DispatchTagItem) private readonly dtiRepo: Repository<DispatchTagItem>,
+    @InjectRepository(DispatchReceptionLine)
+    private readonly dispatchRawLineRepo: Repository<DispatchReceptionLine>,
+    @InjectRepository(ReceptionLineDirectAllocation)
+    private readonly directAllocRepo: Repository<ReceptionLineDirectAllocation>,
     @InjectRepository(PackingList) private readonly plRepo: Repository<PackingList>,
     @InjectRepository(Invoice) private readonly invRepo: Repository<Invoice>,
     @InjectRepository(InvoiceItem) private readonly invItemRepo: Repository<InvoiceItem>,
@@ -219,10 +230,42 @@ export class DispatchBillingService {
   }
 
   private async assertSalesOrderLineRefs(lines: SalesOrderLineInputDto[]) {
-    const fmtIds = [...new Set(lines.map((l) => l.presentation_format_id))];
-    const formats = await this.formatRepo.findBy({ id: In(fmtIds) });
-    if (formats.length !== fmtIds.length) {
-      throw new BadRequestException('Uno o más formatos de presentación no existen.');
+    for (const l of lines) {
+      const kind = l.line_kind ?? 'PT_FORMAT';
+      if (kind === 'RAW_WEIGHT') {
+        if (l.species_id == null || !(Number(l.requested_lb) > 0)) {
+          throw new BadRequestException('Línea RAW requiere species_id y requested_lb > 0');
+        }
+        await this.rawInventory.assertSpeciesAllowsDirectDispatch(Number(l.species_id));
+      } else if (l.presentation_format_id == null || l.requested_boxes == null) {
+        throw new BadRequestException('Línea PT requiere presentation_format_id y requested_boxes');
+      }
+    }
+    const fmtIds = [
+      ...new Set(
+        lines
+          .filter((l) => (l.line_kind ?? 'PT_FORMAT') === 'PT_FORMAT')
+          .map((l) => Number(l.presentation_format_id))
+          .filter((id) => id > 0),
+      ),
+    ];
+    if (fmtIds.length) {
+      const formats = await this.formatRepo.findBy({ id: In(fmtIds) });
+      if (formats.length !== fmtIds.length) {
+        throw new BadRequestException('Uno o más formatos de presentación no existen.');
+      }
+    }
+    const speciesIds = [
+      ...new Set(
+        lines
+          .filter((l) => l.line_kind === 'RAW_WEIGHT')
+          .map((l) => Number(l.species_id))
+          .filter((id) => id > 0),
+      ),
+    ];
+    if (speciesIds.length) {
+      const n = await this.speciesRepo.count({ where: { id: In(speciesIds) } });
+      if (n !== speciesIds.length) throw new BadRequestException('Especie inválida en línea RAW.');
     }
     const brandIds = [
       ...new Set(lines.map((l) => l.brand_id).filter((x): x is number => x != null && Number(x) > 0)),
@@ -241,20 +284,28 @@ export class DispatchBillingService {
   }
 
   private async computeOrderTotalsFromLineInputs(
-    lines: Array<{ presentation_format_id: number; requested_boxes: number }>,
+    lines: Array<{
+      line_kind?: string | null;
+      presentation_format_id?: number | null;
+      requested_boxes?: number | null;
+    }>,
   ) {
     let totalBoxes = 0;
     let estimatedPallets = 0;
-    const formatIds = [...new Set(lines.map((l) => l.presentation_format_id))];
-    const formats = await this.formatRepo.findBy({ id: In(formatIds) });
+    const ptLines = lines.filter((l) => (l.line_kind ?? 'PT_FORMAT') === 'PT_FORMAT');
+    const formatIds = [
+      ...new Set(ptLines.map((l) => Number(l.presentation_format_id)).filter((id) => id > 0)),
+    ];
+    const formats = formatIds.length ? await this.formatRepo.findBy({ id: In(formatIds) }) : [];
     const byId = new Map(formats.map((f) => [f.id, f]));
-    for (const line of lines) {
-      totalBoxes += line.requested_boxes;
-      const f = byId.get(line.presentation_format_id);
+    for (const line of ptLines) {
+      const boxes = Number(line.requested_boxes) || 0;
+      totalBoxes += boxes;
+      const f = byId.get(Number(line.presentation_format_id));
       if (!f) continue;
       const max = f.max_boxes_per_pallet;
       if (max != null && max > 0) {
-        estimatedPallets += Math.ceil(line.requested_boxes / max);
+        estimatedPallets += Math.ceil(boxes / max);
       }
     }
     return { totalBoxes, estimatedPallets };
@@ -274,9 +325,14 @@ export class DispatchBillingService {
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((l) => ({
         id: l.id,
-        presentation_format_id: Number(l.presentation_format_id),
+        line_kind: l.line_kind ?? 'PT_FORMAT',
+        presentation_format_id:
+          l.presentation_format_id != null ? Number(l.presentation_format_id) : null,
         format_code: l.presentation_format?.format_code ?? null,
-        requested_boxes: l.requested_boxes,
+        requested_boxes: l.requested_boxes != null ? Number(l.requested_boxes) : 0,
+        requested_lb: l.requested_lb != null ? Number(l.requested_lb) : null,
+        species_id: l.species_id != null ? Number(l.species_id) : null,
+        species_nombre: l.species?.nombre ?? null,
         unit_price: l.unit_price != null ? Number(l.unit_price) : null,
         brand_id: l.brand_id != null ? Number(l.brand_id) : null,
         brand_nombre: l.brand?.nombre ?? null,
@@ -305,6 +361,7 @@ export class DispatchBillingService {
     await this.soLineRepo.delete({ sales_order_id: orderId });
     let sort = 0;
     for (const l of lineDtos) {
+      const kind = l.line_kind ?? 'PT_FORMAT';
       const unitPrice =
         l.unit_price === null || l.unit_price === undefined ? null : String(l.unit_price);
       const brandId = l.brand_id != null && Number(l.brand_id) > 0 ? Number(l.brand_id) : null;
@@ -312,8 +369,12 @@ export class DispatchBillingService {
       await this.soLineRepo.save(
         this.soLineRepo.create({
           sales_order_id: orderId,
-          presentation_format_id: l.presentation_format_id,
-          requested_boxes: l.requested_boxes,
+          line_kind: kind,
+          presentation_format_id:
+            kind === 'PT_FORMAT' ? Number(l.presentation_format_id) : null,
+          requested_boxes: kind === 'PT_FORMAT' ? Number(l.requested_boxes) || 0 : 0,
+          requested_lb: kind === 'RAW_WEIGHT' ? Number(l.requested_lb).toFixed(3) : null,
+          species_id: kind === 'RAW_WEIGHT' ? Number(l.species_id) : null,
           unit_price: unitPrice,
           brand_id: brandId,
           variety_id: varietyId,
@@ -326,8 +387,9 @@ export class DispatchBillingService {
   private async syncOrderTotalsFromLines(orderId: number) {
     const lines = await this.soLineRepo.find({ where: { sales_order_id: orderId } });
     const inputs = lines.map((l) => ({
-      presentation_format_id: Number(l.presentation_format_id),
-      requested_boxes: l.requested_boxes,
+      line_kind: l.line_kind,
+      presentation_format_id: l.presentation_format_id != null ? Number(l.presentation_format_id) : null,
+      requested_boxes: l.requested_boxes != null ? Number(l.requested_boxes) : 0,
     }));
     const { totalBoxes, estimatedPallets } = await this.computeOrderTotalsFromLineInputs(inputs);
     await this.soRepo.update(orderId, { requested_boxes: totalBoxes, requested_pallets: estimatedPallets });
@@ -337,16 +399,22 @@ export class DispatchBillingService {
     const rows = await this.soRepo.find({
       order: { id: 'DESC' },
       take: 400,
-      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety', 'lines.species'],
     });
     const clienteNombreById = await this.clientNombresByIds(rows.map((r) => Number(r.cliente_id)));
     const mapped = rows.map((o) => this.mapSalesOrderToRow(o, clienteNombreById));
     const summaries = await this.salesOrderProgress.getOperationalSummaries(
-      rows.map((o) => ({
-        id: Number(o.id),
-        order_number: o.order_number,
-        requested_boxes: Number(o.requested_boxes) || 0,
-      })),
+      rows.map((o) => {
+        const rawLb = (o.lines ?? [])
+          .filter((l) => (l.line_kind ?? 'PT_FORMAT') === 'RAW_WEIGHT')
+          .reduce((s, l) => s + (Number(l.requested_lb) || 0), 0);
+        return {
+          id: Number(o.id),
+          order_number: o.order_number,
+          requested_boxes: Number(o.requested_boxes) || 0,
+          requested_lb: rawLb,
+        };
+      }),
     );
     return mapped.map((row) => {
       const s = summaries.get(row.id);
@@ -374,7 +442,7 @@ export class DispatchBillingService {
     }
     const rows = await this.soRepo.find({
       where: { cliente_id: clienteId },
-      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety', 'lines.species'],
       order: { id: 'ASC' },
       take: 500,
     });
@@ -664,7 +732,7 @@ export class DispatchBillingService {
     await this.syncOrderTotalsFromLines(order.id);
     const full = await this.soRepo.findOne({
       where: { id: order.id },
-      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety', 'lines.species'],
     });
     if (!full) throw new NotFoundException('Orden no encontrada');
     const nm = await this.clientNombresByIds([Number(full.cliente_id)]);
@@ -674,7 +742,7 @@ export class DispatchBillingService {
   async modifySalesOrder(orderId: number, dto: ModifySalesOrderDto) {
     const order = await this.soRepo.findOne({
       where: { id: orderId },
-      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety', 'lines.species'],
     });
     if (!order) throw new NotFoundException('Orden no encontrada');
     const nameMapBefore = await this.clientNombresByIds([Number(order.cliente_id)]);
@@ -706,7 +774,7 @@ export class DispatchBillingService {
     await this.syncOrderTotalsFromLines(orderId);
     const afterOrder = await this.soRepo.findOne({
       where: { id: orderId },
-      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety'],
+      relations: ['lines', 'lines.presentation_format', 'lines.brand', 'lines.variety', 'lines.species'],
     });
     if (!afterOrder) throw new NotFoundException('Orden no encontrada');
     const nameMapAfter = await this.clientNombresByIds([Number(afterOrder.cliente_id)]);
@@ -730,9 +798,30 @@ export class DispatchBillingService {
   }
 
   async createDispatch(dto: CreateDispatchDto) {
-    const plIds = [...new Set(dto.pt_packing_list_ids.map(Number))].filter((id) => Number.isFinite(id) && id > 0);
-    if (plIds.length < 1) {
-      throw new BadRequestException('Indicá al menos un packing list PT confirmado.');
+    const plIds = [...new Set((dto.pt_packing_list_ids ?? []).map(Number))].filter(
+      (id) => Number.isFinite(id) && id > 0,
+    );
+    const rawItems = (dto.reception_line_items ?? [])
+      .map((i) => ({
+        reception_line_id: Number(i.reception_line_id),
+        lb: Number(i.lb),
+        unit_price: i.unit_price != null ? Number(i.unit_price) : null,
+      }))
+      .filter((i) => i.reception_line_id > 0 && i.lb > 0);
+
+    if (plIds.length > 0 && rawItems.length > 0) {
+      throw new BadRequestException(
+        'Un despacho MVP no puede mezclar packing lists PT y fruta directa. Creá despachos separados.',
+      );
+    }
+    if (plIds.length < 1 && rawItems.length < 1) {
+      throw new BadRequestException(
+        'Indicá packing list PT confirmado(s) o reception_line_items (fruta directa).',
+      );
+    }
+
+    if (rawItems.length > 0) {
+      return this.createRawDispatch(dto, rawItems);
     }
 
     const pls = await this.ptPlRepo.findBy({ id: In(plIds) });
@@ -807,6 +896,7 @@ export class DispatchBillingService {
         thermograph_notes: dto.thermograph_notes?.trim() || null,
         final_pallet_unit_prices: Object.keys(priceMap).length > 0 ? priceMap : null,
         status: 'borrador',
+        source_kind: 'PT_PL',
       }),
     );
     for (const pid of plIds) {
@@ -815,11 +905,102 @@ export class DispatchBillingService {
     return row;
   }
 
+  private async createRawDispatch(
+    dto: CreateDispatchDto,
+    rawItems: Array<{ reception_line_id: number; lb: number; unit_price: number | null }>,
+  ) {
+    const rawInput = dto.numero_bol?.trim();
+    if (!rawInput) {
+      throw new BadRequestException('Indicá número BOL para despacho de fruta directa.');
+    }
+    const finalBol = this.normalizeDispatchBol(rawInput);
+
+    const order = await this.soRepo.findOne({
+      where: { id: dto.orden_id },
+      relations: ['lines', 'lines.species'],
+    });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (Number(order.cliente_id) !== Number(dto.cliente_id)) {
+      throw new BadRequestException('cliente_id no coincide con el pedido seleccionado.');
+    }
+    const bolMatchesOtherOrder = await this.soRepo.findOne({ where: { order_number: finalBol } });
+    if (bolMatchesOtherOrder && Number(bolMatchesOtherOrder.id) !== Number(dto.orden_id)) {
+      throw new BadRequestException(
+        `La BOL ${finalBol} coincide con el pedido #${bolMatchesOtherOrder.id} (${bolMatchesOtherOrder.order_number}). Verificá el pedido del despacho.`,
+      );
+    }
+
+    return this.ds.transaction(async (em) => {
+      const lines = await this.rawInventory.lockAndAssertAvailable(
+        em,
+        rawItems.map((i) => ({ reception_line_id: i.reception_line_id, lb: i.lb })),
+      );
+      const lineById = new Map(lines.map((l) => [l.id, l]));
+
+      const row = await em.save(
+        em.create(Dispatch, {
+          orden_id: dto.orden_id,
+          cliente_id: dto.cliente_id,
+          fecha_despacho: new Date(dto.fecha_despacho),
+          numero_bol: finalBol,
+          bol_origin: 'manual_entry',
+          temperatura_f: dto.temperatura_f.toFixed(2),
+          client_id: dto.client_id ?? null,
+          thermograph_serial: dto.thermograph_serial?.trim() || null,
+          thermograph_notes: dto.thermograph_notes?.trim() || null,
+          final_pallet_unit_prices: null,
+          status: 'borrador',
+          source_kind: 'RAW',
+        }),
+      );
+
+      for (const item of rawItems) {
+        const ln = lineById.get(item.reception_line_id)!;
+        let unitPrice = item.unit_price;
+        if (unitPrice == null) {
+          const match = (order.lines ?? []).find(
+            (ol) =>
+              (ol.line_kind ?? 'PT_FORMAT') === 'RAW_WEIGHT' &&
+              Number(ol.species_id) === Number(ln.species_id),
+          );
+          unitPrice = match?.unit_price != null ? Number(match.unit_price) : null;
+        }
+        await em.save(
+          em.create(DispatchReceptionLine, {
+            dispatch_id: row.id,
+            reception_line_id: item.reception_line_id,
+            lb_dispatched: item.lb.toFixed(3),
+            unit_price: unitPrice != null ? unitPrice.toFixed(4) : null,
+          }),
+        );
+        await em.save(
+          em.create(ReceptionLineDirectAllocation, {
+            dispatch_id: row.id,
+            reception_line_id: item.reception_line_id,
+            lb_allocated: item.lb.toFixed(3),
+            lot_code_snapshot: ln.lot_code ?? null,
+          }),
+        );
+      }
+      return row;
+    });
+  }
+
   async confirmDispatch(dispatchId: number) {
     const d = await this.dispatchRepo.findOne({ where: { id: dispatchId } });
     if (!d) throw new NotFoundException('Despacho no encontrado');
     if (d.status !== 'borrador') {
       throw new BadRequestException('Solo se puede confirmar un despacho en borrador.');
+    }
+    if ((d.source_kind ?? 'PT_PL') === 'RAW') {
+      const rawLinks = await this.dispatchRawLineRepo.count({ where: { dispatch_id: dispatchId } });
+      if (rawLinks < 1) {
+        throw new BadRequestException('Despacho RAW sin líneas de recepción asociadas.');
+      }
+      d.status = 'confirmado';
+      d.dispatch_confirmed_at = new Date();
+      await this.dispatchRepo.save(d);
+      return d;
     }
     const links = await this.dispatchPlRepo.find({ where: { dispatch_id: dispatchId } });
     if (links.length === 0) {
@@ -1436,6 +1617,53 @@ export class DispatchBillingService {
       );
     } else {
       await this.invItemRepo.delete({ invoice_id: inv.id, is_manual: false });
+    }
+
+    if ((dispatch.source_kind ?? 'PT_PL') === 'RAW') {
+      const rawLines = await this.dispatchRawLineRepo.find({
+        where: { dispatch_id: dispatchId },
+        relations: ['reception_line', 'reception_line.species', 'reception_line.variety'],
+      });
+      let subtotal = 0;
+      for (const rl of rawLines) {
+        const lb = Number(rl.lb_dispatched) || 0;
+        const unit = rl.unit_price != null ? Number(rl.unit_price) : 0;
+        const lineSubtotal = lb * unit;
+        subtotal += lineSubtotal;
+        await this.invItemRepo.save(
+          this.invItemRepo.create({
+            invoice_id: inv.id,
+            tarja_id: null,
+            final_pallet_id: null,
+            fruit_process_id: null,
+            reception_line_id: Number(rl.reception_line_id),
+            traceability_note: `RAW lot ${rl.reception_line?.lot_code ?? rl.reception_line_id}`,
+            cajas: 0,
+            unit_price: unit.toFixed(4),
+            line_subtotal: lineSubtotal.toFixed(2),
+            pallet_cost_total: '0.00',
+            is_manual: false,
+            species_id: rl.reception_line?.species_id != null ? Number(rl.reception_line.species_id) : null,
+            variety_id: rl.reception_line?.variety_id != null ? Number(rl.reception_line.variety_id) : null,
+            pounds: lb.toFixed(3),
+            packaging_code: null,
+            brand: null,
+          }),
+        );
+      }
+      const manuals = await this.invItemRepo.find({ where: { invoice_id: inv.id, is_manual: true } });
+      for (const m of manuals) {
+        const kind = m.manual_line_kind;
+        const amt = Number(m.line_subtotal) || 0;
+        if (kind === 'descuento') subtotal -= amt;
+        else subtotal += amt;
+      }
+      inv.subtotal = subtotal.toFixed(2);
+      inv.total_cost = '0.00';
+      inv.total = subtotal.toFixed(2);
+      await this.invRepo.save(inv);
+      await this.recalculateInvoiceTotals(inv.id);
+      return this.invRepo.findOne({ where: { id: inv.id } });
     }
 
     for (const r of rows) {

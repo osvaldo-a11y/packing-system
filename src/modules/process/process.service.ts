@@ -16,6 +16,7 @@ import { FinalPallet, FinalPalletLine } from '../final-pallet/final-pallet.entit
 import { FinalPalletService } from '../final-pallet/final-pallet.service';
 import { PackagingPalletConsumption } from '../packaging/packaging.entities';
 import { TraceabilityService } from '../traceability/traceability.service';
+import { RawInventoryService } from '../traceability/raw-inventory.service';
 import {
   AddPtTagItemDto,
   CloseProcessBalanceDto,
@@ -66,6 +67,7 @@ export class ProcessService {
     @InjectRepository(PtTagLineage) private readonly lineageRepo: Repository<PtTagLineage>,
     @InjectRepository(PtTagMerge) private readonly tagMergeRepo: Repository<PtTagMerge>,
     private readonly traceability: TraceabilityService,
+    private readonly rawInventory: RawInventoryService,
     private readonly finalPalletService: FinalPalletService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
@@ -471,13 +473,21 @@ export class ProcessService {
   }
 
   private async balanceAvailableOnLine(receptionLineId: number): Promise<number> {
-    const line = await this.receptionLineRepo.findOne({
-      where: { id: receptionLineId },
-      select: ['id', 'net_lb'],
-    });
-    if (!line) return 0;
-    const consumed = await this.sumConsumedLbOnLine(receptionLineId);
-    return this.computeLineAvailableLb(Number(line.net_lb) || 0, consumed);
+    return this.rawInventory.balanceAvailableOnLine(receptionLineId);
+  }
+
+  listRawStock(opts?: { producer_id?: number; species_id?: number }) {
+    return this.rawInventory.listRawStock(opts);
+  }
+
+  createRawAdjustment(input: {
+    reception_line_id: number;
+    adjustment_type: 'LOSS' | 'REJECTION' | 'CORRECTION';
+    lb_delta: number;
+    reason?: string;
+    created_by?: string;
+  }) {
+    return this.rawInventory.createAdjustment(input);
   }
 
   /**
@@ -488,17 +498,10 @@ export class ProcessService {
     receptionLineId: number,
     currentLbOnThisProcess: number,
   ): Promise<number> {
-    const line = await this.receptionLineRepo.findOne({
-      where: { id: receptionLineId },
-      select: ['id', 'net_lb'],
-    });
-    if (!line) return 0;
-    const net = Number(line.net_lb) || 0;
-    const consumed = await this.sumConsumedLbOnLine(receptionLineId);
     const current = Math.max(0, Number(currentLbOnThisProcess) || 0);
-    const headroom = Math.max(0, net - consumed + current);
-    /** Si la recepción se ajustó después, igual se puede conservar lo ya asignado a este proceso. */
-    return Math.max(current, headroom);
+    const avail = await this.rawInventory.balanceAvailableOnLine(receptionLineId);
+    /** Conservar lo ya asignado a este proceso aunque el neto se haya reducido. */
+    return Math.max(current, avail + current);
   }
 
   /**
@@ -1232,6 +1235,8 @@ export class ProcessService {
     }> = [];
 
     for (const rl of lines) {
+      // DIRECT species are not eligible for process consumption.
+      if (!this.rawInventory.isProcessedFlow(rl.species?.flow_type)) continue;
       const avail = await this.balanceAvailableOnLine(rl.id);
       if (avail <= BALANCE_EPS) continue;
       out.push({
@@ -1355,7 +1360,7 @@ export class ProcessService {
 
     const lines = await this.receptionLineRepo.find({
       where: { id: In(lineIds) },
-      relations: ['reception', 'reception.document_state'],
+      relations: ['reception', 'reception.document_state', 'species'],
     });
     const lineById = new Map(lines.map((l) => [l.id, l]));
     const producerId = Number(proc.productor_id);
@@ -1370,6 +1375,9 @@ export class ProcessService {
       if (!ln) throw new BadRequestException(`reception_line_id ${a.reception_line_id} no encontrada`);
       if (Number(ln.reception.producer_id) !== producerId) {
         throw new BadRequestException(`La línea ${a.reception_line_id} no pertenece al productor del proceso`);
+      }
+      if (ln.species_id != null) {
+        await this.rawInventory.assertSpeciesAllowsProcessing(Number(ln.species_id));
       }
       const st = (ln.reception.document_state as { codigo?: string })?.codigo ?? '';
       if (st === 'anulado') {

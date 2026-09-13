@@ -6,14 +6,17 @@ import { FinishedPtInventory } from '../final-pallet/finished-pt-inventory.entit
 import { DispatchBillingController } from './dispatch-billing.controller';
 import { FruitProcess, PtTag, PtTagItem } from '../process/process.entities';
 import { Brand, Client, FinishedPtStock } from '../traceability/operational.entities';
-import { PresentationFormat, Variety } from '../traceability/traceability.entities';
+import { PresentationFormat, Species, Variety } from '../traceability/traceability.entities';
+import { TraceabilityModule } from '../traceability/traceability.module';
 import {
   Dispatch,
   DispatchPtPackingList,
+  DispatchReceptionLine,
   DispatchTagItem,
   Invoice,
   InvoiceItem,
   PackingList,
+  ReceptionLineDirectAllocation,
   SalesOrder,
   SalesOrderLine,
   SalesOrderModification,
@@ -25,6 +28,7 @@ import { SalesOrderProgressService } from './sales-order-progress.service';
 @Module({
   imports: [
     FinalPalletModule,
+    TraceabilityModule,
     TypeOrmModule.forFeature([
       SalesOrder,
       SalesOrderLine,
@@ -32,8 +36,11 @@ import { SalesOrderProgressService } from './sales-order-progress.service';
       Brand,
       Client,
       Variety,
+      Species,
       Dispatch,
       DispatchPtPackingList,
+      DispatchReceptionLine,
+      ReceptionLineDirectAllocation,
       PtPackingList,
       PtPackingListItem,
       DispatchTagItem,

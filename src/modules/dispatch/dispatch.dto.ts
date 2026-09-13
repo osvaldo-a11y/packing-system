@@ -13,13 +13,26 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
-/** Una fila del pedido: formato + cajas; precio y marca/variedad opcionales. */
+/** Una fila del pedido: formato+cajas (PT) o especie+lb (RAW). */
 export class SalesOrderLineInputDto {
-  @Type(() => Number) @IsInt() @Min(1) presentation_format_id: number;
-  @Type(() => Number) @IsInt() @Min(0) requested_boxes: number;
+  @IsOptional() @IsIn(['PT_FORMAT', 'RAW_WEIGHT']) line_kind?: 'PT_FORMAT' | 'RAW_WEIGHT';
+
+  @ValidateIf((o: SalesOrderLineInputDto) => (o.line_kind ?? 'PT_FORMAT') === 'PT_FORMAT')
+  @Type(() => Number) @IsInt() @Min(1) presentation_format_id?: number;
+
+  @ValidateIf((o: SalesOrderLineInputDto) => (o.line_kind ?? 'PT_FORMAT') === 'PT_FORMAT')
+  @Type(() => Number) @IsInt() @Min(0) requested_boxes?: number;
+
+  @ValidateIf((o: SalesOrderLineInputDto) => o.line_kind === 'RAW_WEIGHT')
+  @Type(() => Number) @IsInt() @Min(1) species_id?: number;
+
+  @ValidateIf((o: SalesOrderLineInputDto) => o.line_kind === 'RAW_WEIGHT')
+  @Type(() => Number) @IsNumber() @Min(0.001) requested_lb?: number;
+
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) unit_price?: number | null;
   @IsOptional() @Type(() => Number) @IsInt() brand_id?: number | null;
   @IsOptional() @Type(() => Number) @IsInt() variety_id?: number | null;
@@ -44,13 +57,29 @@ export class CreateSalesOrderDto {
   lines: SalesOrderLineInputDto[];
 }
 
+export class DispatchReceptionLineInputDto {
+  @Type(() => Number) @IsInt() @Min(1) reception_line_id: number;
+  @Type(() => Number) @IsNumber() @Min(0.001) lb: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) unit_price?: number | null;
+}
+
 export class CreateDispatchDto {
-  /** Uno o más packing list PT confirmados (no deben estar ya en otro despacho). */
+  /**
+   * PT path (histórico): uno o más packing list PT confirmados.
+   * Opcional si se informan reception_line_items (RAW).
+   */
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @Type(() => Number)
   @IsInt({ each: true })
-  pt_packing_list_ids: number[];
+  pt_packing_list_ids?: number[];
+
+  /** RAW path: lb desde reception lines DIRECT. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DispatchReceptionLineInputDto)
+  reception_line_items?: DispatchReceptionLineInputDto[];
 
   @IsInt() orden_id: number;
   @IsInt() cliente_id: number;

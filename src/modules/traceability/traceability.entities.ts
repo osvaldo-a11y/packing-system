@@ -47,6 +47,13 @@ export class Species {
   @Column({ type: 'varchar', length: 120 })
   nombre: string;
 
+  /**
+   * Commercial/ops path discriminator (Bloque 2.5).
+   * PROCESSED = Reception→Process→PT→Dispatch; DIRECT = Reception→Dispatch.
+   */
+  @Column({ type: 'varchar', length: 16, default: 'PROCESSED' })
+  flow_type: string;
+
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 

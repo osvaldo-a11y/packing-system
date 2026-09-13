@@ -76,7 +76,12 @@ type TraceDashboard = {
   invoices_issued_count?: number;
 };
 
-type SpeciesRow = { id: number; nombre: string; codigo: string };
+type SpeciesRow = {
+  id: number;
+  nombre: string;
+  codigo: string;
+  flow_type?: 'PROCESSED' | 'DIRECT';
+};
 type ProducerRow = { id: number; nombre: string; codigo: string | null };
 type ClientRow = { id: number; codigo: string; nombre: string };
 type FormatRow = { id: number; format_code: string; max_boxes_per_pallet?: number | null; activo?: boolean };
@@ -836,7 +841,14 @@ export function DashboardPage() {
         dispatchOutboundLbForDashboardFilters(d, ptTagById, processById, producerId, speciesId, workMode) > 1e-9,
     ).length;
   }, [dispatchesFiltered, ptTagById, processById, producerId, speciesId, workMode]);
-  const netOperationalLb = useMemo(() => totalPackedLb - totalDispatchedLb, [totalPackedLb, totalDispatchedLb]);
+  const netOperationalLb = useMemo(() => {
+    const selected =
+      speciesId !== 'all' ? (species ?? []).find((s) => Number(s.id) === Number(speciesId)) : null;
+    const isDirect = selected?.flow_type === 'DIRECT';
+    // DIRECT: never use packed−dispatched (no PT packout).
+    if (isDirect) return receivedLb - totalDispatchedLb;
+    return totalPackedLb - totalDispatchedLb;
+  }, [species, speciesId, receivedLb, totalPackedLb, totalDispatchedLb]);
 
   const dashboardFiltersWideOpen = producerId === 'all' && speciesId === 'all' && workMode === 'both';
 
