@@ -4,70 +4,91 @@
 
 @layer base {
   :root {
-    /* Tema claro por defecto: fondo suave, texto oscuro, primario de marca */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /*
+     * Identidad Pinebloom Farms (white-label via --brand-*).
+     * Olive #718A45 · Charcoal #555653 · Blue-gray #8CA1A7 · Off-white #F7F5EE · Sage #EEF2E7 · Stone #E8E7E1
+     */
+    --brand-primary: 82 33% 41%;
+    --brand-primary-hover: 82 34% 34%;
+    --brand-primary-soft: 84 26% 93%;
+    --brand-primary-foreground: 45 36% 96%;
+    --brand-primary-glow: 82 42% 72%;
+    --brand-charcoal: 90 2% 33%;
+    --brand-muted: 193 14% 60%;
+    --brand-surface: 45 36% 95%;
+    --brand-surface-elevated: 0 0% 100%;
+    --brand-border: 51 12% 90%;
+    --brand-rail: 90 4% 18%;
+    --brand-rail-border: 90 3% 24%;
+
+    /* Estados operacionales (NO confundir con color de módulo) */
+    --status-success: 142 45% 36%;
+    --status-warning: 38 92% 45%;
+    --status-error: 0 72% 48%;
+    --status-info: 199 55% 42%;
+
+    --background: 45 25% 96%;
+    --foreground: 90 2% 22%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    /* Marca (no confundir con colores de proceso). Valores HSL sin anidar var() para Tailwind. */
-    --brand-primary: 221 83% 48%;
-    --brand-secondary: 215 16% 36%;
-    --primary: 221 83% 48%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 214 32% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 25% 96%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 214 32% 93%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%;
+    --card-foreground: 90 2% 22%;
+    --primary: 82 33% 41%;
+    --primary-foreground: 45 36% 96%;
+    --secondary: 84 18% 92%;
+    --secondary-foreground: 90 2% 28%;
+    --muted: 45 18% 93%;
+    --muted-foreground: 90 2% 42%;
+    --accent: 84 26% 93%;
+    --accent-foreground: 82 33% 28%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 24% 88%;
-    --input: 214 24% 88%;
-    --ring: 221 83% 48%;
-    --radius: 0.75rem;
+    --border: 51 12% 86%;
+    --input: 51 12% 86%;
+    --ring: 82 33% 41%;
+    --radius: 0.7rem;
 
-    /* Semántica de proceso: reception / process / pt / stock / dispatch / materials */
-    /* Superficies semánticas casi blancas pero perceptibles (no pastel saturado). */
-    --proc-reception-surface: 152 38% 93%;
-    --proc-reception-border: 152 36% 78%;
-    --proc-reception-ink: 158 72% 24%;
-    --proc-reception-accent: 158 55% 38%;
+    /*
+     * Acentos de módulo: sutiles, Pinebloom-first (no rainbow SidePro).
+     * Diferenciación por pictograma + accent pequeño, no superficies saturadas.
+     */
+    --proc-reception-surface: 84 22% 94%;
+    --proc-reception-border: 82 18% 78%;
+    --proc-reception-ink: 82 34% 28%;
+    --proc-reception-accent: 82 33% 41%;
 
-    --proc-process-surface: 214 48% 93%;
-    --proc-process-border: 214 48% 78%;
-    --proc-process-ink: 221 70% 32%;
-    --proc-process-accent: 221 70% 48%;
+    --proc-process-surface: 45 14% 95%;
+    --proc-process-border: 50 8% 82%;
+    --proc-process-ink: 90 2% 30%;
+    --proc-process-accent: 90 3% 36%;
 
-    --proc-pt-surface: 270 36% 93%;
-    --proc-pt-border: 270 32% 80%;
-    --proc-pt-ink: 272 55% 32%;
-    --proc-pt-accent: 272 48% 45%;
+    --proc-pt-surface: 84 16% 95%;
+    --proc-pt-border: 82 12% 80%;
+    --proc-pt-ink: 82 20% 32%;
+    --proc-pt-accent: 95 12% 42%;
 
-    --proc-stock-surface: 190 38% 93%;
-    --proc-stock-border: 190 36% 76%;
-    --proc-stock-ink: 192 70% 26%;
-    --proc-stock-accent: 192 55% 36%;
+    --proc-stock-surface: 193 16% 95%;
+    --proc-stock-border: 193 12% 82%;
+    --proc-stock-ink: 193 18% 34%;
+    --proc-stock-accent: 193 14% 48%;
 
-    --proc-dispatch-surface: 28 62% 93%;
-    --proc-dispatch-border: 28 60% 78%;
-    --proc-dispatch-ink: 24 80% 32%;
-    --proc-dispatch-accent: 24 85% 48%;
+    --proc-dispatch-surface: 36 22% 95%;
+    --proc-dispatch-border: 36 16% 82%;
+    --proc-dispatch-ink: 28 28% 34%;
+    --proc-dispatch-accent: 32 35% 48%;
 
-    --proc-materials-surface: 42 48% 93%;
-    --proc-materials-border: 42 48% 76%;
-    --proc-materials-ink: 36 70% 28%;
-    --proc-materials-accent: 38 75% 42%;
+    --proc-materials-surface: 42 18% 95%;
+    --proc-materials-border: 42 12% 82%;
+    --proc-materials-ink: 36 22% 32%;
+    --proc-materials-accent: 38 28% 44%;
 
-    --proc-error-surface: 0 62% 94%;
-    --proc-error-border: 0 50% 82%;
-    --proc-error-ink: 0 65% 36%;
+    --proc-error-surface: 0 40% 96%;
+    --proc-error-border: 0 35% 84%;
+    --proc-error-ink: 0 55% 36%;
     --proc-error-accent: 0 72% 48%;
 
-    --proc-admin-surface: 215 18% 94%;
-    --proc-admin-border: 215 14% 84%;
-    --proc-admin-ink: 215 20% 32%;
-    --proc-admin-accent: 215 16% 42%;
+    --proc-admin-surface: 45 10% 95%;
+    --proc-admin-border: 50 8% 84%;
+    --proc-admin-ink: 90 2% 32%;
+    --proc-admin-accent: 90 3% 40%;
   }
 
   * {
@@ -82,7 +103,7 @@
 
   body {
     @apply min-h-[100dvh] bg-background text-foreground font-sans;
-    background-image: linear-gradient(180deg, hsl(210 25% 97%) 0%, hsl(var(--background)) 32%);
+    background-image: linear-gradient(180deg, hsl(var(--brand-surface)) 0%, hsl(var(--background)) 40%);
   }
 
   h1 {

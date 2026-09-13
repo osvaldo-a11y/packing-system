@@ -220,14 +220,16 @@
       "today": "Today",
       "week": "Week",
       "accumulated": "Accumulated",
-      "periodToday": "Today (00:00–23:59, local time)",
-      "periodWeek": "Current week (Mon–now)",
+      "periodToday": "Today",
+      "periodWeek": "Week",
       "periodSeason": "Season {{year}}",
       "allProducers": "All producers",
       "allFruit": "All fruit",
       "both": "Hand + Machine",
       "hand": "Hand",
-      "machine": "Machine"
+      "machine": "Machine",
+      "periodAccumulated": "Accumulated",
+      "moreFilters": "More filters"
     },
     "season": {
       "compareToggle": "Compare",
@@ -368,7 +370,7 @@
       "okDesc": "No major blockers with current filters."
     },
     "quickAccess": {
-      "title": "Quick actions",
+      "title": "Quick access",
       "newReception": "New reception",
       "newProcess": "New process",
       "newPtUnit": "New PT unit",
@@ -387,7 +389,7 @@
       "version": "v{{version}}"
     },
     "askWhat": "What do you need to do?",
-    "askHint": "Pick an operation.",
+    "askHint": "Choose an operation.",
     "recentActivity": {
       "title": "Recent activity",
       "empty": "No recent activity.",

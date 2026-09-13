@@ -220,14 +220,16 @@
       "today": "Hoy",
       "week": "Semana",
       "accumulated": "Acumulado",
-      "periodToday": "Hoy (00:00–23:59, horario local)",
-      "periodWeek": "Semana en curso (lun–ahora)",
-      "periodSeason": "Temporada {{year}}",
+      "periodToday": "Hoy",
+      "periodWeek": "Semana",
+      "periodSeason": "Acumulado",
       "allProducers": "Todos los productores",
       "allFruit": "Toda la fruta",
       "both": "Mano + Máquina",
       "hand": "Mano",
-      "machine": "Máquina"
+      "machine": "Máquina",
+      "periodAccumulated": "Acumulado",
+      "moreFilters": "Más filtros"
     },
     "season": {
       "compareToggle": "Comparar",

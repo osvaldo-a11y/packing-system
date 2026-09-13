@@ -1499,7 +1499,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button
               variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-reception-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-primary))] bg-[hsl(var(--brand-primary))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-primary-foreground))] hover:bg-[hsl(var(--brand-primary-hover))]"
               asChild
             >
               <Link to="/receptions">
@@ -1509,7 +1509,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-process-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
               asChild
             >
               <Link to="/processes">
@@ -1519,7 +1519,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-pt-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
               asChild
             >
               <Link to="/pt-tags">
@@ -1529,7 +1529,7 @@ export function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-3 text-[13px] font-semibold text-[hsl(var(--proc-dispatch-ink))]"
+              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
               asChild
             >
               <Link to="/dispatches">

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Pinebloom Farms">
+  <rect width="64" height="64" rx="12" fill="#718A45"/>
+  <path d="M32 10L42 28H37L44 40H39L46 52H18L25 40H20L27 28H22L32 10Z" fill="#F7F5EE"/>
+  <rect x="29" y="50" width="6" height="6" rx="1" fill="#555653"/>
+</svg>

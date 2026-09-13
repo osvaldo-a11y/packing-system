@@ -1301,7 +1301,7 @@ export function ReceptionPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2 text-base')}>
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" aria-hidden />
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-[hsl(var(--brand-primary))]" aria-hidden />
                   {receptionDialogTitle}
                 </DialogTitle>
               </div>
@@ -1830,7 +1830,7 @@ export function ReceptionPage() {
                 {showConfirmReceptionButton ? (
                   <Button
                     type="button"
-                    className="bg-green-600 text-white hover:bg-green-700"
+                    className="bg-[hsl(var(--brand-primary))] text-[hsl(var(--brand-primary-foreground))] hover:bg-[hsl(var(--brand-primary-hover))]"
                     disabled={transitionMut.isPending}
                     onClick={() => transitionMut.mutate({ id: editingId as number, document_state_id: confirmadoStateId })}
                   >

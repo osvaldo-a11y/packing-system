@@ -30,6 +30,7 @@ import { DemoModeChip } from '@/components/DemoModeChip';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useAuth } from '@/AuthContext';
 import { useDemoInfo } from '@/api/demoInfo';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { brandMarkParts } from '@/lib/branding';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
@@ -123,27 +124,6 @@ function resolvePageTitle(pathname: string, t: (k: string) => string): string {
   return t('nav.items.inicio');
 }
 
-function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
-  const { company } = brandMarkParts();
-  const letter = company.trim().charAt(0).toUpperCase() || 'P';
-  return (
-    <NavLink
-      to="/"
-      title={company}
-      className={cn(
-        'flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50',
-        collapsed ? 'justify-center' : 'min-w-0',
-      )}
-    >
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sky-600 text-[13px] font-bold text-white">
-        {letter}
-      </span>
-      {!collapsed ? (
-        <span className="truncate text-[13px] font-semibold tracking-tight text-slate-100">{company}</span>
-      ) : null}
-    </NavLink>
-  );
-}
 
 function RailTooltip({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -202,8 +182,8 @@ function NavList({
                       item.emphasize ? 'py-2.5 text-[13px] font-semibold' : 'py-1.5 text-[12.5px] font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
-                        ? 'bg-white/12 text-white'
-                        : 'text-slate-300 hover:bg-white/8 hover:text-white',
+                        ? 'bg-[hsl(var(--brand-primary))]/25 text-white'
+                        : 'text-stone-300 hover:bg-white/8 hover:text-white',
                     )
                   }
                 >
@@ -213,7 +193,7 @@ function NavList({
                         className={cn(
                           'shrink-0 stroke-[2]',
                           item.emphasize ? 'h-5 w-5' : 'h-4 w-4',
-                          isActive ? 'text-sky-300' : 'text-slate-400 group-hover:text-slate-200',
+                          isActive ? 'text-[hsl(var(--brand-primary-glow))]' : 'text-stone-400 group-hover:text-stone-200',
                         )}
                         aria-hidden
                       />
@@ -248,7 +228,7 @@ function NavList({
                       cn(
                         'group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition-colors',
                         collapsed && 'justify-center px-0',
-                        isActive ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/8',
+                        isActive ? 'bg-[hsl(var(--brand-primary))]/25 text-white' : 'text-slate-300 hover:bg-white/8',
                       )
                     }
                   >
@@ -312,15 +292,13 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle = resolvePageTitle(pathname, t);
-  const brandLetter = brandMarkParts().company.trim().charAt(0).toUpperCase() || 'P';
-
   useEffect(() => {
     setDrawerOpen(false);
     setMoreOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    document.title = `${brandMarkParts().company} ${brandMarkParts().product}`;
+    document.title = `${brandMarkParts().company} · ${brandMarkParts().product}`;
   }, []);
 
   const moreItems = useMemo(() => {
@@ -337,9 +315,9 @@ export function AppLayout() {
   }, [navGroups, isAdminRole, t]);
 
   return (
-    <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-slate-100">
+    <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[hsl(var(--brand-surface))]">
       <aside
-        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-slate-950/50 bg-slate-900 text-slate-100 transition-[width] duration-200 lg:flex"
+        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-[hsl(var(--brand-rail-border))] bg-[hsl(var(--brand-rail))] text-stone-100 transition-[width] duration-200 lg:flex"
         style={{ width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED }}
       >
         <div
@@ -388,7 +366,7 @@ export function AppLayout() {
             aria-label={t('nav.closeMenu')}
             onClick={() => setDrawerOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-slate-900 text-slate-100 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[hsl(var(--brand-rail))] text-stone-100 shadow-xl">
             <div className="flex h-12 items-center justify-between border-b border-white/10 px-3">
               <BrandMark />
               <Button
@@ -449,7 +427,7 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 bg-white px-3 sm:px-4">
+        <header className="sticky top-0 z-40 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))]/95 px-3 backdrop-blur sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -461,10 +439,10 @@ export function AppLayout() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-600 text-[12px] font-bold text-white md:hidden">
-              {brandLetter}
+            <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-md md:hidden">
+              <BrandMark collapsed className="pointer-events-none [&_span]:!h-7 [&_span]:!w-7 [&_img]:!h-7 [&_img]:!w-7" />
             </span>
-            <h1 className="truncate text-[15px] font-semibold tracking-tight text-slate-900 sm:text-[16px]">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[16px]">
               {pageTitle}
             </h1>
           </div>
@@ -534,14 +512,14 @@ export function AppLayout() {
                 className={({ isActive }) =>
                   cn(
                     'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-                    isActive ? 'text-sky-700' : 'text-slate-500',
+                    isActive ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-500',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
                     <Icon
-                      className={cn('h-5 w-5', isActive ? 'text-sky-700' : 'text-slate-400')}
+                      className={cn('h-5 w-5', isActive ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-400')}
                       strokeWidth={2.25}
                       aria-hidden
                     />
@@ -555,13 +533,13 @@ export function AppLayout() {
             type="button"
             className={cn(
               'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-              moreOpen ? 'text-sky-700' : 'text-slate-500',
+              moreOpen ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-500',
             )}
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
           >
             <MoreHorizontal
-              className={cn('h-5 w-5', moreOpen ? 'text-sky-700' : 'text-slate-400')}
+              className={cn('h-5 w-5', moreOpen ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-400')}
               strokeWidth={2.25}
               aria-hidden
             />

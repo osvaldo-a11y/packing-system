@@ -1,31 +1,50 @@
 /**
- * Branding frontend centralizado (white-label base).
- * No confundir con colores semánticos de proceso (ver process-tokens).
+ * Branding frontend centralizado (white-label).
+ * Colores de marca ≠ colores de estado ≠ acentos sutiles de módulo.
  */
 
 export type AppBranding = {
   companyName: string;
   productName: string;
-  /** Texto corto en chrome (sidebar / login). */
   displayName: string;
-  primaryBrandColor: string;
-  secondaryBrandColor: string;
+  /** Monograma compacto (rail colapsado), p.ej. PB */
+  monogram: string;
+  /** URL del logo completo (wordmark). */
+  logoUrl: string;
+  /** URL del mark cuadrado. */
+  markUrl: string;
   documentTitle: string;
 };
 
-/** Override opcional vía Vite (build-time). */
 const envCompany = import.meta.env.VITE_COMPANY_NAME as string | undefined;
 const envProduct = import.meta.env.VITE_PRODUCT_NAME as string | undefined;
+const envMonogram = import.meta.env.VITE_BRAND_MONOGRAM as string | undefined;
+const envLogo = import.meta.env.VITE_BRAND_LOGO_URL as string | undefined;
+const envMark = import.meta.env.VITE_BRAND_MARK_URL as string | undefined;
+
+const company = envCompany?.trim() || 'Pinebloom Farms';
+const product = envProduct?.trim() || 'Packing';
+
+function defaultMonogram(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
+  return (name.slice(0, 2) || 'PB').toUpperCase();
+}
 
 export const appBranding: AppBranding = {
-  companyName: envCompany?.trim() || 'Pinebloom',
-  productName: envProduct?.trim() || 'Packing',
-  displayName: `${envCompany?.trim() || 'Pinebloom'} ${envProduct?.trim() || 'Packing'}`.trim(),
-  primaryBrandColor: 'hsl(var(--brand-primary))',
-  secondaryBrandColor: 'hsl(var(--brand-secondary))',
-  documentTitle: `${envCompany?.trim() || 'Pinebloom'} ${envProduct?.trim() || 'Packing'}`,
+  companyName: company,
+  productName: product,
+  displayName: company.trim(),
+  monogram: envMonogram?.trim() || defaultMonogram(company),
+  logoUrl: envLogo?.trim() || '/branding/pinebloom-wordmark.svg',
+  markUrl: envMark?.trim() || '/branding/pinebloom-mark.svg',
+  documentTitle: `${company} · ${product}`,
 };
 
-export function brandMarkParts(): { company: string; product: string } {
-  return { company: appBranding.companyName, product: appBranding.productName };
+export function brandMarkParts(): { company: string; product: string; monogram: string } {
+  return {
+    company: appBranding.companyName,
+    product: appBranding.productName,
+    monogram: appBranding.monogram,
+  };
 }

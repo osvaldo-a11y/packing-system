@@ -10,11 +10,12 @@ import { useDemoInfo } from '@/api/demoInfo';
 import { useAuth } from '@/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { contentCard, pageTitle } from '@/lib/page-ui';
+import { contentCard } from '@/lib/page-ui';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { brandMarkParts } from '@/lib/branding';
 
 const FALLBACK_DEMO_USER = 'demo';
@@ -85,10 +86,9 @@ export function LoginPage() {
       <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
         <LanguageToggle />
       </div>
-      <div className="mb-8 text-center">
-        <h1 className={pageTitle}>
-          {brandMarkParts().company} <span className="text-primary">{brandMarkParts().product}</span>
-        </h1>
+      <div className="mb-8 flex flex-col items-center text-center">
+        <BrandMark tone="onLight" className="mb-4 scale-110" />
+        <h1 className="sr-only">{brandMarkParts().company}</h1>
         <p className="mt-1.5 text-[13px] text-slate-500">
           {sandbox ? t('login.subtitleSandbox') : t('login.subtitle')}
         </p>

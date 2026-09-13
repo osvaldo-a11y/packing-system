@@ -172,11 +172,11 @@ export const modalFormFooterTotals = 'text-xs tabular-nums text-muted-foreground
 
 /** Primario operativo (verde marca; fallback si el tema `primary` es otro tono). */
 export const modalFormPrimaryButton =
-  'h-10 min-h-10 rounded-md bg-[#1D9E75] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#178f6a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D9E75]/35 disabled:pointer-events-none disabled:opacity-50 max-md:min-h-11 max-md:flex-1 max-md:px-4';
+  'h-10 min-h-10 rounded-md bg-[hsl(var(--brand-primary))] px-5 text-sm font-semibold text-[hsl(var(--brand-primary-foreground))] shadow-none transition-colors hover:bg-[hsl(var(--brand-primary-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-primary))]/35 disabled:pointer-events-none disabled:opacity-50 max-md:min-h-11 max-md:flex-1 max-md:px-4';
 
 /** Botón “agregar” suave (p. ej. + Línea). */
 export const modalFormSoftGreenButton =
-  'inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[13px] font-semibold text-emerald-900 transition-colors hover:bg-emerald-100 disabled:pointer-events-none disabled:opacity-50';
+  'inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-[hsl(var(--brand-primary) / 0.35)] bg-[hsl(var(--brand-primary-soft))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] transition-colors hover:bg-[hsl(var(--brand-primary) / 0.12)] disabled:pointer-events-none disabled:opacity-50';
 
 /** Eliminar fila (solo ícono). */
 export const modalFormLineDeleteButton =
