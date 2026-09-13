@@ -1327,6 +1327,81 @@ export class ReportingService {
     };
   }
 
+  /**
+   * DIRECT settlement: invoiced $/lb from RAW dispatch lines − simple fee (precio_packing_por_lb × lb).
+   * No recipe / packout allocation (orthogonal to PROCESSED settlement).
+   */
+  private async buildDirectProducerSettlement(
+    filter: ReportFilterDto,
+    feePerLb: number | null,
+  ): Promise<{
+    rows: Record<string, unknown>[];
+    fee_per_lb: number;
+    note: string;
+  }> {
+    const prodFilter = this.producerFilterId(filter);
+    const fee = feePerLb != null && Number.isFinite(feePerLb) && feePerLb > 0 ? Number(feePerLb) : 0;
+    const rows = (await this.dataSource
+      .query(
+        `
+      SELECT
+        r.producer_id AS productor_id,
+        pr.nombre AS productor_nombre,
+        sp.id AS species_id,
+        sp.nombre AS species_nombre,
+        COALESCE(SUM(
+          CASE
+            WHEN ii.pounds IS NULL OR BTRIM(ii.pounds::text) = '' THEN 0::numeric
+            WHEN BTRIM(ii.pounds::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)$'
+              THEN BTRIM(ii.pounds::text)::numeric
+            ELSE 0::numeric
+          END
+        ), 0) AS lb_vendido,
+        COALESCE(SUM(ii.line_subtotal::numeric), 0) AS ventas
+      FROM invoice_items ii
+      JOIN invoices inv ON inv.id = ii.invoice_id
+      JOIN dispatches d ON d.id = inv.dispatch_id
+      JOIN reception_lines rl ON rl.id = ii.reception_line_id
+      JOIN receptions r ON r.id = rl.reception_id
+      JOIN producers pr ON pr.id = r.producer_id
+      LEFT JOIN species sp ON sp.id = COALESCE(ii.species_id, rl.species_id)
+      WHERE ii.reception_line_id IS NOT NULL
+        AND COALESCE(d.source_kind, 'PT_PL') = 'RAW'
+        AND COALESCE(ii.is_manual, false) = false
+        ${this.withDate('d.fecha_despacho', filter)}
+        ${prodFilter != null ? `AND r.producer_id = ${prodFilter}` : ''}
+      GROUP BY r.producer_id, pr.nombre, sp.id, sp.nombre
+      ORDER BY pr.nombre, sp.nombre
+      `,
+      )
+      .catch(() => [])) as Array<Record<string, unknown>>;
+
+    const mapped = rows.map((r) => {
+      const lb = Number(r.lb_vendido ?? 0);
+      const ventas = Number(r.ventas ?? 0);
+      const fees = Number((lb * fee).toFixed(2));
+      return {
+        flow_type: 'DIRECT',
+        productor_id: Number(r.productor_id),
+        productor_nombre: String(r.productor_nombre ?? ''),
+        species_id: r.species_id != null ? Number(r.species_id) : null,
+        species_nombre: r.species_nombre != null ? String(r.species_nombre) : null,
+        lb_vendido: Number(lb.toFixed(3)),
+        ventas: Number(ventas.toFixed(2)),
+        fee_per_lb: fee,
+        fees,
+        net_producer: Number((ventas - fees).toFixed(2)),
+      };
+    });
+
+    return {
+      rows: mapped,
+      fee_per_lb: fee,
+      note:
+        'DIRECT settlement = invoiced sales ($/lb) − simple fee (precio_packing_por_lb × lb). No recipe or packout share.',
+    };
+  }
+
   private describeDateFilter(field: string, filter: ReportFilterDto): string {
     const parts: string[] = [];
     const fd = filter.fecha_desde?.trim();
@@ -1575,6 +1650,10 @@ export class ReportingService {
     const inner = await this.computeFormatCostingRows(filter);
     const settlement = await this.buildProducerSettlement(filter, inner);
     const diagnostic = await this.producerSettlementDiagnostic(filter);
+    const directSettlement = await this.buildDirectProducerSettlement(
+      filter,
+      inner.precio_packing_por_lb,
+    );
     return {
       filters: filter,
       formatCostConfig: {
@@ -1582,6 +1661,11 @@ export class ReportingService {
         packing_source: inner.packing_source,
       },
       ...settlement,
+      directProducerSettlement: this.paginateRows(directSettlement.rows, filter),
+      directSettlementMeta: {
+        fee_per_lb: directSettlement.fee_per_lb,
+        note: directSettlement.note,
+      },
       producerSettlementDiagnostic: diagnostic,
     };
   }
@@ -1886,6 +1970,10 @@ export class ReportingService {
     };
     const producerSettlement = await this.buildProducerSettlement(filter, formatInner);
     const producerSettlementDiagnostic = await this.producerSettlementDiagnostic(filter);
+    const directSettlement = await this.buildDirectProducerSettlement(
+      filter,
+      formatInner.precio_packing_por_lb,
+    );
     const clientMargin = await this.computeClientMarginRows(filter, formatInner);
 
     const plant = await this.plantService.getOrCreate();
@@ -1912,6 +2000,11 @@ export class ReportingService {
       },
       producerSettlementSummary: producerSettlement.producerSettlementSummary,
       producerSettlementDetail: producerSettlement.producerSettlementDetail,
+      directProducerSettlement: this.paginateRows(directSettlement.rows, filter),
+      directSettlementMeta: {
+        fee_per_lb: directSettlement.fee_per_lb,
+        note: directSettlement.note,
+      },
       producerSettlementDiagnostic,
       clientMarginSummary: this.paginateRows(clientMargin.summaryRows, filter),
       clientMarginDetail: this.paginateRows(clientMargin.detailRows, filter),
@@ -2272,6 +2365,15 @@ export class ReportingService {
       lb_facturado: number;
       diferencia: number;
     };
+    direct_producers: Array<{
+      productor_id: number;
+      productor_nombre: string;
+      flow_type: 'DIRECT';
+      lb_recepcionado: number;
+      lb_direct_dispatch: number;
+      lb_raw_balance: number;
+    }>;
+    note: string;
   }> {
     const dateFilter = (col: string) => {
       const parts: string[] = [];
@@ -2407,6 +2509,57 @@ export class ReportingService {
       diferencia: producers.reduce((s, p) => s + p.diferencia, 0),
     };
 
-    return { producers, totales };
+    // DIRECT species section: received vs direct-dispatch allocations (no packout %).
+    const directRows = (await this.dataSource.query(
+      `
+      SELECT
+        r.producer_id as productor_id,
+        pr.nombre as productor_nombre,
+        COALESCE(SUM(rl.net_lb::numeric), 0) as lb_recepcionado,
+        COALESCE((
+          SELECT SUM(a.lb_allocated::numeric)
+          FROM reception_line_direct_allocations a
+          INNER JOIN reception_lines rl2 ON rl2.id = a.reception_line_id
+          INNER JOIN receptions r2 ON r2.id = rl2.reception_id
+          INNER JOIN species sp2 ON sp2.id = rl2.species_id
+          WHERE r2.producer_id = r.producer_id
+            AND COALESCE(sp2.flow_type, 'PROCESSED') = 'DIRECT'
+            ${filter.desde ? `AND r2.received_at >= '${filter.desde}'` : ''}
+            ${filter.hasta ? `AND r2.received_at <= '${filter.hasta}'` : ''}
+        ), 0) as lb_direct_dispatch
+      FROM reception_lines rl
+      INNER JOIN receptions r ON r.id = rl.reception_id
+      INNER JOIN producers pr ON pr.id = r.producer_id
+      INNER JOIN species sp ON sp.id = rl.species_id
+      WHERE COALESCE(sp.flow_type, 'PROCESSED') = 'DIRECT'
+        AND r.document_state_id IN (
+          SELECT id FROM document_states WHERE codigo IN ('confirmado', 'cerrado')
+        )
+        ${filter.desde ? `AND r.received_at >= '${filter.desde}'` : ''}
+        ${filter.hasta ? `AND r.received_at <= '${filter.hasta}'` : ''}
+      GROUP BY r.producer_id, pr.nombre
+      `,
+    ).catch(() => [])) as Array<Record<string, unknown>>;
+
+    const direct_producers = directRows.map((r) => {
+      const lbRec = Number(r.lb_recepcionado ?? 0);
+      const lbDisp = Number(r.lb_direct_dispatch ?? 0);
+      return {
+        productor_id: Number(r.productor_id),
+        productor_nombre: String(r.productor_nombre ?? ''),
+        flow_type: 'DIRECT' as const,
+        lb_recepcionado: lbRec,
+        lb_direct_dispatch: lbDisp,
+        lb_raw_balance: Math.max(0, lbRec - lbDisp),
+      };
+    });
+
+    return {
+      producers,
+      totales,
+      direct_producers,
+      note:
+        'PROCESSED producers use process/packout metrics; DIRECT producers are listed separately without packout %.',
+    };
   }
 }

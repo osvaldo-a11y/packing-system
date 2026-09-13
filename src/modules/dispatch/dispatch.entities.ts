@@ -10,9 +10,17 @@ import {
 } from 'typeorm';
 import { Brand, Client } from '../traceability/operational.entities';
 import { PtPackingList } from '../pt-packing-list/pt-packing-list.entities';
-import { PresentationFormat, Variety } from '../traceability/traceability.entities';
+import {
+  PresentationFormat,
+  ReceptionLine,
+  Species,
+  Variety,
+} from '../traceability/traceability.entities';
 
 export type DispatchStatus = 'borrador' | 'confirmado' | 'despachado';
+export type DispatchSourceKind = 'PT_PL' | 'RAW';
+export type SalesOrderLineKind = 'PT_FORMAT' | 'RAW_WEIGHT';
+export type RawAdjustmentType = 'LOSS' | 'REJECTION' | 'CORRECTION';
 
 @Entity('sales_orders')
 export class SalesOrder {
@@ -62,15 +70,30 @@ export class SalesOrderLine {
   @JoinColumn({ name: 'sales_order_id' })
   sales_order: SalesOrder;
 
-  @Column({ type: 'bigint' })
-  presentation_format_id: number;
+  /** PT_FORMAT (boxes+format) or RAW_WEIGHT (lb by species). Default preserves history. */
+  @Column({ type: 'varchar', length: 16, default: 'PT_FORMAT' })
+  line_kind: SalesOrderLineKind;
 
-  @ManyToOne(() => PresentationFormat, { eager: false })
+  @Column({ type: 'bigint', nullable: true })
+  presentation_format_id?: number | null;
+
+  @ManyToOne(() => PresentationFormat, { eager: false, nullable: true })
   @JoinColumn({ name: 'presentation_format_id' })
-  presentation_format: PresentationFormat;
+  presentation_format?: PresentationFormat | null;
 
-  @Column({ type: 'int' })
-  requested_boxes: number;
+  @Column({ type: 'int', nullable: true, default: 0 })
+  requested_boxes?: number | null;
+
+  /** Requested net lb for RAW_WEIGHT lines. */
+  @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
+  requested_lb?: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  species_id?: number | null;
+
+  @ManyToOne(() => Species, { nullable: true })
+  @JoinColumn({ name: 'species_id' })
+  species?: Species | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
   unit_price?: string | null;
@@ -149,6 +172,96 @@ export class Dispatch {
   /** Momento en que se registró la salida física (despachado). */
   @Column({ type: 'timestamptz', nullable: true })
   dispatch_despachado_at?: Date | null;
+
+  /** PT_PL = packing lists (histórico); RAW = reception lines. */
+  @Column({ type: 'varchar', length: 16, default: 'PT_PL' })
+  source_kind: DispatchSourceKind;
+}
+
+/** Direct (RAW) dispatch lines — lb taken from reception_line available balance. */
+@Entity('dispatch_reception_lines')
+export class DispatchReceptionLine {
+  @PrimaryColumn({ type: 'bigint' })
+  dispatch_id: number;
+
+  @PrimaryColumn({ type: 'bigint' })
+  reception_line_id: number;
+
+  @ManyToOne(() => Dispatch, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'dispatch_id' })
+  dispatch: Dispatch;
+
+  @ManyToOne(() => ReceptionLine, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'reception_line_id' })
+  reception_line: ReceptionLine;
+
+  @Column({ type: 'decimal', precision: 14, scale: 3 })
+  lb_dispatched: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  unit_price?: string | null;
+}
+
+/**
+ * Mirrors dispatch_reception_lines for balance math / audit
+ * (same lb as dispatch link; kept so process balance can sum without joining dispatch status).
+ */
+@Entity('reception_line_direct_allocations')
+export class ReceptionLineDirectAllocation {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'bigint' })
+  dispatch_id: number;
+
+  @ManyToOne(() => Dispatch, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'dispatch_id' })
+  dispatch: Dispatch;
+
+  @Column({ type: 'bigint' })
+  reception_line_id: number;
+
+  @ManyToOne(() => ReceptionLine, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'reception_line_id' })
+  reception_line: ReceptionLine;
+
+  @Column({ type: 'decimal', precision: 14, scale: 3 })
+  lb_allocated: string;
+
+  @Column({ type: 'varchar', length: 96, nullable: true })
+  lot_code_snapshot?: string | null;
+
+  @Column({ type: 'timestamptz', default: () => 'NOW()' })
+  created_at: Date;
+}
+
+@Entity('reception_line_adjustments')
+export class ReceptionLineAdjustment {
+  @PrimaryGeneratedColumn('increment')
+  id: number;
+
+  @Column({ type: 'bigint' })
+  reception_line_id: number;
+
+  @ManyToOne(() => ReceptionLine, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reception_line_id' })
+  reception_line: ReceptionLine;
+
+  @Column({ type: 'varchar', length: 24 })
+  adjustment_type: RawAdjustmentType;
+
+  /** Negative reduces available (LOSS/REJECTION); CORRECTION may be +/-. */
+  @Column({ type: 'decimal', precision: 14, scale: 3 })
+  lb_delta: string;
+
+  @Column({ type: 'text', nullable: true })
+  reason?: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  created_by?: string | null;
+
+  @Column({ type: 'timestamptz', default: () => 'NOW()' })
+  created_at: Date;
 }
 
 /** Agrupa uno o más packing list PT en un despacho (sin duplicar PL en otro despacho). */
@@ -259,6 +372,11 @@ export class InvoiceItem {
   trays?: number | null;
   @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
   pounds?: string | null;
+
+  /** RAW direct-dispatch invoice lines reference the source reception line. */
+  @Column({ type: 'bigint', nullable: true })
+  reception_line_id?: number | null;
+
   @Column({ type: 'varchar', length: 80, nullable: true })
   packing_list_ref?: string | null;
 

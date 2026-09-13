@@ -21,12 +21,14 @@ import { ProcessMachineKind } from './traceability.entities';
 export class CreateSpeciesDto {
   @IsString() @MinLength(1) @MaxLength(32) codigo: string;
   @IsString() @MinLength(1) @MaxLength(120) nombre: string;
+  @IsOptional() @IsIn(['PROCESSED', 'DIRECT']) flow_type?: 'PROCESSED' | 'DIRECT';
 }
 
 export class UpdateSpeciesDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(32) codigo?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(120) nombre?: string;
   @IsOptional() @IsBoolean() activo?: boolean;
+  @IsOptional() @IsIn(['PROCESSED', 'DIRECT']) flow_type?: 'PROCESSED' | 'DIRECT';
 }
 
 export class CreateProducerDto {
