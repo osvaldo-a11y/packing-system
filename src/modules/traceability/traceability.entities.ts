@@ -47,6 +47,13 @@ export class Species {
   @Column({ type: 'varchar', length: 120 })
   nombre: string;
 
+  /**
+   * Bloque 2.5A — flujo comercial/ops: PROCESSED | DIRECT.
+   * Default PROCESSED preserva Blueberry / histórico.
+   */
+  @Column({ type: 'varchar', length: 16, default: 'PROCESSED' })
+  flow_type: string;
+
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 

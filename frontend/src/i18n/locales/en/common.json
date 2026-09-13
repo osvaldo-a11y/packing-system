@@ -2136,7 +2136,8 @@
       "order": "Order",
       "action": "Action",
       "country": "Country",
-      "market": "Market"
+      "market": "Market",
+      "flowType": "Flow type"
     },
     "btn": {
       "newLine": "New line",
@@ -2145,7 +2146,9 @@
       "new": "New",
       "newF": "New",
       "newComponent": "New component",
-      "newClient": "New client"
+      "newClient": "New client",
+      "duplicate": "Duplicate",
+      "delete": "Delete"
     },
     "dialog": {
       "newLine": "New line",
@@ -2193,7 +2196,8 @@
       "clamshellLabel": "Clamshell label",
       "order": "Order",
       "configBySpecies": "Configure components by species",
-      "requiresReturn": "Requires return"
+      "requiresReturn": "Requires return",
+      "flowType": "Flow type"
     },
     "placeholder": {
       "codeIqf": "IQF-SINGLE",
@@ -2263,6 +2267,14 @@
       "recordDeleted": "Record deleted",
       "reactivated": "Reactivated",
       "deactivated": "Deactivated"
+    },
+    "flowType": {
+      "processed": "Processed",
+      "direct": "Direct"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
     }
   },
   "materials": {

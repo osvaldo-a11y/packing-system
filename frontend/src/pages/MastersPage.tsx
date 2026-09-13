@@ -416,7 +416,18 @@ function MasterRowActions({
   );
 }
 
-type SpeciesRow = { id: number; codigo: string; nombre: string; activo: boolean };
+type SpeciesRow = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  flow_type?: 'PROCESSED' | 'DIRECT';
+  capabilities?: {
+    requires_processing: boolean;
+    allows_direct_dispatch: boolean;
+    quantity_basis: 'PT_FORMAT' | 'RAW_WEIGHT';
+  };
+};
 type ProducerRow = { id: number; codigo: string | null; nombre: string; activo: boolean };
 type VarietyRow = { id: number; species_id: number; codigo: string | null; nombre: string; activo: boolean; species?: { nombre: string } };
 type QualityRow = { id: number; codigo: string; nombre: string; activo: boolean; purpose?: string };
@@ -437,6 +448,7 @@ type FormatRow = {
 const speciesSchema = z.object({
   codigo: z.string().min(1).max(32),
   nombre: z.string().min(1).max(120),
+  flow_type: z.enum(['PROCESSED', 'DIRECT']).default('PROCESSED'),
 });
 
 const producerSchema = z.object({
@@ -2399,7 +2411,7 @@ function SpeciesSection({
     mode: 'onTouched',
     reValidateMode: 'onChange',
     resolver: zodResolver(speciesSchema),
-    defaultValues: { codigo: '', nombre: '' },
+    defaultValues: { codigo: '', nombre: '', flow_type: 'PROCESSED' },
   });
   const mut = useMutation({
     mutationFn: (body: z.infer<typeof speciesSchema>) =>
@@ -2409,13 +2421,19 @@ function SpeciesSection({
       queryClient.invalidateQueries({ queryKey: ['masters', 'varieties'] });
       toast.success(t('masters.toast.speciesCreated'));
       setOpen(false);
-      form.reset();
+      form.reset({ codigo: '', nombre: '', flow_type: 'PROCESSED' });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { codigo?: string; nombre?: string } }) =>
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: { codigo?: string; nombre?: string; flow_type?: 'PROCESSED' | 'DIRECT' };
+    }) =>
       apiJson(`/api/masters/species/${id}`, {
         method: 'PUT',
         body: JSON.stringify(body),
@@ -2428,12 +2446,16 @@ function SpeciesSection({
   });
 
   const duplicateMut = useMutation({
-    mutationFn: (source: InlineCodigoNombreRow) => {
+    mutationFn: (source: SpeciesRow) => {
       const lower = new Set(list.map((x) => x.codigo.toLowerCase()));
       const newCode = uniqueDuplicateCode(source.codigo, lower);
       return apiJson('/api/masters/species', {
         method: 'POST',
-        body: JSON.stringify({ codigo: newCode, nombre: source.nombre.trim() }),
+        body: JSON.stringify({
+          codigo: newCode,
+          nombre: source.nombre.trim(),
+          flow_type: source.flow_type === 'DIRECT' ? 'DIRECT' : 'PROCESSED',
+        }),
       });
     },
     onSuccess: () => {
@@ -2502,6 +2524,13 @@ function SpeciesSection({
                     <Input placeholder={t('masters.placeholder.nameArberry')} {...form.register('nombre')} autoComplete="off" />
                   </div>
                 </div>
+                <div className="grid gap-1.5">
+                  <Label>{t('masters.label.flowType')}</Label>
+                  <select className={cn(filterSelectClass, 'h-9')} {...form.register('flow_type')}>
+                    <option value="PROCESSED">{t('masters.flowType.processed')}</option>
+                    <option value="DIRECT">{t('masters.flowType.direct')}</option>
+                  </select>
+                </div>
                 <DialogFooter>
                   <Button type="submit" disabled={mut.isPending}>
                     Crear
@@ -2519,13 +2548,14 @@ function SpeciesSection({
               <TableRow>
                 <TableHead>{t('masters.col.code')}</TableHead>
                 <TableHead>{t('masters.col.name')}</TableHead>
+                <TableHead className="min-w-[9rem]">{t('masters.col.flowType')}</TableHead>
                 <TableHead className="w-[9.5rem]">{t('masters.col.state')}</TableHead>
                 {canWrite ? <TableHead className="w-[1%]"> </TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <InlineCodigoNombreCatalogRow
+                <SpeciesCatalogRow
                   key={r.id}
                   row={r}
                   canWrite={canWrite}
@@ -2548,6 +2578,165 @@ function SpeciesSection({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function SpeciesCatalogRow({
+  row,
+  canWrite,
+  onPatch,
+  onDuplicate,
+  onSetActivo,
+  onDelete,
+  patchPending,
+  duplicatePending,
+  activoPending,
+  deletePending,
+}: {
+  row: SpeciesRow;
+  canWrite: boolean;
+  onPatch: (id: number, body: { codigo?: string; nombre?: string; flow_type?: 'PROCESSED' | 'DIRECT' }) => void;
+  onDuplicate: (row: SpeciesRow) => void;
+  onSetActivo: (id: number, activo: boolean) => void;
+  onDelete: (row: SpeciesRow) => void;
+  patchPending: boolean;
+  duplicatePending: boolean;
+  activoPending: boolean;
+  deletePending: boolean;
+}) {
+  const { t } = useTranslation('common');
+  const [codigo, setCodigo] = useState(row.codigo);
+  const [nombre, setNombre] = useState(row.nombre);
+  const flowType = row.flow_type === 'DIRECT' ? 'DIRECT' : 'PROCESSED';
+  useEffect(() => {
+    setCodigo(row.codigo);
+    setNombre(row.nombre);
+  }, [row.codigo, row.nombre, row.id]);
+
+  const commitText = () => {
+    const c = codigo.trim();
+    const n = nombre.trim();
+    if (!c || !n) {
+      toast.error(t('masters.errCodeName'));
+      setCodigo(row.codigo);
+      setNombre(row.nombre);
+      return;
+    }
+    const body: { codigo?: string; nombre?: string } = {};
+    if (c !== row.codigo) body.codigo = c;
+    if (n !== row.nombre) body.nombre = n;
+    if (Object.keys(body).length === 0) return;
+    onPatch(row.id, body);
+  };
+
+  const rowBusy = patchPending || duplicatePending || deletePending;
+
+  return (
+    <TableRow>
+      <TableCell className="min-w-[7rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 font-mono text-sm"
+            value={codigo}
+            disabled={rowBusy}
+            onChange={(e) => setCodigo(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          <span className="font-mono text-sm">{row.codigo}</span>
+        )}
+      </TableCell>
+      <TableCell className="min-w-[10rem]">
+        {canWrite ? (
+          <Input
+            className="h-9 text-sm"
+            value={nombre}
+            disabled={rowBusy}
+            onChange={(e) => setNombre(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            autoComplete="off"
+          />
+        ) : (
+          row.nombre
+        )}
+      </TableCell>
+      <TableCell className="min-w-[9rem]">
+        {canWrite ? (
+          <select
+            className={cn(filterSelectClass, 'h-9')}
+            value={flowType}
+            disabled={rowBusy}
+            onChange={(e) => {
+              const next = e.target.value === 'DIRECT' ? 'DIRECT' : 'PROCESSED';
+              if (next !== flowType) onPatch(row.id, { flow_type: next });
+            }}
+            aria-label={t('masters.label.flowType')}
+          >
+            <option value="PROCESSED">{t('masters.flowType.processed')}</option>
+            <option value="DIRECT">{t('masters.flowType.direct')}</option>
+          </select>
+        ) : (
+          <span className="text-sm">
+            {flowType === 'DIRECT' ? t('masters.flowType.direct') : t('masters.flowType.processed')}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="w-[9.5rem]">
+        {canWrite ? (
+          <select
+            className={cn(filterSelectClass, 'h-9')}
+            value={row.activo ? '1' : '0'}
+            disabled={rowBusy || activoPending}
+            onChange={(e) => {
+              const next = e.target.value === '1';
+              if (next !== row.activo) onSetActivo(row.id, next);
+            }}
+          >
+            <option value="1">{t('masters.state.active')}</option>
+            <option value="0">{t('masters.state.inactive')}</option>
+          </select>
+        ) : (
+          <Badge variant={row.activo ? 'default' : 'secondary'}>
+            {row.activo ? t('masters.state.active') : t('masters.state.inactive')}
+          </Badge>
+        )}
+      </TableCell>
+      {canWrite ? (
+        <TableCell className="whitespace-nowrap text-right">
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 px-2"
+              disabled={rowBusy}
+              onClick={() => onDuplicate(row)}
+              title={t('masters.btn.duplicate')}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 px-2 text-destructive"
+              disabled={rowBusy}
+              onClick={() => onDelete(row)}
+              title={t('masters.btn.delete')}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+      ) : null}
+    </TableRow>
   );
 }
 
