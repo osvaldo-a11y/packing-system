@@ -7,14 +7,10 @@ import {
   ClipboardList,
   DollarSign,
   Import,
-  PackageOpen,
-  Cog,
   Info,
-  Package,
   Tag,
   TrendingUp,
   Truck,
-  Warehouse,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -1446,28 +1442,24 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
-            icon={PackageOpen}
             label={t('nav.items.recepciones')}
             semantic="reception"
             metric={t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length })}
           />
           <OperationalModuleCard
             to="/processes"
-            icon={Cog}
             label={t('nav.items.procesos')}
             semantic="process"
             metric={t('dashboard.moduleProcessMetric', { count: processesFiltered.length })}
           />
           <OperationalModuleCard
             to="/pt-tags"
-            icon={Tag}
             label={t('nav.items.unidadPt')}
             semantic="pt"
             metric={t('dashboard.modulePtMetric', { count: ptTagsFiltered.length })}
           />
           <OperationalModuleCard
             to="/existencias-pt/inventario"
-            icon={Warehouse}
             label={t('nav.items.existenciasPt')}
             semantic="stock"
             metric={t('dashboard.moduleStockMetric', {
@@ -1476,14 +1468,12 @@ export function DashboardPage() {
           />
           <OperationalModuleCard
             to="/dispatches"
-            icon={Truck}
             label={t('nav.items.despachos')}
             semantic="dispatch"
             metric={t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length })}
           />
           <OperationalModuleCard
             to="/packaging/materials"
-            icon={Package}
             label={t('nav.items.materiales')}
             semantic="materials"
             metric={t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount })}
