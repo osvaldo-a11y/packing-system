@@ -3,6 +3,8 @@ import {
   BookOpen,
   Box,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Factory,
   GitBranch,
@@ -11,6 +13,7 @@ import {
   LayoutDashboard,
   Library,
   LogOut,
+  Menu,
   Package,
   ScrollText,
   ShoppingCart,
@@ -18,12 +21,14 @@ import {
   Truck,
   Upload,
   Warehouse,
+  X,
 } from 'lucide-react';
-import { Fragment } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DemoModeBanner } from '@/components/DemoModeBanner';
 import { useAuth } from '@/AuthContext';
+import { brandMarkParts } from '@/lib/branding';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
 import { useDemoInfo } from '@/api/demoInfo';
 import { LanguageToggle } from '@/components/LanguageToggle';
@@ -41,23 +46,30 @@ import { cn } from '@/lib/utils';
 
 type NavIcon = typeof LayoutDashboard;
 
-type NavItem = { to: string; label: string; icon: NavIcon; end?: boolean };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: NavIcon;
+  end?: boolean;
+  /** Mayor peso visual en operación */
+  emphasize?: boolean;
+};
 
-type NavGroup = { id: string; label: string; items: NavItem[] };
+type NavGroup = { id: string; label: string; items: NavItem[]; emphasize?: boolean };
 
 function getNavGroups(t: (key: string) => string): NavGroup[] {
   return [
     {
-      id: 'principal',
-      label: t('nav.groups.principal'),
-      items: [{ to: '/', label: t('nav.items.inicio'), icon: LayoutDashboard, end: true }],
-    },
-    {
-      id: 'config',
-      label: t('nav.groups.config'),
+      id: 'operacion',
+      label: t('nav.groups.operacion'),
+      emphasize: true,
       items: [
-        { to: '/plant', label: t('nav.items.planta'), icon: Factory },
-        { to: '/masters', label: t('nav.items.mantenedores'), icon: Library },
+        { to: '/', label: t('nav.items.inicio'), icon: LayoutDashboard, end: true, emphasize: true },
+        { to: '/receptions', label: t('nav.items.recepciones'), icon: Import, emphasize: true },
+        { to: '/processes', label: t('nav.items.procesos'), icon: Box, emphasize: true },
+        { to: '/pt-tags', label: t('nav.items.unidadPt'), icon: Tag, emphasize: true },
+        { to: '/existencias-pt', label: t('nav.items.existenciasPt'), icon: Warehouse, emphasize: true },
+        { to: '/dispatches', label: t('nav.items.despachos'), icon: Truck, emphasize: true },
       ],
     },
     {
@@ -66,32 +78,27 @@ function getNavGroups(t: (key: string) => string): NavGroup[] {
       items: [
         { to: '/packaging/materials', label: t('nav.items.materiales'), icon: Package },
         { to: '/packaging/kardex', label: t('nav.items.kardex'), icon: ScrollText },
-        { to: '/packaging/recipes', label: t('nav.items.recetas'), icon: ScrollText },
-        { to: '/packaging/consumptions', label: t('nav.items.consumos'), icon: ClipboardList },
-      ],
-    },
-    {
-      id: 'operacion',
-      label: t('nav.groups.operacion'),
-      items: [
-        { to: '/receptions', label: t('nav.items.recepciones'), icon: Import },
-        { to: '/processes', label: t('nav.items.procesos'), icon: Box },
-        { to: '/pt-tags', label: t('nav.items.unidadPt'), icon: Tag },
-        { to: '/existencias-pt', label: t('nav.items.existenciasPt'), icon: Warehouse },
+        { to: '/packaging/recipes', label: t('nav.items.recetas'), icon: ClipboardList },
+        { to: '/packaging/consumptions', label: t('nav.items.consumos'), icon: BarChart3 },
       ],
     },
     {
       id: 'comercial',
       label: t('nav.groups.comercial'),
-      items: [
-        { to: '/sales-orders', label: t('nav.items.pedidos'), icon: ShoppingCart },
-        { to: '/dispatches', label: t('nav.items.despachos'), icon: Truck },
-      ],
+      items: [{ to: '/sales-orders', label: t('nav.items.pedidos'), icon: ShoppingCart }],
     },
     {
-      id: 'analisis',
-      label: t('nav.groups.analisis'),
+      id: 'gestion',
+      label: t('nav.groups.gestion'),
       items: [{ to: '/reporting', label: t('nav.items.reportes'), icon: BarChart3 }],
+    },
+    {
+      id: 'config',
+      label: t('nav.groups.config'),
+      items: [
+        { to: '/masters', label: t('nav.items.mantenedores'), icon: Library },
+        { to: '/plant', label: t('nav.items.planta'), icon: Factory },
+      ],
     },
     {
       id: 'sistema',
@@ -104,19 +111,137 @@ function getNavGroups(t: (key: string) => string): NavGroup[] {
   ];
 }
 
-const navItemClass = ({ isActive }: { isActive: boolean }) =>
-  cn(
-    'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium leading-snug transition-colors duration-150',
-    isActive
-      ? 'bg-slate-100/90 text-slate-900'
-      : 'text-slate-600 hover:bg-slate-50/90 hover:text-slate-900',
+function BrandWordmark({ className }: { className?: string }) {
+  const { company, product } = brandMarkParts();
+  return (
+    <span className={cn('font-semibold tracking-tight text-slate-900', className)}>
+      {company} <span className="text-primary">{product}</span>
+    </span>
   );
+}
 
-const navIconClass = (isActive: boolean) =>
-  cn(
-    'h-[15px] w-[15px] shrink-0 stroke-[1.75] transition-colors',
-    isActive ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-600',
+function NavList({
+  groups,
+  collapsed,
+  onNavigate,
+  isAdminRole,
+  t,
+}: {
+  groups: NavGroup[];
+  collapsed: boolean;
+  onNavigate?: () => void;
+  isAdminRole: boolean;
+  t: (k: string) => string;
+}) {
+  return (
+    <nav
+      className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-width:thin]"
+      aria-label={t('nav.ariaMain')}
+    >
+      {groups.map((group, gi) => (
+        <div key={group.id} className={cn(gi > 0 && 'mt-3 border-t border-slate-100/80 pt-3')}>
+          {!collapsed ? (
+            <p
+              className={cn(
+                'mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
+                group.emphasize ? 'text-slate-500' : 'text-slate-400',
+              )}
+            >
+              {group.label}
+            </p>
+          ) : null}
+          <ul className="space-y-0.5">
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.end}
+                    title={collapsed ? item.label : undefined}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        'group flex items-center gap-2.5 rounded-lg px-2.5 transition-colors duration-150',
+                        item.emphasize ? 'py-2.5 text-[14px] font-semibold' : 'py-1.5 text-[13px] font-medium',
+                        isActive
+                          ? 'bg-slate-100 text-slate-900'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                        collapsed && 'justify-center px-2',
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon
+                          className={cn(
+                            'shrink-0 stroke-[2]',
+                            item.emphasize ? 'h-[18px] w-[18px]' : 'h-[15px] w-[15px]',
+                            isActive ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-600',
+                          )}
+                          aria-hidden
+                        />
+                        {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                      </>
+                    )}
+                  </NavLink>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+      {isAdminRole ? (
+        <div className="mt-3 border-t border-slate-100/80 pt-3">
+          {!collapsed ? (
+            <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              {t('nav.groups.admin')}
+            </p>
+          ) : null}
+          <ul className="space-y-0.5">
+            <li>
+              <NavLink
+                to="/bulk-import"
+                title={collapsed ? t('nav.items.cargaMasiva') : undefined}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    'group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                    isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50',
+                    collapsed && 'justify-center px-2',
+                  )
+                }
+              >
+                <Upload className="h-[15px] w-[15px] shrink-0 text-slate-400" aria-hidden />
+                {!collapsed ? <span>{t('nav.items.cargaMasiva')}</span> : null}
+              </NavLink>
+            </li>
+          </ul>
+        </div>
+      ) : null}
+      {/* API docs: solo admin (herramienta técnica). URLs directas siguen disponibles. */}
+      {isAdminRole ? (
+        <div className="mt-auto border-t border-slate-100/80 pt-2">
+          <a
+            href="/api/docs"
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+              collapsed && 'justify-center px-2',
+            )}
+            title={collapsed ? t('nav.items.apiDocs') : undefined}
+          >
+            <BookOpen className="h-[15px] w-[15px] shrink-0 text-slate-400" aria-hidden />
+            {!collapsed ? t('nav.items.apiDocs') : null}
+          </a>
+        </div>
+      ) : (
+        <div className="mt-auto" />
+      )}
+    </nav>
   );
+}
 
 export function AppLayout() {
   const { t } = useTranslation('common');
@@ -128,172 +253,140 @@ export function AppLayout() {
   const sandboxWritable = Boolean(demoInfo?.sandbox && demoInfo?.writable);
   const showDemoBanner = readOnlySession || sandboxWritable;
   const { pathname } = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.title = brandMarkParts().company + ' ' + brandMarkParts().product;
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[hsl(210_20%_97%)]">
-      <aside className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] w-[220px] shrink-0 flex-col border-r border-slate-200/50 bg-white md:flex">
-        <div className="flex h-[52px] shrink-0 items-center border-b border-slate-100 px-4">
-          <NavLink
-            to="/"
-            className="text-[15px] font-semibold tracking-tight text-slate-900 transition-opacity hover:opacity-90"
-          >
-            Pinebloom <span className="text-primary">Packing</span>
-          </NavLink>
-        </div>
-        <nav
-          className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-width:thin]"
-          aria-label="Navegación principal"
-        >
-          {navGroups.map((group, gi) => (
-            <div key={group.id} className={cn(gi > 0 && 'mt-3 border-t border-slate-100/80 pt-3')}>
-              <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{group.label}</p>
-              <ul className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <li key={item.to}>
-                      <NavLink to={item.to} end={item.end} className={navItemClass}>
-                        {({ isActive }) => (
-                          <>
-                            <Icon className={navIconClass(isActive)} aria-hidden />
-                            <span>{item.label}</span>
-                          </>
-                        )}
-                      </NavLink>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-          {isAdminRole && (
-            <div className="mt-3 border-t border-slate-100/80 pt-3">
-              <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                {t('nav.groups.admin').toUpperCase()}
-              </p>
-              <ul className="space-y-0.5">
-                <li>
-                  <NavLink to="/bulk-import" className={navItemClass}>
-                    {({ isActive }) => (
-                      <>
-                        <Upload className={navIconClass(isActive)} aria-hidden />
-                        <span>{t('nav.items.cargaMasiva')}</span>
-                      </>
-                    )}
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
+      {/* Desktop sidebar — lg+ only */}
+      <aside
+        className={cn(
+          'sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-slate-200/60 bg-white transition-[width] duration-200 lg:flex',
+          collapsed ? 'w-[72px]' : 'w-[248px]',
+        )}
+      >
+        <div className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-100 px-3">
+          {!collapsed ? (
+            <NavLink to="/" className="min-w-0 truncate text-[15px] transition-opacity hover:opacity-90">
+              <BrandWordmark />
+            </NavLink>
+          ) : (
+            <NavLink to="/" className="mx-auto text-sm font-bold text-primary" title={brandMarkParts().company}>
+              {brandMarkParts().company.slice(0, 1)}
+            </NavLink>
           )}
-          <div className="mt-auto border-t border-slate-100/80 pt-2">
-            <a
-              href="/api/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
-            >
-              <BookOpen className="h-[15px] w-[15px] shrink-0 stroke-[1.75] text-slate-400" aria-hidden />
-              {t('nav.items.apiDocs')}
-            </a>
-          </div>
-        </nav>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 shrink-0 p-0 text-slate-500"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        </div>
+        <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
       </aside>
 
+      {/* Tablet/mobile drawer — below lg */}
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/40"
+            aria-label={t('nav.closeMenu')}
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-white shadow-xl">
+            <div className="flex h-14 items-center justify-between border-b border-slate-100 px-3">
+              <NavLink to="/" className="text-[15px]" onClick={() => setMobileOpen(false)}>
+                <BrandWordmark />
+              </NavLink>
+              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMobileOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <NavList
+              groups={navGroups}
+              collapsed={false}
+              isAdminRole={isAdminRole}
+              t={t}
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </aside>
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-12 items-center justify-between gap-2 border-b border-slate-200/50 bg-white/90 px-3 backdrop-blur-md sm:px-4 md:hidden">
-          <NavLink to="/" className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-slate-900">
-            Pinebloom <span className="text-primary">Packing</span>
-          </NavLink>
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-slate-200/50 bg-white/95 px-3 backdrop-blur-md sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 lg:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label={t('nav.openMenu')}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 lg:hidden">
+              <BrandWordmark className="truncate text-[14px]" />
+            </div>
+            <div className="hidden min-w-0 lg:block">
+              <p className="truncate text-[13px] font-medium text-slate-700">{brandMarkParts().company}</p>
+              <p className="truncate text-[11px] text-slate-400">{t('nav.headerHint')}</p>
+            </div>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle />
             <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-lg border-slate-200/80 bg-white text-[13px] font-medium shadow-sm">
-                Menú
-                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[min(70vh,520px)] w-56 overflow-y-auto">
-              {navGroups.map((group) => (
-                <Fragment key={group.id}>
-                  <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-                    {group.label}
-                  </DropdownMenuLabel>
-                  {group.items.map((item) => (
-                    <DropdownMenuItem key={item.to} asChild className="cursor-pointer rounded-md text-[13px]">
-                      <NavLink to={item.to} end={item.end}>
-                        {item.label}
-                      </NavLink>
-                    </DropdownMenuItem>
-                  ))}
-                </Fragment>
-              ))}
-              {isAdminRole && (
-                <Fragment>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-                    {t('nav.groups.admin').toUpperCase()}
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
-                    <NavLink to="/bulk-import">{t('nav.items.cargaMasiva')}</NavLink>
-                  </DropdownMenuItem>
-                </Fragment>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="cursor-pointer rounded-md text-[13px]">
-                <a href="/api/docs" target="_blank" rel="noreferrer">
-                  {t('nav.items.apiDocs')}
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => logout()}
-                className="cursor-pointer rounded-md text-[13px] text-destructive focus:text-destructive"
-              >
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 gap-2 rounded-lg px-2.5 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                >
+                  <span className="max-w-[120px] truncate text-[13px] font-medium text-slate-800 sm:max-w-[160px]">
+                    {username}
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className="hidden h-5 border-0 bg-slate-100/90 px-1.5 text-[11px] font-medium capitalize text-slate-600 sm:inline-flex"
+                  >
+                    {role}
+                  </Badge>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-slate-900">{username}</span>
+                    <span className="text-xs capitalize text-slate-500">{role}</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => logout()} className="gap-2 text-destructive focus:text-destructive">
+                  <LogOut className="h-4 w-4" />
+                  {t('nav.logout')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
-        <header className="hidden h-12 shrink-0 items-center justify-end gap-2 border-b border-slate-200/50 bg-white/85 px-5 backdrop-blur-md md:flex">
-          <LanguageToggle />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 gap-2 rounded-lg px-2.5 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-              >
-                <span className="max-w-[160px] truncate text-[13px] font-medium text-slate-800">{username}</span>
-                <Badge variant="secondary" className="h-5 border-0 bg-slate-100/90 px-1.5 text-[11px] font-medium capitalize text-slate-600">
-                  {role}
-                </Badge>
-                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-slate-900">{username}</span>
-                  <span className="text-xs text-slate-500 capitalize">{role}</span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => logout()} className="gap-2 text-destructive focus:text-destructive">
-                <LogOut className="h-4 w-4" />
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
-
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-4 md:px-4 md:py-5 lg:px-5 lg:py-6">
-          <div
-            key={pathname}
-            className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8"
-          >
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6">
+          <div key={pathname} className="animate-route-content mx-auto w-full max-w-full pb-6 md:pb-8">
             {showDemoBanner ? <DemoModeBanner writable={sandboxWritable} /> : null}
             <Outlet />
           </div>

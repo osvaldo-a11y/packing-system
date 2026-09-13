@@ -2,18 +2,20 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   AlertTriangle,
+  Box,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   DollarSign,
-  Factory,
-  GitBranch,
   Import,
   Info,
-  Library,
+  Package,
   Tag,
   TrendingUp,
   Truck,
   User,
+  Warehouse,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,10 +23,12 @@ import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { fetchSeasonPace, type SeasonPaceResult } from '@/api/seasonPace';
 import { useAuth } from '@/AuthContext';
-import { isReadOnlySession } from '@/lib/roles';
+import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { appBranding } from '@/lib/branding';
+import { canOperate, isReadOnlySession } from '@/lib/roles';
 import {
   emptyStateBanner,
   pageStack,
@@ -43,6 +47,8 @@ import type { ReceptionRow } from './ReceptionPage';
 import type { RecipeApi } from './RecipesPage';
 import { isOrderCanceled } from '@/lib/sales-order-status';
 import type { SalesOrderRow } from './SalesOrdersPage';
+
+const WEB_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
 
 type DashboardMaterial = PackagingMaterialRow & {
   material_category?: { id: number; codigo: string; nombre: string };
@@ -606,15 +612,19 @@ function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number
 }
 
 export function DashboardPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { username, role, token } = useAuth();
   const demoReadOnly = isReadOnlySession(role);
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
+  const dateLocale = i18n.language?.startsWith('en') ? 'en-US' : 'es-AR';
 
   const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showExecutive, setShowExecutive] = useState(false);
+  const canWriteOps = canOperate(role);
   const queryParams = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('period', period);
@@ -1253,6 +1263,16 @@ export function DashboardPage() {
     return rows.slice(0, 3);
   }, [trace?.materials_low_stock.length, riskOrdersCount, tripajeCards, t]);
 
+  const stockBoxesApprox = useMemo(
+    () => ptTagsFiltered.reduce((s, t) => s + Math.max(0, Number((t as { total_cajas?: number }).total_cajas ?? 0)), 0),
+    [ptTagsFiltered],
+  );
+
+  const materialsActiveCount = useMemo(
+    () => (matsQ.data ?? []).filter((m) => m.activo !== false).length,
+    [matsQ.data],
+  );
+
   const dashboardLoading =
     canLoad &&
     (recQ.isPending ||
@@ -1277,28 +1297,54 @@ export function DashboardPage() {
     formatsQ.isError ||
     clientsQ.isError;
 
+  const [retryingLists, setRetryingLists] = useState(false);
+  const retryDashboardLists = async () => {
+    setRetryingLists(true);
+    try {
+      await Promise.all([
+        recQ.refetch(),
+        procQ.refetch(),
+        dispQ.refetch(),
+        tagsQ.refetch(),
+        ordersQ.refetch(),
+        matsQ.refetch(),
+        recipesQ.refetch(),
+        formatsQ.refetch(),
+        clientsQ.refetch(),
+      ]);
+    } finally {
+      setRetryingLists(false);
+    }
+  };
+
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">{appBranding.displayName}</p>
           <h1 className={pageTitle}>{t('dashboard.title')}</h1>
           <p className={pageSubtitle}>{t('dashboard.subtitle')}</p>
+          <p className="text-[12px] text-slate-400">{t('dashboard.subtitleHint')}</p>
         </div>
-        <div className="space-y-1 text-right">
+        <div className="space-y-1 text-left sm:text-right">
           <p className="text-sm text-slate-700">
             <User className="mr-1 inline h-4 w-4 text-slate-400" />
             {username ?? t('dashboard.session')} {role ? <span className="text-slate-400">· {role}</span> : null}
           </p>
           <p className="text-[11px] text-slate-500">
             <Calendar className="mr-1 inline h-3.5 w-3.5" />
-            {new Date().toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+            {new Date().toLocaleDateString(dateLocale, {
+              weekday: 'short',
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })}
           </p>
         </div>
       </header>
 
       {!canLoad ? (
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white px-4 py-3 text-sm text-amber-950 shadow-sm ring-1 ring-amber-100/80">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <strong className="font-semibold">{t('dashboard.noAuth.title')}</strong>{' '}
           {t('dashboard.noAuth.desc')}{' '}
           <Link to="/login" className="font-medium underline underline-offset-2 hover:no-underline">
@@ -1310,46 +1356,68 @@ export function DashboardPage() {
       {canLoad && dashboardListError ? (
         <div
           className={cn(
-            'rounded-2xl px-4 py-3 text-sm',
+            'flex flex-col gap-2 rounded-2xl px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between',
             demoReadOnly
               ? 'border border-amber-200/90 bg-amber-50/90 text-amber-950'
-              : 'border border-red-200 bg-red-50/90 text-red-900',
+              : 'border border-amber-200/90 bg-amber-50/90 text-amber-950',
           )}
         >
-          <strong className="font-semibold">
-            {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
-          </strong>{' '}
-          {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
+          <p>
+            <strong className="font-semibold">
+              {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
+            </strong>{' '}
+            {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
+          </p>
+          {!demoReadOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-xl border-amber-300 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-100"
+              disabled={retryingLists}
+              onClick={() => void retryDashboardLists()}
+            >
+              {retryingLists ? t('dashboard.loadError.retrying') : t('dashboard.loadError.retry')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
-      <section className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
-        <div className="flex h-10 flex-nowrap items-center gap-2 overflow-x-auto">
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {[
-              { key: 'today', label: t('dashboard.filters.today') },
-              { key: 'week', label: t('dashboard.filters.week') },
-              { key: 'accumulated', label: t('dashboard.filters.accumulated') },
-            ].map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key as DashboardPeriod)}
-                className={cn(
-                  'h-8 shrink-0 rounded-full border px-2.5 text-xs font-medium transition-colors',
-                  period === p.key
-                    ? 'border-[#1D9E75] bg-[#1D9E75] text-white'
-                    : 'border-border bg-background text-foreground hover:bg-muted/60',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+      <section className="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { key: 'today', label: t('dashboard.filters.today') },
+            { key: 'week', label: t('dashboard.filters.week') },
+            { key: 'accumulated', label: t('dashboard.filters.accumulated') },
+          ].map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => setPeriod(p.key as DashboardPeriod)}
+              className={cn(
+                'h-10 min-w-[5.5rem] rounded-xl border px-3 text-sm font-semibold transition-colors',
+                period === p.key
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="ml-auto inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            onClick={() => setShowMoreFilters((v) => !v)}
+            aria-expanded={showMoreFilters}
+          >
+            {showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
+            {showMoreFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3">
             <select
-              className="h-8 min-w-[8rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[14rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={producerId === 'all' ? 'all' : String(producerId)}
               onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
@@ -1361,7 +1429,7 @@ export function DashboardPage() {
               ))}
             </select>
             <select
-              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[12rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={speciesId === 'all' ? 'all' : String(speciesId)}
               onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
@@ -1373,7 +1441,7 @@ export function DashboardPage() {
               ))}
             </select>
             <select
-              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[11rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={workMode}
               onChange={(e) => setWorkMode(e.target.value as WorkMode)}
             >
@@ -1382,9 +1450,144 @@ export function DashboardPage() {
               <option value="machine">{t('dashboard.filters.machine')}</option>
             </select>
           </div>
+        ) : null}
+        <p className="mt-2 text-[11px] text-slate-500">
+          {period === 'today'
+            ? t('dashboard.filters.periodToday')
+            : period === 'week'
+              ? t('dashboard.filters.periodWeek')
+              : t('dashboard.filters.periodSeason', { year: seasonAnchor.year })}
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className={sectionTitle}>{t('dashboard.opsTitle')}</h2>
+          <p className={sectionHint}>{t('dashboard.opsHint')}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <OperationalModuleCard
+            to="/receptions"
+            icon={Import}
+            label={t('nav.items.recepciones')}
+            semantic="reception"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length })}
+          />
+          <OperationalModuleCard
+            to="/processes"
+            icon={Box}
+            label={t('nav.items.procesos')}
+            semantic="process"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.moduleProcessMetric', { count: processesFiltered.length })}
+          />
+          <OperationalModuleCard
+            to="/pt-tags"
+            icon={Tag}
+            label={t('nav.items.unidadPt')}
+            semantic="pt"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.modulePtMetric', { count: ptTagsFiltered.length })}
+          />
+          <OperationalModuleCard
+            to="/existencias-pt/inventario"
+            icon={Warehouse}
+            label={t('nav.items.existenciasPt')}
+            semantic="stock"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.moduleStockMetric', {
+              boxes: Math.round(stockBoxesApprox).toLocaleString(),
+            })}
+          />
+          <OperationalModuleCard
+            to="/dispatches"
+            icon={Truck}
+            label={t('nav.items.despachos')}
+            semantic="dispatch"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length })}
+          />
+          <OperationalModuleCard
+            to="/packaging/materials"
+            icon={Package}
+            label={t('nav.items.materiales')}
+            semantic="materials"
+            hint={t('dashboard.moduleGo')}
+            metric={t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount })}
+          />
         </div>
       </section>
 
+      {canWriteOps ? (
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            {t('dashboard.quickAccess.title')}
+          </h2>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Button
+              variant="outline"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-reception-ink))]"
+              asChild
+            >
+              <Link to="/receptions">
+                <Import className="mr-2 h-5 w-5 shrink-0" />
+                {t('dashboard.quickAccess.newReception')}
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-process-border))] bg-[hsl(var(--proc-process-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-process-ink))]"
+              asChild
+            >
+              <Link to="/processes">
+                <ClipboardList className="mr-2 h-5 w-5 shrink-0" />
+                {t('dashboard.quickAccess.newProcess')}
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-pt-ink))]"
+              asChild
+            >
+              <Link to="/pt-tags">
+                <Tag className="mr-2 h-5 w-5 shrink-0" />
+                {t('dashboard.quickAccess.newPtUnit')}
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-14 justify-start whitespace-normal rounded-2xl border-2 border-[hsl(var(--proc-dispatch-border))] bg-[hsl(var(--proc-dispatch-surface))] px-4 text-base font-semibold text-[hsl(var(--proc-dispatch-ink))]"
+              asChild
+            >
+              <Link to="/dispatches">
+                <Truck className="mr-2 h-5 w-5 shrink-0" />
+                {t('dashboard.quickAccess.newDispatch')}
+              </Link>
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 text-left"
+          onClick={() => setShowExecutive((v) => !v)}
+          aria-expanded={showExecutive}
+        >
+          <div>
+            <h2 className={sectionTitle}>{t('dashboard.executiveTitle')}</h2>
+            <p className={sectionHint}>{t('dashboard.executiveHint')}</p>
+          </div>
+          <span className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-600">
+            {showExecutive ? t('dashboard.executiveToggleHide') : t('dashboard.executiveToggleShow')}
+            {showExecutive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+        </button>
+
+        {showExecutive ? (
+          <div className="space-y-6 border-t border-slate-100 pt-4">
       <section className="space-y-3">
       <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
@@ -1996,24 +2199,6 @@ export function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.quickAccess.title')}</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/receptions"><Import className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newReception')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/processes"><ClipboardList className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newProcess')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/pt-tags"><Tag className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newPtUnit')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/dispatches"><Truck className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newDispatch')}</Link>
-          </Button>
-        </div>
-      </section>
-
-      <section className="space-y-3">
         <div>
           <h2 className="text-sm font-medium text-slate-500">{t('dashboard.activity.title')}</h2>
           <p className="mt-0.5 text-[11px] text-slate-400">{t('dashboard.activity.hint')}</p>
@@ -2036,27 +2221,18 @@ export function DashboardPage() {
           )}
         </div>
       </section>
+          </div>
+        ) : null}
+      </section>
 
-      <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
-        <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Factory className="h-3.5 w-3.5" />
-          {t('dashboard.footer.plant')}
-        </Link>
-        <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Library className="h-3.5 w-3.5" />
-          {t('dashboard.footer.masters')}
-        </Link>
-        <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
-          {t('dashboard.footer.reports')}
-        </Link>
-        <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <GitBranch className="h-3.5 w-3.5" />
-          {t('dashboard.footer.guide')}
-        </Link>
-        <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Info className="h-3.5 w-3.5" />
-          {t('dashboard.footer.about')}
-        </Link>
+      <footer className="border-t border-slate-100 pt-8 text-[11px] text-slate-400">
+        <p>
+          {appBranding.displayName}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.season', { year: seasonAnchor.year })}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.version', { version: WEB_VERSION })}
+        </p>
       </footer>
     </div>
   );
