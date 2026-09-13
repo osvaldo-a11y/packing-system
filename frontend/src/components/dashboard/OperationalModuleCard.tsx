@@ -38,7 +38,7 @@ export function OperationalModuleCard({
         tok.surface,
         tok.border,
         tok.stripe,
-        'hover:-translate-y-1 hover:border-opacity-100 hover:shadow-md',
+        'hover:-translate-y-1 hover:shadow-md',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         tok.ring,
         'active:translate-y-0 active:scale-[0.99]',
