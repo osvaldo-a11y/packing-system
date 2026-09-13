@@ -2135,7 +2135,8 @@
       "order": "Orden",
       "action": "Acción",
       "country": "País",
-      "market": "Mercado"
+      "market": "Mercado",
+      "flowType": "Tipo de flujo"
     },
     "btn": {
       "newLine": "Nueva línea",
@@ -2144,7 +2145,9 @@
       "new": "Nuevo",
       "newF": "Nueva",
       "newComponent": "Nuevo componente",
-      "newClient": "Nuevo cliente"
+      "newClient": "Nuevo cliente",
+      "duplicate": "Duplicar",
+      "delete": "Borrar"
     },
     "dialog": {
       "newLine": "Nueva línea",
@@ -2192,7 +2195,8 @@
       "clamshellLabel": "Etiqueta clamshell",
       "order": "Orden",
       "configBySpecies": "Configurar componentes por especie",
-      "requiresReturn": "Requiere retorno"
+      "requiresReturn": "Requiere retorno",
+      "flowType": "Tipo de flujo"
     },
     "placeholder": {
       "codeIqf": "IQF-SINGLE",
@@ -2262,6 +2266,14 @@
       "recordDeleted": "Registro borrado",
       "reactivated": "Reactivado",
       "deactivated": "Desactivado"
+    },
+    "flowType": {
+      "processed": "Procesado",
+      "direct": "Directo"
+    },
+    "state": {
+      "active": "Activo",
+      "inactive": "Inactivo"
     }
   },
   "materials": {
