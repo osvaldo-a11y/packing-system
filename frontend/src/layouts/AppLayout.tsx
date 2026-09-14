@@ -288,7 +288,8 @@ export function AppLayout() {
   const readOnlySession = isReadOnlySession(role);
   const { data: demoInfo } = useDemoInfo(Boolean(username));
   const sandboxWritable = Boolean(demoInfo?.sandbox && demoInfo?.writable);
-  const showDemoChip = readOnlySession || sandboxWritable;
+  // Mockup: el chip DEMO es parte del chrome (visible si el backend reporta demo habilitado).
+  const showDemoChip = Boolean(demoInfo?.enabled) || readOnlySession || sandboxWritable;
   const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
