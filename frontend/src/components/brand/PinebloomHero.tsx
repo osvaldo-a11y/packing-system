@@ -50,9 +50,9 @@ export function PinebloomHero({
         className={cn(
           homeDesktop
             ? cn(
-                'pointer-events-none absolute right-0 top-0 h-full w-[640px] max-w-[54%] object-contain object-right opacity-[0.9] contrast-[1.02] brightness-[0.98] saturate-[0.72]',
-                '[mask-image:linear-gradient(to_right,transparent_0%,transparent_32%,rgba(0,0,0,0.18)_38%,rgba(0,0,0,0.62)_55%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.72)_10%,black_24%,black_78%,rgba(0,0,0,0.72)_92%,transparent_100%)]',
-                '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_32%,rgba(0,0,0,0.18)_38%,rgba(0,0,0,0.62)_55%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.72)_10%,black_24%,black_78%,rgba(0,0,0,0.72)_92%,transparent_100%)]',
+                'pointer-events-none absolute right-0 top-0 h-full w-[640px] max-w-[54%] object-contain object-right opacity-[0.96] contrast-[1.12] brightness-[1.01] saturate-[0.7] mix-blend-multiply',
+                '[mask-image:linear-gradient(to_right,transparent_0%,transparent_30%,rgba(0,0,0,0.08)_35%,rgba(0,0,0,0.55)_45%,rgba(0,0,0,0.9)_58%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.82)_6%,black_18%,black_82%,rgba(0,0,0,0.82)_95%,transparent_100%)]',
+                '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_30%,rgba(0,0,0,0.08)_35%,rgba(0,0,0,0.55)_45%,rgba(0,0,0,0.9)_58%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.82)_6%,black_18%,black_82%,rgba(0,0,0,0.82)_95%,transparent_100%)]',
                 '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
               )
             : cn(
