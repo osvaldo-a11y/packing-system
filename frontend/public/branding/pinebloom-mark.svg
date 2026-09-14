@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Pinebloom Farms">
+  <rect width="64" height="64" rx="12" fill="#515E3E"/>
+  <g stroke="#F7F5F0" stroke-width="2.2" stroke-linecap="round">
+    <path d="M32 16v18"/>
+    <path d="M32 34L20 22M32 34L44 22M32 34L22 48M32 34L42 48"/>
+    <circle cx="32" cy="34" r="3" fill="#F7F5F0" stroke="none"/>
+  </g>
+</svg>
