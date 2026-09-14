@@ -43,9 +43,9 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute right-0 top-1/2 h-[158%] w-auto max-w-none -translate-y-1/2 object-cover object-right opacity-[0.9] contrast-[1.03] brightness-[0.99]',
-          wideLandscape && 'right-[-2%] h-[150%] opacity-95',
-          '[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.06)_14%,rgba(0,0,0,0.5)_36%,black_62%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.06)_14%,rgba(0,0,0,0.5)_36%,black_62%,black_100%)]',
+          'pointer-events-none absolute right-[-2%] top-1/2 h-[255%] w-auto max-w-none -translate-y-1/2 object-cover object-[100%_42%] opacity-[0.86] contrast-[1.02] brightness-[1.01]',
+          wideLandscape && 'right-[-4%] h-[220%] opacity-95',
+          '[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.04)_18%,rgba(0,0,0,0.42)_40%,black_68%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.04)_18%,rgba(0,0,0,0.42)_40%,black_68%,black_100%)]',
         )}
         aria-hidden
       />
