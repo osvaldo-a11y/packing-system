@@ -174,15 +174,15 @@ function NavList({
                     cn(
                       'group flex items-center gap-2.5 rounded-full px-2.5 transition-colors duration-150',
                       homeReference
-                        ? 'h-12 py-0 text-[13px]'
+                        ? 'h-12 py-0 text-[14.5px]'
                         : item.emphasize
-                          ? 'py-2 text-[13px]'
-                          : 'py-[7px] text-[12.5px]',
+                          ? 'py-2 text-[14.5px]'
+                          : 'py-[7px] text-[14px]',
                       item.emphasize ? 'font-semibold' : 'font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
                         ? 'bg-[var(--olive-700)] text-white'
-                        : 'text-[rgba(228,229,221,0.88)] hover:bg-white/[0.08] hover:text-white',
+                        : 'text-[#E3E6DF] hover:bg-white/[0.08] hover:text-white',
                     )
                   }
                 >
@@ -191,8 +191,8 @@ function NavList({
                       <Icon
                         className={cn(
                           'shrink-0 stroke-[1.85]',
-                          item.emphasize ? 'h-[18px] w-[18px]' : 'h-[16px] w-[16px]',
-                          isActive ? 'text-white' : 'text-[rgba(211,216,207,0.82)] group-hover:text-white',
+                          item.emphasize ? 'h-6 w-6' : 'h-[22px] w-[22px]',
+                          isActive ? 'text-white' : 'text-[#CDD3CB] group-hover:text-white',
                         )}
                         style={{ color: isActive ? '#FFFFFF' : undefined }}
                         aria-hidden
@@ -234,11 +234,11 @@ function NavList({
                         collapsed && 'justify-center px-0',
                         isActive
                           ? 'bg-[var(--olive-700)] text-white'
-                          : 'text-[rgba(228,229,221,0.88)] hover:bg-white/[0.08] hover:text-white',
+                          : 'text-[#E3E6DF] hover:bg-white/[0.08] hover:text-white',
                       )
                     }
                   >
-                    <Upload className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                    <Upload className="h-4 w-4 shrink-0 text-[#CDD3CB]" aria-hidden />
                     {!collapsed ? <span>{t('nav.items.cargaMasiva')}</span> : null}
                   </NavLink>
                 );
@@ -260,7 +260,7 @@ function NavList({
             target="_blank"
             rel="noreferrer"
             className={cn(
-              'flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium text-slate-400 hover:bg-white/8 hover:text-slate-200',
+              'flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium text-[#E3E6DF] hover:bg-white/8 hover:text-white',
               collapsed && 'justify-center px-0',
             )}
             title={collapsed ? t('nav.items.apiDocs') : undefined}
@@ -340,7 +340,7 @@ export function AppLayout() {
         >
           <BrandMark
             collapsed={collapsed}
-            className={isHomeDesktop && !collapsed ? '[&_img]:h-[70px] [&_img]:max-w-[198px]' : undefined}
+            className={isHomeDesktop && !collapsed ? '[&_img]:h-[75px] [&_img]:max-w-[212px]' : undefined}
           />
           {!collapsed ? (
             <Button
@@ -395,7 +395,7 @@ export function AppLayout() {
             {!collapsed ? (
               <p
                 className={cn(
-                  'font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[rgba(237,241,232,0.82)]',
+                  'font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[#E3E6DF]',
                   isHomeDesktop && 'text-[11.5px] leading-[1.45] tracking-[0.14em]',
                 )}
               >
