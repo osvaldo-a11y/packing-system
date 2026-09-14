@@ -1492,7 +1492,7 @@ export function DashboardPage() {
       </section>
 
       {canWriteOps ? (
-        <section className="mt-[30px] space-y-2">
+        <section className="mt-[22px] space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
             <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
               {t('dashboard.quickAccess.title')}
