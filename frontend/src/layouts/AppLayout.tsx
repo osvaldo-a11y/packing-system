@@ -312,8 +312,8 @@ export function AppLayout() {
       >
         <div
           className={cn(
-            'flex min-h-[72px] shrink-0 items-center border-b border-white/[0.14]',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5',
+            'flex min-h-[78px] shrink-0 items-center border-b border-white/[0.14]',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5 py-1',
           )}
         >
           <BrandMark collapsed={collapsed} />
@@ -454,7 +454,7 @@ export function AppLayout() {
               {pageTitle}
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          <div className="flex shrink-0 items-center gap-2.5 sm:gap-3.5">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
             <div className="hidden sm:block">
               <LanguageToggle />
@@ -509,7 +509,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-5 lg:py-3">
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-5 lg:py-3">
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
             <Outlet />
           </div>

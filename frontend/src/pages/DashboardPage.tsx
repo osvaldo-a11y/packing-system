@@ -1350,6 +1350,7 @@ export function DashboardPage() {
         title={t('dashboard.askWhat')}
         subtitle={t('dashboard.askHint')}
         compact
+        showSeal={false}
       >
         <PeriodFilter
           value={period}

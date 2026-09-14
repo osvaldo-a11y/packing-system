@@ -44,12 +44,12 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid min-h-[42px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3.5 gap-y-0.5 px-3.5 py-[9px] transition-colors hover:bg-[var(--sage-100)]/60 sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[10px]',
+        'grid min-h-[40px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-4 gap-y-0.5 px-3.5 py-[7px] transition-colors hover:bg-[var(--sage-100)]/60 sm:min-h-[42px] sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[8px]',
         className,
       )}
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-100)] text-[var(--olive-700)]">
-        <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-100)] text-[var(--olive-700)] sm:h-[34px] sm:w-[34px]">
+        <Icon className="h-[17px] w-[17px]" strokeWidth={2.1} aria-hidden />
       </span>
       <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)]">{title}</p>
       <span className="hidden text-[11px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>

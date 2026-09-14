@@ -1331,7 +1331,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[52%] max-w-none object-cover object-right opacity-[0.26] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[72%_center] opacity-[0.34] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1343,8 +1343,11 @@ export function ReceptionPage() {
                 <p className="text-[13px] text-[var(--ink-muted)]">
                   {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
                 </p>
-                <p className="max-w-[11rem] text-[10px] font-semibold uppercase leading-[1.45] tracking-[0.18em] text-[var(--ink-muted)] sm:max-w-[14rem] sm:text-[11px]">
-                  {t('reception.dialog.claim', { defaultValue: 'FRUTA DE NUESTRA TIERRA. UN FUTURO MÁS BRILLANTE.' })}
+                <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] sm:max-w-[14rem] sm:text-[11px]">
+                  <span className="block">FRUTA DE</span>
+                  <span className="block">NUESTRA TIERRA.</span>
+                  <span className="block">UN FUTURO</span>
+                  <span className="block">MÁS BRILLANTE.</span>
                 </p>
               </div>
               <button
@@ -1370,7 +1373,7 @@ export function ReceptionPage() {
                 <section
                   className={cn(
                     operationalModalSectionCard,
-                    'min-h-0 w-full border-b border-border px-4 py-[14px]',
+                    'min-h-0 w-full border-b border-border px-[14px] py-[14px] sm:px-4',
                   )}
                 >
                   <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
@@ -1569,7 +1572,7 @@ export function ReceptionPage() {
 
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                   <section
-                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-4 py-[14px]')}
+                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-[14px] py-[14px] sm:px-4')}
                   >
                     <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 flex-wrap items-start gap-2">
@@ -1593,7 +1596,7 @@ export function ReceptionPage() {
                               })
                             }
                           >
-                            + {t('reception.dialog.addLine')}
+                            {t('reception.dialog.addLine')}
                           </button>
                           <button
                             type="button"
@@ -1873,7 +1876,7 @@ export function ReceptionPage() {
                     </div>
                   </section>
 
-                  <section className={cn(operationalModalSectionCard, 'shrink-0 px-4 py-[14px]')}>
+                  <section className={cn(operationalModalSectionCard, 'shrink-0 px-[14px] py-[14px] sm:px-4')}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
                       <span className={operationalModalStepBadge}>3</span>
                       <div>
@@ -1932,7 +1935,7 @@ export function ReceptionPage() {
             <DialogFooter
               className={cn(
                 operationalModalFooterClass,
-                'sticky bottom-0 z-10 flex flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between',
+                'sticky bottom-0 z-10 flex flex-col gap-1 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 sm:flex-row sm:items-center sm:justify-between',
               )}
             >
               <div className="order-1 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
@@ -1950,7 +1953,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 min-h-11 basis-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[var(--ink)] hover:bg-[var(--stone-200)] sm:basis-auto"
+                  className="h-10 min-h-10 basis-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:basis-auto"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -1958,7 +1961,10 @@ export function ReceptionPage() {
                 {!viewOnly ? (
                   <button
                     type="submit"
-                    className={cn(modalFormPrimaryButton, 'inline-flex items-center justify-center gap-2')}
+                    className={cn(
+                      modalFormPrimaryButton,
+                      'inline-flex h-10 min-h-10 items-center justify-center gap-2 max-md:basis-[62%] max-md:text-[13px]',
+                    )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
                     {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
@@ -1972,8 +1978,8 @@ export function ReceptionPage() {
                   </button>
                 ) : null}
               </div>
-              <div className="order-2 flex items-center gap-1.5 text-[10px] text-[var(--ink-muted)] sm:order-1">
-                <Scale className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <div className="order-2 flex items-center gap-1.5 text-[9px] text-[var(--ink-muted)] sm:order-1">
+                <Scale className="h-3 w-3 shrink-0" aria-hidden />
                 <span>
                   {t('reception.dialog.footerNet')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.net, 2)} lb</span>
                   {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.gross, 2)} lb</span>
@@ -2042,6 +2048,7 @@ export function ReceptionPage() {
         }
         compact
         wideLandscape
+        showSeal={false}
         claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
         actions={
           canOperateReception ? (
@@ -2174,7 +2181,7 @@ export function ReceptionPage() {
         ) : null}
       </section>
 
-      <div className={cn(filterPanel, 'mt-1 space-y-2.5')}>
+      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5')}>
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
