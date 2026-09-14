@@ -194,6 +194,7 @@ function NavList({
                           item.emphasize ? 'h-[18px] w-[18px]' : 'h-[16px] w-[16px]',
                           isActive ? 'text-white' : 'text-[rgba(211,216,207,0.82)] group-hover:text-white',
                         )}
+                        style={{ color: isActive ? '#FFFFFF' : undefined }}
                         aria-hidden
                       />
                       {!collapsed ? (
