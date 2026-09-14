@@ -58,8 +58,8 @@ export const appBranding: AppBranding = {
   markUrl: envMark?.trim() || '/branding/pinebloom-windmill-mark.svg',
   windmillUrl: '/branding/pinebloom-windmill-mark-light.svg',
   windmillMarkUrl: '/branding/pinebloom-windmill-mark.svg',
-  watermarkUrl: '/branding/pinebloom-field-hero.png?v=home5',
-  landscapeUrl: '/branding/pinebloom-field-hero.png?v=home5',
+  watermarkUrl: '/branding/pinebloom-field-hero.png?v=home6',
+  landscapeUrl: '/branding/pinebloom-field-hero.png?v=home6',
   documentTitle: `${company} · ${product}`,
 };
 
