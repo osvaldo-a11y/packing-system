@@ -1,3 +1,4 @@
+import { Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import i18n from '@/i18n';
 
@@ -26,10 +27,13 @@ export function LanguageToggle() {
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex h-8 min-w-[2.25rem] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold tracking-wide text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
-      aria-label={active === 'en' ? 'Cambiar a español' : 'Switch to English'}
+      className="inline-flex h-7 items-center justify-center gap-1 rounded-full border border-[var(--stone-300)] bg-[var(--stone-50)] px-2 text-[11px] font-semibold tracking-wide text-[var(--ink)] transition-colors hover:bg-[var(--sage-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive-700)]"
+      aria-label={active === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'}
+      title={active === 'en' ? 'Language: English (click for Spanish)' : 'Idioma: español (clic para inglés)'}
     >
-      {active === 'en' ? 'ES' : 'EN'}
+      {/* Muestra el idioma activo (no el destino) para evitar confusión en revisión visual. */}
+      <Globe className="h-3 w-3 opacity-70" aria-hidden />
+      {active === 'en' ? 'EN' : 'ES'}
     </button>
   );
 }

@@ -41,8 +41,9 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-        inter: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        serif: ['Georgia', '"Times New Roman"', 'Times', 'serif'],
+        display: ['Georgia', '"Times New Roman"', 'Times', 'serif'],
       },
       keyframes: {
         'fade-in': {

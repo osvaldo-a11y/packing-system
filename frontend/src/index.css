@@ -4,25 +4,153 @@
 
 @layer base {
   :root {
-    /* Tema claro por defecto: fondo suave, texto oscuro, primario azul sobrio */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* GOLD MASTER — Pinebloom Farms */
+    --pine-950: #292e28;
+    --pine-900: #31372f;
+    --pine-800: #3c4435;
+
+    --olive-700: #596b3e;
+    --olive-600: #687b49;
+    --olive-500: #7b8f57;
+
+    --sage-100: #edf1e8;
+    --sage-200: #dfe7d7;
+    --sage-300: #ccd8c1;
+
+    --stone-50: #fbfaf7;
+    --stone-100: #f6f4ef;
+    --stone-200: #ebe8e1;
+    --stone-300: #dad6cd;
+
+    --bluegray-100: #e8f0f4;
+    --bluegray-200: #d4e3ea;
+    --bluegray-700: #435f6e;
+
+    --harvest-100: #f4edde;
+    --harvest-200: #ead9b8;
+    --harvest-700: #705326;
+
+    --ink: #262a26;
+    --ink-muted: #73776f;
+
+    --radius-sm: 6px;
+    --radius-md: 9px;
+    --radius-lg: 12px;
+
+    /* Compat aliases usados por componentes existentes */
+    --pb-bg: var(--stone-50);
+    --pb-surface: #ffffff;
+    --pb-surface-warm: var(--stone-100);
+    --pb-charcoal: var(--pine-950);
+    --pb-charcoal-2: var(--pine-800);
+    --pb-olive: var(--olive-700);
+    --pb-olive-strong: var(--olive-700);
+    --pb-olive-soft: var(--sage-100);
+    --pb-sage: var(--sage-300);
+    --pb-sage-soft: var(--sage-100);
+    --pb-bluegray: var(--bluegray-700);
+    --pb-bluegray-soft: var(--bluegray-100);
+    --pb-stone: var(--stone-300);
+    --pb-stone-soft: var(--stone-100);
+    --pb-harvest: var(--harvest-200);
+    --pb-harvest-soft: var(--harvest-100);
+    --pb-border: var(--stone-300);
+    --pb-muted: var(--ink-muted);
+    --pb-text: var(--ink);
+
+    --font-display: Georgia, 'Times New Roman', Times, serif;
+    --font-ui: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    --status-success: #5B7D47;
+    --status-warning: #B78A35;
+    --status-danger: #B84A43;
+    --status-info: var(--bluegray-700);
+    --status-muted: var(--ink-muted);
+
+    --pb-mod-reception-bg: var(--sage-100);
+    --pb-mod-reception-accent: var(--olive-600);
+    --pb-mod-process-bg: var(--stone-100);
+    --pb-mod-process-accent: #8D887E;
+    --pb-mod-pt-bg: var(--bluegray-100);
+    --pb-mod-pt-accent: var(--bluegray-700);
+    --pb-mod-stock-bg: var(--bluegray-100);
+    --pb-mod-stock-accent: var(--bluegray-700);
+    --pb-mod-dispatch-bg: var(--harvest-100);
+    --pb-mod-dispatch-accent: var(--harvest-700);
+    --pb-mod-materials-bg: var(--sage-100);
+    --pb-mod-materials-accent: var(--olive-600);
+
+    --brand-primary: 85 27% 33%;
+    --brand-primary-hover: 85 27% 28%;
+    --brand-primary-soft: 90 22% 93%;
+    --brand-primary-foreground: 40 33% 97%;
+    --brand-primary-glow: 85 27% 33%;
+    --brand-charcoal: 100 6% 17%;
+    --brand-muted: 90 3% 45%;
+    --brand-surface: 45 33% 98%;
+    --brand-surface-elevated: 0 0% 100%;
+    --brand-border: 40 12% 83%;
+    --brand-rail: 100 6% 17%;
+    --brand-rail-border: 100 6% 14%;
+
+    --background: 45 33% 98%;
+    --foreground: 100 5% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 221 83% 48%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 214 32% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 25% 96%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 214 32% 93%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%;
+    --card-foreground: 100 5% 15%;
+    --primary: 85 27% 33%;
+    --primary-foreground: 40 33% 97%;
+    --secondary: 40 20% 95%;
+    --secondary-foreground: 100 5% 20%;
+    --muted: 40 18% 95%;
+    --muted-foreground: 90 3% 45%;
+    --accent: 90 22% 93%;
+    --accent-foreground: 85 27% 28%;
+    --destructive: 3 45% 49%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 24% 88%;
-    --input: 214 24% 88%;
-    --ring: 221 83% 48%;
-    --radius: 0.75rem;
+    --border: 40 12% 83%;
+    --input: 40 12% 83%;
+    --ring: 85 27% 33%;
+    --radius: 0.5625rem;
+
+    --proc-reception-surface: 90 22% 93%;
+    --proc-reception-border: 90 12% 80%;
+    --proc-reception-ink: 85 27% 28%;
+    --proc-reception-accent: 85 27% 33%;
+
+    --proc-process-surface: 40 14% 95%;
+    --proc-process-border: 40 10% 84%;
+    --proc-process-ink: 30 6% 36%;
+    --proc-process-accent: 30 5% 42%;
+
+    --proc-pt-surface: 198 28% 94%;
+    --proc-pt-border: 198 16% 84%;
+    --proc-pt-ink: 198 24% 35%;
+    --proc-pt-accent: 198 24% 35%;
+
+    --proc-stock-surface: 198 28% 94%;
+    --proc-stock-border: 198 16% 84%;
+    --proc-stock-ink: 198 24% 35%;
+    --proc-stock-accent: 198 24% 35%;
+
+    --proc-dispatch-surface: 40 45% 93%;
+    --proc-dispatch-border: 40 24% 82%;
+    --proc-dispatch-ink: 36 49% 29%;
+    --proc-dispatch-accent: 36 49% 29%;
+
+    --proc-materials-surface: 90 22% 93%;
+    --proc-materials-border: 90 12% 80%;
+    --proc-materials-ink: 85 27% 28%;
+    --proc-materials-accent: 85 27% 33%;
+
+    --proc-error-surface: 0 35% 96%;
+    --proc-error-border: 0 28% 86%;
+    --proc-error-ink: 0 45% 36%;
+    --proc-error-accent: 0 55% 45%;
+
+    --proc-admin-surface: 40 8% 95%;
+    --proc-admin-border: 40 6% 86%;
+    --proc-admin-ink: 100 5% 28%;
+    --proc-admin-accent: 100 4% 36%;
   }
 
   * {
@@ -36,19 +164,48 @@
   }
 
   body {
-    @apply min-h-[100dvh] bg-background text-foreground font-sans;
-    background-image: linear-gradient(180deg, hsl(210 25% 97%) 0%, hsl(var(--background)) 32%);
+    @apply min-h-[100dvh] font-sans text-foreground;
+    background-color: var(--stone-50);
+    color: var(--ink);
   }
 
-  h1 {
-    @apply tracking-tight text-slate-900;
-  }
-
-  h2 {
-    @apply tracking-tight text-slate-800;
+  h1,
+  h2,
+  h3,
+  .font-display,
+  .font-serif {
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    color: var(--ink);
+    letter-spacing: -0.01em;
   }
 
   #root {
     @apply min-h-[100dvh] w-full min-w-0;
+  }
+
+  @media (max-width: 767px) {
+    [data-operational-modal='true'],
+    .operational-modal-fs {
+      position: fixed !important;
+      inset: 0 !important;
+      left: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      max-width: none !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      transform: none !important;
+      border-radius: 1rem 1rem 0 0 !important;
+      border-width: 0 !important;
+      margin: 0 !important;
+    }
+
+    [data-operational-modal='true'] input:not([type='checkbox']):not([type='hidden']),
+    [data-operational-modal='true'] select,
+    [data-operational-modal='true'] textarea {
+      min-height: 44px;
+    }
   }
 }

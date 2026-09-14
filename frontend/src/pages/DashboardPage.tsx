@@ -2,18 +2,15 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   AlertTriangle,
-  Calendar,
-  ClipboardList,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Cog,
   DollarSign,
-  Factory,
-  GitBranch,
-  Import,
   Info,
-  Library,
-  Tag,
   TrendingUp,
   Truck,
-  User,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,15 +18,19 @@ import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { fetchSeasonPace, type SeasonPaceResult } from '@/api/seasonPace';
 import { useAuth } from '@/AuthContext';
-import { isReadOnlySession } from '@/lib/roles';
+import { PinebloomHero } from '@/components/brand/PinebloomHero';
+import { PeriodFilter } from '@/components/brand/PeriodFilter';
+import { RecentActivityRow } from '@/components/brand/RecentActivityRow';
+import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
+import { processTokens } from '@/lib/process-tokens';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { appBranding } from '@/lib/branding';
+import { canOperate, isReadOnlySession } from '@/lib/roles';
 import {
   emptyStateBanner,
   pageStack,
-  pageSubtitle,
-  pageTitle,
   sectionHint,
   sectionTitle,
 } from '@/lib/page-ui';
@@ -43,6 +44,8 @@ import type { ReceptionRow } from './ReceptionPage';
 import type { RecipeApi } from './RecipesPage';
 import { isOrderCanceled } from '@/lib/sales-order-status';
 import type { SalesOrderRow } from './SalesOrdersPage';
+
+const WEB_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
 
 type DashboardMaterial = PackagingMaterialRow & {
   material_category?: { id: number; codigo: string; nombre: string };
@@ -607,14 +610,18 @@ function materialAppliesToFormatAndClient(m: DashboardMaterial, formatId: number
 
 export function DashboardPage() {
   const { t } = useTranslation('common');
-  const { username, role, token } = useAuth();
+  const { role, token } = useAuth();
   const demoReadOnly = isReadOnlySession(role);
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
 
-  const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
+
+  const [period, setPeriod] = useState<DashboardPeriod>('today');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showExecutive, setShowExecutive] = useState(false);
+  const canWriteOps = canOperate(role);
   const queryParams = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set('period', period);
@@ -1176,7 +1183,19 @@ export function DashboardPage() {
   }, [ptTagsFiltered, dispatchesFiltered, clientsQ.data, ptTagById, processById, producerId, speciesId, workMode]);
 
   const activityRows = useMemo(() => {
-    const rows: Array<{ id: string; ts: number; when: string; kind: string; detail: string; to: string }> = [];
+    const rows: Array<{
+      id: string;
+      ts: number;
+      when: string;
+      kind: string;
+      detail: string;
+      subtitle: string;
+      statusLabel: string;
+      statusTone: 'success' | 'info' | 'muted' | 'warning';
+      user: string;
+      to: string;
+      icon: typeof Truck;
+    }> = [];
     for (const r of receptionsFiltered.slice(0, 8)) {
       const iso = r.received_at;
       rows.push({
@@ -1185,7 +1204,14 @@ export function DashboardPage() {
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindReception'),
         detail: r.reference_code || `#${r.id}`,
+        subtitle: t('dashboard.activity.receptionDetail', {
+          defaultValue: 'Ingreso de fruta registrado',
+        }),
+        statusLabel: t('dashboard.activity.statusRegistered', { defaultValue: 'Registrada' }),
+        statusTone: 'muted',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/receptions',
+        icon: Truck,
       });
     }
     for (const p of processesFiltered.slice(0, 8)) {
@@ -1196,21 +1222,31 @@ export function DashboardPage() {
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindProcess'),
         detail: `#${p.id}`,
+        subtitle: t('dashboard.activity.processDetail', { defaultValue: 'Línea de proceso' }),
+        statusLabel: t('dashboard.activity.statusOpen', { defaultValue: 'En proceso' }),
+        statusTone: 'info',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/processes',
+        icon: Cog,
       });
     }
-    for (const d of dispatchesFiltered.slice(0, 8)) {
-      const iso = d.fecha_despacho ?? d.despachado_at ?? d.confirmed_at;
+    for (const disp of dispatchesFiltered.slice(0, 8)) {
+      const iso = disp.fecha_despacho ?? disp.despachado_at ?? disp.confirmed_at;
       rows.push({
-        id: `d-${d.id}`,
+        id: `d-${disp.id}`,
         ts: new Date(iso).getTime(),
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindDispatch'),
-        detail: d.numero_bol || `#${d.id}`,
+        detail: disp.numero_bol || `#${disp.id}`,
+        subtitle: t('dashboard.activity.dispatchDetail', { defaultValue: 'Despacho preparado' }),
+        statusLabel: t('dashboard.activity.statusReady', { defaultValue: 'Listo' }),
+        statusTone: 'success',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/dispatches',
+        icon: Truck,
       });
     }
-    return rows.sort((a, b) => b.ts - a.ts).slice(0, 8);
+    return rows.sort((a, b) => b.ts - a.ts).slice(0, 5);
   }, [receptionsFiltered, processesFiltered, dispatchesFiltered, t]);
 
   type DashboardAlertVariant = 'material_critical' | 'tripaje_critical' | 'order_risk' | 'info';
@@ -1253,6 +1289,16 @@ export function DashboardPage() {
     return rows.slice(0, 3);
   }, [trace?.materials_low_stock.length, riskOrdersCount, tripajeCards, t]);
 
+  const stockBoxesApprox = useMemo(
+    () => ptTagsFiltered.reduce((s, t) => s + Math.max(0, Number((t as { total_cajas?: number }).total_cajas ?? 0)), 0),
+    [ptTagsFiltered],
+  );
+
+  const materialsActiveCount = useMemo(
+    () => (matsQ.data ?? []).filter((m) => m.activo !== false).length,
+    [matsQ.data],
+  );
+
   const dashboardLoading =
     canLoad &&
     (recQ.isPending ||
@@ -1277,79 +1323,51 @@ export function DashboardPage() {
     formatsQ.isError ||
     clientsQ.isError;
 
+  const [retryingLists, setRetryingLists] = useState(false);
+  const retryDashboardLists = async () => {
+    setRetryingLists(true);
+    try {
+      await Promise.all([
+        recQ.refetch(),
+        procQ.refetch(),
+        dispQ.refetch(),
+        tagsQ.refetch(),
+        ordersQ.refetch(),
+        matsQ.refetch(),
+        recipesQ.refetch(),
+        formatsQ.refetch(),
+        clientsQ.refetch(),
+      ]);
+    } finally {
+      setRetryingLists(false);
+    }
+  };
+
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Pinebloom Packing</p>
-          <h1 className={pageTitle}>{t('dashboard.title')}</h1>
-          <p className={pageSubtitle}>{t('dashboard.subtitle')}</p>
-        </div>
-        <div className="space-y-1 text-right">
-          <p className="text-sm text-slate-700">
-            <User className="mr-1 inline h-4 w-4 text-slate-400" />
-            {username ?? t('dashboard.session')} {role ? <span className="text-slate-400">· {role}</span> : null}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            <Calendar className="mr-1 inline h-3.5 w-3.5" />
-            {new Date().toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-          </p>
-        </div>
-      </header>
-
-      {!canLoad ? (
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white px-4 py-3 text-sm text-amber-950 shadow-sm ring-1 ring-amber-100/80">
-          <strong className="font-semibold">{t('dashboard.noAuth.title')}</strong>{' '}
-          {t('dashboard.noAuth.desc')}{' '}
-          <Link to="/login" className="font-medium underline underline-offset-2 hover:no-underline">
-            {t('dashboard.noAuth.link')}
-          </Link>
-        </div>
-      ) : null}
-
-      {canLoad && dashboardListError ? (
-        <div
-          className={cn(
-            'rounded-2xl px-4 py-3 text-sm',
-            demoReadOnly
-              ? 'border border-amber-200/90 bg-amber-50/90 text-amber-950'
-              : 'border border-red-200 bg-red-50/90 text-red-900',
-          )}
-        >
-          <strong className="font-semibold">
-            {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
-          </strong>{' '}
-          {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
-        </div>
-      ) : null}
-
-      <section className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur ring-1 ring-slate-200/70">
-        <div className="flex h-10 flex-nowrap items-center gap-2 overflow-x-auto">
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {[
-              { key: 'today', label: t('dashboard.filters.today') },
-              { key: 'week', label: t('dashboard.filters.week') },
-              { key: 'accumulated', label: t('dashboard.filters.accumulated') },
-            ].map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key as DashboardPeriod)}
-                className={cn(
-                  'h-8 shrink-0 rounded-full border px-2.5 text-xs font-medium transition-colors',
-                  period === p.key
-                    ? 'border-[#1D9E75] bg-[#1D9E75] text-white'
-                    : 'border-border bg-background text-foreground hover:bg-muted/60',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="hidden h-5 shrink-0 self-center border-l border-border md:block" aria-hidden />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+      
+      <PinebloomHero
+        title={t('dashboard.askWhat')}
+        subtitle={t('dashboard.askHint')}
+        compact
+        showSeal={false}
+      >
+        <PeriodFilter
+          value={period}
+          onChange={setPeriod}
+          moreLabel={showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
+          moreOpen={showMoreFilters}
+          onMoreClick={() => setShowMoreFilters((v) => !v)}
+          options={[
+            { key: 'today' as const, label: t('dashboard.filters.today') },
+            { key: 'week' as const, label: t('dashboard.filters.week') },
+            { key: 'accumulated' as const, label: t('dashboard.filters.accumulated') },
+          ]}
+        />
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-[var(--pb-border)]/80 pt-3 sm:grid-cols-3">
             <select
-              className="h-8 min-w-[8rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[14rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
               value={producerId === 'all' ? 'all' : String(producerId)}
               onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
@@ -1361,7 +1379,7 @@ export function DashboardPage() {
               ))}
             </select>
             <select
-              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[12rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
               value={speciesId === 'all' ? 'all' : String(speciesId)}
               onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
@@ -1373,7 +1391,7 @@ export function DashboardPage() {
               ))}
             </select>
             <select
-              className="h-8 min-w-[7rem] max-w-full flex-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring md:max-w-[11rem] md:flex-initial"
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
               value={workMode}
               onChange={(e) => setWorkMode(e.target.value as WorkMode)}
             >
@@ -1382,9 +1400,186 @@ export function DashboardPage() {
               <option value="machine">{t('dashboard.filters.machine')}</option>
             </select>
           </div>
+        ) : null}
+      </PinebloomHero>
+
+      {!canLoad ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <strong className="font-semibold">{t('dashboard.noAuth.title')}</strong>{' '}
+          {t('dashboard.noAuth.desc')}{' '}
+          <Link to="/login" className="font-medium underline underline-offset-2 hover:no-underline">
+            {t('dashboard.noAuth.link')}
+          </Link>
+        </div>
+      ) : null}
+
+      {canLoad && dashboardListError ? (
+        <div
+          className={cn(
+            'flex flex-col gap-2 rounded-2xl px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between',
+            demoReadOnly
+              ? 'border border-amber-200/90 bg-amber-50/90 text-amber-950'
+              : 'border border-amber-200/90 bg-amber-50/90 text-amber-950',
+          )}
+        >
+          <p>
+            <strong className="font-semibold">
+              {demoReadOnly ? t('dashboard.loadError.demoTitle') : t('dashboard.loadError.title')}
+            </strong>{' '}
+            {demoReadOnly ? t('dashboard.loadError.demoDesc') : t('dashboard.loadError.desc')}
+          </p>
+          {!demoReadOnly ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-xl border-amber-300 bg-white px-3 font-semibold text-amber-950 hover:bg-amber-100"
+              disabled={retryingLists}
+              onClick={() => void retryDashboardLists()}
+            >
+              {retryingLists ? t('dashboard.loadError.retrying') : t('dashboard.loadError.retry')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+
+
+      <section className="space-y-2.5">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
+          <OperationalModuleCard
+            to="/receptions"
+            label={t('nav.items.recepciones')}
+            semantic="reception"
+            metric={t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length })}
+            description={t('dashboard.moduleReceptionDesc')}
+          />
+          <OperationalModuleCard
+            to="/processes"
+            label={t('nav.items.procesos')}
+            semantic="process"
+            metric={t('dashboard.moduleProcessMetric', { count: processesFiltered.length })}
+            description={t('dashboard.moduleProcessDesc')}
+          />
+          <OperationalModuleCard
+            to="/pt-tags"
+            label={t('nav.items.unidadPt')}
+            semantic="pt"
+            metric={t('dashboard.modulePtMetric', { count: ptTagsFiltered.length })}
+            description={t('dashboard.modulePtDesc')}
+          />
+          <OperationalModuleCard
+            to="/existencias-pt/inventario"
+            label={t('nav.items.existenciasPt')}
+            semantic="stock"
+            metric={t('dashboard.moduleStockMetric', {
+              boxes: Math.round(stockBoxesApprox).toLocaleString(),
+            })}
+            description={t('dashboard.moduleStockDesc')}
+          />
+          <OperationalModuleCard
+            to="/dispatches"
+            label={t('nav.items.despachos')}
+            semantic="dispatch"
+            metric={t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length })}
+            description={t('dashboard.moduleDispatchDesc')}
+          />
+          <OperationalModuleCard
+            to="/packaging/materials"
+            label={t('nav.items.materiales')}
+            semantic="materials"
+            metric={t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount })}
+            description={t('dashboard.moduleMaterialsDesc')}
+          />
         </div>
       </section>
 
+      {canWriteOps ? (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+              {t('dashboard.quickAccess.title')}
+            </h2>
+            <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.quickAccess.subtitle')}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, Icon: Truck },
+                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, Icon: Cog },
+                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, Icon: Boxes },
+                { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const, Icon: Truck },
+              ] as const
+            ).map((a) => (
+              <Link
+                key={a.to}
+                to={a.to}
+                className={cn(
+                  'group flex min-h-[48px] items-center gap-3 rounded-[var(--radius-md)] border px-3 text-[13px] font-semibold transition-colors sm:min-h-[50px]',
+                  processTokens[a.semantic].surface,
+                  processTokens[a.semantic].border,
+                  processTokens[a.semantic].ink,
+                )}
+              >
+                <a.Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={2.15} />
+                <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                <ChevronRight className="h-4 w-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-2.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+            {t('dashboard.recentActivity.title')}
+          </h2>
+          <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}</p>
+        </div>
+        {activityRows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-500">
+            {t('dashboard.recentActivity.empty')}
+          </p>
+        ) : (
+          <ul className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-white">
+            {activityRows.map((row, idx) => (
+              <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--stone-200)]')}>
+                <RecentActivityRow
+                  to={row.to}
+                  icon={row.icon}
+                  title={`${row.kind} · ${row.detail}`}
+                  when={row.when}
+                  detail={row.subtitle}
+                  statusLabel={row.statusLabel}
+                  statusTone={row.statusTone}
+                  user={row.user}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 text-left"
+          onClick={() => setShowExecutive((v) => !v)}
+          aria-expanded={showExecutive}
+        >
+          <div>
+            <h2 className={sectionTitle}>{t('dashboard.executiveTitle')}</h2>
+            <p className={sectionHint}>{t('dashboard.executiveHint')}</p>
+          </div>
+          <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600">
+            {showExecutive ? t('dashboard.executiveToggleHide') : t('dashboard.executiveToggleShow')}
+            {showExecutive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+        </button>
+
+        {showExecutive ? (
+          <div className="space-y-6 border-t border-slate-100 pt-4">
       <section className="space-y-3">
       <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
@@ -1995,68 +2190,18 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.quickAccess.title')}</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/receptions"><Import className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newReception')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/processes"><ClipboardList className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newProcess')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/pt-tags"><Tag className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newPtUnit')}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="h-auto justify-start rounded-xl border bg-white px-3 py-3" asChild>
-            <Link to="/dispatches"><Truck className="mr-2 h-4 w-4" />{t('dashboard.quickAccess.newDispatch')}</Link>
-          </Button>
-        </div>
+          </div>
+        ) : null}
       </section>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-medium text-slate-500">{t('dashboard.activity.title')}</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">{t('dashboard.activity.hint')}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white px-4 py-2">
-          {activityRows.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-slate-400">{t('dashboard.activity.noData')}</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {activityRows.map((row) => (
-                <li key={row.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-2.5">
-                  <span className="w-36 shrink-0 text-[11px] tabular-nums text-slate-400">{row.when}</span>
-                  <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">{row.kind}</span>
-                  <Link to={row.to} className="min-w-0 flex-1 truncate text-sm text-slate-800 underline-offset-2 hover:underline">
-                    {row.detail}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      <footer className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-8 text-[11px] text-slate-400">
-        <Link to="/plant" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Factory className="h-3.5 w-3.5" />
-          {t('dashboard.footer.plant')}
-        </Link>
-        <Link to="/masters" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Library className="h-3.5 w-3.5" />
-          {t('dashboard.footer.masters')}
-        </Link>
-        <Link to="/reporting" className="text-slate-500 transition-colors hover:text-slate-700">
-          {t('dashboard.footer.reports')}
-        </Link>
-        <Link to="/guide/sistema" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <GitBranch className="h-3.5 w-3.5" />
-          {t('dashboard.footer.guide')}
-        </Link>
-        <Link to="/about" className="inline-flex items-center gap-1.5 text-slate-500 transition-colors hover:text-slate-700">
-          <Info className="h-3.5 w-3.5" />
-          {t('dashboard.footer.about')}
-        </Link>
+      <footer className="border-t border-slate-100 pt-8 text-[11px] text-slate-400">
+        <p>
+          {appBranding.displayName}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.season', { year: seasonAnchor.year })}
+          <span className="mx-1.5 text-slate-300">·</span>
+          {t('dashboard.footer.version', { version: WEB_VERSION })}
+        </p>
       </footer>
     </div>
   );

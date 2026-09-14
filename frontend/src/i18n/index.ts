@@ -13,9 +13,17 @@ function readStoredLanguage(): AppLanguage {
   if (typeof window === 'undefined') {
     return 'es';
   }
-  const stored = localStorage.getItem(LANG_STORAGE_KEY);
-  if (stored && SUPPORTED_LANGS.includes(stored as AppLanguage)) {
-    return stored as AppLanguage;
+  const stored =
+    localStorage.getItem(LANG_STORAGE_KEY) ||
+    localStorage.getItem('i18nextLng') ||
+    localStorage.getItem('ps_lang');
+  if (stored) {
+    const normalized = stored.toLowerCase().startsWith('en') ? 'en' : stored.toLowerCase().startsWith('es') ? 'es' : null;
+    if (normalized && SUPPORTED_LANGS.includes(normalized)) {
+      // Normalizar a la clave canónica del app.
+      localStorage.setItem(LANG_STORAGE_KEY, normalized);
+      return normalized;
+    }
   }
   return 'es';
 }

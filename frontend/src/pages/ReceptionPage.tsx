@@ -1,46 +1,88 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, ChevronDown, ChevronRight, Info, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import {
+  zodResolver } from '@hookform/resolvers/zod';
+import { useMutation,
+  useQuery,
+  useQueryClient } from '@tanstack/react-query';
+import {
+  Ban,
+  CalendarDays,
+  CheckCircle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CircleDashed,
+  Clock3,
+  FileText,
+  Info,
+  Leaf,
+  Lock,
+  MoreHorizontal,
+  Plus,
+  Printer,
+  Scale,
+  Trash2,
+  Truck,
+  User,
+  Users,
+  X,
+  Search,
+  Filter,
+  CalendarRange,
+  List,
+  Ellipsis,
+} from 'lucide-react';
+import { Fragment,
+  useEffect,
+  useMemo,
+  useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { apiJson, downloadPdf } from '@/api';
+import { apiJson,
+  downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
-import { canOperate, isAdmin } from '@/lib/roles';
+import { canOperate,
+  isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Card,
+  CardDescription,
+  CardHeader,
+  CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+  } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
-import { formatCount, formatLb } from '@/lib/number-format';
+import { isoInLocalDateRange,
+  localDateYmd } from '@/lib/date-filter';
+import { formatCount,
+  formatLb } from '@/lib/number-format';
+import { processTokens } from '@/lib/process-tokens';
 import {
   badgePill,
-  btnToolbarPrimary,
   contentCard,
   emptyStatePanel,
   errorStateCard,
   filterInputClass,
   filterPanel,
   filterSelectClass,
-  kpiCard,
   kpiCardSm,
-  kpiFootnote,
   kpiLabel,
-  kpiValueLg,
   kpiValueMd,
   modalFormLineCard,
   modalFormPrimaryButton,
-  modalFormSoftGreenButton,
   operationalModalBodyClass,
   operationalModalContentClass,
   operationalModalFooterClass,
@@ -52,10 +94,7 @@ import {
   operationalModalStepBadge,
   operationalModalStepTitle,
   operationalModalTitleClass,
-  pageHeaderRow,
   pageInfoButton,
-  pageSubtitle,
-  pageTitle,
   sectionHint,
   sectionTitle,
   signalsPanel,
@@ -64,28 +103,60 @@ import {
   tableHeaderRow,
   tableShell,
 } from '@/lib/page-ui';
+import { PinebloomHero } from '@/components/brand/PinebloomHero';
+import { FieldRow } from '@/components/brand/FieldRow';
+import { appBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+const receptionTok = processTokens.reception;
+
+function weekStartYmd(d = new Date()): string {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  return localDateYmd(x);
+}
 
 function DocumentStateBadge({ codigo, nombre }: { codigo?: string | null; nombre?: string | null }) {
   const { t } = useTranslation('common');
   const c = String(codigo ?? '').toLowerCase();
-  const map: Record<string, string> = {
-    borrador:   'border-amber-200 bg-amber-50 text-amber-700',
-    confirmado: 'border-green-200 bg-green-50 text-green-700',
-    cerrado:    'border-gray-200 bg-gray-100 text-gray-600',
-    anulado:    'border-red-200 bg-red-50 text-red-700',
-  };
-  const knownCodes = ['borrador', 'confirmado', 'cerrado', 'anulado'];
-  const label = knownCodes.includes(c)
+  const knownCodes = ['borrador', 'confirmado', 'cerrado', 'anulado'] as const;
+  const label = (knownCodes as readonly string[]).includes(c)
     ? t(`documentStatus.${c}`)
     : (nombre?.trim() || codigo || '—');
+  const cfg: Record<string, { className: string; Icon: typeof CircleDashed }> = {
+    borrador: {
+      className: 'border-slate-200 bg-slate-50 text-slate-700',
+      Icon: CircleDashed,
+    },
+    confirmado: {
+      className: 'border-sky-200 bg-sky-50 text-sky-800',
+      Icon: FileText,
+    },
+    cerrado: {
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+      Icon: Lock,
+    },
+    anulado: {
+      className: 'border-rose-200 bg-rose-50 text-rose-800',
+      Icon: Ban,
+    },
+  };
+  const entry = cfg[c];
+  const Icon = entry?.Icon ?? CircleDashed;
   return (
     <span
-      className={cn(badgePill, 'px-2 py-0.5 text-[10px]', map[c] ?? 'border-slate-200 bg-slate-50 text-slate-800')}
+      className={cn(
+        badgePill,
+        'inline-flex items-center gap-1 px-2 py-0.5 text-[10px]',
+        entry?.className ?? 'border-slate-200 bg-slate-50 text-slate-800',
+      )}
       title={label}
     >
-      {label}
+      <Icon className="h-3 w-3 shrink-0" aria-hidden />
+      <span>{label}</span>
     </span>
   );
 }
@@ -161,7 +232,25 @@ function lotesDetalle(r: ReceptionRow): string {
   return [...set].join(' · ');
 }
 
+function especieCabecera(r: ReceptionRow): string {
+  const fromLine = (r.lines ?? [])
+    .map((ln) => ln.species?.nombre?.trim() || '')
+    .find((n) => n.length > 0);
+  if (fromLine) return fromLine;
+  return r.variety?.species?.nombre?.trim() || r.variety?.species?.codigo?.trim() || '—';
+}
+
+function receptionSpeciesId(r: ReceptionRow): number {
+  const fromLine = (r.lines ?? []).map((ln) => ln.species_id).find((id) => id > 0);
+  if (fromLine && fromLine > 0) return fromLine;
+  return r.variety?.species?.id ?? 0;
+}
+
 function variedadCabecera(r: ReceptionRow): string {
+  const fromLine = (r.lines ?? [])
+    .map((ln) => ln.variety?.nombre?.trim() || '')
+    .find((n) => n.length > 0);
+  if (fromLine) return fromLine;
   return r.variety?.nombre?.trim() || '—';
 }
 
@@ -379,12 +468,11 @@ export function ReceptionPage() {
   /** Admin en recepción no borrador: modal editable solo para cambiar estado documento. */
   const [adminStateOnlyEdit, setAdminStateOnlyEdit] = useState(false);
   const [serverReference, setServerReference] = useState<string | null>(null);
-  const [copyFromPreviousLine, setCopyFromPreviousLine] = useState(true);
   const [applyVarietyToInvolvedLines, setApplyVarietyToInvolvedLines] = useState(true);
   const [viewStateCodigo, setViewStateCodigo] = useState<string | null>(null);
   const [lineDrafts, setLineDrafts] = useState<LineDraft[]>([emptyLine()]);
 
-  const { data: receptions, isPending, isError, error } = useQuery({
+  const { data: receptions, isPending, isError, error, refetch } = useQuery({
     queryKey: ['receptions'],
     queryFn: () => apiJson<ReceptionRow[]>('/api/receptions'),
   });
@@ -460,15 +548,39 @@ export function ReceptionPage() {
     [returnableContainers],
   );
 
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const todayYmd = localDateYmd();
+  const [filterDateFrom, setFilterDateFrom] = useState(todayYmd);
+  const [filterDateTo, setFilterDateTo] = useState(todayYmd);
+  const [datePreset, setDatePreset] = useState<'today' | 'week' | 'all'>('today');
   const [filterProducer, setFilterProducer] = useState(0);
+  const [filterSpecies, setFilterSpecies] = useState(0);
   const [filterVariety, setFilterVariety] = useState(0);
   const [filterTipo, setFilterTipo] = useState(0);
   const [filterUso, setFilterUso] = useState<'todos' | 'abierto' | 'cerrado'>('todos');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [closedSuccessId, setClosedSuccessId] = useState<number | null>(null);
+
+  function applyDatePreset(preset: 'today' | 'week' | 'all') {
+    setDatePreset(preset);
+    if (preset === 'today') {
+      const d = localDateYmd();
+      setFilterDateFrom(d);
+      setFilterDateTo(d);
+      return;
+    }
+    if (preset === 'week') {
+      setFilterDateFrom(weekStartYmd());
+      setFilterDateTo(localDateYmd());
+      return;
+    }
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  }
 
   const filteredReceptions = useMemo(() => {
     let list = receptions ?? [];
@@ -476,8 +588,11 @@ export function ReceptionPage() {
       list = list.filter((r) => isoInLocalDateRange(r.received_at, filterDateFrom, filterDateTo));
     }
     if (filterProducer > 0) list = list.filter((r) => r.producer_id === filterProducer);
+    if (filterSpecies > 0) {
+      list = list.filter((r) => receptionSpeciesId(r) === filterSpecies);
+    }
     if (filterVariety > 0) {
-      list = list.filter((r) => r.lines?.some((ln) => ln.variety_id === filterVariety));
+      list = list.filter((r) => r.lines?.some((ln) => ln.variety_id === filterVariety) || r.variety_id === filterVariety);
     }
     if (filterTipo > 0) list = list.filter((r) => r.reception_type_id === filterTipo);
     if (filterUso === 'abierto') {
@@ -501,7 +616,7 @@ export function ReceptionPage() {
       });
     }
     return list;
-  }, [receptions, filterDateFrom, filterDateTo, filterProducer, filterVariety, filterTipo, filterUso, search]);
+  }, [receptions, filterDateFrom, filterDateTo, filterProducer, filterSpecies, filterVariety, filterTipo, filterUso, search]);
 
   const compactGroups = useMemo(() => {
     const byProducer = new Map<
@@ -649,6 +764,26 @@ export function ReceptionPage() {
     };
   }, [filteredReceptions, handPickTypeId, machinePickTypeId]);
 
+  const todayOpsKpis = useMemo(() => {
+    const today = localDateYmd();
+    const todays = (receptions ?? []).filter((r) => isoInLocalDateRange(r.received_at, today, today));
+    let totalNet = 0;
+    let pending = 0;
+    const producers = new Set<number>();
+    for (const r of todays) {
+      totalNet += receptionNetLb(r);
+      const st = r.document_state?.codigo ?? '';
+      if (st === 'borrador' || st === 'confirmado') pending += 1;
+      if (r.producer_id > 0) producers.add(r.producer_id);
+    }
+    return {
+      count: todays.length,
+      pending,
+      totalNet,
+      producers: producers.size,
+    };
+  }, [receptions]);
+
   const receptionAlertLines = useMemo(() => {
     const lines: { key: string; tone: 'warn' | 'info'; text: string }[] = [];
     let nNetZero = 0;
@@ -739,7 +874,7 @@ export function ReceptionPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
       void queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Recepción registrada');
+      toast.success(t('reception.toast.created'));
       closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -751,7 +886,7 @@ export function ReceptionPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
       void queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Recepción actualizada');
+      toast.success(t('reception.toast.updated'));
       closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -763,10 +898,20 @@ export function ReceptionPage() {
         method: 'PATCH',
         body: JSON.stringify({ document_state_id }),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['receptions'] });
       void queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Estado actualizado');
+      if (vars.document_state_id === cerradoStateId && cerradoStateId > 0) {
+        toast.success(t('reception.toast.closedOk'));
+        setClosedSuccessId(vars.id);
+        closeDialog();
+        return;
+      }
+      if (vars.document_state_id === confirmadoStateId && confirmadoStateId > 0) {
+        toast.success(t('reception.toast.confirmed'));
+      } else {
+        toast.success(t('reception.toast.stateUpdated'));
+      }
       closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -842,7 +987,7 @@ export function ReceptionPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['receptions'] });
       void queryClient.invalidateQueries({ queryKey: ['processes'] });
-      toast.success('Estado del documento actualizado');
+      toast.success(t('reception.toast.stateUpdated'));
       closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -852,10 +997,38 @@ export function ReceptionPage() {
     if (!confirmadoStateId) return;
     try {
       await confirmReceptionMut.mutateAsync({ id, document_state_id: confirmadoStateId });
-      toast.success('Recepción confirmada');
+      toast.success(t('reception.toast.confirmed'));
     } catch {
       // manejado por onError
     }
+  }
+
+  async function printReceptionPdf(id: number) {
+    try {
+      await downloadPdf(
+        `/api/documents/receptions/${id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`,
+        `informe-recepcion-${id}.pdf`,
+      );
+      toast.success(t('reception.toast.reportReady'));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
+    }
+  }
+
+  function primaryActionLabel(codigo?: string | null) {
+    const c = String(codigo ?? '').toLowerCase();
+    if (c === 'borrador') return t('reception.table.actionContinue');
+    if (c === 'confirmado') return t('reception.table.actionReviewClose');
+    return t('reception.table.actionView');
+  }
+
+  function runPrimaryAction(r: ReceptionRow) {
+    const c = r.document_state?.codigo ?? '';
+    if (c === 'borrador' && (canOperateReception || isAdminRole)) {
+      void openEdit(r.id);
+      return;
+    }
+    void openView(r.id);
   }
 
   async function confirmAllDraftsFromList() {
@@ -1103,8 +1276,7 @@ export function ReceptionPage() {
             : t('reception.dialog.editNoLabel', { id: editingId })
           : t('reception.dialog.new');
 
-  const helpTitle =
-    'Informe PDF formal para el productor. Cerrado (documento): estado «cerrado» — cierre administrativo; no usar para nuevos procesos. Abierto: aún no cerrado; el saldo de lb por línea se controla al crear procesos. Una recepción queda consumida en la práctica cuando no queda MP disponible en sus líneas; el documento puede seguir «abierto» hasta que operación cierre el estado.';
+  const helpTitle = t('reception.helpTitle');
 
   if (isPending) {
     return (
@@ -1126,8 +1298,13 @@ export function ReceptionPage() {
       <div>
         <Card className={errorStateCard}>
           <CardHeader>
-            <CardTitle>Error</CardTitle>
-            <CardDescription>{error instanceof Error ? error.message : 'Reintentá más tarde.'}</CardDescription>
+            <CardTitle>{t('reception.loadErrorTitle')}</CardTitle>
+            <CardDescription>{error instanceof Error ? error.message : '—'}</CardDescription>
+            <div className="pt-2">
+              <Button type="button" variant="outline" onClick={() => void refetch()}>
+                {t('reception.loadErrorRetry')}
+              </Button>
+            </div>
           </CardHeader>
         </Card>
       </div>
@@ -1135,7 +1312,7 @@ export function ReceptionPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -1143,26 +1320,44 @@ export function ReceptionPage() {
         }}
       >
         <DialogContent
+          hideCloseButton
+          fullScreenMobile
           className={cn(
             operationalModalContentClass,
             'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
-          <DialogHeader className={cn(operationalModalHeaderClass, 'border-b px-6 py-4')}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2 text-base')}>
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" aria-hidden />
+          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4')}>
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)] md:hidden" aria-hidden />
+            <img
+              src={appBranding.landscapeUrl}
+              alt=""
+              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden"
+              aria-hidden
+            />
+            <div className="relative z-[1] flex items-start justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5')}>
+                  <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
                   {receptionDialogTitle}
                 </DialogTitle>
+                <p className="text-[13px] text-[var(--ink-muted)]">
+                  {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
+                </p>
+                <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] sm:max-w-[14rem] sm:text-[11px]">
+                  <span className="block">FRUTA DE</span>
+                  <span className="block">NUESTRA TIERRA.</span>
+                  <span className="block">UN FUTURO</span>
+                  <span className="block">MÁS BRILLANTE.</span>
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => closeDialog()}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
                 aria-label={t('reception.dialog.closeAriaLabel')}
               >
-                <X size={16} className="text-muted-foreground" />
+                <X size={16} />
               </button>
             </div>
           </DialogHeader>
@@ -1174,427 +1369,609 @@ export function ReceptionPage() {
           ) : null}
 
           <form onSubmit={form.handleSubmit(onSubmit)} className={operationalModalFormClass}>
-            <div className={cn(operationalModalBodyClass, 'min-w-0 overflow-y-auto px-0 py-0 sm:px-2')}>
+            <div className={cn(operationalModalBodyClass, 'min-w-0 overflow-y-auto px-0 py-0 max-md:px-0 sm:px-2')}>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                 <section
                   className={cn(
                     operationalModalSectionCard,
-                    'min-h-0 w-full border-b border-border px-4 py-[14px]',
+                    'min-h-0 w-full border-b border-border px-[14px] py-[14px] sm:px-4',
                   )}
                 >
                   <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                    <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionDoc')}</h3>
+                    <span className={operationalModalStepBadge}>1</span>
+                    <div>
+                      <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepOriginTitle', { defaultValue: t('reception.dialog.stepOrigin') })}</h3>
+                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                        {t('reception.dialog.stepOriginHint')}
+                      </p>
+                    </div>
                   </div>
+
                   <div className="space-y-[10px]">
-                    <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDatetime')}</label>
-                      <Input
-                        type="datetime-local"
-                        disabled={lockNonStateFields}
-                        className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
-                        {...form.register('received_at')}
-                      />
-                    </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldProducer')}</label>
-                      <select
-                        className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={lockNonStateFields}
-                        {...form.register('producer_id', { valueAsNumber: true })}
-                      >
-                        <option value={0}>{t('reception.dialog.choosePlaceholder')}</option>
-                        {sortedProducers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldFruitType')}</label>
-                      <select
-                        className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={lockNonStateFields}
-                        {...form.register('reception_type_id', { valueAsNumber: true })}
-                      >
-                        {(receptionTypes ?? [])
-                          .filter((rt) => rt.activo !== false)
-                          .map((rt) => (
-                            <option key={rt.id} value={rt.id}>
-                              {rt.codigo === 'hand_picking'
-                                ? t('reception.dialog.fruitTypeHand')
-                                : rt.codigo === 'machine_picking'
-                                  ? t('reception.dialog.fruitTypeMachine')
-                                  : rt.nombre}
+                    <div className="overflow-hidden rounded-xl border border-[var(--pb-border)] bg-[var(--pb-surface)] md:hidden">
+                      <FieldRow icon={User} label={t('reception.dialog.fieldProducer')} required>
+                        <select
+                          className="w-full text-right text-sm"
+                          disabled={lockNonStateFields}
+                          {...form.register('producer_id', { valueAsNumber: true })}
+                        >
+                          <option value={0}>{t('reception.dialog.choosePlaceholder')}</option>
+                          {sortedProducers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre}
                             </option>
                           ))}
-                      </select>
-                    </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
-                      <select
-                        className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={lockNonStateFields}
-                        {...form.register('mercado_id', { valueAsNumber: true })}
-                      >
-                        <option value={0}>—</option>
-                        {(mercados ?? [])
-                          .filter((m) => m.activo !== false)
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.codigo || m.nombre}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDocState')}</label>
-                      <select
-                        className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                        disabled={viewOnly}
-                        {...form.register('document_state_id', { valueAsNumber: true })}
-                      >
-                        {(documentStates ?? [])
-                          .filter((s) => s.activo !== false)
-                          .map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.nombre}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldReference')}</label>
-                      {editingId == null && !viewOnly ? (
-                        <div className="space-y-0.5">
+                        </select>
+                      </FieldRow>
+                      <FieldRow icon={FileText} label={t('reception.dialog.fieldReference')} required>
+                        {editingId == null && !viewOnly ? (
                           <Input
-                            className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase"
+                            className="h-9 border-0 bg-transparent px-0 text-right font-mono text-xs uppercase shadow-none"
                             maxLength={64}
                             placeholder={t('reception.dialog.fieldReferencePlaceholder')}
                             autoComplete="off"
                             {...form.register('reference_code')}
                           />
-                          <p className="text-[10px] leading-tight text-muted-foreground">
-                            {t('reception.dialog.fieldReferenceHint')}
-                          </p>
-                        </div>
-                      ) : (
-                        <div
-                          className={cn(
-                            'flex h-8 items-center rounded-md border border-border bg-background px-2 py-1.5 text-xs',
-                            serverReference ? 'font-mono text-foreground' : 'text-muted-foreground',
-                          )}
+                        ) : (
+                          <span className="block text-right font-mono text-xs">{serverReference ?? '—'}</span>
+                        )}
+                      </FieldRow>
+                      <FieldRow icon={CalendarDays} label={t('reception.dialog.fieldDatetime')} required>
+                        <Input
+                          type="datetime-local"
+                          disabled={lockNonStateFields}
+                          className="h-9 border-0 bg-transparent px-0 text-right text-xs shadow-none"
+                          {...form.register('received_at')}
+                        />
+                      </FieldRow>
+                      <FieldRow icon={Leaf} label={t('reception.dialog.fieldFruitType')}>
+                        <select
+                          className="w-full text-right text-sm"
+                          disabled={lockNonStateFields}
+                          {...form.register('reception_type_id', { valueAsNumber: true })}
                         >
-                          {serverReference ??
-                            (editingId == null ? t('reception.dialog.referenceAutoAssign') : '—')}
+                          {(receptionTypes ?? [])
+                            .filter((rt) => rt.activo !== false)
+                            .map((rt) => (
+                              <option key={rt.id} value={rt.id}>
+                                {rt.codigo === 'hand_picking'
+                                  ? t('reception.dialog.fruitTypeHand')
+                                  : rt.codigo === 'machine_picking'
+                                    ? t('reception.dialog.fruitTypeMachine')
+                                    : rt.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </FieldRow>
+                      <details className="group border-b-0">
+                        <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden">
+                          <span className="inline-flex h-[33px] w-[33px] shrink-0 items-center justify-center rounded-full bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                            <Ellipsis className="h-4 w-4" strokeWidth={1.85} />
+                          </span>
+                          <span className="w-[34%] min-w-0 shrink-0 text-[13px] font-medium text-[var(--ink)]">
+                            {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-right text-[12px] text-[var(--ink-muted)]">
+                            Campo, transportista, vehículo…
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" aria-hidden />
+                        </summary>
+                        <div className="space-y-2 border-t border-[var(--stone-200)]/70 bg-[var(--stone-50)] px-3.5 py-3">
+                          <div className="min-w-0 space-y-1">
+                            <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
+                            <Input
+                              disabled={lockNonStateFields}
+                              className="h-9 rounded-md border border-[var(--stone-300)] px-2 text-xs"
+                              maxLength={10}
+                              placeholder={t('reception.dialog.fieldDocPlaceholder')}
+                              {...form.register('document_number')}
+                            />
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
+                            <select
+                              className="h-9 w-full rounded-md border border-[var(--stone-300)] px-2 text-xs"
+                              disabled={lockNonStateFields}
+                              {...form.register('mercado_id', { valueAsNumber: true })}
+                            >
+                              <option value={0}>—</option>
+                              {(mercados ?? [])
+                                .filter((m) => m.activo !== false)
+                                .map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.codigo || m.nombre}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
                         </div>
-                      )}
+                      </details>
                     </div>
-                    <div className="min-w-0 space-y-1.5">
-                      <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
-                      <Input
-                        disabled={lockNonStateFields}
-                        className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
-                        maxLength={10}
-                        placeholder={t('reception.dialog.fieldDocPlaceholder')}
-                        {...form.register('document_number')}
-                      />
+                    <div className="hidden grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 md:grid">
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldProducer')}</label>
+                        <select
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                          disabled={lockNonStateFields}
+                          {...form.register('producer_id', { valueAsNumber: true })}
+                        >
+                          <option value={0}>{t('reception.dialog.choosePlaceholder')}</option>
+                          {sortedProducers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldReference')}</label>
+                        {editingId == null && !viewOnly ? (
+                          <div className="space-y-0.5">
+                            <Input
+                              className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase"
+                              maxLength={64}
+                              placeholder={t('reception.dialog.fieldReferencePlaceholder')}
+                              autoComplete="off"
+                              {...form.register('reference_code')}
+                            />
+                            <p className="text-[10px] leading-tight text-muted-foreground">
+                              {t('reception.dialog.fieldReferenceHint')}
+                            </p>
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              'flex h-8 items-center rounded-md border border-border bg-background px-2 py-1.5 text-xs',
+                              serverReference ? 'font-mono text-foreground' : 'text-muted-foreground',
+                            )}
+                          >
+                            {serverReference ??
+                              (editingId == null ? t('reception.dialog.referenceAutoAssign') : '—')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDatetime')}</label>
+                        <Input
+                          type="datetime-local"
+                          disabled={lockNonStateFields}
+                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
+                          {...form.register('received_at')}
+                        />
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldFruitType')}</label>
+                        <select
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs max-md:min-h-11"
+                          disabled={lockNonStateFields}
+                          {...form.register('reception_type_id', { valueAsNumber: true })}
+                        >
+                          {(receptionTypes ?? [])
+                            .filter((rt) => rt.activo !== false)
+                            .map((rt) => (
+                              <option key={rt.id} value={rt.id}>
+                                {rt.codigo === 'hand_picking'
+                                  ? t('reception.dialog.fruitTypeHand')
+                                  : rt.codigo === 'machine_picking'
+                                    ? t('reception.dialog.fruitTypeMachine')
+                                    : rt.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
                     </div>
-                    </div>
+                    <details className="mt-2 hidden rounded-md border border-border/70 bg-muted/20 px-3 py-2 md:block">
+                      <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-700">
+                        {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                      </summary>
+                      <div className="mt-3 grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
+                        <Input
+                          disabled={lockNonStateFields}
+                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
+                          maxLength={10}
+                          placeholder={t('reception.dialog.fieldDocPlaceholder')}
+                          {...form.register('document_number')}
+                        />
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
+                        <select
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                          disabled={lockNonStateFields}
+                          {...form.register('mercado_id', { valueAsNumber: true })}
+                        >
+                          <option value={0}>—</option>
+                          {(mercados ?? [])
+                            .filter((m) => m.activo !== false)
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.codigo || m.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDocState')}</label>
+                        <select
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                          disabled={viewOnly}
+                          {...form.register('document_state_id', { valueAsNumber: true })}
+                        >
+                          {(documentStates ?? [])
+                            .filter((s) => s.activo !== false)
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      </div>
+                    </details>
                     <input type="hidden" {...form.register('plant_code')} />
                   </div>
                 </section>
 
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                   <section
-                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-4 py-[14px]')}
+                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-[14px] py-[14px] sm:px-4')}
                   >
-                  <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex min-w-0 flex-wrap items-start gap-2">
-                      <span className={operationalModalStepBadge}>2</span>
+                    <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 flex-wrap items-start gap-2">
+                        <span className={operationalModalStepBadge}>2</span>
+                        <div>
+                          <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionLines')}</h3>
+                          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                            {t('reception.dialog.stepFruitHint')} · {t('reception.dialog.stepWeightHint')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                        <div className="flex w-full flex-nowrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50"
+                            disabled={lockNonStateFields}
+                            onClick={() =>
+                              setLineDrafts((d) => {
+                                return [...d, emptyLine()];
+                              })
+                            }
+                          >
+                            {t('reception.dialog.addLine')}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50"
+                            disabled={lockNonStateFields || lineDrafts.length === 0}
+                            onClick={() =>
+                              setLineDrafts((d) => {
+                                const prev = d[d.length - 1];
+                                if (!prev) return [...d, emptyLine()];
+                                return [...d, { ...prev, lot_code: undefined }];
+                              })
+                            }
+                          >
+                            {t('reception.dialog.copyLastLine')}
+                          </button>
+                        </div>
+                        <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-2 text-[12px] text-[var(--ink)]">
+                          <Leaf className="h-3.5 w-3.5 shrink-0 text-[var(--olive-700)]" aria-hidden />
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={applyVarietyToInvolvedLines}
+                            disabled={lockNonStateFields}
+                            onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
+                          />
+                          <span className="min-w-0 flex-1 leading-snug">{t('reception.dialog.applyVariety')}</span>
+                          <span
+                            className={cn(
+                              'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                              applyVarietyToInvolvedLines
+                                ? 'border-[var(--olive-700)] bg-[var(--olive-700)] text-white'
+                                : 'border-[var(--stone-300)] bg-white',
+                            )}
+                            aria-hidden
+                          >
+                            {applyVarietyToInvolvedLines ? '✓' : ''}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-x-auto overflow-y-visible pt-1">
+                      <div className="space-y-4">
+                        {lineDrafts.map((L, idx) => {
+                          const varietiesForSpecies = sortedVarieties.filter(
+                            (v) => L.species_id <= 0 || v.species_id === L.species_id,
+                          );
+                          return (
+                            <div key={idx} className={cn(modalFormLineCard, 'space-y-3 rounded-md bg-muted/30 p-3')}>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-semibold text-slate-700">
+                                  {t('reception.dialog.lineLabel', { n: idx + 1 })}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600"
+                                  aria-label={t('reception.dialog.deleteLineAriaLabel', { n: idx + 1 })}
+                                  title={t('reception.dialog.deleteLineTitle')}
+                                  onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
+                                  disabled={lockNonStateFields || lineDrafts.length <= 1}
+                                >
+                                  <Trash2 className="h-4 w-4 shrink-0" />
+                                </button>
+                              </div>
+                              {L.lot_code ? (
+                                <p className="font-mono text-[11px] text-slate-500">
+                                  {t('reception.dialog.lotPrefix')} {L.lot_code}
+                                </p>
+                              ) : null}
+
+                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                                  {t('reception.dialog.stepFruit')}
+                                </p>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colSpecies')}
+                                    </label>
+                                    <select
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      title={
+                                        (speciesList ?? []).find((s) => s.id === L.species_id)?.nombre ??
+                                        (speciesList ?? []).find((s) => s.id === L.species_id)?.codigo ??
+                                        '—'
+                                      }
+                                      disabled={lockNonStateFields}
+                                      value={L.species_id}
+                                      onChange={(e) => {
+                                        const sid = Number(e.target.value);
+                                        const firstV = sortedVarieties.find((v) => v.species_id === sid);
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) =>
+                                            i === idx ? { ...x, species_id: sid, variety_id: firstV?.id ?? 0 } : x,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      <option value={0}>—</option>
+                                      {(speciesList ?? []).map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.nombre || s.codigo}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colVariety')}
+                                    </label>
+                                    <select
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      title={sortedVarieties.find((v) => v.id === L.variety_id)?.nombre ?? '—'}
+                                      disabled={lockNonStateFields}
+                                      value={L.variety_id}
+                                      onChange={(e) => {
+                                        const vid = Number(e.target.value);
+                                        setLineDrafts((d) => {
+                                          if (!applyVarietyToInvolvedLines) {
+                                            return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                                          }
+                                          const src = d[idx];
+                                          if (!src || src.species_id <= 0) {
+                                            return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
+                                          }
+                                          return d.map((x) =>
+                                            x.species_id === src.species_id ? { ...x, variety_id: vid } : x,
+                                          );
+                                        });
+                                      }}
+                                    >
+                                      <option value={0}>—</option>
+                                      {varietiesForSpecies.map((v) => (
+                                        <option key={v.id} value={v.id}>
+                                          {v.nombre}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {L.species_id > 0 && varietiesForSpecies.length === 0 ? (
+                                      <p className="text-[10px] text-amber-700">{t('reception.dialog.noVarieties')}</p>
+                                    ) : null}
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colQuality')}
+                                    </label>
+                                    <select
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      title={
+                                        (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.codigo ??
+                                        (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.nombre ??
+                                        '—'
+                                      }
+                                      disabled={lockNonStateFields}
+                                      value={L.quality_grade_id}
+                                      onChange={(e) => {
+                                        const v = Number(e.target.value);
+                                        setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, quality_grade_id: v } : x)));
+                                      }}
+                                    >
+                                      <option value={0}>—</option>
+                                      {(qualityGrades ?? []).map((q) => (
+                                        <option key={q.id} value={q.id}>
+                                          {q.codigo || q.nombre}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                                  {t('reception.dialog.stepWeight')}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colGrossLb')}
+                                    </label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0"
+                                      disabled={lockNonStateFields}
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      value={L.gross_lb}
+                                      onChange={(e) =>
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) => (i === idx ? { ...x, gross_lb: e.target.value } : x)),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colNetLb')}
+                                    </label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      disabled={lockNonStateFields}
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      value={L.net_lb}
+                                      onChange={(e) =>
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) => (i === idx ? { ...x, net_lb: e.target.value } : x)),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colQty')}
+                                    </label>
+                                    <Input
+                                      disabled={lockNonStateFields}
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      value={L.quantity}
+                                      onChange={(e) =>
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colContainer')}
+                                    </label>
+                                    <select
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      title={(() => {
+                                        const c = activeContainers.find((x) => x.id === L.returnable_container_id);
+                                        if (!c) return '—';
+                                        return `${c.tipo}${c.capacidad ? ` · ${c.capacidad}` : ''}`;
+                                      })()}
+                                      disabled={lockNonStateFields}
+                                      value={L.returnable_container_id}
+                                      onChange={(e) => {
+                                        const v = Number(e.target.value);
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) => (i === idx ? { ...x, returnable_container_id: v } : x)),
+                                        );
+                                      }}
+                                    >
+                                      <option value={0}>—</option>
+                                      {activeContainers.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.tipo}
+                                          {c.capacidad ? ` · ${c.capacidad}` : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+                                      {t('reception.dialog.colTemp')}
+                                    </label>
+                                    <Input
+                                      disabled={lockNonStateFields}
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      value={L.temperature_str}
+                                      onChange={(e) =>
+                                        setLineDrafts((d) =>
+                                          d.map((x, i) => (i === idx ? { ...x, temperature_str: e.target.value } : x)),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={cn(operationalModalSectionCard, 'shrink-0 px-[14px] py-[14px] sm:px-4')}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
+                      <span className={operationalModalStepBadge}>3</span>
                       <div>
-                        <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionLines')}</h3>
+                        <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepReview')}</h3>
                         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                          {t('reception.dialog.linesHint')}
+                          {t('reception.dialog.stepReviewHint')}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                      <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={copyFromPreviousLine}
-                          disabled={lockNonStateFields}
-                          onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
-                        />
-                        {t('reception.dialog.copyLastLine')}
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={applyVarietyToInvolvedLines}
-                          disabled={lockNonStateFields}
-                          onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
-                        />
-                        {t('reception.dialog.applyVariety')}
-                      </label>
-                      <button
+                    <div className="mb-3 rounded-md border border-border/70 bg-muted/20 p-3 text-xs text-slate-700">
+                      <p className="font-semibold text-slate-800">{t('reception.dialog.reviewSummary')}</p>
+                      <p className="mt-1">
+                        {t('reception.dialog.footerNet')}{' '}
+                        <span className="font-medium">{formatLb(lineTotals.net, 2)} lb</span>
+                        {' · '}
+                        {t('reception.dialog.footerGross')}{' '}
+                        <span className="font-medium">{formatLb(lineTotals.gross, 2)} lb</span>
+                        {' · '}
+                        {t('reception.dialog.footerContainers')}{' '}
+                        <span className="font-medium">{formatCount(lineTotals.qty)}</span>
+                        {' · '}
+                        {formatCount(lineDrafts.length)} {t('reception.dialog.sectionLines').toLowerCase()}
+                      </p>
+                    </div>
+                    <label className={compactFieldLabelClass} htmlFor="reception-notes">
+                      {t('reception.dialog.notesLabel')}
+                    </label>
+                    <textarea
+                      id="reception-notes"
+                      rows={2}
+                      disabled={lockNonStateFields}
+                      className="h-auto min-h-[56px] w-full resize-y rounded-md border border-border px-2 py-1.5 text-xs"
+                      placeholder={t('reception.dialog.notesPlaceholder')}
+                      {...form.register('notes')}
+                    />
+                  </section>
+
+                  {viewOnly && viewStateCodigo === 'confirmado' && editingId != null && cerradoStateId > 0 ? (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">
+                      <span>{t('reception.dialog.confirmNotice')}</span>
+                      <Button
                         type="button"
-                        className={modalFormSoftGreenButton}
-                        disabled={lockNonStateFields}
-                        onClick={() =>
-                          setLineDrafts((d) => {
-                            const prev = d[d.length - 1];
-                            const next =
-                              copyFromPreviousLine && prev && prev.species_id > 0
-                                ? { ...prev, lot_code: undefined }
-                                : emptyLine();
-                            return [...d, next];
-                          })
-                        }
+                        size="sm"
+                        variant="secondary"
+                        disabled={transitionMut.isPending}
+                        onClick={() => transitionMut.mutate({ id: editingId, document_state_id: cerradoStateId })}
                       >
-                        {t('reception.dialog.addLine')}
-                      </button>
+                        {transitionMut.isPending ? t('reception.dialog.closingApplying') : t('reception.dialog.closingButton')}
+                      </Button>
                     </div>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-x-auto overflow-y-visible pt-1">
-                    <div className="space-y-4">
-                    {lineDrafts.map((L, idx) => (
-                      <div key={idx} className={cn(modalFormLineCard, 'space-y-2 rounded-md bg-muted/30 p-3')}>
-                        {L.lot_code ? (
-                          <p className="font-mono text-[11px] text-slate-500">{t('reception.dialog.lotPrefix')} {L.lot_code}</p>
-                        ) : null}
-                        <div className="w-full min-w-0">
-                          <div className="grid w-full min-w-[min(100%,36rem)] grid-cols-2 items-end gap-2 sm:min-w-[40rem] sm:grid-cols-3 md:grid-cols-4 lg:min-w-[52rem] lg:grid-cols-9 lg:gap-[6px]">
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colSpecies')}</label>
-                            <select
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                              title={
-                                (speciesList ?? []).find((s) => s.id === L.species_id)?.codigo ??
-                                (speciesList ?? []).find((s) => s.id === L.species_id)?.nombre ??
-                                '—'
-                              }
-                              disabled={lockNonStateFields}
-                              value={L.species_id}
-                              onChange={(e) => {
-                                const sid = Number(e.target.value);
-                                const firstV = sortedVarieties.find((v) => v.species_id === sid);
-                                setLineDrafts((d) =>
-                                  d.map((x, i) =>
-                                    i === idx ? { ...x, species_id: sid, variety_id: firstV?.id ?? 0 } : x,
-                                  ),
-                                );
-                              }}
-                            >
-                              <option value={0}>—</option>
-                              {(speciesList ?? []).map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.codigo || s.nombre}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colVariety')}</label>
-                            <select
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                              title={
-                                sortedVarieties.find((v) => v.id === L.variety_id)?.nombre ?? '—'
-                              }
-                              disabled={lockNonStateFields}
-                              value={L.variety_id}
-                              onChange={(e) => {
-                                const vid = Number(e.target.value);
-                                setLineDrafts((d) => {
-                                  if (!applyVarietyToInvolvedLines) {
-                                    return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
-                                  }
-                                  const src = d[idx];
-                                  if (!src || src.species_id <= 0) {
-                                    return d.map((x, i) => (i === idx ? { ...x, variety_id: vid } : x));
-                                  }
-                                  return d.map((x) =>
-                                    x.species_id === src.species_id ? { ...x, variety_id: vid } : x,
-                                  );
-                                });
-                              }}
-                            >
-                              <option value={0}>—</option>
-                              {sortedVarieties
-                                .filter((v) => L.species_id <= 0 || v.species_id === L.species_id)
-                                .map((v) => (
-                                  <option key={v.id} value={v.id}>
-                                    {v.nombre}
-                                  </option>
-                                ))}
-                            </select>
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colQuality')}</label>
-                            <select
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                              title={
-                                (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.codigo ??
-                                (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.nombre ??
-                                '—'
-                              }
-                              disabled={lockNonStateFields}
-                              value={L.quality_grade_id}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                setLineDrafts((d) => d.map((x, i) => (i === idx ? { ...x, quality_grade_id: v } : x)));
-                              }}
-                            >
-                              <option value={0}>—</option>
-                              {(qualityGrades ?? []).map((q) => (
-                                <option key={q.id} value={q.id}>
-                                  {q.codigo || q.nombre}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colGrossLb')}</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0"
-                              disabled={lockNonStateFields}
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
-                              value={L.gross_lb}
-                              onChange={(e) =>
-                                setLineDrafts((d) =>
-                                  d.map((x, i) => (i === idx ? { ...x, gross_lb: e.target.value } : x)),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colNetLb')}</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              disabled={lockNonStateFields}
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
-                              value={L.net_lb}
-                              onChange={(e) =>
-                                setLineDrafts((d) =>
-                                  d.map((x, i) => (i === idx ? { ...x, net_lb: e.target.value } : x)),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colQty')}</label>
-                            <Input
-                              disabled={lockNonStateFields}
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
-                              value={L.quantity}
-                              onChange={(e) =>
-                                setLineDrafts((d) =>
-                                  d.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colContainer')}</label>
-                            <select
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                              title={
-                                (() => {
-                                  const c = activeContainers.find((x) => x.id === L.returnable_container_id);
-                                  if (!c) return '—';
-                                  return `${c.tipo}${c.capacidad ? ` · ${c.capacidad}` : ''}`;
-                                })()
-                              }
-                              disabled={lockNonStateFields}
-                              value={L.returnable_container_id}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                setLineDrafts((d) =>
-                                  d.map((x, i) => (i === idx ? { ...x, returnable_container_id: v } : x)),
-                                );
-                              }}
-                            >
-                              <option value={0}>—</option>
-                              {activeContainers.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.tipo}
-                                  {c.capacidad ? ` · ${c.capacidad}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">{t('reception.dialog.colTemp')}</label>
-                            <Input
-                              disabled={lockNonStateFields}
-                              className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
-                              value={L.temperature_str}
-                              onChange={(e) =>
-                                setLineDrafts((d) =>
-                                  d.map((x, i) => (i === idx ? { ...x, temperature_str: e.target.value } : x)),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col-span-2 flex items-end justify-end sm:col-span-1 lg:col-span-1">
-                            <button
-                              type="button"
-                              className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600"
-                              aria-label={t('reception.dialog.deleteLineAriaLabel', { n: idx + 1 })}
-                              title={t('reception.dialog.deleteLineTitle')}
-                              onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
-                              disabled={lockNonStateFields || lineDrafts.length <= 1}
-                            >
-                              <Trash2 className="h-4 w-4 shrink-0" />
-                            </button>
-                          </div>
-                        </div>
-                        </div>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
-                </section>
-
-                <section className={cn(operationalModalSectionCard, 'shrink-0 px-4 py-[14px]')}>
-                  <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                    <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionNotes')}</h3>
-                  </div>
-                  <label className={compactFieldLabelClass} htmlFor="reception-notes">
-                    {t('reception.dialog.notesLabel')}
-                  </label>
-                  <textarea
-                    id="reception-notes"
-                    rows={2}
-                    disabled={lockNonStateFields}
-                    className="h-auto min-h-[56px] w-full resize-y rounded-md border border-border px-2 py-1.5 text-xs"
-                    placeholder={t('reception.dialog.notesPlaceholder')}
-                    {...form.register('notes')}
-                  />
-                </section>
-
-                {viewOnly && viewStateCodigo === 'confirmado' && editingId != null && cerradoStateId > 0 ? (
-                  <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">
-                    <span>{t('reception.dialog.confirmNotice')}</span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={transitionMut.isPending}
-                      onClick={() => transitionMut.mutate({ id: editingId, document_state_id: cerradoStateId })}
-                    >
-                      {transitionMut.isPending ? t('reception.dialog.closingApplying') : t('reception.dialog.closingButton')}
-                    </Button>
-                  </div>
-                ) : null}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1602,19 +1979,15 @@ export function ReceptionPage() {
             <DialogFooter
               className={cn(
                 operationalModalFooterClass,
-                'sticky bottom-0 z-10 flex flex-col gap-3 border-t border-border bg-background/95 px-4 py-[14px] backdrop-blur sm:flex-row sm:items-center sm:justify-between',
+                '!flex !flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 sm:!flex-row sm:items-center sm:justify-between',
+                'sticky bottom-0 z-10',
               )}
             >
-              <div className="order-2 text-[11px] text-muted-foreground sm:order-1">
-                {t('reception.dialog.footerNet')} <span className="font-medium text-foreground">{formatLb(lineTotals.net, 2)} lb</span>
-                {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-foreground">{formatLb(lineTotals.gross, 2)} lb</span>
-                {' · '}{t('reception.dialog.footerContainers')} <span className="font-medium text-foreground">{formatCount(lineTotals.qty)}</span>
-              </div>
-              <div className="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:shrink-0">
+              <div className="order-1 flex w-full flex-nowrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
                 {showConfirmReceptionButton ? (
                   <Button
                     type="button"
-                    className="bg-green-600 text-white hover:bg-green-700"
+                    className="bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]"
                     disabled={transitionMut.isPending}
                     onClick={() => transitionMut.mutate({ id: editingId as number, document_state_id: confirmadoStateId })}
                   >
@@ -1622,295 +1995,463 @@ export function ReceptionPage() {
                     {transitionMut.isPending ? t('reception.dialog.confirmingButton') : t('reception.dialog.confirmReceptionButton')}
                   </Button>
                 ) : null}
-                <Button type="button" variant="outline" onClick={() => closeDialog()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 min-h-10 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto"
+                  onClick={() => closeDialog()}
+                >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
                 </Button>
                 {!viewOnly ? (
                   <button
                     type="submit"
-                    className={modalFormPrimaryButton}
+                    className={cn(
+                      modalFormPrimaryButton,
+                      'inline-flex h-10 min-h-10 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto',
+                    )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
+                    {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
+                      <Truck className="h-4 w-4" aria-hidden />
+                    ) : null}
                     {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending
                       ? t('reception.dialog.savingButton')
                       : adminStateOnlyEdit
                         ? t('reception.dialog.saveStateButton')
-                        : t('reception.dialog.saveButton')}
+                        : t('reception.dialog.saveReception', { defaultValue: t('reception.dialog.saveButton') })}
                   </button>
                 ) : null}
+              </div>
+              <div className="order-2 flex items-center gap-1.5 text-[9px] text-[var(--ink-muted)] sm:order-1">
+                <Scale className="h-3 w-3 shrink-0" aria-hidden />
+                <span>
+                  {t('reception.dialog.footerNet')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.net, 2)} lb</span>
+                  {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.gross, 2)} lb</span>
+                  {' · '}{t('reception.dialog.footerContainers')} <span className="font-medium text-[var(--ink)]">{formatCount(lineTotals.qty)}</span>
+                </span>
               </div>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <div className={pageHeaderRow}>
-        <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>{t('reception.pageTitle')}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>{t('reception.pageSubtitle')}</p>
-            <button type="button" className={pageInfoButton} title={helpTitle} aria-label="Ayuda recepciones">
+      <Dialog
+        open={closedSuccessId != null}
+        onOpenChange={(o) => {
+          if (!o) setClosedSuccessId(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className={cn('h-5 w-5', receptionTok.ink)} />
+              {t('reception.closedSuccessTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <Button
+              type="button"
+              className={cn('w-full text-white', receptionTok.accent)}
+              onClick={() => {
+                const id = closedSuccessId;
+                setClosedSuccessId(null);
+                if (id != null) void openView(id);
+              }}
+            >
+              {t('reception.closedSuccessView')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                const id = closedSuccessId;
+                if (id != null) void printReceptionPdf(id);
+              }}
+            >
+              <Printer className="mr-1.5 h-4 w-4" />
+              {t('reception.closedSuccessPdf')}
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setClosedSuccessId(null)}>
+              {t('reception.closedSuccessBack')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      
+      <PinebloomHero
+        title={t('reception.pageTitle')}
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>{t('reception.pageSubtitle')}</span>
+            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
               <Info className="h-4 w-4" />
             </button>
-          </div>
-        </div>
-        {canOperateReception ? (
-          <Button className={cn(btnToolbarPrimary, 'shrink-0')} onClick={() => openNew()}>
-            <Plus className="h-4 w-4" />
-            {t('reception.newButton')}
-          </Button>
-        ) : null}
-      </div>
+          </span>
+        }
+        compact
+        wideLandscape
+        showSeal={false}
+        claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
+        actions={
+          canOperateReception ? (
+            <Button
+              className={cn(
+                'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)]',
+              )}
+              onClick={() => openNew()}
+            >
+              <Plus className="h-5 w-5" />
+              {t('reception.newButton')}
+            </Button>
+          ) : null
+        }
+      />
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
-        <h2 id="rec-kpis" className="sr-only">
-          {t('reception.srKpis')}
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('reception.kpi.total')}</p>
-            <p className={kpiValueLg}>{formatCount(receptionKpis.nRecepciones)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.totalNote')}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+            {t('reception.srKpis')}
+          </h2>
+          <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowSummary((v) => !v)}>
+            {showSummary ? t('reception.hideSummary') : t('reception.viewSummary')}
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)]" aria-hidden>
+              <Truck className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.todayShort')}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
+            </div>
           </div>
-          <div
-            className={cn(
-              kpiCard,
-              receptionKpis.nBorrador > 0 ? 'border-amber-200 bg-amber-50' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('reception.kpi.drafts')}</p>
-            <p className={cn(kpiValueLg, receptionKpis.nBorrador > 0 ? 'text-amber-700' : '')}>{formatCount(receptionKpis.nBorrador)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.draftsNote')}</p>
+
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)]" aria-hidden>
+              <Clock3 className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.pendingShort')}</p>
+              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
+            </div>
           </div>
-          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('reception.kpi.confirmed')}</p>
-            <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(receptionKpis.nConfirmado)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.confirmedNote')}</p>
+
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)]" aria-hidden>
+              <Scale className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.weightShort')}</p>
+              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">lb total recibido</p>
+            </div>
           </div>
-          <div
-            className={cn(
-              kpiCard,
-              receptionKpis.nCerrado > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('reception.kpi.closed')}</p>
-            <p className={cn(kpiValueLg, receptionKpis.nCerrado > 0 ? 'text-violet-950' : '')}>
-              {formatCount(receptionKpis.nCerrado)}
-            </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('reception.kpi.closedNote')}</p>
+
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)]" aria-hidden>
+              <Users className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.producersShort')}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
+            </div>
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={cn(kpiCardSm, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('reception.kpi.netLb')}</p>
-            <p className={cn(kpiValueMd, 'text-blue-700')}>{formatLb(receptionKpis.totalNet, 2)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.netLbNote')}</p>
+
+        {showSummary ? (
+          <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/20 p-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.total')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nRecepciones)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.drafts')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nBorrador)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.confirmed')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nConfirmado)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.closed')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nCerrado)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.netLb')}</p>
+                <p className={kpiValueMd}>{formatLb(receptionKpis.totalNet, 2)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.producers')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nProductores)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.lines')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nLineasTotal)}</p>
+              </div>
+              <div className={kpiCardSm}>
+                <p className={kpiLabel}>{t('reception.kpi.voided')}</p>
+                <p className={kpiValueMd}>{formatCount(receptionKpis.nAnulado)}</p>
+              </div>
+            </div>
+            {receptionAlertLines.length > 0 ? (
+              <div className={signalsPanel}>
+                <p className={signalsTitle}>{t('reception.alerts.title')}</p>
+                <ul className="space-y-2">
+                  {receptionAlertLines.map((a) => (
+                    <li
+                      key={a.key}
+                      className={cn(
+                        'rounded-xl border px-3 py-2 text-[13px] leading-snug',
+                        a.tone === 'warn'
+                          ? 'border-amber-200/90 bg-white text-amber-950'
+                          : 'border-slate-200/90 bg-white text-slate-700',
+                      )}
+                    >
+                      {a.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('reception.kpi.producers')}</p>
-            <p className={kpiValueMd}>{formatCount(receptionKpis.nProductores)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.producersNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('reception.kpi.lines')}</p>
-            <p className={kpiValueMd}>{formatCount(receptionKpis.nLineasTotal)}</p>
-            <p className={kpiFootnote}>{t('reception.kpi.linesNote', { count: formatCount(receptionKpis.nLotesDistinct) })}</p>
-          </div>
-          <div
-            className={cn(
-              kpiCardSm,
-              receptionKpis.nAnulado > 0 ? 'border-rose-200/90 bg-rose-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('reception.kpi.voided')}</p>
-            <p className={cn(kpiValueMd, receptionKpis.nAnulado > 0 ? 'text-rose-900' : '')}>
-              {formatCount(receptionKpis.nAnulado)}
-            </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('reception.kpi.voidedNote')}</p>
-          </div>
-        </div>
+        ) : null}
       </section>
 
-      {receptionAlertLines.length > 0 ? (
-        <div className={signalsPanel}>
-          <p className={signalsTitle}>{t('reception.alerts.title')}</p>
-          <ul className="space-y-2">
-            {receptionAlertLines.map((a) => (
-              <li
-                key={a.key}
-                className={cn(
-                  'rounded-xl border px-3 py-2 text-[13px] leading-snug',
-                  a.tone === 'warn'
-                    ? 'border-amber-200/90 bg-white text-amber-950'
-                    : 'border-slate-200/90 bg-white text-slate-700',
-                )}
-              >
-                {a.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className={filterPanel}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>{t('reception.filters.title')}</span>
-          <button
-            type="button"
-            className={pageInfoButton}
-            title="Productor, variedad en línea, tipo de recepción, uso documento y búsqueda libre."
-            aria-label="Ayuda filtros"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-xs text-slate-500">{t('reception.filters.dateFrom')}</Label>
+      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5')}>
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              ['today', t('reception.filters.presetToday'), CalendarDays] as const,
+              ['week', t('reception.filters.presetWeek'), CalendarRange] as const,
+              ['all', t('reception.filters.presetAll'), List] as const,
+            ]
+          ).map(([key, label, Icon]) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={datePreset === key ? 'default' : 'outline'}
+              className={cn(
+                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold',
+                datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
+              )}
+              onClick={() => applyDatePreset(key)}
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              {label}
+            </Button>
+          ))}
+          <div className="relative min-w-[12rem] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
             <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-xs text-slate-500">{t('reception.filters.dateTo')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
+              className={cn(filterInputClass, 'h-9 pl-8')}
+              placeholder={t('reception.filters.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('reception.filters.search')}
             />
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="h-9 shrink-0"
-            onClick={() => {
-              const d = localDateYmd();
-              setFilterDateFrom(d);
-              setFilterDateTo(d);
-            }}
+            className="h-9 gap-1.5"
+            onClick={() => setShowMoreFilters((v) => !v)}
           >
-            {t('reception.filters.today')}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-9 shrink-0 text-slate-600"
-            onClick={() => {
-              setFilterDateFrom('');
-              setFilterDateTo('');
-            }}
-          >
-            {t('reception.filters.clearDates')}
+            <Filter className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+
+            {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
           </Button>
         </div>
-        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
-          <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">{t('reception.filters.producer')}</Label>
-            <select className={filterSelectClass} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
-              <option value={0}>{t('reception.filters.producerAll')}</option>
-              {(producers ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.dateFrom')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-8')}
+                value={filterDateFrom}
+                onChange={(e) => {
+                  setDatePreset('all');
+                  setFilterDateFrom(e.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.dateTo')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-8')}
+                value={filterDateTo}
+                onChange={(e) => {
+                  setDatePreset('all');
+                  setFilterDateTo(e.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.producer')}</Label>
+              <select className={filterSelectClass} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.producerAll')}</option>
+                {(producers ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.species')}</Label>
+              <select className={filterSelectClass} value={filterSpecies} onChange={(e) => setFilterSpecies(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.speciesAll')}</option>
+                {(speciesList ?? []).map((sp) => (
+                  <option key={sp.id} value={sp.id}>
+                    {sp.nombre || sp.codigo}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.variety')}</Label>
+              <select className={filterSelectClass} value={filterVariety} onChange={(e) => setFilterVariety(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.varietyAll')}</option>
+                {(varieties ?? [])
+                  .filter((v) => filterSpecies <= 0 || v.species_id === filterSpecies)
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.fruitType')}</Label>
+              <select className={filterSelectClass} value={filterTipo} onChange={(e) => setFilterTipo(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.fruitTypeAll')}</option>
+                {(receptionTypes ?? []).map((rt) => (
+                  <option key={rt.id} value={rt.id}>
+                    {rt.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.usage')}</Label>
+              <select className={filterSelectClass} value={filterUso} onChange={(e) => setFilterUso(e.target.value as typeof filterUso)}>
+                <option value="todos">{t('reception.filters.usageAll')}</option>
+                <option value="abierto">{t('reception.filters.usageOpen')}</option>
+                <option value="cerrado">{t('reception.filters.usageClosed')}</option>
+              </select>
+            </div>
           </div>
-          <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">{t('reception.filters.variety')}</Label>
-            <select className={filterSelectClass} value={filterVariety} onChange={(e) => setFilterVariety(Number(e.target.value))}>
-              <option value={0}>{t('reception.filters.varietyAll')}</option>
-              {(varieties ?? []).map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">{t('reception.filters.fruitType')}</Label>
-            <select className={filterSelectClass} value={filterTipo} onChange={(e) => setFilterTipo(Number(e.target.value))}>
-              <option value={0}>{t('reception.filters.fruitTypeAll')}</option>
-              {(receptionTypes ?? []).map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2 lg:col-span-2">
-            <Label className="text-xs text-slate-500">{t('reception.filters.usage')}</Label>
-            <select className={filterSelectClass} value={filterUso} onChange={(e) => setFilterUso(e.target.value as typeof filterUso)}>
-              <option value="todos">{t('reception.filters.usageAll')}</option>
-              <option value="abierto">{t('reception.filters.usageOpen')}</option>
-              <option value="cerrado">{t('reception.filters.usageClosed')}</option>
-            </select>
-          </div>
-          <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">{t('reception.filters.search')}</Label>
-            <Input
-              className={filterInputClass}
-              placeholder={t('reception.filters.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <section className="space-y-3" aria-labelledby="rec-tabla">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-          <h2 id="rec-tabla" className={sectionTitle}>
-            {t('reception.table.title')}
-          </h2>
-          <p className={sectionHint}>
-            {t('reception.table.hint', { count: filteredReceptions.length })}
-          </p>
+            <h2 id="rec-tabla" className={sectionTitle}>
+              {datePreset === 'today' ? t('reception.workTodayTitle') : t('reception.table.title')}
+            </h2>
+            <p className={sectionHint}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {receptionKpis.nBorrador > 0 && confirmadoStateId > 0 && cerradoStateId > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 border-green-200 text-xs text-green-700 hover:bg-green-50"
-                title="Pasa cada borrador de esta vista a confirmado y luego a cerrado"
-                onClick={() => void confirmAllDraftsFromList()}
-                disabled={bulkConfirmCloseDraftsMut.isPending || confirmReceptionMut.isPending}
-              >
-                <CheckCircle className="h-3.5 w-3.5" />
-                {t('reception.table.confirmAllButton')}
-              </Button>
-            ) : null}
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                variant={viewMode === 'compact' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 rounded-md px-3 text-xs"
-                onClick={() => setViewMode('compact')}
-              >
-                {t('reception.table.viewCompact')}
-              </Button>
-              <Button
-                type="button"
-                variant={viewMode === 'detailed' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 rounded-md px-3 text-xs"
-                onClick={() => setViewMode('detailed')}
-              >
-                {t('reception.table.viewDetailed')}
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdminRole || canOperateReception ? (
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setShowMoreActions((v) => !v)}
+                >
+                  <MoreHorizontal className="mr-1 h-3.5 w-3.5" />
+                  {t('reception.moreActions')}
+                </Button>
+                {showMoreActions ? (
+                  <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-border bg-white p-2 shadow-md">
+                    {receptionKpis.nBorrador > 0 && confirmadoStateId > 0 && cerradoStateId > 0 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto w-full justify-start gap-1.5 px-2 py-2 text-left text-xs text-green-700"
+                        onClick={() => {
+                          setShowMoreActions(false);
+                          void confirmAllDraftsFromList();
+                        }}
+                        disabled={bulkConfirmCloseDraftsMut.isPending || confirmReceptionMut.isPending}
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                        {t('reception.table.confirmAllButton')}
+                      </Button>
+                    ) : (
+                      <p className="px-2 py-1 text-xs text-muted-foreground">—</p>
+                    )}
+                    <div className="mt-1 flex gap-1 border-t border-border/60 pt-1">
+                      <Button
+                        type="button"
+                        variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 flex-1 text-xs"
+                        onClick={() => setViewMode('compact')}
+                      >
+                        {t('reception.table.viewCompact')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 flex-1 text-xs"
+                        onClick={() => setViewMode('detailed')}
+                      >
+                        {t('reception.table.viewDetailed')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+                <Button
+                  type="button"
+                  variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 rounded-md px-3 text-xs"
+                  onClick={() => setViewMode('compact')}
+                >
+                  {t('reception.table.viewCompact')}
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === 'detailed' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 rounded-md px-3 text-xs"
+                  onClick={() => setViewMode('detailed')}
+                >
+                  {t('reception.table.viewDetailed')}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
         {!filteredReceptions.length ? (
-          <p className={emptyStatePanel}>{t('reception.table.empty')}</p>
+          <p className={emptyStatePanel}>
+            {datePreset === 'today' && !search && filterProducer === 0 && filterSpecies === 0
+              ? t('reception.emptyToday')
+              : (receptions?.length ?? 0) === 0
+                ? t('reception.emptyAll')
+                : t('reception.emptyFiltered')}
+          </p>
         ) : viewMode === 'compact' ? (
           <div className="space-y-2.5">
             {compactGroups.map((group, gi) => (
@@ -1937,12 +2478,61 @@ export function ReceptionPage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <Table className="min-w-[860px]">
+
+                <div className="space-y-2 p-2 md:hidden">
+                  {group.receptions.map((r) => {
+                    const tone = receptionVisualTone(r);
+                    const netLb = receptionNetLb(r);
+                    return (
+                      <div key={r.id} className={cn('rounded-lg border border-border/70 p-3', tone.rowHover)}>
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                          <span className={cn('text-sm font-semibold tabular-nums', netLb > 0 && netLb < 400 ? 'text-amber-700' : 'text-slate-900')}>
+                            {formatLb(netLb, 2)} lb
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600">{formatReceptionDate(r.received_at)}</p>
+                        <p className="mt-1 text-sm text-slate-800">
+                          {especieCabecera(r)} · {variedadCabecera(r)}
+                        </p>
+                        <p className="mt-0.5 font-mono text-xs text-slate-700">
+                          {r.reference_code ?? r.document_number ?? '—'}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                            onClick={() => runPrimaryAction(r)}
+                          >
+                            {primaryActionLabel(r.document_state?.codigo)}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                <Printer className="mr-2 h-3.5 w-3.5" />
+                                {t('reception.table.actionReport')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
+                  <Table className="min-w-[760px]">
                     <TableHeader>
                       <TableRow className={tableHeaderRow}>
                         <TableHead className="min-w-[146px]">{t('reception.table.colState')}</TableHead>
                         <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
+                        <TableHead className="min-w-[100px]">{t('reception.table.colSpecies')}</TableHead>
                         <TableHead className="min-w-[110px]">{t('reception.table.colVariety')}</TableHead>
                         <TableHead className="min-w-[180px]">{t('reception.table.colGuide')}</TableHead>
                         <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
@@ -1956,91 +2546,70 @@ export function ReceptionPage() {
                         const isLowNet = netLb > 0 && netLb < 400;
                         return (
                           <Fragment key={r.id}>
-                            <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
-                              <TableCell className="max-w-[180px] py-2 align-top">
+                            <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                              <TableCell className="max-w-[180px] py-3 align-middle">
                                 <div className="flex flex-col gap-1">
                                   <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
                                   <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
                                 </div>
                               </TableCell>
-                              <TableCell className="py-2 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                              <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
-                              <TableCell className="max-w-[200px] py-2 align-top font-mono text-xs text-slate-800">
+                              <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                              <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700">{especieCabecera(r)}</TableCell>
+                              <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                              <TableCell className="max-w-[200px] py-3 align-middle font-mono text-xs text-slate-800">
                                 {r.reference_code ?? r.document_number ?? '—'}
                                 {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                               </TableCell>
-                              <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                              <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
                                 <span className="text-[15px] font-semibold leading-none">{formatLb(netLb, 2)}</span>
                               </TableCell>
-                              <TableCell className="py-2 align-top">
-                                <div className="flex flex-col items-end gap-0.5">
-                                  {r.document_state?.codigo === 'borrador' ? (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 gap-1 px-1.5 text-[11px] text-green-600 hover:bg-green-50 hover:text-green-700"
-                                      onClick={() => void confirmReceptionFromList(r.id)}
-                                    >
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                      {t('reception.table.actionConfirm')}
-                                    </Button>
-                                  ) : null}
+                              <TableCell className="py-3 align-middle">
+                                <div className="flex flex-col items-end gap-1">
                                   <Button
                                     type="button"
-                                    variant="ghost"
                                     size="sm"
-                                    className="h-6 gap-1 px-1.5 text-xs"
-                                    onClick={() =>
-                                      void (
-                                        isAdminRole ||
-                                        (canOperateReception && r.document_state?.codigo === 'borrador')
-                                          ? openEdit(r.id)
-                                          : openView(r.id)
-                                      )
-                                    }
+                                    className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                                    onClick={() => runPrimaryAction(r)}
                                   >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                    {t('reception.table.actionEdit')}
+                                    {primaryActionLabel(r.document_state?.codigo)}
                                   </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 gap-1 px-1.5 text-xs"
-                                    onClick={async () => {
-                                      try {
-                                        await downloadPdf(`/api/documents/receptions/${r.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `informe-recepcion-${r.id}.pdf`);
-                                        toast.success(t('reception.toast.reportReady'));
-                                      } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
-                                      }
-                                    }}
-                                  >
-                                    <Printer className="h-3.5 w-3.5" />
-                                    {t('reception.table.actionReport')}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 gap-1 px-1.5 text-xs text-slate-500 hover:text-slate-800"
-                                    onClick={() =>
-                                      setExpandedRows((prev) => ({
-                                        ...prev,
-                                        [r.id]: !prev[r.id],
-                                      }))
-                                    }
-                                  >
-                                    {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                    {t('reception.table.actionDetail')}
-                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      {r.document_state?.codigo === 'borrador' && canOperateReception ? (
+                                        <DropdownMenuItem onClick={() => void confirmReceptionFromList(r.id)}>
+                                          <CheckCircle className="mr-2 h-3.5 w-3.5" />
+                                          {t('reception.table.actionConfirm')}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                        <Printer className="mr-2 h-3.5 w-3.5" />
+                                        {t('reception.table.actionReport')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setExpandedRows((prev) => ({
+                                            ...prev,
+                                            [r.id]: !prev[r.id],
+                                          }))
+                                        }
+                                      >
+                                        {expandedRows[r.id] ? <ChevronDown className="mr-2 h-3.5 w-3.5" /> : <ChevronRight className="mr-2 h-3.5 w-3.5" />}
+                                        {t('reception.table.actionDetail')}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </TableCell>
                             </TableRow>
                             {expandedRows[r.id] ? (
                               <TableRow className="bg-slate-50/55">
-                                <TableCell colSpan={6} className="py-2">
+                                <TableCell colSpan={7} className="py-2">
                                   <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
                                     <p><span className="font-semibold text-slate-800">{t('reception.table.detailId')}</span> #{r.id}</p>
                                     <p><span className="font-semibold text-slate-800">{t('reception.table.detailType')}</span> {r.reception_type?.nombre ?? '—'}</p>
@@ -2067,152 +2636,191 @@ export function ReceptionPage() {
             ))}
           </div>
         ) : (
-          <div className={tableShell}>
-            <Table className="min-w-[1180px]">
-              <TableHeader>
-                <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[168px]">{t('reception.table.colState')}</TableHead>
-                  <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
-                  <TableHead className="min-w-[140px]">{t('reception.table.colProducer')}</TableHead>
-                  <TableHead className="min-w-[120px]">{t('reception.table.colGuide')}</TableHead>
-                  <TableHead className="min-w-[100px]">{t('reception.table.colVariety')}</TableHead>
-                  <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
-                  {viewMode === 'detailed' ? <TableHead className="min-w-[140px]">{t('reception.table.colNotes')}</TableHead> : null}
-                  <TableHead className="w-[200px] text-right">{t('reception.table.colActions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredReceptions.map((r) => {
-                  const tone = receptionVisualTone(r);
-                  const netLb = receptionNetLb(r);
-                  const isLowNet = netLb > 0 && netLb < 400;
-                  return (
-                    <Fragment key={r.id}>
-                      <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
-                        <TableCell className="max-w-[200px] py-2 align-top">
-                          <div className="flex flex-col gap-1">
-                            <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
-                            <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                        <TableCell className="max-w-[180px] py-2 align-top">
-                          <p className="truncate text-sm font-medium text-slate-900" title={r.producer?.nombre ?? ''}>
-                            {r.producer?.nombre ?? '—'}
-                          </p>
-                          {viewMode === 'detailed' ? <p className="font-mono text-[11px] text-slate-400">#{r.id}</p> : null}
-                        </TableCell>
-                        <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
-                          {r.reference_code ?? r.document_number ?? '—'}
-                          {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
-                        </TableCell>
-                        <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
-                        <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
-                          <span className="text-[15px] font-semibold leading-none">
-                            {formatLb(netLb, 2)}
-                          </span>
-                        </TableCell>
-                        {viewMode === 'detailed' ? (
+          <>
+            <div className="space-y-2 md:hidden">
+              {filteredReceptions.map((r) => {
+                const tone = receptionVisualTone(r);
+                const netLb = receptionNetLb(r);
+                return (
+                  <div key={r.id} className={cn('rounded-xl border border-slate-200 bg-white p-3.5 shadow-none', tone.rowHover)}>
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                      <span className={cn('text-sm font-semibold tabular-nums', netLb > 0 && netLb < 400 ? 'text-amber-700' : 'text-slate-900')}>
+                        {formatLb(netLb, 2)} lb
+                      </span>
+                    </div>
+                    <p className="truncate text-sm font-medium text-slate-900">{r.producer?.nombre ?? '—'}</p>
+                    <p className="mt-1 text-xs text-slate-600">{formatReceptionDate(r.received_at)}</p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      {especieCabecera(r)} · {variedadCabecera(r)}
+                    </p>
+                    <p className="mt-0.5 font-mono text-xs text-slate-700">
+                      {r.reference_code ?? r.document_number ?? '—'}
+                    </p>
+                    {r.notes?.trim() ? (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{r.notes.trim()}</p>
+                    ) : null}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                        onClick={() => runPrimaryAction(r)}
+                      >
+                        {primaryActionLabel(r.document_state?.codigo)}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                            <Printer className="mr-2 h-3.5 w-3.5" />
+                            {t('reception.table.actionReport')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className={cn(tableShell, 'hidden md:block')}>
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow className={tableHeaderRow}>
+                    <TableHead className="min-w-[168px]">{t('reception.table.colState')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
+                    <TableHead className="min-w-[140px]">{t('reception.table.colProducer')}</TableHead>
+                    <TableHead className="min-w-[120px]">{t('reception.table.colGuide')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('reception.table.colSpecies')}</TableHead>
+                    <TableHead className="min-w-[100px]">{t('reception.table.colVariety')}</TableHead>
+                    <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
+                    <TableHead className="min-w-[140px]">{t('reception.table.colNotes')}</TableHead>
+                    <TableHead className="w-[200px] text-right">{t('reception.table.colActions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReceptions.map((r) => {
+                    const tone = receptionVisualTone(r);
+                    const netLb = receptionNetLb(r);
+                    const isLowNet = netLb > 0 && netLb < 400;
+                    return (
+                      <Fragment key={r.id}>
+                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                          <TableCell className="max-w-[200px] py-2 align-top">
+                            <div className="flex flex-col gap-1">
+                              <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
+                              <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                          <TableCell className="max-w-[180px] py-3 align-middle">
+                            <div className="flex min-w-0 items-start gap-1.5" title={r.producer?.nombre ?? ''}>
+                              <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-slate-900">{r.producer?.nombre ?? '—'}</p>
+                                {r.producer?.codigo ? (
+                                  <p className="truncate text-[11px] text-slate-500">#{r.producer.codigo}</p>
+                                ) : r.producer_id ? (
+                                  <p className="truncate text-[11px] text-slate-500">#{r.producer_id}</p>
+                                ) : null}
+                              </div>
+                            </div>
+                            <p className="font-mono text-[11px] text-slate-400">#{r.id}</p>
+                          </TableCell>
+                          <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
+                            {r.reference_code ?? r.document_number ?? '—'}
+                            {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
+                          </TableCell>
+                          <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700">{especieCabecera(r)}</TableCell>
+                          <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                          <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                            <span className="text-[15px] font-semibold leading-none">
+                              {formatLb(netLb, 2)}
+                            </span>
+                          </TableCell>
                           <TableCell className="max-w-[220px] py-2 align-top">
                             <p className="line-clamp-2 text-[11px] leading-snug text-slate-500" title={r.notes?.trim() ?? ''}>
                               {r.notes?.trim() || '—'}
                             </p>
                           </TableCell>
-                        ) : null}
-                        <TableCell className="py-2 align-top">
-                          <div className="flex flex-col items-end gap-0.5">
-                            {r.document_state?.codigo === 'borrador' ? (
+                          <TableCell className="py-3 align-middle">
+                            <div className="flex flex-col items-end gap-1">
                               <Button
                                 type="button"
-                                variant="ghost"
                                 size="sm"
-                                className="h-6 gap-1 px-1.5 text-[11px] text-green-600 hover:bg-green-50 hover:text-green-700"
-                                onClick={() => void confirmReceptionFromList(r.id)}
+                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                                onClick={() => runPrimaryAction(r)}
                               >
-                                <CheckCircle className="h-3.5 w-3.5" />
-                                {t('reception.table.actionConfirm')}
+                                {primaryActionLabel(r.document_state?.codigo)}
                               </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 gap-1 px-1.5 text-xs"
-                              onClick={() =>
-                                void (
-                                  isAdminRole ||
-                                  (canOperateReception && r.document_state?.codigo === 'borrador')
-                                    ? openEdit(r.id)
-                                    : openView(r.id)
-                                )
-                              }
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              {t('reception.table.actionEdit')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 gap-1 px-1.5 text-xs"
-                              onClick={async () => {
-                                try {
-                                  await downloadPdf(`/api/documents/receptions/${r.id}/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `informe-recepcion-${r.id}.pdf`);
-                                  toast.success(t('reception.toast.reportReady'));
-                                } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : t('reception.toast.downloadError'));
-                                }
-                              }}
-                            >
-                              <Printer className="h-3.5 w-3.5" />
-                              {t('reception.table.actionReport')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 gap-1 px-1.5 text-xs text-slate-500 hover:text-slate-800"
-                              onClick={() =>
-                                setExpandedRows((prev) => ({
-                                  ...prev,
-                                  [r.id]: !prev[r.id],
-                                }))
-                              }
-                            >
-                              {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                              {t('reception.table.actionDetail')}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      {expandedRows[r.id] ? (
-                        <TableRow className="bg-slate-50/55">
-                          <TableCell colSpan={8} className="py-2">
-                            <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailId')}</span> #{r.id}</p>
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailType')}</span> {r.reception_type?.nombre ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailDoc')}</span> {r.document_number ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailMarket')}</span> {r.mercado?.nombre ?? '—'}</p>
-                              <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailReference')}</span> {r.reference_code ?? '—'}</p>
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailLines')}</span> {formatCount(r.lines?.length ?? 0)}</p>
-                              <p><span className="font-semibold text-slate-800">{t('reception.table.detailPlant')}</span> {r.plant_code ?? '—'}</p>
-                              <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailLots')}</span> {lotesDetalle(r)}</p>
-                            </div>
-                            <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
-                              <span className="font-semibold text-slate-800">{t('reception.table.detailNotes')}</span> {r.notes?.trim() || '—'}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {r.document_state?.codigo === 'borrador' && canOperateReception ? (
+                                    <DropdownMenuItem onClick={() => void confirmReceptionFromList(r.id)}>
+                                      <CheckCircle className="mr-2 h-3.5 w-3.5" />
+                                      {t('reception.table.actionConfirm')}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                    <Printer className="mr-2 h-3.5 w-3.5" />
+                                    {t('reception.table.actionReport')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setExpandedRows((prev) => ({
+                                        ...prev,
+                                        [r.id]: !prev[r.id],
+                                      }))
+                                    }
+                                  >
+                                    {expandedRows[r.id] ? <ChevronDown className="mr-2 h-3.5 w-3.5" /> : <ChevronRight className="mr-2 h-3.5 w-3.5" />}
+                                    {t('reception.table.actionDetail')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </TableCell>
                         </TableRow>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                        {expandedRows[r.id] ? (
+                          <TableRow className="bg-slate-50/55">
+                            <TableCell colSpan={9} className="py-2">
+                              <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailId')}</span> #{r.id}</p>
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailType')}</span> {r.reception_type?.nombre ?? '—'}</p>
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailDoc')}</span> {r.document_number ?? '—'}</p>
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailMarket')}</span> {r.mercado?.nombre ?? '—'}</p>
+                                <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailReference')}</span> {r.reference_code ?? '—'}</p>
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailLines')}</span> {formatCount(r.lines?.length ?? 0)}</p>
+                                <p><span className="font-semibold text-slate-800">{t('reception.table.detailPlant')}</span> {r.plant_code ?? '—'}</p>
+                                <p className="col-span-2"><span className="font-semibold text-slate-800">{t('reception.table.detailLots')}</span> {lotesDetalle(r)}</p>
+                              </div>
+                              <div className="mt-2 rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
+                                <span className="font-semibold text-slate-800">{t('reception.table.detailNotes')}</span> {r.notes?.trim() || '—'}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </section>
 
+      {showSummary ? (
       <section aria-labelledby="rec-analisis" className="space-y-3">
         <div>
           <h2 id="rec-analisis" className={sectionTitle}>
@@ -2292,6 +2900,7 @@ export function ReceptionPage() {
           </Card>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }
