@@ -151,8 +151,8 @@ function NavList({
           {!collapsed && group.label ? (
             <p
               className={cn(
-                'mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]',
-                group.emphasize ? 'text-slate-300' : 'text-slate-500',
+                'mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#AEB8B0]',
+                group.emphasize && 'text-[#D5D9D0]',
               )}
             >
               {group.label}
@@ -182,7 +182,7 @@ function NavList({
                       collapsed && 'justify-center px-0',
                       isActive
                         ? 'bg-[var(--olive-700)] text-white'
-                        : 'text-[rgba(237,241,232,0.72)] hover:bg-white/[0.06] hover:text-white',
+                        : 'text-[rgba(228,229,221,0.88)] hover:bg-white/[0.08] hover:text-white',
                     )
                   }
                 >
@@ -192,11 +192,15 @@ function NavList({
                         className={cn(
                           'shrink-0 stroke-[1.85]',
                           item.emphasize ? 'h-[18px] w-[18px]' : 'h-[16px] w-[16px]',
-                          isActive ? 'text-white' : 'text-[rgba(237,241,232,0.55)] group-hover:text-[rgba(237,241,232,0.9)]',
+                          isActive ? 'text-white' : 'text-[rgba(211,216,207,0.82)] group-hover:text-white',
                         )}
                         aria-hidden
                       />
-                      {!collapsed ? <span className="truncate font-serif tracking-[-0.01em]">{item.label}</span> : null}
+                      {!collapsed ? (
+                        <span className="truncate font-serif tracking-[-0.01em]" style={{ color: 'inherit' }}>
+                          {item.label}
+                        </span>
+                      ) : null}
                     </>
                   )}
                 </NavLink>
@@ -212,7 +216,7 @@ function NavList({
       {isAdminRole ? (
         <div className="mt-2.5 border-t border-white/[0.14] pt-2.5">
           {!collapsed ? (
-            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#AEB8B0]">
               {t('nav.groups.admin')}
             </p>
           ) : null}
@@ -227,7 +231,9 @@ function NavList({
                       cn(
                         'group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition-colors',
                         collapsed && 'justify-center px-0',
-                        isActive ? 'bg-[var(--olive-700)] text-white' : 'text-[rgba(237,241,232,0.72)] hover:bg-white/[0.06]',
+                        isActive
+                          ? 'bg-[var(--olive-700)] text-white'
+                          : 'text-[rgba(228,229,221,0.88)] hover:bg-white/[0.08] hover:text-white',
                       )
                     }
                   >
