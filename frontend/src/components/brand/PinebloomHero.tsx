@@ -45,8 +45,8 @@ export function PinebloomHero({
         className={cn(
           'pointer-events-none absolute inset-y-0 right-0 h-full object-right',
           wideLandscape
-            ? 'w-[52%] max-w-none object-cover object-[100%_58%] opacity-[0.44] sm:opacity-[0.5]'
-            : 'w-[50%] max-w-none object-cover object-[100%_58%] opacity-[0.42] sm:opacity-[0.48]',
+            ? 'w-[52%] max-w-none object-cover object-[100%_58%] opacity-[0.38] sm:opacity-[0.42]'
+            : 'w-[50%] max-w-none object-cover object-[100%_58%] opacity-[0.36] sm:opacity-[0.4]',
         )}
         aria-hidden
       />
