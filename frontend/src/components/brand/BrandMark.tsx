@@ -6,12 +6,11 @@ type Props = {
   collapsed?: boolean;
   className?: string;
   tone?: 'onDark' | 'onLight';
-  /** Mostrar slogan de ubicación bajo el nombre */
   showLocation?: boolean;
 };
 
 /**
- * Marca Pinebloom: molino + wordmark tipográfico (mockup aprobado).
+ * Marca Pinebloom: molino en marco cuadrado + wordmark (mockup aprobado).
  */
 export function BrandMark({
   collapsed = false,
@@ -22,7 +21,6 @@ export function BrandMark({
   const { companyName, markUrl, monogram, locationLine, windmillUrl } = appBranding;
   const titleTone = tone === 'onDark' ? 'text-stone-50' : 'text-[hsl(var(--brand-charcoal))]';
   const subTone = tone === 'onDark' ? 'text-white/55' : 'text-[hsl(var(--brand-muted))]';
-  const iconTone = tone === 'onDark' ? 'text-stone-100' : 'text-[hsl(var(--brand-primary))]';
 
   return (
     <NavLink
@@ -36,16 +34,17 @@ export function BrandMark({
     >
       <span
         className={cn(
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px]',
-          tone === 'onDark' ? 'bg-white/8' : 'bg-[hsl(var(--brand-primary-soft))]',
-          iconTone,
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border',
+          tone === 'onDark'
+            ? 'border-white/60 bg-transparent text-[#F4F1EA]'
+            : 'border-[hsl(var(--brand-primary))]/40 bg-[hsl(var(--brand-primary-soft))] text-[hsl(var(--brand-primary))]',
         )}
         aria-hidden
       >
         <img
-          src={windmillUrl}
+          src={tone === 'onDark' ? windmillUrl : '/branding/pinebloom-windmill-dark.svg'}
           alt=""
-          className="h-7 w-7 object-contain"
+          className="h-[22px] w-[22px] object-contain"
           onError={(e) => {
             e.currentTarget.src = markUrl;
           }}
@@ -54,11 +53,11 @@ export function BrandMark({
       </span>
       {!collapsed ? (
         <span className="min-w-0 leading-tight">
-          <span className={cn('block truncate font-display text-[13px] font-semibold tracking-[0.06em]', titleTone)}>
+          <span className={cn('block truncate font-display text-[12px] font-semibold tracking-[0.08em]', titleTone)}>
             {companyName.toUpperCase()}
           </span>
           {showLocation ? (
-            <span className={cn('block truncate text-[10px] font-medium uppercase tracking-[0.18em]', subTone)}>
+            <span className={cn('block truncate text-[9px] font-medium uppercase tracking-[0.2em]', subTone)}>
               {locationLine}
             </span>
           ) : null}

@@ -196,7 +196,7 @@ export const operationalModalContentClass =
 export const operationalModalHeaderClass =
   'min-w-0 shrink-0 space-y-1.5 border-b border-border px-6 pb-3.5 pt-5 pr-14 text-left';
 
-export const operationalModalTitleClass = 'text-lg';
+export const operationalModalTitleClass = 'font-display text-[1.35rem] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[1.5rem]';
 
 export const operationalModalDescriptionClass =
   'text-pretty text-[13px] leading-snug text-muted-foreground';
@@ -212,22 +212,22 @@ export const operationalModalBodyStackClass = 'space-y-4';
 
 /** Pie con borde superior y fondo suave (como unidad PT). */
 export const operationalModalFooterClass =
-  'min-w-0 shrink-0 gap-2 border-t border-border bg-muted/15 px-6 py-3';
+  'min-w-0 shrink-0 gap-2 border-t border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-6 py-3';
 
 /** Sección tipo paso 1 / 3 unidad PT — card sobre fondo claro. */
 export const operationalModalSectionCard =
-  'min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm';
+  'min-w-0 rounded-2xl border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] p-4 shadow-[0_1px_0_rgba(51,56,53,0.04)]';
 
 /** Sección tipo paso 2 unidad PT — bloque alternado. */
 export const operationalModalSectionMuted =
-  'min-w-0 rounded-xl border border-border bg-muted/15 p-4 shadow-sm';
+  'min-w-0 rounded-2xl border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-primary-soft))]/45 p-4';
 
 /** Fila del número de paso + título de sección. */
 export const operationalModalSectionHeadingRow = 'mb-3 flex flex-wrap items-center gap-2';
 
 /** Círculo numerado (1, 2, 3…). */
 export const operationalModalStepBadge =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[13px] font-bold text-primary-foreground';
+  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--brand-primary))] text-[13px] font-bold text-[hsl(var(--brand-primary-foreground))] shadow-sm';
 
 /** Título al lado del paso. */
-export const operationalModalStepTitle = 'text-[15px] font-bold tracking-tight text-slate-900';
+export const operationalModalStepTitle = 'font-display text-[17px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))]';

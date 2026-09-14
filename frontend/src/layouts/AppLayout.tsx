@@ -21,6 +21,8 @@ import {
   Tag,
   Truck,
   Upload,
+  User,
+  Bell,
   Warehouse,
   X,
 } from 'lucide-react';
@@ -34,7 +36,6 @@ import { useDemoInfo } from '@/api/demoInfo';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { appBranding, brandMarkParts } from '@/lib/branding';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -194,7 +195,7 @@ function NavList({
                         className={cn(
                           'shrink-0 stroke-[2]',
                           item.emphasize ? 'h-5 w-5' : 'h-4 w-4',
-                          isActive ? 'text-[hsl(var(--brand-primary-glow))]' : 'text-stone-400 group-hover:text-stone-200',
+                          isActive ? 'text-white' : 'text-stone-400 group-hover:text-stone-200',
                         )}
                         aria-hidden
                       />
@@ -453,18 +454,24 @@ export function AppLayout() {
             <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-md md:hidden">
               <BrandMark collapsed className="pointer-events-none [&_span]:!h-7 [&_span]:!w-7 [&_img]:!h-7 [&_img]:!w-7" />
             </span>
-            <div className="min-w-0">
-              <h1 className="truncate font-display text-[17px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[18px]">
-                {pageTitle}
-              </h1>
-              <p className="hidden truncate text-[11px] text-[hsl(var(--brand-muted))] lg:block">
-                <Leaf className="mr-1 inline h-3 w-3 text-[hsl(var(--brand-primary))]" aria-hidden />
-                {appBranding.tagline}
-              </p>
-            </div>
+            <p className="hidden min-w-0 truncate text-[13px] text-[hsl(var(--brand-muted))] lg:block">
+              <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[hsl(var(--brand-primary))]" aria-hidden />
+              {appBranding.tagline}
+            </p>
+            <h1 className="truncate font-display text-[16px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] lg:hidden">
+              {pageTitle}
+            </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
+            <button
+              type="button"
+              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[hsl(var(--brand-muted))] hover:bg-stone-100 hover:text-[hsl(var(--brand-charcoal))] sm:inline-flex"
+              aria-label={t('nav.notifications', { defaultValue: 'Notificaciones' })}
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
+            </button>
             <div className="hidden sm:block">
               <LanguageToggle />
             </div>
@@ -473,18 +480,19 @@ export function AppLayout() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1.5 rounded-md px-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  className="h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2"
                 >
-                  <span className="hidden max-w-[100px] truncate text-[13px] font-medium text-slate-800 sm:inline">
-                    {username}
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--brand-primary-soft))] text-[hsl(var(--brand-primary))]">
+                    <User className="h-3.5 w-3.5" aria-hidden />
                   </span>
-                  <Badge
-                    variant="secondary"
-                    className="hidden h-5 border-0 bg-slate-100 px-1.5 text-[10px] font-medium capitalize text-slate-600 md:inline-flex"
-                  >
-                    {role}
-                  </Badge>
-                  <MoreHorizontal className="h-4 w-4 sm:hidden" />
+                  <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
+                    <span className="max-w-[110px] truncate text-[12px] font-semibold text-[hsl(var(--brand-charcoal))]">
+                      {username}
+                    </span>
+                    <span className="max-w-[110px] truncate text-[10px] capitalize text-[hsl(var(--brand-muted))]">
+                      {role}
+                    </span>
+                  </span>
                   <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 opacity-50 sm:inline" />
                 </Button>
               </DropdownMenuTrigger>

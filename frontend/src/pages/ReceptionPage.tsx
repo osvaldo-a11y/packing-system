@@ -1,5 +1,8 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  zodResolver } from '@hookform/resolvers/zod';
+import { useMutation,
+  useQuery,
+  useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
   CheckCircle,
@@ -7,37 +10,51 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDashed,
+  Clock3,
   FileText,
   Info,
   Lock,
   MoreHorizontal,
   Plus,
   Printer,
+  Scale,
   Trash2,
+  Truck,
+  Users,
   X,
-} from 'lucide-react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+  } from 'lucide-react';
+import { Fragment,
+  useEffect,
+  useMemo,
+  useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { apiJson, downloadPdf } from '@/api';
+import { apiJson,
+  downloadPdf } from '@/api';
 import { useAuth } from '@/AuthContext';
-import { canOperate, isAdmin } from '@/lib/roles';
+import { canOperate,
+  isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card,
+  CardDescription,
+  CardHeader,
+  CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+  } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
-import { formatCount, formatLb } from '@/lib/number-format';
+import { isoInLocalDateRange,
+  localDateYmd } from '@/lib/date-filter';
+import { formatCount,
+  formatLb } from '@/lib/number-format';
 import { processTokens } from '@/lib/process-tokens';
 import {
   badgePill,
@@ -65,8 +82,6 @@ import {
   operationalModalStepTitle,
   operationalModalTitleClass,
   pageInfoButton,
-  pageSubtitle,
-  pageTitle,
   sectionHint,
   sectionTitle,
   signalsPanel,
@@ -75,6 +90,7 @@ import {
   tableHeaderRow,
   tableShell,
 } from '@/lib/page-ui';
+import { appBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -1297,21 +1313,33 @@ export function ReceptionPage() {
             'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
-          <DialogHeader className={cn(operationalModalHeaderClass, 'border-b px-4 py-3 sm:px-6 sm:py-4')}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2 text-base')}>
+          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface))] px-4 py-4 sm:px-6 sm:py-5')}>
+            <img
+              src={appBranding.watermarkUrl}
+              alt=""
+              className="pointer-events-none absolute -right-2 top-0 h-24 w-auto opacity-40 sm:h-28"
+              aria-hidden
+            />
+            <div className="relative z-[1] flex items-start justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-[hsl(var(--brand-primary))]" aria-hidden />
                   {receptionDialogTitle}
                 </DialogTitle>
+                <p className="text-[13px] text-[hsl(var(--brand-muted))]">
+                  {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
+                </p>
+                <p className="hidden font-display text-[9px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--brand-muted))] sm:block">
+                  {appBranding.tagline}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => closeDialog()}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] text-[hsl(var(--brand-muted))] hover:bg-[hsl(var(--brand-primary-soft))]"
                 aria-label={t('reception.dialog.closeAriaLabel')}
               >
-                <X size={16} className="text-muted-foreground" />
+                <X size={16} />
               </button>
             </div>
           </DialogHeader>
@@ -1844,9 +1872,12 @@ export function ReceptionPage() {
                 {!viewOnly ? (
                   <button
                     type="submit"
-                    className={modalFormPrimaryButton}
+                    className={cn(modalFormPrimaryButton, 'inline-flex items-center gap-2')}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
+                    {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
+                      <Truck className="h-4 w-4" aria-hidden />
+                    ) : null}
                     {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending
                       ? t('reception.dialog.savingButton')
                       : adminStateOnlyEdit
@@ -1904,60 +1935,106 @@ export function ReceptionPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-0.5">
-          <h2 className={pageTitle}>{t('reception.pageTitle')}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>{t('reception.pageSubtitle')}</p>
-            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
-              <Info className="h-4 w-4" />
-            </button>
+      
+      <header className="relative overflow-hidden rounded-[18px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-5 sm:px-5 sm:py-5">
+        <img
+          src={appBranding.watermarkUrl}
+          alt=""
+          className="pointer-events-none absolute -right-3 top-0 h-28 w-auto opacity-50 sm:h-36 sm:opacity-65"
+          aria-hidden
+        />
+        <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-display text-[28px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[32px]">
+              {t('reception.pageTitle')}
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('reception.pageSubtitle')}</p>
+              <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+          {canOperateReception ? (
+            <Button
+              className={cn(
+                'h-10 shrink-0 gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-none',
+                receptionTok.accent,
+                'hover:opacity-95',
+              )}
+              onClick={() => openNew()}
+            >
+              <Plus className="h-5 w-5" />
+              {t('reception.newButton')}
+            </Button>
+          ) : null}
         </div>
-        {canOperateReception ? (
-          <Button
-            className={cn(
-              'h-10 shrink-0 gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-none',
-              receptionTok.accent,
-              'hover:opacity-95',
-            )}
-            onClick={() => openNew()}
-          >
-            <Plus className="h-5 w-5" />
-            {t('reception.newButton')}
-          </Button>
-        ) : null}
-      </div>
+      </header>
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="rec-kpis" className={sectionTitle}>
+          <h2 id="rec-kpis" className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
             {t('reception.srKpis')}
           </h2>
           <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowSummary((v) => !v)}>
             {showSummary ? t('reception.hideSummary') : t('reception.viewSummary')}
           </Button>
         </div>
-        <div className="flex flex-wrap items-stretch gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l-[3px] px-3 py-2.5', receptionTok.stripe)}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.todayShort')}</p>
-            <p className={cn('text-[1.5rem] font-bold tabular-nums leading-none', receptionTok.ink)}>{formatCount(todayOpsKpis.count)}</p>
+
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3.5 py-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(var(--proc-reception-surface))] text-[hsl(var(--proc-reception-ink))] ring-1 ring-inset ring-[hsl(var(--proc-reception-border))]">
+              <Truck className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-reception-ink))]/80">{t('reception.kpi.todayShort')}</p>
+              <p className="text-[22px] font-bold tabular-nums leading-none text-[hsl(var(--proc-reception-ink))]">
+                {formatCount(todayOpsKpis.count)}
+                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</span>
+              </p>
+            </div>
           </div>
-          <div className={cn('flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5', todayOpsKpis.pending > 0 ? 'bg-amber-50/70' : '')}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.pendingShort')}</p>
-            <p className={cn('text-[1.5rem] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-800' : 'text-slate-900')}>
-              {formatCount(todayOpsKpis.pending)}
-            </p>
+
+          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(36_28%_84%)] bg-[hsl(36_28%_94%)] px-3.5 py-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(36_28%_94%)] text-[hsl(28_24%_34%)] ring-1 ring-inset ring-[hsl(36_16%_84%)]">
+              <Clock3 className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(28_24%_34%)]/80">{t('reception.kpi.pendingShort')}</p>
+              <p className={cn('text-[22px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-900' : 'text-[hsl(28_24%_34%)]')}>
+                {formatCount(todayOpsKpis.pending)}
+                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</span>
+              </p>
+            </div>
           </div>
-          <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.weightShort')}</p>
-            <p className="text-[1.5rem] font-bold tabular-nums leading-none text-slate-900">{formatLb(todayOpsKpis.totalNet, 2)} <span className="text-[11px] font-medium text-slate-500">lb</span></p>
+
+          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-3.5 py-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(var(--proc-pt-surface))] text-[hsl(var(--proc-pt-ink))] ring-1 ring-inset ring-[hsl(var(--proc-pt-border))]">
+              <Scale className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-pt-ink))]/80">{t('reception.kpi.weightShort')}</p>
+              <p className="text-[20px] font-bold tabular-nums leading-none text-[hsl(var(--proc-pt-ink))]">
+                {formatLb(todayOpsKpis.totalNet, 2)}
+                <span className="ml-1 text-[12px] font-medium opacity-70">lb</span>
+              </p>
+            </div>
           </div>
-          <div className="flex min-w-[7.5rem] flex-1 flex-col justify-center gap-0.5 border-l border-slate-200 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('reception.kpi.producersShort')}</p>
-            <p className="text-[1.5rem] font-bold tabular-nums leading-none text-slate-900">{formatCount(todayOpsKpis.producers)}</p>
+
+          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-reception-border))] bg-[hsl(90_14%_88%)] px-3.5 py-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(90_14%_88%)] text-[hsl(var(--proc-reception-ink))] ring-1 ring-inset ring-[hsl(var(--proc-reception-border))]">
+              <Users className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-reception-ink))]/80">{t('reception.kpi.producersShort')}</p>
+              <p className="text-[22px] font-bold tabular-nums leading-none text-[hsl(var(--proc-reception-ink))]">
+                {formatCount(todayOpsKpis.producers)}
+                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</span>
+              </p>
+            </div>
           </div>
         </div>
+
         {showSummary ? (
           <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/20 p-3">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

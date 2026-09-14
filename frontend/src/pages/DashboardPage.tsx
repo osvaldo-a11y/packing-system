@@ -2,14 +2,17 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   AlertTriangle,
+  Boxes,
+  CalendarDays,
+  CalendarRange,
+  ChartColumn,
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  ClipboardList,
+  Cog,
   DollarSign,
-  Import,
+  Filter,
   Info,
-  Tag,
   TrendingUp,
   Truck,
 } from 'lucide-react';
@@ -613,7 +616,7 @@ export function DashboardPage() {
   const canLoad = Boolean(token && !isAccessTokenExpired(token));
 
 
-  const [period, setPeriod] = useState<DashboardPeriod>('accumulated');
+  const [period, setPeriod] = useState<DashboardPeriod>('today');
   const [producerId, setProducerId] = useState<number | 'all'>('all');
   const [speciesId, setSpeciesId] = useState<number | 'all'>('all');
   const [workMode, setWorkMode] = useState<WorkMode>('both');
@@ -1314,21 +1317,94 @@ export function DashboardPage() {
 
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
-      <header className="relative overflow-hidden rounded-[16px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-4 sm:px-5 sm:py-5">
+      
+      <header className="relative overflow-hidden rounded-[18px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-5 sm:px-6 sm:py-6">
         <img
           src={appBranding.watermarkUrl}
           alt=""
-          className="pointer-events-none absolute -right-2 top-0 h-28 w-auto opacity-70 sm:h-36"
+          className="pointer-events-none absolute -right-4 top-[-8px] h-32 w-auto opacity-[0.55] sm:right-2 sm:top-0 sm:h-40 sm:opacity-70"
           aria-hidden
         />
-        <div className="relative min-w-0 space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--brand-muted))]">
-            {appBranding.companyName} · {appBranding.locationLine}
-          </p>
-          <h1 className="font-display text-[28px] font-semibold leading-tight text-[hsl(var(--brand-charcoal))] sm:text-[32px]">
-            {t('dashboard.askWhat')}
-          </h1>
-          <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('dashboard.askHint')}</p>
+        <div className="relative z-[1] min-w-0 space-y-4">
+          <div className="space-y-1.5">
+            <h1 className="font-display text-[30px] font-semibold leading-[1.15] tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[34px]">
+              {t('dashboard.askWhat')}
+            </h1>
+            <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('dashboard.askHint')}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                { key: 'today' as const, label: t('dashboard.filters.today'), Icon: CalendarDays },
+                { key: 'week' as const, label: t('dashboard.filters.week'), Icon: CalendarRange },
+                { key: 'accumulated' as const, label: t('dashboard.filters.accumulated'), Icon: ChartColumn },
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setPeriod(p.key)}
+                className={cn(
+                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors',
+                  period === p.key
+                    ? 'border-[hsl(var(--brand-primary))] bg-[hsl(var(--brand-primary))] text-[hsl(var(--brand-primary-foreground))] shadow-sm'
+                    : 'border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] text-[hsl(var(--brand-charcoal))] hover:bg-[hsl(var(--brand-primary-soft))]',
+                )}
+              >
+                <p.Icon className="h-3.5 w-3.5 opacity-80" aria-hidden />
+                {p.label}
+              </button>
+            ))}
+            <span className="mx-0.5 hidden h-5 w-px bg-[hsl(var(--brand-border))] sm:inline-block" aria-hidden />
+            <button
+              type="button"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[hsl(var(--brand-border))] bg-transparent px-3 text-[13px] font-medium text-[hsl(var(--brand-muted))] hover:bg-[hsl(var(--brand-primary-soft))] hover:text-[hsl(var(--brand-charcoal))]"
+              onClick={() => setShowMoreFilters((v) => !v)}
+              aria-expanded={showMoreFilters}
+            >
+              <Filter className="h-3.5 w-3.5" aria-hidden />
+              {showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
+            </button>
+          </div>
+
+          {showMoreFilters ? (
+            <div className="grid gap-2 border-t border-[hsl(var(--brand-border))]/80 pt-3 sm:grid-cols-3">
+              <select
+                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
+                value={producerId === 'all' ? 'all' : String(producerId)}
+                onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">{t('dashboard.filters.allProducers')}</option>
+                {(producers ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
+                value={speciesId === 'all' ? 'all' : String(speciesId)}
+                onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">{t('dashboard.filters.allFruit')}</option>
+                {(species ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
+                value={workMode}
+                onChange={(e) => setWorkMode(e.target.value as WorkMode)}
+              >
+                <option value="both">{t('dashboard.filters.both')}</option>
+                <option value="hand">{t('dashboard.filters.hand')}</option>
+                <option value="machine">{t('dashboard.filters.machine')}</option>
+              </select>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -1372,82 +1448,7 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <section className="border-b border-slate-200/80 pb-2.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {[
-            { key: 'today', label: t('dashboard.filters.today') },
-            { key: 'week', label: t('dashboard.filters.week') },
-            { key: 'accumulated', label: t('dashboard.filters.accumulated') },
-          ].map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setPeriod(p.key as DashboardPeriod)}
-              className={cn(
-                'h-8 min-w-[4.5rem] rounded-lg border px-2.5 text-[13px] font-semibold transition-colors',
-                period === p.key
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="ml-auto inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
-            onClick={() => setShowMoreFilters((v) => !v)}
-            aria-expanded={showMoreFilters}
-          >
-            {showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
-            {showMoreFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
-        {showMoreFilters ? (
-          <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3">
-            <select
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={producerId === 'all' ? 'all' : String(producerId)}
-              onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">{t('dashboard.filters.allProducers')}</option>
-              {(producers ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={speciesId === 'all' ? 'all' : String(speciesId)}
-              onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">{t('dashboard.filters.allFruit')}</option>
-              {(species ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={workMode}
-              onChange={(e) => setWorkMode(e.target.value as WorkMode)}
-            >
-              <option value="both">{t('dashboard.filters.both')}</option>
-              <option value="hand">{t('dashboard.filters.hand')}</option>
-              <option value="machine">{t('dashboard.filters.machine')}</option>
-            </select>
-          </div>
-        ) : null}
-        <p className="mt-2 text-[11px] text-slate-500">
-          {period === 'today'
-            ? t('dashboard.filters.periodToday')
-            : period === 'week'
-              ? t('dashboard.filters.periodWeek')
-              : t('dashboard.filters.periodSeason', { year: seasonAnchor.year })}
-        </p>
-      </section>
+
 
       <section className="space-y-2.5">
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
@@ -1500,18 +1501,19 @@ export function DashboardPage() {
 
       {canWriteOps ? (
         <section className="space-y-3">
-          <div>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <h2 className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
               {t('dashboard.quickAccess.title')}
             </h2>
+            <span className="hidden text-[hsl(var(--brand-border))] sm:inline" aria-hidden>|</span>
             <p className="text-[12px] text-[hsl(var(--brand-muted))]">{t('dashboard.quickAccess.subtitle')}</p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
-                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, Icon: Import },
-                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, Icon: ClipboardList },
-                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, Icon: Tag },
+                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, Icon: Truck },
+                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, Icon: Cog },
+                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, Icon: Boxes },
                 { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const, Icon: Truck },
               ] as const
             ).map((a) => (
@@ -1534,10 +1536,14 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-          {t('dashboard.recentActivity.title')}
-        </h2>
+      <section className="space-y-2.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
+            {t('dashboard.recentActivity.title')}
+          </h2>
+          <span className="hidden text-[hsl(var(--brand-border))] sm:inline" aria-hidden>|</span>
+          <p className="text-[12px] text-[hsl(var(--brand-muted))]">{t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}</p>
+        </div>
         {activityRows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-500">
             {t('dashboard.recentActivity.empty')}
@@ -1548,15 +1554,20 @@ export function DashboardPage() {
               <li key={row.id} className={cn(idx > 0 && 'border-t border-slate-100')}>
                 <Link
                   to={row.to}
-                  className="flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                  className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[hsl(var(--brand-primary-soft))]/40"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-slate-900">
-                      {row.kind} · {row.detail}
-                    </p>
-                    <p className="truncate text-[11px] text-slate-500">{row.when}</p>
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--brand-primary-soft))] text-[hsl(var(--brand-primary))]">
+                    <Truck className="h-4 w-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <p className="truncate text-[13px] font-semibold text-[hsl(var(--brand-charcoal))]">
+                        {row.kind} · {row.detail}
+                      </p>
+                      <span className="text-[11px] text-[hsl(var(--brand-muted))]">{row.when}</span>
+                    </div>
                   </div>
-                  <span className="shrink-0 text-[12px] font-medium text-slate-400">→</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--brand-muted))]" aria-hidden />
                 </Link>
               </li>
             ))}
