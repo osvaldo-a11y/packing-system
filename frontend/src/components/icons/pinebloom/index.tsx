@@ -9,17 +9,17 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M3 12h27v18H3z" />
+      <path fill="currentColor" d="M3 8h27v23H3z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M29 18h9l7 9v4H29V18Zm4 4v6h7.7l-4.9-6H33Z"
+        d="M29 15h9l7 10v7H29V15Zm4 4v8h8l-5.5-8H33Z"
       />
-      <rect x="4" y="28" width="40" height="5" rx="1" fill="currentColor" />
+      <rect x="4" y="29" width="40" height="5" rx="1" fill="currentColor" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M13 28.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm0 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM36 28.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm0 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+        d="M13 29a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM36 29a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
       />
     </svg>
   );
