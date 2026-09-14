@@ -43,7 +43,7 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute inset-y-0 right-0 h-full w-[56%] max-w-none object-contain object-right object-bottom opacity-[0.92] sm:w-[58%] sm:opacity-100',
+          'pointer-events-none absolute inset-y-0 right-0 h-full w-[56%] max-w-none object-contain object-right object-bottom opacity-100 sm:w-[58%]',
           wideLandscape && 'w-[58%] sm:w-[62%]',
         )}
         aria-hidden

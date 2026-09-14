@@ -1332,7 +1332,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-[0.95] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1560,7 +1560,7 @@ export function ReceptionPage() {
                         </select>
                       </div>
                     </div>
-                    <details className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                    <details className="mt-2 hidden rounded-md border border-border/70 bg-muted/20 px-3 py-2 md:block">
                       <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-700">
                         {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
                       </summary>
