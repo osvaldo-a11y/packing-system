@@ -1518,15 +1518,13 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex min-h-[44px] items-center gap-2.5 rounded-[8px] border px-3 text-[13px] font-semibold transition-colors sm:min-h-[46px]',
+                  'group flex min-h-[40px] items-center gap-2 rounded-[7px] border border-[var(--stone-300)]/90 px-2.5 text-[13px] font-semibold text-[var(--ink)] transition-colors sm:min-h-[42px]',
                   processTokens[a.semantic].surface,
-                  processTokens[a.semantic].border,
-                  processTokens[a.semantic].ink,
                 )}
               >
-                <a.Icon className="h-5 w-5 shrink-0" strokeWidth={2.1} />
+                <a.Icon className="h-[18px] w-[18px] shrink-0 text-[var(--ink)]" strokeWidth={2.15} />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
-                <ChevronRight className="h-4 w-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
+                <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>
             ))}
           </div>
@@ -1567,7 +1565,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section className="space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3">
+      <section className={cn(!showExecutive && 'border-0 bg-transparent px-0 py-0', showExecutive && 'space-y-1.5 rounded-lg border border-[var(--stone-200)]/80 bg-[var(--stone-50)]/40 px-2.5 py-2')}>
         <button
           type="button"
           className="flex w-full items-center justify-between gap-2 text-left"
@@ -1575,12 +1573,14 @@ export function DashboardPage() {
           aria-expanded={showExecutive}
         >
           <div>
-            <h2 className={sectionTitle}>{t('dashboard.executiveTitle')}</h2>
-            <p className={sectionHint}>{t('dashboard.executiveHint')}</p>
+            <h2 className="font-serif text-[14px] font-semibold text-[var(--ink)]">{t('dashboard.executiveTitle')}</h2>
+            {!showExecutive ? null : (
+              <p className="text-[11px] text-[var(--ink-muted)]">{t('dashboard.executiveHint')}</p>
+            )}
           </div>
-          <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--stone-300)] bg-white px-2 text-[11px] font-medium text-[var(--ink-muted)]">
             {showExecutive ? t('dashboard.executiveToggleHide') : t('dashboard.executiveToggleShow')}
-            {showExecutive ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {showExecutive ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </span>
         </button>
 

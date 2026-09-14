@@ -34,8 +34,8 @@ export function PinebloomHero({
       className={cn(
         'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)]',
         compact
-          ? 'min-h-[132px] px-1 py-2.5 sm:min-h-[148px] sm:px-1 sm:py-3'
-          : 'min-h-[148px] px-1 py-3 sm:min-h-[160px] sm:py-3.5',
+          ? 'min-h-[128px] px-1 py-2 sm:min-h-[140px] sm:px-1 sm:py-2.5'
+          : 'min-h-[136px] px-1 py-2.5 sm:min-h-[148px] sm:py-3',
         className,
       )}
     >
@@ -43,23 +43,23 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute inset-y-0 right-0 h-full w-[50%] max-w-none object-cover object-[92%_40%] opacity-100 contrast-[1.06] brightness-[0.97] sm:w-[52%]',
-          wideLandscape && 'w-[54%] object-[86%_38%] sm:w-[56%]',
-          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_8%,black_32%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_8%,black_32%,black_100%)]',
+          'pointer-events-none absolute inset-y-0 right-0 h-full w-[48%] max-w-none object-cover object-[94%_52%] opacity-[0.92] contrast-[1.04] brightness-[0.98] sm:w-[50%]',
+          wideLandscape && 'w-[54%] object-[86%_38%] opacity-95 sm:w-[56%]',
+          '[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.08)_12%,rgba(0,0,0,0.55)_34%,black_58%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.08)_12%,rgba(0,0,0,0.55)_34%,black_58%,black_100%)]',
         )}
         aria-hidden
       />
-      <div className="relative z-[1] flex flex-col justify-between gap-2 sm:gap-2">
+      <div className="relative z-[1] flex flex-col justify-between gap-1.5 sm:gap-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 max-w-[58%]">
+          <div className="min-w-0 max-w-[56%]">
             <h1
               className={cn(
                 'font-serif font-bold tracking-[-1.2px] text-[var(--ink)]',
-                'text-[42px] sm:text-[48px]',
+                'text-[40px] sm:text-[46px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                lineHeight: 0.96,
+                lineHeight: 0.94,
                 letterSpacing: '-1.2px',
                 fontWeight: 700,
               }}
@@ -69,8 +69,8 @@ export function PinebloomHero({
             {subtitle ? (
               <div
                 className={cn(
-                  'mt-1 leading-snug text-[var(--ink-muted)]',
-                  compact ? 'text-[17px] sm:text-[19px]' : 'text-[15px] sm:text-[16px]',
+                  'mt-0.5 leading-snug text-[var(--ink-muted)]',
+                  compact ? 'text-[17px] sm:text-[19px]' : 'text-[14px] sm:text-[15px]',
                 )}
               >
                 {subtitle}

@@ -44,7 +44,7 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid min-h-[38px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-4 gap-y-0.5 px-3 py-[6px] transition-colors hover:bg-[var(--sage-100)]/60 sm:min-h-[40px] sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[7px]',
+        'grid min-h-[36px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[5px] transition-colors hover:bg-[var(--sage-100)]/60 sm:min-h-[38px] sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[6px]',
         className,
       )}
     >

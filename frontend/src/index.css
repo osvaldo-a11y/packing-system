@@ -13,21 +13,25 @@
     --olive-600: #687b49;
     --olive-500: #7b8f57;
 
-    --sage-100: #edf1e8;
-    --sage-200: #dfe7d7;
-    --sage-300: #ccd8c1;
+    --sage-100: #f1f3ec;
+    --sage-200: #e4eadc;
+    --sage-300: #d0d8c6;
 
     --stone-50: #fbfaf7;
-    --stone-100: #f6f4ef;
+    --stone-100: #f7f5f0;
     --stone-200: #ebe8e1;
     --stone-300: #dad6cd;
 
-    --bluegray-100: #e8f0f4;
-    --bluegray-200: #d4e3ea;
+    --bluegray-100: #eef3f5;
+    --bluegray-200: #dde7ec;
     --bluegray-700: #435f6e;
 
-    --harvest-100: #f4edde;
-    --harvest-200: #ead9b8;
+    --ice-100: #eef5f7;
+    --ice-200: #dceaf0;
+    --ice-700: #4a6570;
+
+    --harvest-100: #f6f1e6;
+    --harvest-200: #ebe0c8;
     --harvest-700: #705326;
 
     --ink: #262a26;
@@ -73,8 +77,8 @@
     --pb-mod-process-accent: #8D887E;
     --pb-mod-pt-bg: var(--bluegray-100);
     --pb-mod-pt-accent: var(--bluegray-700);
-    --pb-mod-stock-bg: var(--bluegray-100);
-    --pb-mod-stock-accent: var(--bluegray-700);
+    --pb-mod-stock-bg: var(--ice-100);
+    --pb-mod-stock-accent: var(--ice-700);
     --pb-mod-dispatch-bg: var(--harvest-100);
     --pb-mod-dispatch-accent: var(--harvest-700);
     --pb-mod-materials-bg: var(--sage-100);
