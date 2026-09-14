@@ -10,7 +10,9 @@ type Props = {
 };
 
 /**
- * Logo completo Pinebloom Farms (referencia): molino en marco + wordmark + Newton, GA.
+ * Logo oficial Pinebloom Farms (GOLD MASTER).
+ * Usa el PNG oficial en superficies claras.
+ * En sidebar oscuro usa el lockup claro dedicado (misma composición).
  */
 export function BrandMark({
   collapsed = false,
@@ -18,46 +20,65 @@ export function BrandMark({
   tone = 'onDark',
   showLocation = true,
 }: Props) {
-  const { companyName, logoFullUrl, markUrl, monogram, locationLine, windmillUrl } = appBranding;
-  const fullLogo = tone === 'onLight' ? '/branding/pinebloom-logo-full-dark.svg' : logoFullUrl;
-  const windmill = tone === 'onLight' ? '/branding/pinebloom-windmill-dark.svg' : windmillUrl;
+  const {
+    companyName,
+    logoOfficialUrl,
+    logoSidebarUrl,
+    logoMobileUrl,
+    markUrl,
+    monogram,
+    locationLine,
+    windmillUrl,
+    windmillMarkUrl,
+  } = appBranding;
 
   if (!collapsed) {
+    const src =
+      tone === 'onDark'
+        ? logoSidebarUrl
+        : logoOfficialUrl || logoMobileUrl;
+
     return (
       <NavLink
         to="/"
         title={companyName}
         className={cn(
-          'flex min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+          'flex min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/40',
           className,
         )}
       >
         <img
-          src={fullLogo}
+          src={src}
           alt={companyName}
-          className="h-10 w-auto max-w-full object-contain object-left"
+          className={cn(
+            'w-auto max-w-full object-contain object-left',
+            tone === 'onDark' ? 'h-12' : 'h-9 sm:h-10',
+          )}
           onError={(e) => {
-            e.currentTarget.src = markUrl;
+            e.currentTarget.src = tone === 'onLight' ? logoMobileUrl : markUrl;
           }}
         />
+        {!showLocation ? <span className="sr-only">{locationLine}</span> : null}
       </NavLink>
     );
   }
+
+  const windmill = tone === 'onDark' ? windmillUrl : windmillMarkUrl;
 
   return (
     <NavLink
       to="/"
       title={companyName}
       className={cn(
-        'inline-flex h-9 w-9 items-center justify-center rounded-[3px] border outline-none focus-visible:ring-2 focus-visible:ring-white/40',
-        tone === 'onDark' ? 'border-white/60' : 'border-[var(--pb-olive)]/40 bg-[var(--pb-olive-soft)]',
+        'inline-flex h-10 w-9 items-center justify-center rounded-[3px] border outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/40',
+        tone === 'onDark' ? 'border-white/55' : 'border-[var(--pine-950)]/35 bg-[var(--sage-100)]',
         className,
       )}
     >
       <img
         src={windmill}
         alt=""
-        className="h-[22px] w-[22px] object-contain"
+        className="h-7 w-auto object-contain"
         onError={(e) => {
           e.currentTarget.src = markUrl;
         }}

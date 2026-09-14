@@ -78,7 +78,6 @@ import {
   kpiValueMd,
   modalFormLineCard,
   modalFormPrimaryButton,
-  modalFormSoftGreenButton,
   operationalModalBodyClass,
   operationalModalContentClass,
   operationalModalFooterClass,
@@ -464,7 +463,6 @@ export function ReceptionPage() {
   /** Admin en recepción no borrador: modal editable solo para cambiar estado documento. */
   const [adminStateOnlyEdit, setAdminStateOnlyEdit] = useState(false);
   const [serverReference, setServerReference] = useState<string | null>(null);
-  const [copyFromPreviousLine, setCopyFromPreviousLine] = useState(true);
   const [applyVarietyToInvolvedLines, setApplyVarietyToInvolvedLines] = useState(true);
   const [viewStateCodigo, setViewStateCodigo] = useState<string | null>(null);
   const [lineDrafts, setLineDrafts] = useState<LineDraft[]>([emptyLine()]);
@@ -1324,30 +1322,31 @@ export function ReceptionPage() {
             'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
           )}
         >
-          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface))] px-4 py-4 sm:px-6 sm:py-5')}>
+          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4')}>
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)] md:hidden" aria-hidden />
             <img
-              src={appBranding.watermarkUrl}
+              src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute -right-2 top-0 h-24 w-auto opacity-40 sm:h-28"
+              className="pointer-events-none absolute -right-4 top-2 h-[7.5rem] w-auto opacity-[0.4] sm:h-36 sm:opacity-[0.5]"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-1">
-                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-[hsl(var(--brand-primary))]" aria-hidden />
+                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5')}>
+                  <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
                   {receptionDialogTitle}
                 </DialogTitle>
-                <p className="text-[13px] text-[hsl(var(--brand-muted))]">
+                <p className="text-[13px] text-[var(--ink-muted)]">
                   {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
                 </p>
-                <p className="max-w-[11rem] font-serif text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--pb-muted)] sm:max-w-none sm:text-[9px] sm:tracking-[0.16em]">
+                <p className="max-w-[12rem] text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--ink-muted)] sm:max-w-[16rem]">
                   {t('reception.dialog.claim', { defaultValue: 'FRUTA DE NUESTRA TIERRA. UN FUTURO MÁS BRILLANTE.' })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => closeDialog()}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] text-[hsl(var(--brand-muted))] hover:bg-[hsl(var(--brand-primary-soft))]"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
                 aria-label={t('reception.dialog.closeAriaLabel')}
               >
                 <X size={16} />
@@ -1578,41 +1577,56 @@ export function ReceptionPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                        <button
-                          type="button"
-                          className={modalFormSoftGreenButton}
-                          disabled={lockNonStateFields}
-                          onClick={() =>
-                            setLineDrafts((d) => {
-                              const prev = d[d.length - 1];
-                              const next =
-                                copyFromPreviousLine && prev && prev.species_id > 0
-                                  ? { ...prev, lot_code: undefined }
-                                  : emptyLine();
-                              return [...d, next];
-                            })
-                          }
-                        >
-                          {t('reception.dialog.addLine')}
-                        </button>
-                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-500">
-                          <input
-                            type="checkbox"
-                            checked={copyFromPreviousLine}
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                        <div className="flex w-full flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 sm:flex-none"
                             disabled={lockNonStateFields}
-                            onChange={(e) => setCopyFromPreviousLine(e.target.checked)}
-                          />
-                          {t('reception.dialog.copyLastLine')}
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-500">
+                            onClick={() =>
+                              setLineDrafts((d) => {
+                                return [...d, emptyLine()];
+                              })
+                            }
+                          >
+                            + {t('reception.dialog.addLine')}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-[var(--stone-100)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--stone-200)] disabled:opacity-50 sm:flex-none"
+                            disabled={lockNonStateFields || lineDrafts.length === 0}
+                            onClick={() =>
+                              setLineDrafts((d) => {
+                                const prev = d[d.length - 1];
+                                if (!prev) return [...d, emptyLine()];
+                                return [...d, { ...prev, lot_code: undefined }];
+                              })
+                            }
+                          >
+                            {t('reception.dialog.copyLastLine')}
+                          </button>
+                        </div>
+                        <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-2 text-[12px] text-[var(--ink)]">
+                          <Leaf className="h-3.5 w-3.5 shrink-0 text-[var(--olive-700)]" aria-hidden />
                           <input
                             type="checkbox"
+                            className="sr-only"
                             checked={applyVarietyToInvolvedLines}
                             disabled={lockNonStateFields}
                             onChange={(e) => setApplyVarietyToInvolvedLines(e.target.checked)}
                           />
-                          {t('reception.dialog.applyVariety')}
+                          <span className="min-w-0 flex-1 leading-snug">{t('reception.dialog.applyVariety')}</span>
+                          <span
+                            className={cn(
+                              'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                              applyVarietyToInvolvedLines
+                                ? 'border-[var(--olive-700)] bg-[var(--olive-700)] text-white'
+                                : 'border-[var(--stone-300)] bg-white',
+                            )}
+                            aria-hidden
+                          >
+                            {applyVarietyToInvolvedLines ? '✓' : ''}
+                          </span>
                         </label>
                       </div>
                     </div>
@@ -1914,19 +1928,14 @@ export function ReceptionPage() {
             <DialogFooter
               className={cn(
                 operationalModalFooterClass,
-                'sticky bottom-0 z-10 flex flex-col gap-3 border-t border-border bg-background/95 px-4 py-[14px] backdrop-blur sm:flex-row sm:items-center sm:justify-between',
+                'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
               )}
             >
-              <div className="order-2 text-[11px] text-muted-foreground sm:order-1">
-                {t('reception.dialog.footerNet')} <span className="font-medium text-foreground">{formatLb(lineTotals.net, 2)} lb</span>
-                {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-foreground">{formatLb(lineTotals.gross, 2)} lb</span>
-                {' · '}{t('reception.dialog.footerContainers')} <span className="font-medium text-foreground">{formatCount(lineTotals.qty)}</span>
-              </div>
-              <div className="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:shrink-0">
+              <div className="order-1 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
                 {showConfirmReceptionButton ? (
                   <Button
                     type="button"
-                    className="bg-[hsl(var(--brand-primary))] text-[hsl(var(--brand-primary-foreground))] hover:bg-[hsl(var(--brand-primary-hover))]"
+                    className="bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]"
                     disabled={transitionMut.isPending}
                     onClick={() => transitionMut.mutate({ id: editingId as number, document_state_id: confirmadoStateId })}
                   >
@@ -1934,13 +1943,18 @@ export function ReceptionPage() {
                     {transitionMut.isPending ? t('reception.dialog.confirmingButton') : t('reception.dialog.confirmReceptionButton')}
                   </Button>
                 ) : null}
-                <Button type="button" variant="outline" onClick={() => closeDialog()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[var(--ink)] hover:bg-[var(--stone-200)] sm:flex-none"
+                  onClick={() => closeDialog()}
+                >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
                 </Button>
                 {!viewOnly ? (
                   <button
                     type="submit"
-                    className={cn(modalFormPrimaryButton, 'inline-flex items-center gap-2')}
+                    className={cn(modalFormPrimaryButton, 'inline-flex items-center justify-center gap-2')}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
                     {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
@@ -1953,6 +1967,14 @@ export function ReceptionPage() {
                         : t('reception.dialog.saveReception', { defaultValue: t('reception.dialog.saveButton') })}
                   </button>
                 ) : null}
+              </div>
+              <div className="order-2 flex items-center gap-1.5 text-[11px] text-[var(--ink-muted)] sm:order-1">
+                <Scale className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span>
+                  {t('reception.dialog.footerNet')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.net, 2)} lb</span>
+                  {' · '}{t('reception.dialog.footerGross')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.gross, 2)} lb</span>
+                  {' · '}{t('reception.dialog.footerContainers')} <span className="font-medium text-[var(--ink)]">{formatCount(lineTotals.qty)}</span>
+                </span>
               </div>
             </DialogFooter>
           </form>
@@ -2020,9 +2042,7 @@ export function ReceptionPage() {
           canOperateReception ? (
             <Button
               className={cn(
-                'h-10 shrink-0 gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-none',
-                receptionTok.accent,
-                'hover:opacity-95',
+                'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)]',
               )}
               onClick={() => openNew()}
             >
@@ -2035,7 +2055,7 @@ export function ReceptionPage() {
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="rec-kpis" className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
+          <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)]">
             {t('reception.srKpis')}
           </h2>
           <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowSummary((v) => !v)}>
@@ -2044,55 +2064,47 @@ export function ReceptionPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-reception-border))] bg-[hsl(var(--proc-reception-surface))] px-3.5 py-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(var(--proc-reception-surface))] text-[hsl(var(--proc-reception-ink))] ring-1 ring-inset ring-[hsl(var(--proc-reception-border))]">
-              <Truck className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-reception-ink))]/80">{t('reception.kpi.todayShort')}</p>
-              <p className="text-[22px] font-bold tabular-nums leading-none text-[hsl(var(--proc-reception-ink))]">
-                {formatCount(todayOpsKpis.count)}
-                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</span>
-              </p>
+          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3">
+            <div className="flex items-center gap-2 text-[var(--olive-700)]">
+              <Truck className="h-4 w-4" aria-hidden />
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.todayShort')}</p>
+            </div>
+            <div>
+              <p className="font-serif text-[28px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(36_28%_84%)] bg-[hsl(36_28%_94%)] px-3.5 py-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(36_28%_94%)] text-[hsl(28_24%_34%)] ring-1 ring-inset ring-[hsl(36_16%_84%)]">
-              <Clock3 className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(28_24%_34%)]/80">{t('reception.kpi.pendingShort')}</p>
-              <p className={cn('text-[22px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-amber-900' : 'text-[hsl(28_24%_34%)]')}>
-                {formatCount(todayOpsKpis.pending)}
-                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</span>
-              </p>
+          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3">
+            <div className="flex items-center gap-2 text-[var(--harvest-700)]">
+              <Clock3 className="h-4 w-4" aria-hidden />
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.pendingShort')}</p>
+            </div>
+            <div>
+              <p className={cn('font-serif text-[28px] font-semibold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-pt-border))] bg-[hsl(var(--proc-pt-surface))] px-3.5 py-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(var(--proc-pt-surface))] text-[hsl(var(--proc-pt-ink))] ring-1 ring-inset ring-[hsl(var(--proc-pt-border))]">
-              <Scale className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-pt-ink))]/80">{t('reception.kpi.weightShort')}</p>
-              <p className="text-[20px] font-bold tabular-nums leading-none text-[hsl(var(--proc-pt-ink))]">
-                {formatLb(todayOpsKpis.totalNet, 2)}
-                <span className="ml-1 text-[12px] font-medium opacity-70">lb</span>
-              </p>
+          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3">
+            <div className="flex items-center gap-2 text-[var(--bluegray-700)]">
+              <Scale className="h-4 w-4" aria-hidden />
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.weightShort')}</p>
+            </div>
+            <div>
+              <p className="font-serif text-[24px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">lb total recibido</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-[14px] border border-[hsl(var(--proc-reception-border))] bg-[hsl(90_14%_88%)] px-3.5 py-3">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[hsl(90_14%_88%)] text-[hsl(var(--proc-reception-ink))] ring-1 ring-inset ring-[hsl(var(--proc-reception-border))]">
-              <Users className="h-5 w-5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--proc-reception-ink))]/80">{t('reception.kpi.producersShort')}</p>
-              <p className="text-[22px] font-bold tabular-nums leading-none text-[hsl(var(--proc-reception-ink))]">
-                {formatCount(todayOpsKpis.producers)}
-                <span className="ml-1 text-[12px] font-medium opacity-70">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</span>
-              </p>
+          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3">
+            <div className="flex items-center gap-2 text-[var(--olive-700)]">
+              <Users className="h-4 w-4" aria-hidden />
+              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.producersShort')}</p>
+            </div>
+            <div>
+              <p className="font-serif text-[28px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
         </div>

@@ -59,7 +59,7 @@ type NavItem = {
 type NavGroup = { id: string; label: string; items: NavItem[]; emphasize?: boolean };
 
 const RAIL_COLLAPSED = 72;
-const RAIL_EXPANDED = 168;
+const RAIL_EXPANDED = 232;
 
 function getNavGroups(t: (key: string) => string): NavGroup[] {
   return [
@@ -138,7 +138,7 @@ function NavList({
 }) {
   return (
     <nav
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1.5 py-2 [scrollbar-width:thin]"
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2.5 py-3 [scrollbar-width:thin]"
       aria-label={t('nav.ariaMain')}
     >
       {groups.map((group, gi) => (
@@ -167,12 +167,12 @@ function NavList({
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      'group flex items-center gap-2.5 rounded-lg px-2 transition-colors duration-150',
-                      item.emphasize ? 'py-2.5 text-[13px] font-semibold' : 'py-1.5 text-[12.5px] font-medium',
+                      'group flex items-center gap-2.5 rounded-[9px] px-2.5 transition-colors duration-150',
+                      item.emphasize ? 'py-2.5 text-[13.5px] font-semibold' : 'py-2 text-[13px] font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
-                        ? 'bg-[var(--pb-olive)] text-white shadow-sm'
-                        : 'text-stone-300 hover:bg-white/8 hover:text-white',
+                        ? 'bg-[var(--olive-700)] text-white'
+                        : 'text-[rgba(237,241,232,0.72)] hover:bg-white/[0.06] hover:text-white',
                     )
                   }
                 >
@@ -182,7 +182,7 @@ function NavList({
                         className={cn(
                           'shrink-0 stroke-[2]',
                           item.emphasize ? 'h-5 w-5' : 'h-4 w-4',
-                          isActive ? 'text-white' : 'text-stone-400 group-hover:text-stone-200',
+                          isActive ? 'text-white' : 'text-[rgba(237,241,232,0.55)] group-hover:text-[rgba(237,241,232,0.9)]',
                         )}
                         aria-hidden
                       />
@@ -217,7 +217,7 @@ function NavList({
                       cn(
                         'group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition-colors',
                         collapsed && 'justify-center px-0',
-                        isActive ? 'bg-[hsl(var(--brand-primary-glow))] text-white shadow-sm' : 'text-slate-300 hover:bg-white/8',
+                        isActive ? 'bg-[var(--olive-700)] text-white' : 'text-[rgba(237,241,232,0.72)] hover:bg-white/[0.06]',
                       )
                     }
                   >
@@ -305,15 +305,15 @@ export function AppLayout() {
   }, [navGroups, isAdminRole, t]);
 
   return (
-    <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[hsl(var(--brand-surface))]">
+    <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[var(--stone-50)]">
       <aside
-        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-[hsl(var(--brand-rail-border))] bg-[var(--pb-charcoal)] text-stone-100 transition-[width] duration-200 lg:flex"
+        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-black/20 bg-[var(--pine-950)] text-stone-100 transition-[width] duration-200 lg:flex"
         style={{ width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED }}
       >
         <div
           className={cn(
-            'flex h-14 shrink-0 items-center border-b border-white/10',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-2.5',
+            'flex min-h-[64px] shrink-0 items-center border-b border-white/10',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3',
           )}
         >
           <BrandMark collapsed={collapsed} />
@@ -346,11 +346,11 @@ export function AppLayout() {
           </div>
         ) : null}
         <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
-        <div className={cn('mt-auto border-t border-white/10 px-3 py-3', collapsed && 'px-2')}>
-          <div className={cn('flex items-start gap-2', collapsed && 'justify-center')}>
-            <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--brand-primary-glow))]" aria-hidden />
+        <div className={cn('mt-auto border-t border-white/10 px-3 py-4', collapsed && 'px-2')}>
+          <div className={cn('flex flex-col items-center gap-2 text-center', collapsed && 'justify-center')}>
+            <Leaf className="h-5 w-5 shrink-0 text-[var(--olive-500)]" aria-hidden />
             {!collapsed ? (
-              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.06em] text-white/70">
+              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.4] tracking-[0.08em] text-[rgba(237,241,232,0.78)]">
                 BUENAS FRUTAS
                 <br />
                 HACEN UN
@@ -370,7 +370,7 @@ export function AppLayout() {
             aria-label={t('nav.closeMenu')}
             onClick={() => setDrawerOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[var(--pb-charcoal)] text-stone-100 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[var(--pine-950)] text-stone-100 shadow-xl">
             <div className="flex h-12 items-center justify-between border-b border-white/10 px-3">
               <BrandMark />
               <Button
@@ -431,7 +431,7 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-[var(--pb-border)] bg-[var(--pb-surface)] px-3 sm:px-4">
+        <header className="sticky top-0 z-40 flex h-[42px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -446,11 +446,11 @@ export function AppLayout() {
             <span className="min-w-0 md:hidden">
               <BrandMark tone="onLight" className="pointer-events-none [&_img]:h-8" />
             </span>
-            <p className="hidden min-w-0 truncate text-[13px] text-[var(--pb-muted)] lg:block">
-              <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[var(--pb-olive)]" aria-hidden />
+            <p className="hidden min-w-0 truncate text-[13px] text-[var(--ink-muted)] lg:block" style={{ fontFamily: 'var(--font-display)' }}>
+              <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[var(--olive-700)]" aria-hidden />
               {appBranding.tagline}
             </p>
-            <h1 className="hidden truncate font-serif text-[16px] font-semibold tracking-tight text-[var(--pb-charcoal)] md:block lg:hidden">
+            <h1 className="hidden truncate font-serif text-[16px] font-semibold tracking-tight text-[var(--ink)] md:block lg:hidden">
               {pageTitle}
             </h1>
           </div>
@@ -466,14 +466,14 @@ export function AppLayout() {
                   size="sm"
                   className="h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2"
                 >
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--brand-primary-soft))] text-[hsl(var(--brand-primary))]">
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]">
                     <User className="h-3.5 w-3.5" aria-hidden />
                   </span>
                   <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
-                    <span className="max-w-[110px] truncate text-[12px] font-semibold text-[hsl(var(--brand-charcoal))]">
+                    <span className="max-w-[110px] truncate text-[12px] font-semibold text-[var(--ink)]">
                       {username}
                     </span>
-                    <span className="max-w-[110px] truncate text-[10px] capitalize text-[hsl(var(--brand-muted))]">
+                    <span className="max-w-[110px] truncate text-[10px] capitalize text-[var(--ink-muted)]">
                       {role}
                     </span>
                   </span>
@@ -500,7 +500,7 @@ export function AppLayout() {
             </DropdownMenu>
             <button
               type="button"
-              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[hsl(var(--brand-muted))] hover:bg-stone-100 hover:text-[hsl(var(--brand-charcoal))] sm:inline-flex"
+              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[var(--ink-muted)] hover:bg-[var(--stone-100)] hover:text-[var(--ink)] sm:inline-flex"
               aria-label={t('nav.notifications', { defaultValue: 'Notificaciones' })}
             >
               <Bell className="h-4 w-4" aria-hidden />
@@ -509,14 +509,14 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-3 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-4 md:pb-5 lg:px-5 lg:py-4">
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-3 py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-5 lg:py-3">
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
             <Outlet />
           </div>
         </main>
 
         <nav
-          className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--pb-border)] bg-[var(--pb-surface)] pb-[env(safe-area-inset-bottom)] md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--stone-200)] bg-[var(--stone-50)] pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label={t('nav.bottomAria')}
         >
           {BOTTOM_PRIMARY.map((item) => {
@@ -529,7 +529,7 @@ export function AppLayout() {
                 className={({ isActive }) =>
                   cn(
                     'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-                    isActive ? 'text-[var(--pb-olive)]' : 'text-stone-500',
+                    isActive ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
                   )
                 }
               >
@@ -538,12 +538,12 @@ export function AppLayout() {
                     <span
                       className={cn(
                         'mb-0.5 h-0.5 w-6 rounded-full',
-                        isActive ? 'bg-[var(--pb-olive)]' : 'bg-transparent',
+                        isActive ? 'bg-[var(--olive-700)]' : 'bg-transparent',
                       )}
                       aria-hidden
                     />
                     <Icon
-                      className={cn('h-5 w-5', isActive ? 'text-[var(--pb-olive)]' : 'text-stone-400')}
+                      className={cn('h-5 w-5', isActive ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
                       strokeWidth={2.25}
                       aria-hidden
                     />
@@ -557,13 +557,13 @@ export function AppLayout() {
             type="button"
             className={cn(
               'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-              moreOpen ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-500',
+              moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
             )}
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
           >
             <MoreHorizontal
-              className={cn('h-5 w-5', moreOpen ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-400')}
+              className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
               strokeWidth={2.25}
               aria-hidden
             />

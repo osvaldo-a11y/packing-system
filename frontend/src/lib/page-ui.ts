@@ -170,36 +170,37 @@ export const modalFormFooter =
 
 export const modalFormFooterTotals = 'text-xs tabular-nums text-muted-foreground';
 
-/** Primario operativo (verde marca; fallback si el tema `primary` es otro tono). */
+/** Primario operativo (verde oliva Gold Master). */
 export const modalFormPrimaryButton =
-  'h-10 min-h-10 rounded-md bg-[hsl(var(--brand-primary))] px-5 text-sm font-semibold text-[hsl(var(--brand-primary-foreground))] shadow-none transition-colors hover:bg-[hsl(var(--brand-primary-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-primary))]/35 disabled:pointer-events-none disabled:opacity-50 max-md:min-h-11 max-md:flex-1 max-md:px-4';
+  'h-12 min-h-12 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-[var(--olive-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 disabled:pointer-events-none disabled:opacity-50 max-md:min-h-[50px] max-md:flex-[1.35] max-md:px-4';
 
 /** Botón “agregar” suave (p. ej. + Línea). */
 export const modalFormSoftGreenButton =
-  'inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-[hsl(var(--brand-primary) / 0.35)] bg-[hsl(var(--brand-primary-soft))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] transition-colors hover:bg-[hsl(var(--brand-primary) / 0.12)] disabled:pointer-events-none disabled:opacity-50';
+  'inline-flex h-9 shrink-0 items-center gap-1 rounded-[var(--radius-md)] border border-[var(--olive-700)]/30 bg-[var(--sage-100)] px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--sage-200)] disabled:pointer-events-none disabled:opacity-50';
 
 /** Eliminar fila (solo ícono). */
 export const modalFormLineDeleteButton =
-  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 disabled:pointer-events-none disabled:opacity-40';
+  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 disabled:pointer-events-none disabled:opacity-40';
 
 /** Badge de estado documento (borrador / confirmado) en cabecera modal. */
 export const modalFormStateBadge =
-  'inline-flex max-w-[200px] truncate rounded-md border border-green-100 bg-green-50 px-2.5 py-1 text-[11px] font-semibold capitalize leading-none text-green-800';
+  'inline-flex max-w-[200px] truncate rounded-md border border-[var(--sage-200)] bg-[var(--sage-100)] px-2.5 py-1 text-[11px] font-semibold capitalize leading-none text-[var(--olive-700)]';
 
 /* ——— Modal operativo grande (misma cáscara que «Nueva unidad PT») ——— */
 
 /** `DialogContent`: ancho ~1100px, columna flex, sin padding (header/body/footer llevan el ritmo). */
 export const operationalModalContentClass =
-  'flex max-h-[min(92vh,900px)] w-full min-w-0 max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]';
+  'flex max-h-[min(92vh,900px)] w-full min-w-0 max-w-[min(1100px,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden bg-[var(--stone-50)] p-0 sm:max-w-[min(1100px,calc(100vw-2rem))]';
 
 /** Cabecera con espacio a la derecha para la X por defecto de Radix (`pr-14`). */
 export const operationalModalHeaderClass =
-  'min-w-0 shrink-0 space-y-1.5 border-b border-border px-6 pb-3.5 pt-5 pr-14 text-left';
+  'min-w-0 shrink-0 space-y-1.5 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-6 pb-3.5 pt-5 pr-14 text-left';
 
-export const operationalModalTitleClass = 'font-display text-[1.35rem] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[1.5rem]';
+export const operationalModalTitleClass =
+  'font-serif text-[1.35rem] font-semibold tracking-tight text-[var(--ink)] sm:text-[1.5rem]';
 
 export const operationalModalDescriptionClass =
-  'text-pretty text-[13px] leading-snug text-muted-foreground';
+  'text-pretty text-[13px] leading-snug text-[var(--ink-muted)]';
 
 /** Formulario que ocupa el alto restante entre header y footer. */
 export const operationalModalFormClass = 'flex min-h-0 flex-1 flex-col';
@@ -212,22 +213,23 @@ export const operationalModalBodyStackClass = 'space-y-4';
 
 /** Pie con borde superior y fondo suave (como unidad PT). */
 export const operationalModalFooterClass =
-  'min-w-0 shrink-0 gap-2 border-t border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-6 py-3';
+  'min-w-0 shrink-0 gap-2 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-6 py-3';
 
 /** Sección tipo paso 1 / 3 unidad PT — card sobre fondo claro. */
 export const operationalModalSectionCard =
-  'min-w-0 rounded-2xl border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] p-4 shadow-[0_1px_0_rgba(51,56,53,0.04)]';
+  'min-w-0 rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-white p-4';
 
 /** Sección tipo paso 2 unidad PT — bloque alternado. */
 export const operationalModalSectionMuted =
-  'min-w-0 rounded-2xl border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-primary-soft))]/45 p-4';
+  'min-w-0 rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-[var(--sage-100)]/50 p-4';
 
 /** Fila del número de paso + título de sección. */
 export const operationalModalSectionHeadingRow = 'mb-3 flex flex-wrap items-center gap-2';
 
 /** Círculo numerado (1, 2, 3…). */
 export const operationalModalStepBadge =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--brand-primary))] text-[13px] font-bold text-[hsl(var(--brand-primary-foreground))] shadow-sm';
+  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--olive-700)] text-[13px] font-bold text-white';
 
 /** Título al lado del paso. */
-export const operationalModalStepTitle = 'font-display text-[17px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))]';
+export const operationalModalStepTitle =
+  'font-serif text-[17px] font-semibold tracking-tight text-[var(--ink)]';

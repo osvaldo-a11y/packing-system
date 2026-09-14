@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" fill="none" aria-hidden="true">
+  <!-- Gold master agricultural watermark: fields, trees, windmill — higher contrast -->
+  <g stroke="#596b3e" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="1">
+    <path d="M0 150 C90 128 170 138 260 122 C350 106 430 128 520 114 C590 104 650 98 720 90" stroke-width="1.8"/>
+    <path d="M0 178 C100 158 190 168 290 152 C390 136 480 158 590 144 C650 136 690 132 720 128" stroke-width="2"/>
+    <path d="M0 210 C110 192 210 200 320 186 C430 170 530 192 640 178 L720 172" stroke-width="2.1"/>
+    <path d="M36 232 C150 220 260 228 370 216 C480 204 580 216 690 206" stroke-width="1.4" opacity="0.7"/>
+    <path d="M50 248 C170 236 290 244 410 232 C520 222 620 232 710 224" stroke-width="1.3" opacity="0.55"/>
+    <path d="M24 264 C150 252 280 260 410 248 C530 238 630 248 720 240" stroke-width="1.2" opacity="0.45"/>
+    <path d="M70 280 C190 270 320 276 450 266 C560 258 650 266 720 262" stroke-width="1.1" opacity="0.35"/>
+    <g opacity="0.85">
+      <path d="M72 176 V142" stroke-width="1.6"/>
+      <path d="M72 142 C56 142 50 124 72 108 C94 124 88 142 72 142Z" fill="#596b3e" stroke="none" opacity="0.45"/>
+      <path d="M108 172 V132" stroke-width="1.7"/>
+      <path d="M108 132 C88 132 80 110 108 90 C136 110 128 132 108 132Z" fill="#596b3e" stroke="none" opacity="0.5"/>
+      <path d="M142 174 V144" stroke-width="1.5"/>
+      <path d="M142 144 C126 144 120 126 142 110 C164 126 158 144 142 144Z" fill="#596b3e" stroke="none" opacity="0.42"/>
+      <path d="M172 178 V154" stroke-width="1.4"/>
+      <path d="M172 154 C160 154 156 140 172 128 C188 140 184 154 172 154Z" fill="#596b3e" stroke="none" opacity="0.38"/>
+    </g>
+    <g opacity="0.95">
+      <path d="M548 210 V78" stroke-width="2.4"/>
+      <path d="M520 210 H576" stroke-width="2.3"/>
+      <path d="M534 210 L548 148 L562 210" stroke-width="1.7" opacity="0.65"/>
+      <circle cx="548" cy="68" r="7" fill="#596b3e" stroke="none"/>
+      <path d="M548 68 L486 28" stroke-width="2.5"/>
+      <path d="M548 68 L610 28" stroke-width="2.5"/>
+      <path d="M548 68 L492 120" stroke-width="2.5"/>
+      <path d="M548 68 L604 120" stroke-width="2.5"/>
+    </g>
+    <g opacity="0.7">
+      <path d="M618 168 V140" stroke-width="1.5"/>
+      <path d="M618 140 C600 140 594 122 618 104 C642 122 636 140 618 140Z" fill="#596b3e" stroke="none" opacity="0.45"/>
+      <path d="M654 164 V146" stroke-width="1.35"/>
+      <path d="M654 146 C642 146 638 134 654 122 C670 134 666 146 654 146Z" fill="#596b3e" stroke="none" opacity="0.4"/>
+    </g>
+  </g>
+</svg>

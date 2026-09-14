@@ -1,6 +1,5 @@
 /**
- * Branding white-label (Pinebloom Farms por defecto).
- * Textos / claims alineados a la referencia visual aprobada.
+ * Branding white-label (Pinebloom Farms — GOLD MASTER).
  */
 
 export type AppBranding = {
@@ -15,8 +14,12 @@ export type AppBranding = {
   monogram: string;
   logoUrl: string;
   logoFullUrl: string;
+  logoOfficialUrl: string;
+  logoSidebarUrl: string;
+  logoMobileUrl: string;
   markUrl: string;
   windmillUrl: string;
+  windmillMarkUrl: string;
   watermarkUrl: string;
   landscapeUrl: string;
   documentTitle: string;
@@ -47,12 +50,16 @@ export const appBranding: AppBranding = {
   sealLine: 'PINEBLOOM FARMS · NEWTON, GA · EST. 2012',
   estYear: '2012',
   monogram: envMonogram?.trim() || defaultMonogram(company),
-  logoUrl: envLogo?.trim() || '/branding/pinebloom-logo-full.svg',
-  logoFullUrl: '/branding/pinebloom-logo-full.svg',
-  markUrl: envMark?.trim() || '/branding/pinebloom-mark.svg',
-  windmillUrl: '/branding/pinebloom-windmill.svg',
-  watermarkUrl: '/branding/pinebloom-farm-landscape.svg',
-  landscapeUrl: '/branding/pinebloom-farm-landscape.svg',
+  logoUrl: envLogo?.trim() || '/branding/pinebloom-logo-official.png',
+  logoFullUrl: '/branding/pinebloom-logo-official.png',
+  logoOfficialUrl: '/branding/pinebloom-logo-official.png',
+  logoSidebarUrl: '/branding/pinebloom-logo-sidebar.svg',
+  logoMobileUrl: '/branding/pinebloom-logo-official.png',
+  markUrl: envMark?.trim() || '/branding/pinebloom-windmill-mark.svg',
+  windmillUrl: '/branding/pinebloom-windmill-mark-light.svg',
+  windmillMarkUrl: '/branding/pinebloom-windmill-mark.svg',
+  watermarkUrl: '/branding/pinebloom-field-hero.svg',
+  landscapeUrl: '/branding/pinebloom-field-hero.svg',
   documentTitle: `${company} · ${product}`,
 };
 

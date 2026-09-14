@@ -1350,7 +1350,6 @@ export function DashboardPage() {
         title={t('dashboard.askWhat')}
         subtitle={t('dashboard.askHint')}
         compact
-        claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
       >
         <PeriodFilter
           value={period}
@@ -1497,11 +1496,10 @@ export function DashboardPage() {
       {canWriteOps ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h2 className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
+            <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
               {t('dashboard.quickAccess.title')}
             </h2>
-            <span className="hidden text-[hsl(var(--brand-border))] sm:inline" aria-hidden>|</span>
-            <p className="text-[12px] text-[hsl(var(--brand-muted))]">{t('dashboard.quickAccess.subtitle')}</p>
+            <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.quickAccess.subtitle')}</p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {(
@@ -1516,7 +1514,7 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex h-12 items-center gap-3 rounded-[12px] border px-3 text-[13px] font-semibold transition-colors',
+                  'group flex h-[48px] items-center gap-3 rounded-[var(--radius-md)] border px-3 text-[13px] font-semibold transition-colors sm:h-[50px]',
                   processTokens[a.semantic].surface,
                   processTokens[a.semantic].border,
                   processTokens[a.semantic].ink,
@@ -1533,20 +1531,19 @@ export function DashboardPage() {
 
       <section className="space-y-2.5">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <h2 className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
+          <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
             {t('dashboard.recentActivity.title')}
           </h2>
-          <span className="hidden text-[hsl(var(--brand-border))] sm:inline" aria-hidden>|</span>
-          <p className="text-[12px] text-[hsl(var(--brand-muted))]">{t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}</p>
+          <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}</p>
         </div>
         {activityRows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-500">
             {t('dashboard.recentActivity.empty')}
           </p>
         ) : (
-          <ul className="overflow-hidden rounded-xl border border-[var(--pb-border)] bg-[var(--pb-surface)]">
+          <ul className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-white">
             {activityRows.map((row, idx) => (
-              <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--pb-border)]/70')}>
+              <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--stone-200)]')}>
                 <RecentActivityRow
                   to={row.to}
                   icon={row.icon}

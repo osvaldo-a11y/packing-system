@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none" aria-hidden="true">
+  <rect x="1.2" y="4.2" width="42" height="50" rx="2" stroke="#292E28" stroke-width="1.5"/>
+  <g transform="translate(9,12)" stroke="#687B49" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 34 V10"/>
+    <path d="M6 34 H20"/>
+    <circle cx="13" cy="8.5" r="2.3" fill="#687B49" stroke="none"/>
+    <path d="M13 8.5 L2 1"/>
+    <path d="M13 8.5 L24 1"/>
+    <path d="M13 8.5 L3 20"/>
+    <path d="M13 8.5 L23 20"/>
+  </g>
+  <g fill="#292E28" font-family="Georgia, 'Times New Roman', serif">
+    <text x="54" y="28" font-size="15" font-weight="700" letter-spacing="0.08em">PINEBLOOM</text>
+    <text x="54" y="44" font-size="15" font-weight="700" letter-spacing="0.08em">FARMS</text>
+  </g>
+  <text x="54" y="56" fill="#435F6E" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="500" letter-spacing="0.16em">NEWTON, GA | EST. 2012</text>
+</svg>

@@ -17,19 +17,19 @@ type Props = {
 const TONE: Record<NonNullable<Props['statusTone']>, string> = {
   success: 'text-[var(--status-success)]',
   info: 'text-[var(--status-info)]',
-  muted: 'text-[var(--pb-muted)]',
+  muted: 'text-[var(--ink-muted)]',
   warning: 'text-[var(--status-warning)]',
 };
 
 const DOT: Record<NonNullable<Props['statusTone']>, string> = {
   success: 'bg-[var(--status-success)]',
   info: 'bg-[var(--status-info)]',
-  muted: 'bg-[var(--pb-muted)]',
+  muted: 'bg-[var(--ink-muted)]',
   warning: 'bg-[var(--status-warning)]',
 };
 
 /**
- * Fila de bitácora rica: icono · tipo+folio · fecha · detalle · estado · usuario · chevron
+ * Fila de actividad compacta GOLD MASTER (~36–42px).
  */
 export function RecentActivityRow({
   to,
@@ -46,16 +46,16 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-1 px-3.5 py-3 transition-colors hover:bg-[var(--pb-olive-soft)]/50 sm:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1fr)_auto_auto_auto]',
+        'grid grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-[var(--sage-100)]/60 sm:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[9px]',
         className,
       )}
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--pb-sage-soft)] text-[var(--pb-olive)]">
-        <Icon className="h-4 w-4" strokeWidth={1.9} aria-hidden />
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-100)] text-[var(--olive-700)]">
+        <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
       </span>
-      <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--pb-text)]">{title}</p>
-      <span className="hidden text-[11px] tabular-nums text-[var(--pb-muted)] sm:inline">{when}</span>
-      <span className="col-span-2 min-w-0 truncate text-[12px] text-[var(--pb-muted)] sm:col-span-1 sm:text-[13px]">
+      <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)]">{title}</p>
+      <span className="hidden text-[11px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>
+      <span className="col-span-2 min-w-0 truncate text-[12px] text-[var(--ink-muted)] sm:col-span-1 sm:text-[13px]">
         {detail || '—'}
       </span>
       {statusLabel ? (
@@ -66,11 +66,11 @@ export function RecentActivityRow({
       ) : (
         <span className="hidden sm:inline" />
       )}
-      <span className="hidden max-w-[100px] truncate text-[12px] text-[var(--pb-muted)] sm:inline">
+      <span className="hidden max-w-[100px] truncate text-[12px] text-[var(--ink-muted)] sm:inline">
         {user || '—'}
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--pb-muted)]" aria-hidden />
-      <span className="col-span-3 text-[11px] text-[var(--pb-muted)] sm:hidden">{when}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)]" aria-hidden />
+      <span className="col-span-3 text-[11px] text-[var(--ink-muted)] sm:hidden">{when}</span>
     </Link>
   );
 }
