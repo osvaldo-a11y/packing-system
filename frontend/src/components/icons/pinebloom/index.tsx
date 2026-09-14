@@ -9,12 +9,7 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M3 11h26v18H3V11Zm3 3v11h20V14H6Z"
-      />
-      <path fill="currentColor" d="M6 14h20v11H6z" opacity=".72" />
+      <path fill="currentColor" d="M4 13h24v15H4z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
