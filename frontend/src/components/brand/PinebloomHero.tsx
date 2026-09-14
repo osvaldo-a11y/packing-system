@@ -43,9 +43,9 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute inset-y-0 right-0 h-full w-[48%] max-w-none object-cover object-[88%_45%] opacity-100 contrast-[1.06] brightness-[0.97] sm:w-[50%]',
-          wideLandscape && 'w-[54%] object-[82%_42%] sm:w-[56%]',
-          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_6%,black_28%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_6%,black_28%,black_100%)]',
+          'pointer-events-none absolute inset-y-0 right-0 h-full w-[50%] max-w-none object-cover object-[92%_40%] opacity-100 contrast-[1.06] brightness-[0.97] sm:w-[52%]',
+          wideLandscape && 'w-[54%] object-[86%_38%] sm:w-[56%]',
+          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_8%,black_32%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_8%,black_32%,black_100%)]',
         )}
         aria-hidden
       />
