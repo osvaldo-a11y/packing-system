@@ -43,10 +43,10 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute right-[-3%] top-[48%] h-[235%] w-auto max-w-none -translate-y-1/2 object-cover object-[90%_46%] opacity-[0.62] contrast-[0.92] brightness-[1.04] saturate-[0.78]',
-          wideLandscape && 'right-[-5%] h-[205%] opacity-[0.7] contrast-[0.95] brightness-[1.02]',
-          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_24%,rgba(0,0,0,0.1)_38%,rgba(0,0,0,0.42)_54%,black_72%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.3)_12%,black_34%,black_100%)]',
-          '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_24%,rgba(0,0,0,0.1)_38%,rgba(0,0,0,0.42)_54%,black_72%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.3)_12%,black_34%,black_100%)]',
+          'pointer-events-none absolute right-[-2%] top-[48%] h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[92%_45%] opacity-[0.78] contrast-[0.98] brightness-[1.0] saturate-[0.85]',
+          wideLandscape && 'right-[-4%] h-[210%] opacity-[0.82]',
+          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
+          '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
           '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
         )}
         aria-hidden
