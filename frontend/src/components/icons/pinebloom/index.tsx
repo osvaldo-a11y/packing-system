@@ -9,17 +9,17 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M3 8h27v23H3z" />
+      <path fill="currentColor" d="M2 11h28v18H2z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M29 15h9l7 10v7H29V15Zm4 4v8h8l-5.5-8H33Z"
+        d="M29 17h9l8 9v4H29V17Zm4 4v6h8l-5.2-6H33Z"
       />
-      <rect x="4" y="29" width="40" height="5" rx="1" fill="currentColor" />
+      <rect x="3" y="28" width="42" height="4" rx="1" fill="currentColor" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M13 29a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM36 29a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+        d="M12 28a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM37 28a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
       />
     </svg>
   );
@@ -30,19 +30,19 @@ export function PineGearIcon({ size = 24, strokeWidth: _strokeWidth, ...props }:
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
       <g fill="currentColor">
-        <rect x="20" y="2" width="8" height="12" rx="1.5" />
-        <rect x="20" y="34" width="8" height="12" rx="1.5" />
-        <rect x="34" y="20" width="12" height="8" rx="1.5" />
-        <rect x="2" y="20" width="12" height="8" rx="1.5" />
-        <rect x="20" y="2" width="8" height="12" rx="1.5" transform="rotate(45 24 24)" />
-        <rect x="20" y="34" width="8" height="12" rx="1.5" transform="rotate(45 24 24)" />
-        <rect x="34" y="20" width="12" height="8" rx="1.5" transform="rotate(45 24 24)" />
-        <rect x="2" y="20" width="12" height="8" rx="1.5" transform="rotate(45 24 24)" />
+        <rect x="20.5" y="3" width="7" height="10" rx="1.25" />
+        <rect x="20.5" y="35" width="7" height="10" rx="1.25" />
+        <rect x="35" y="20.5" width="10" height="7" rx="1.25" />
+        <rect x="3" y="20.5" width="10" height="7" rx="1.25" />
+        <rect x="20.5" y="3" width="7" height="10" rx="1.25" transform="rotate(45 24 24)" />
+        <rect x="20.5" y="35" width="7" height="10" rx="1.25" transform="rotate(45 24 24)" />
+        <rect x="35" y="20.5" width="10" height="7" rx="1.25" transform="rotate(45 24 24)" />
+        <rect x="3" y="20.5" width="10" height="7" rx="1.25" transform="rotate(45 24 24)" />
       </g>
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M24 8a16 16 0 1 1 0 32 16 16 0 0 1 0-32Zm0 10a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+        d="M24 9a15 15 0 1 1 0 30 15 15 0 0 1 0-30Zm0 7.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z"
       />
     </svg>
   );
@@ -69,7 +69,7 @@ export function PineBoxesIcon({ size = 24, strokeWidth: _strokeWidth, ...props }
 
 /** Copo clásico de seis ramas, grueso y de lectura inmediata. */
 export function PineSnowflakeIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
-  const weight = Math.max(3.4, strokeWidth * 2);
+  const weight = Math.max(3, strokeWidth * 1.65);
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
       <g fill="none" stroke="currentColor" strokeLinecap="square" strokeLinejoin="miter" strokeWidth={weight}>

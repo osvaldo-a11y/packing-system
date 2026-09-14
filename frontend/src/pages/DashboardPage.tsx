@@ -1518,6 +1518,12 @@ export function DashboardPage() {
                 pt: 'bg-[#E2E7ED] border-[#A9BDC8]',
                 dispatch: 'bg-[#EEE5D0] border-[#D4BA86]',
               }[a.semantic];
+              const quickIcon = {
+                reception: 'text-[#4D5F3C]',
+                process: 'text-[#454743]',
+                pt: 'text-[#405B68]',
+                dispatch: 'text-[#725B2D]',
+              }[a.semantic];
               return (
               <Link
                 key={a.to}
@@ -1527,7 +1533,7 @@ export function DashboardPage() {
                   quickSurface,
                 )}
               >
-                <Icon size={40} strokeWidth={1.85} className="shrink-0 text-[var(--ink)]" />
+                <Icon size={40} strokeWidth={1.85} className={cn('shrink-0', quickIcon)} />
                 <span className="min-w-0 flex-1 truncate font-serif leading-none">{a.label}</span>
                 <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>

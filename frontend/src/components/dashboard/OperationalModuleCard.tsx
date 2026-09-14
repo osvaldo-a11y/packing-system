@@ -46,7 +46,10 @@ export function OperationalModuleCard({
         )}
         aria-hidden
       >
-        <OperationalPictogram semantic={semantic} size={56} />
+        <OperationalPictogram
+          semantic={semantic}
+          size={semantic === 'pt' ? 50 : semantic === 'materials' ? 59 : 48}
+        />
       </span>
 
       <div className="min-w-0 flex-1 self-center pl-1.5 pr-0">
