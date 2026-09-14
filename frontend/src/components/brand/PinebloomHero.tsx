@@ -16,7 +16,8 @@ type Props = {
 };
 
 /**
- * Hero editorial GOLD MASTER — Georgia + paisaje agrícola oficial (PNG).
+ * Hero editorial GOLD MASTER — Georgia + paisaje agrícola oficial (PNG)
+ * como watermark (no foto rectangular).
  */
 export function PinebloomHero({
   title,
@@ -34,8 +35,8 @@ export function PinebloomHero({
       className={cn(
         'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)]',
         compact
-          ? 'min-h-[128px] px-1 py-2 sm:min-h-[140px] sm:px-1 sm:py-2.5'
-          : 'min-h-[136px] px-1 py-2.5 sm:min-h-[148px] sm:py-3',
+          ? 'min-h-[128px] px-0 py-2 sm:min-h-[140px] sm:py-2.5'
+          : 'min-h-[136px] px-0 py-2.5 sm:min-h-[148px] sm:py-3',
         className,
       )}
     >
@@ -43,25 +44,27 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute right-[-2%] top-1/2 h-[255%] w-auto max-w-none -translate-y-1/2 object-cover object-[100%_42%] opacity-[0.86] contrast-[1.02] brightness-[1.01]',
-          wideLandscape && 'right-[-4%] h-[220%] opacity-95',
-          '[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.04)_18%,rgba(0,0,0,0.42)_40%,black_68%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.04)_18%,rgba(0,0,0,0.42)_40%,black_68%,black_100%)]',
+          'pointer-events-none absolute right-[-2%] top-1/2 h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[100%_44%] opacity-[0.48] contrast-[0.88] brightness-[1.08] saturate-[0.82]',
+          wideLandscape && 'right-[-4%] h-[210%] opacity-[0.62] contrast-[0.95] brightness-[1.02]',
+          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_22%,rgba(0,0,0,0.18)_40%,rgba(0,0,0,0.55)_58%,black_78%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_18%,black_42%,black_100%)]',
+          '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_22%,rgba(0,0,0,0.18)_40%,rgba(0,0,0,0.55)_58%,black_78%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_18%,black_42%,black_100%)]',
+          '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
         )}
         aria-hidden
       />
       <div className="relative z-[1] flex flex-col justify-between gap-1.5 sm:gap-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 max-w-[56%]">
+          <div className="min-w-0 max-w-[58%]">
             <h1
               className={cn(
-                'font-serif font-bold tracking-[-1.2px] text-[var(--ink)]',
+                'font-serif tracking-[-0.8px] text-[var(--ink)]',
                 'text-[40px] sm:text-[46px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                lineHeight: 0.94,
-                letterSpacing: '-1.2px',
-                fontWeight: 700,
+                lineHeight: 1.02,
+                letterSpacing: '-0.8px',
+                fontWeight: 600,
               }}
             >
               {title}
@@ -69,8 +72,8 @@ export function PinebloomHero({
             {subtitle ? (
               <div
                 className={cn(
-                  'mt-0.5 leading-snug text-[var(--ink-muted)]',
-                  compact ? 'text-[17px] sm:text-[19px]' : 'text-[14px] sm:text-[15px]',
+                  'mt-1 leading-snug text-[var(--ink-muted)]/90',
+                  compact ? 'text-[16px] sm:text-[18px]' : 'text-[13px] sm:text-[14px]',
                 )}
               >
                 {subtitle}

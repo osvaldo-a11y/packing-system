@@ -17,8 +17,8 @@ type Props = {
 };
 
 /**
- * Card de módulo GOLD MASTER — presencia +8–12% vs pasada anterior.
- * Icon well desktop ~64px, icono ~32px.
+ * Card de módulo GOLD MASTER.
+ * Icon well desktop ~56px, icono ~30px.
  */
 export function OperationalModuleCard({
   to,
@@ -37,7 +37,7 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group relative flex min-h-[108px] items-start gap-3 overflow-hidden rounded-[9px] border border-[var(--stone-300)]/90 px-3 py-2.5 transition-colors sm:min-h-[118px] sm:items-center sm:gap-3 sm:px-3.5 sm:py-3',
+        'group relative flex min-h-[108px] items-center gap-3 overflow-hidden rounded-[9px] border border-[var(--stone-300)]/90 px-3 py-2.5 transition-colors sm:min-h-[120px] sm:gap-3 sm:px-3.5 sm:py-3',
         tok.surface,
         'hover:brightness-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 focus-visible:ring-offset-2',
         className,
@@ -45,7 +45,7 @@ export function OperationalModuleCard({
     >
       <span
         className={cn(
-          'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[7px] sm:h-[58px] sm:w-[58px]',
+          'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[7px] sm:h-[56px] sm:w-[56px]',
           tok.iconWell,
         )}
         aria-hidden
@@ -54,16 +54,16 @@ export function OperationalModuleCard({
       </span>
 
       <div className="min-w-0 flex-1 self-center pr-1">
-        <p className="font-serif text-[15px] font-semibold leading-tight text-[var(--ink)] sm:text-[17px]">
+        <p className="font-serif text-[15px] font-semibold leading-tight text-[var(--ink)] sm:text-[16.5px]">
           {label}
         </p>
         {metric ? (
-          <p className="mt-0.5 font-serif text-[22px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)] sm:mt-0.5 sm:text-[26px]">
+          <p className="mt-0.5 font-serif text-[22px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)] sm:mt-0.5 sm:text-[25px]">
             {metric}
           </p>
         ) : null}
         {subtitle ? (
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-[var(--ink-muted)] sm:text-[12px]">{subtitle}</p>
+          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-[var(--ink-muted)] sm:text-[12.5px]">{subtitle}</p>
         ) : null}
       </div>
 

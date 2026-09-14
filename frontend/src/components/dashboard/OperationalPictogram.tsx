@@ -34,7 +34,7 @@ export function OperationalPictogram({ semantic, primary, className, iconClassNa
 
   return (
     <span className={cn('inline-flex items-center justify-center', className)} aria-hidden>
-      <Icon className={cn('h-7 w-7 sm:h-[28px] sm:w-[28px]', iconClassName)} strokeWidth={2.35} />
+      <Icon className={cn('h-7 w-7 sm:h-[30px] sm:w-[30px]', iconClassName)} strokeWidth={2.35} />
     </span>
   );
 }

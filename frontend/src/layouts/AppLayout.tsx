@@ -59,7 +59,7 @@ type NavItem = {
 type NavGroup = { id: string; label: string; items: NavItem[]; emphasize?: boolean };
 
 const RAIL_COLLAPSED = 72;
-const RAIL_EXPANDED = 232;
+const RAIL_EXPANDED = 206;
 
 function getNavGroups(t: (key: string) => string): NavGroup[] {
   return [
@@ -312,8 +312,8 @@ export function AppLayout() {
       >
         <div
           className={cn(
-            'flex min-h-[72px] shrink-0 items-center border-b border-white/[0.14]',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3 py-1.5',
+            'flex min-h-[70px] shrink-0 items-center border-b border-white/[0.14]',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-4 py-2.5',
           )}
         >
           <BrandMark collapsed={collapsed} />
@@ -431,7 +431,7 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-[42px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4">
+        <header className="sticky top-0 z-40 flex h-[42px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-5">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -454,7 +454,7 @@ export function AppLayout() {
               {pageTitle}
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2.5 sm:gap-3.5">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-3.5">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
             <div className="hidden sm:block">
               <LanguageToggle />
@@ -466,7 +466,7 @@ export function AppLayout() {
                   size="sm"
                   className="h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2"
                 >
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]">
+                  <span className="inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]">
                     <User className="h-3.5 w-3.5" aria-hidden />
                   </span>
                   <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">

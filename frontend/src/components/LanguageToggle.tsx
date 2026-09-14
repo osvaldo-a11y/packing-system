@@ -27,7 +27,7 @@ export function LanguageToggle() {
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex h-7 items-center justify-center gap-1 rounded-full border border-[var(--stone-300)] bg-[var(--stone-50)] px-2 text-[11px] font-semibold tracking-wide text-[var(--ink)] transition-colors hover:bg-[var(--sage-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive-700)]"
+      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[var(--stone-300)] bg-[var(--stone-50)] px-2.5 text-[12px] font-semibold tracking-wide text-[var(--ink)] transition-colors hover:bg-[var(--sage-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive-700)]"
       aria-label={active === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'}
       title={active === 'en' ? 'Language: English (click for Spanish)' : 'Idioma: español (clic para inglés)'}
     >

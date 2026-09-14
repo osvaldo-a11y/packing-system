@@ -1517,12 +1517,12 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex min-h-[40px] items-center gap-2 rounded-[7px] border border-[var(--stone-300)]/90 px-2.5 text-[13px] font-semibold text-[var(--ink)] transition-colors sm:min-h-[42px]',
+                  'group flex min-h-[46px] items-center gap-2.5 rounded-[7px] border border-[var(--stone-300)]/90 px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors sm:min-h-[48px]',
                   processTokens[a.semantic].surface,
                 )}
               >
-                <a.Icon className="h-[18px] w-[18px] shrink-0 text-[var(--ink)]" strokeWidth={2.15} />
-                <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                <a.Icon className="h-5 w-5 shrink-0 text-[var(--ink)]" strokeWidth={2.2} />
+                <span className="min-w-0 flex-1 truncate leading-none">{a.label}</span>
                 <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>
             ))}

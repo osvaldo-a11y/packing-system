@@ -28,7 +28,7 @@ const DOT: Record<NonNullable<Props['statusTone']>, string> = {
   warning: 'bg-[var(--status-warning)]',
 };
 
-/** Fila de actividad editorial (~40–44px). */
+/** Fila de actividad editorial (~42–44px). */
 export function RecentActivityRow({
   to,
   icon: Icon,
@@ -44,15 +44,15 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid min-h-[36px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[5px] transition-colors hover:bg-[var(--sage-100)]/60 sm:min-h-[38px] sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[6px]',
+        'grid min-h-[40px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[7px] transition-colors hover:bg-[var(--sage-100)]/60 sm:min-h-[44px] sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[8px]',
         className,
       )}
     >
-      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-[var(--sage-100)] text-[var(--olive-700)] sm:h-8 sm:w-8">
+      <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] bg-[var(--sage-100)] text-[var(--olive-700)] sm:h-8 sm:w-8">
         <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
       </span>
-      <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)]">{title}</p>
-      <span className="hidden text-[11px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>
+      <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)] sm:text-[13.5px]">{title}</p>
+      <span className="hidden text-[11.5px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>
       <span className="col-span-2 min-w-0 truncate text-[12px] text-[var(--ink-muted)] sm:col-span-1 sm:text-[13px]">
         {detail || '—'}
       </span>
