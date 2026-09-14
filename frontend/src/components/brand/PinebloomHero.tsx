@@ -50,7 +50,7 @@ export function PinebloomHero({
         className={cn(
           homeDesktop
             ? cn(
-                'pointer-events-none absolute right-0 top-0 h-full w-[640px] max-w-[54%] object-contain object-right opacity-[0.96] contrast-[1.12] brightness-[1.01] saturate-[0.7] mix-blend-multiply',
+                'pointer-events-none absolute right-0 top-0 h-full w-[640px] max-w-[54%] object-contain object-right opacity-[0.96] contrast-[1.34] brightness-[0.84] saturate-[0.65] mix-blend-multiply',
                 '[mask-image:linear-gradient(to_right,transparent_0%,transparent_30%,rgba(0,0,0,0.08)_35%,rgba(0,0,0,0.55)_45%,rgba(0,0,0,0.9)_58%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.82)_6%,black_18%,black_82%,rgba(0,0,0,0.82)_95%,transparent_100%)]',
                 '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_30%,rgba(0,0,0,0.08)_35%,rgba(0,0,0,0.55)_45%,rgba(0,0,0,0.9)_58%,black_72%,black_100%),linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.82)_6%,black_18%,black_82%,rgba(0,0,0,0.82)_95%,transparent_100%)]',
                 '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
