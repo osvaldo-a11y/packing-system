@@ -29,6 +29,7 @@ import {
   Filter,
   CalendarRange,
   List,
+  Ellipsis,
 } from 'lucide-react';
 import { Fragment,
   useEffect,
@@ -1331,7 +1332,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[78%_55%] opacity-[0.38] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-[0.95] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1442,6 +1443,49 @@ export function ReceptionPage() {
                             ))}
                         </select>
                       </FieldRow>
+                      <details className="group border-b-0">
+                        <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden">
+                          <span className="inline-flex h-[33px] w-[33px] shrink-0 items-center justify-center rounded-full bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                            <Ellipsis className="h-4 w-4" strokeWidth={1.85} />
+                          </span>
+                          <span className="w-[34%] min-w-0 shrink-0 text-[13px] font-medium text-[var(--ink)]">
+                            {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-right text-[12px] text-[var(--ink-muted)]">
+                            Campo, transportista, vehículo…
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" aria-hidden />
+                        </summary>
+                        <div className="space-y-2 border-t border-[var(--stone-200)]/70 bg-[var(--stone-50)] px-3.5 py-3">
+                          <div className="min-w-0 space-y-1">
+                            <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
+                            <Input
+                              disabled={lockNonStateFields}
+                              className="h-9 rounded-md border border-[var(--stone-300)] px-2 text-xs"
+                              maxLength={10}
+                              placeholder={t('reception.dialog.fieldDocPlaceholder')}
+                              {...form.register('document_number')}
+                            />
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <label className={compactFieldLabelClass}>{t('reception.dialog.fieldMarket')}</label>
+                            <select
+                              className="h-9 w-full rounded-md border border-[var(--stone-300)] px-2 text-xs"
+                              disabled={lockNonStateFields}
+                              {...form.register('mercado_id', { valueAsNumber: true })}
+                            >
+                              <option value={0}>—</option>
+                              {(mercados ?? [])
+                                .filter((m) => m.activo !== false)
+                                .map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.codigo || m.nombre}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        </div>
+                      </details>
                     </div>
                     <div className="hidden grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 md:grid">
                       <div className="min-w-0 space-y-1.5">
@@ -1585,10 +1629,10 @@ export function ReceptionPage() {
                         </div>
                       </div>
                       <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-                        <div className="flex w-full flex-wrap items-center gap-2">
+                        <div className="flex w-full flex-nowrap items-center gap-2">
                           <button
                             type="button"
-                            className="inline-flex h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 sm:flex-none"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50"
                             disabled={lockNonStateFields}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1600,7 +1644,7 @@ export function ReceptionPage() {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50 sm:flex-none"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50"
                             disabled={lockNonStateFields || lineDrafts.length === 0}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1935,10 +1979,11 @@ export function ReceptionPage() {
             <DialogFooter
               className={cn(
                 operationalModalFooterClass,
-                'sticky bottom-0 z-10 flex flex-col gap-1 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 sm:flex-row sm:items-center sm:justify-between',
+                '!flex !flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 sm:!flex-row sm:items-center sm:justify-between',
+                'sticky bottom-0 z-10',
               )}
             >
-              <div className="order-1 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
+              <div className="order-1 flex w-full flex-nowrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
                 {showConfirmReceptionButton ? (
                   <Button
                     type="button"
@@ -1953,7 +1998,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 min-h-10 w-[36%] max-w-[38%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto sm:max-w-none"
+                  className="h-10 min-h-10 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -1963,7 +2008,7 @@ export function ReceptionPage() {
                     type="submit"
                     className={cn(
                       modalFormPrimaryButton,
-                      'inline-flex h-10 min-h-10 w-[62%] max-w-[64%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto sm:max-w-none',
+                      'inline-flex h-10 min-h-10 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto',
                     )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >

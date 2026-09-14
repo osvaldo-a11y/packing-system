@@ -16,7 +16,7 @@ type Props = {
 };
 
 /**
- * Hero editorial GOLD MASTER — Georgia + paisaje agrícola + sello.
+ * Hero editorial GOLD MASTER — Georgia + paisaje agrícola oficial (PNG).
  */
 export function PinebloomHero({
   title,
@@ -25,7 +25,7 @@ export function PinebloomHero({
   children,
   className,
   compact = false,
-  showSeal = true,
+  showSeal = false,
   claimLines,
   wideLandscape = false,
 }: Props) {
@@ -34,8 +34,8 @@ export function PinebloomHero({
       className={cn(
         'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)]',
         compact
-          ? 'min-h-[136px] px-1 py-3 sm:min-h-[150px] sm:px-1 sm:py-3.5'
-          : 'min-h-[152px] px-1 py-3.5 sm:min-h-[158px] sm:py-4',
+          ? 'min-h-[148px] px-1 py-3 sm:min-h-[168px] sm:px-1 sm:py-3.5'
+          : 'min-h-[160px] px-1 py-3.5 sm:min-h-[176px] sm:py-4',
         className,
       )}
     >
@@ -43,20 +43,18 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute inset-y-0 right-0 h-full object-right',
-          wideLandscape
-            ? 'w-[52%] max-w-none object-cover object-[100%_58%] opacity-[0.38] sm:opacity-[0.42]'
-            : 'w-[50%] max-w-none object-cover object-[100%_58%] opacity-[0.36] sm:opacity-[0.4]',
+          'pointer-events-none absolute inset-y-0 right-0 h-full w-[56%] max-w-none object-contain object-right object-bottom opacity-[0.92] sm:w-[58%] sm:opacity-100',
+          wideLandscape && 'w-[58%] sm:w-[62%]',
         )}
         aria-hidden
       />
-      <div className="relative z-[1] flex flex-col justify-between gap-1.5 sm:gap-2">
+      <div className="relative z-[1] flex flex-col justify-between gap-2 sm:gap-2.5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 max-w-[640px]">
+          <div className="min-w-0 max-w-[52%]">
             <h1
               className={cn(
                 'font-serif font-bold tracking-[-1.2px] text-[var(--ink)]',
-                'text-[40px] sm:text-[48px]',
+                'text-[42px] sm:text-[48px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
@@ -70,8 +68,8 @@ export function PinebloomHero({
             {subtitle ? (
               <div
                 className={cn(
-                  'mt-1 leading-snug text-[var(--ink-muted)]',
-                  compact ? 'text-[18px] sm:text-[20px] sm:mt-1.5' : 'text-[15px] sm:text-[16px]',
+                  'mt-1.5 leading-snug text-[var(--ink-muted)]',
+                  compact ? 'text-[18px] sm:text-[20px]' : 'text-[15px] sm:text-[16px]',
                 )}
               >
                 {subtitle}

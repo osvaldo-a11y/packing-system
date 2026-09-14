@@ -312,8 +312,8 @@ export function AppLayout() {
       >
         <div
           className={cn(
-            'flex min-h-[78px] shrink-0 items-center border-b border-white/[0.14]',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5 py-1',
+            'flex min-h-[84px] shrink-0 items-center border-b border-white/[0.14]',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5 py-2',
           )}
         >
           <BrandMark collapsed={collapsed} />

@@ -37,7 +37,7 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group relative flex min-h-[128px] items-start gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-300)] px-3 py-3 transition-colors sm:min-h-[138px] sm:items-center sm:gap-4 sm:px-4 sm:py-3.5',
+        'group relative flex min-h-[132px] items-start gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-300)] px-3 py-3.5 transition-colors sm:min-h-[148px] sm:items-center sm:gap-4 sm:px-4 sm:py-4',
         tok.surface,
         'hover:brightness-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 focus-visible:ring-offset-2',
         className,
@@ -54,11 +54,11 @@ export function OperationalModuleCard({
       </span>
 
       <div className="min-w-0 flex-1 self-center pr-1">
-        <p className="font-serif text-[15px] font-bold leading-tight text-[var(--ink)] sm:text-[19px]">
+        <p className="font-serif text-[15px] font-bold leading-tight text-[var(--ink)] sm:text-[20px]">
           {label}
         </p>
         {metric ? (
-          <p className="mt-1 font-serif text-[22px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)] sm:text-[30px]">
+          <p className="mt-1 font-serif text-[22px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)] sm:text-[32px]">
             {metric}
           </p>
         ) : null}

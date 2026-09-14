@@ -197,7 +197,7 @@ export const operationalModalHeaderClass =
   'min-w-0 shrink-0 space-y-1.5 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-6 pb-3.5 pt-5 pr-14 text-left';
 
 export const operationalModalTitleClass =
-  'font-serif text-[1.35rem] font-semibold tracking-tight text-[var(--ink)] sm:text-[1.5rem]';
+  'font-serif text-[1.35rem] font-bold tracking-tight text-[var(--ink)] sm:text-[1.5rem]';
 
 export const operationalModalDescriptionClass =
   'text-pretty text-[13px] leading-snug text-[var(--ink-muted)]';
