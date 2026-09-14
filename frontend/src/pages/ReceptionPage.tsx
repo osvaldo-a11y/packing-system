@@ -1331,7 +1331,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[78%_55%] opacity-[0.44] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[78%_55%] opacity-[0.38] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
