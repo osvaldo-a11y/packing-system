@@ -1,7 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" fill="none" aria-hidden="true">
   <!-- Gold Master agricultural watermark: dense trees, lattice windmill, perspective furrows, seal -->
-  <g stroke="#4F5F38" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <!-- distant rolling hills -->
+  <g stroke="#3F4E2E" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- soft field wash for presence -->
+  <g class="field-wash" opacity="0.08" fill="#3F4E2E" stroke="none">
+    <path d="M0 198 C120 184 280 200 440 180 C600 160 740 178 880 168 L880 330 L0 330 Z"/>
+  </g>
+  <!-- distant rolling hills -->
     <path d="M0 118 C55 102 120 112 185 96 C280 72 355 108 450 88 C540 70 620 92 710 78 C780 68 830 62 880 58" stroke-width="1.8" opacity="0.55"/>
     <path d="M0 142 C80 124 155 136 240 118 C330 98 420 128 520 110 C610 96 700 108 790 96 L880 90" stroke-width="2" opacity="0.62"/>
     <path d="M0 168 C95 150 175 160 270 142 C370 122 470 152 580 134 C680 118 780 132 880 122" stroke-width="2.1" opacity="0.7"/>
@@ -11,41 +15,41 @@
       <!-- tree cluster helpers: trunk + layered canopy -->
       <g>
         <path d="M36 176 V128" stroke-width="1.7"/>
-        <path d="M36 128 C12 128 6 98 36 72 C66 98 60 128 36 128Z" fill="#4F5F38" stroke="none" opacity="0.42"/>
-        <path d="M36 118 C18 118 14 98 36 80 C58 98 54 118 36 118Z" fill="#4F5F38" stroke="none" opacity="0.28"/>
+        <path d="M36 128 C12 128 6 98 36 72 C66 98 60 128 36 128Z" fill="#3F4E2E" stroke="none" opacity="0.42"/>
+        <path d="M36 118 C18 118 14 98 36 80 C58 98 54 118 36 118Z" fill="#3F4E2E" stroke="none" opacity="0.28"/>
       </g>
       <g>
         <path d="M62 178 V118" stroke-width="1.85"/>
-        <path d="M62 118 C32 118 24 84 62 52 C100 84 92 118 62 118Z" fill="#4F5F38" stroke="none" opacity="0.48"/>
-        <path d="M62 104 C40 104 34 80 62 60 C90 80 84 104 62 104Z" fill="#4F5F38" stroke="none" opacity="0.3"/>
+        <path d="M62 118 C32 118 24 84 62 52 C100 84 92 118 62 118Z" fill="#3F4E2E" stroke="none" opacity="0.48"/>
+        <path d="M62 104 C40 104 34 80 62 60 C90 80 84 104 62 104Z" fill="#3F4E2E" stroke="none" opacity="0.3"/>
       </g>
       <g>
         <path d="M92 176 V124" stroke-width="1.7"/>
-        <path d="M92 124 C68 124 60 98 92 74 C124 98 116 124 92 124Z" fill="#4F5F38" stroke="none" opacity="0.44"/>
+        <path d="M92 124 C68 124 60 98 92 74 C124 98 116 124 92 124Z" fill="#3F4E2E" stroke="none" opacity="0.44"/>
       </g>
       <g>
         <path d="M118 180 V136" stroke-width="1.6"/>
-        <path d="M118 136 C98 136 92 114 118 94 C144 114 138 136 118 136Z" fill="#4F5F38" stroke="none" opacity="0.4"/>
+        <path d="M118 136 C98 136 92 114 118 94 C144 114 138 136 118 136Z" fill="#3F4E2E" stroke="none" opacity="0.4"/>
       </g>
       <g>
         <path d="M146 182 V140" stroke-width="1.55"/>
-        <path d="M146 140 C128 140 122 120 146 102 C170 120 164 140 146 140Z" fill="#4F5F38" stroke="none" opacity="0.38"/>
+        <path d="M146 140 C128 140 122 120 146 102 C170 120 164 140 146 140Z" fill="#3F4E2E" stroke="none" opacity="0.38"/>
       </g>
       <g>
         <path d="M172 184 V148" stroke-width="1.5"/>
-        <path d="M172 148 C156 148 152 132 172 116 C192 132 188 148 172 148Z" fill="#4F5F38" stroke="none" opacity="0.36"/>
+        <path d="M172 148 C156 148 152 132 172 116 C192 132 188 148 172 148Z" fill="#3F4E2E" stroke="none" opacity="0.36"/>
       </g>
       <g>
         <path d="M198 186 V154" stroke-width="1.4"/>
-        <path d="M198 154 C184 154 180 140 198 126 C216 140 212 154 198 154Z" fill="#4F5F38" stroke="none" opacity="0.34"/>
+        <path d="M198 154 C184 154 180 140 198 126 C216 140 212 154 198 154Z" fill="#3F4E2E" stroke="none" opacity="0.34"/>
       </g>
       <g>
         <path d="M222 188 V160" stroke-width="1.35"/>
-        <path d="M222 160 C210 160 206 148 222 136 C238 148 234 160 222 160Z" fill="#4F5F38" stroke="none" opacity="0.32"/>
+        <path d="M222 160 C210 160 206 148 222 136 C238 148 234 160 222 160Z" fill="#3F4E2E" stroke="none" opacity="0.32"/>
       </g>
       <g>
         <path d="M246 190 V166" stroke-width="1.3"/>
-        <path d="M246 166 C236 166 232 156 246 146 C260 156 256 166 246 166Z" fill="#4F5F38" stroke="none" opacity="0.3"/>
+        <path d="M246 166 C236 166 232 156 246 146 C260 156 256 166 246 166Z" fill="#3F4E2E" stroke="none" opacity="0.3"/>
       </g>
       <!-- undergrowth / hedge -->
       <path d="M20 178 C48 170 76 174 110 168 C150 160 190 170 240 166 C270 164 300 168 330 164" stroke-width="1.4" opacity="0.45"/>
@@ -89,7 +93,7 @@
       <path d="M618 312 H718" stroke-width="3.4"/>
       <path d="M628 304 H708" stroke-width="1.6" opacity="0.55"/>
       <!-- hub -->
-      <circle cx="668" cy="78" r="13" fill="#4F5F38" stroke="none"/>
+      <circle cx="668" cy="78" r="13" fill="#3F4E2E" stroke="none"/>
       <circle cx="668" cy="78" r="6" fill="#E8EBDF" stroke="none" opacity="0.35"/>
       <!-- 8 blades (farm wheel) -->
       <g stroke-width="3.2">
@@ -115,25 +119,25 @@
     <g opacity="0.82">
       <g>
         <path d="M738 218 V168" stroke-width="1.7"/>
-        <path d="M738 168 C710 168 702 140 738 110 C774 140 766 168 738 168Z" fill="#4F5F38" stroke="none" opacity="0.45"/>
+        <path d="M738 168 C710 168 702 140 738 110 C774 140 766 168 738 168Z" fill="#3F4E2E" stroke="none" opacity="0.45"/>
       </g>
       <g>
         <path d="M772 212 V176" stroke-width="1.5"/>
-        <path d="M772 176 C750 176 744 154 772 132 C800 154 794 176 772 176Z" fill="#4F5F38" stroke="none" opacity="0.4"/>
+        <path d="M772 176 C750 176 744 154 772 132 C800 154 794 176 772 176Z" fill="#3F4E2E" stroke="none" opacity="0.4"/>
       </g>
       <g>
         <path d="M800 206 V180" stroke-width="1.35"/>
-        <path d="M800 180 C784 180 780 164 800 148 C820 164 816 180 800 180Z" fill="#4F5F38" stroke="none" opacity="0.36"/>
+        <path d="M800 180 C784 180 780 164 800 148 C820 164 816 180 800 180Z" fill="#3F4E2E" stroke="none" opacity="0.36"/>
       </g>
       <g>
         <path d="M826 200 V182" stroke-width="1.25"/>
-        <path d="M826 182 C814 182 810 170 826 158 C842 170 838 182 826 182Z" fill="#4F5F38" stroke="none" opacity="0.32"/>
+        <path d="M826 182 C814 182 810 170 826 158 C842 170 838 182 826 182Z" fill="#3F4E2E" stroke="none" opacity="0.32"/>
       </g>
     </g>
   </g>
 
   <!-- discreet seal (bottom-right watermark) -->
-  <g fill="#4F5F38" opacity="0.62" font-family="Georgia, 'Times New Roman', serif">
+  <g fill="#3F4E2E" opacity="0.62" font-family="Georgia, 'Times New Roman', serif">
     <text x="868" y="328" text-anchor="end" font-size="11.5" font-weight="700" letter-spacing="0.18em">PINEBLOOM FARMS</text>
     <text x="868" y="344" text-anchor="end" font-size="9" font-weight="600" letter-spacing="0.14em" opacity="0.88" font-family="Inter, system-ui, sans-serif">NEWTON, GA | EST. 2012</text>
   </g>

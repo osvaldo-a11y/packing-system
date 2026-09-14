@@ -1331,7 +1331,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[72%_center] opacity-[0.34] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] max-w-none object-cover object-[72%_center] opacity-[0.42] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1953,7 +1953,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 min-h-10 basis-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:basis-auto"
+                  className="h-10 min-h-10 w-[36%] max-w-[38%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto sm:max-w-none"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -1963,7 +1963,7 @@ export function ReceptionPage() {
                     type="submit"
                     className={cn(
                       modalFormPrimaryButton,
-                      'inline-flex h-10 min-h-10 items-center justify-center gap-2 max-md:basis-[62%] max-md:text-[13px]',
+                      'inline-flex h-10 min-h-10 w-[62%] max-w-[64%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto sm:max-w-none',
                     )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
