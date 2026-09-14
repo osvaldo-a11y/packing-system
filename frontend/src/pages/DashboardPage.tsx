@@ -2,14 +2,11 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   AlertTriangle,
-  Boxes,
   ChevronRight,
   ChevronUp,
-  Cog,
   DollarSign,
   Info,
   TrendingUp,
-  Truck,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +18,7 @@ import { PinebloomHero } from '@/components/brand/PinebloomHero';
 import { PeriodFilter } from '@/components/brand/PeriodFilter';
 import { RecentActivityRow } from '@/components/brand/RecentActivityRow';
 import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
+import { pictogramForSemantic } from '@/components/dashboard/OperationalPictogram';
 import { processTokens } from '@/lib/process-tokens';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
@@ -1193,7 +1191,7 @@ export function DashboardPage() {
       statusTone: 'success' | 'info' | 'muted' | 'warning';
       user: string;
       to: string;
-      icon: typeof Truck;
+      semantic: 'reception' | 'process' | 'dispatch' | 'pt';
     }> = [];
     for (const r of receptionsFiltered.slice(0, 8)) {
       const iso = r.received_at;
@@ -1210,7 +1208,7 @@ export function DashboardPage() {
         statusTone: 'muted',
         user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/receptions',
-        icon: Truck,
+        semantic: 'reception',
       });
     }
     for (const p of processesFiltered.slice(0, 8)) {
@@ -1226,7 +1224,7 @@ export function DashboardPage() {
         statusTone: 'info',
         user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/processes',
-        icon: Cog,
+        semantic: 'process',
       });
     }
     for (const disp of dispatchesFiltered.slice(0, 8)) {
@@ -1242,7 +1240,7 @@ export function DashboardPage() {
         statusTone: 'success',
         user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/dispatches',
-        icon: Truck,
+        semantic: 'dispatch',
       });
     }
     return rows.sort((a, b) => b.ts - a.ts).slice(0, 5);
@@ -1507,12 +1505,14 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
-                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, Icon: Truck },
-                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, Icon: Cog },
-                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, Icon: Boxes },
-                { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const, Icon: Truck },
+                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const },
+                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const },
+                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const },
+                { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const },
               ] as const
-            ).map((a) => (
+            ).map((a) => {
+              const Icon = pictogramForSemantic(a.semantic);
+              return (
               <Link
                 key={a.to}
                 to={a.to}
@@ -1521,11 +1521,12 @@ export function DashboardPage() {
                   processTokens[a.semantic].surface,
                 )}
               >
-                <a.Icon className="h-5 w-5 shrink-0 text-[var(--ink)]" strokeWidth={2.2} />
-                <span className="min-w-0 flex-1 truncate leading-none">{a.label}</span>
+                <Icon size={20} strokeWidth={1.9} className="shrink-0 text-[var(--ink)]" />
+                <span className="min-w-0 flex-1 truncate font-serif leading-none">{a.label}</span>
                 <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -1550,7 +1551,7 @@ export function DashboardPage() {
               <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--stone-200)]')}>
                 <RecentActivityRow
                   to={row.to}
-                  icon={row.icon}
+                  semantic={row.semantic}
                   title={`${row.kind} · ${row.detail}`}
                   when={row.when}
                   detail={row.subtitle}

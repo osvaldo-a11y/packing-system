@@ -167,8 +167,8 @@ function NavList({
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      'group flex items-center gap-2.5 rounded-[9px] px-2.5 transition-colors duration-150',
-                      item.emphasize ? 'py-2.5 text-[13.5px] font-semibold' : 'py-2 text-[13px] font-medium',
+                      'group flex items-center gap-2.5 rounded-full px-2.5 transition-colors duration-150',
+                      item.emphasize ? 'py-2 text-[13px] font-semibold' : 'py-[7px] text-[12.5px] font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
                         ? 'bg-[var(--olive-700)] text-white'
@@ -180,13 +180,13 @@ function NavList({
                     <>
                       <Icon
                         className={cn(
-                          'shrink-0 stroke-[2]',
-                          item.emphasize ? 'h-5 w-5' : 'h-4 w-4',
+                          'shrink-0 stroke-[1.85]',
+                          item.emphasize ? 'h-[18px] w-[18px]' : 'h-[16px] w-[16px]',
                           isActive ? 'text-white' : 'text-[rgba(237,241,232,0.55)] group-hover:text-[rgba(237,241,232,0.9)]',
                         )}
                         aria-hidden
                       />
-                      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                      {!collapsed ? <span className="truncate font-serif tracking-[-0.01em]">{item.label}</span> : null}
                     </>
                   )}
                 </NavLink>

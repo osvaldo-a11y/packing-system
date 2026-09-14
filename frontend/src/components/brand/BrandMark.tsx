@@ -52,7 +52,7 @@ export function BrandMark({
           alt={companyName}
           className={cn(
             'w-auto max-w-full object-contain object-left',
-            tone === 'onDark' ? 'h-[48px] max-w-[168px]' : 'h-9 sm:h-10',
+            tone === 'onDark' ? 'h-[46px] max-w-[164px]' : 'h-9 sm:h-10',
           )}
           onError={(e) => {
             e.currentTarget.src = tone === 'onLight' ? logoMobileUrl : markUrl;
