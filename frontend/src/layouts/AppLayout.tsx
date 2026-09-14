@@ -313,7 +313,7 @@ export function AppLayout() {
         <div
           className={cn(
             'flex min-h-[84px] shrink-0 items-center border-b border-white/[0.14]',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5 py-2',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3 py-2',
           )}
         >
           <BrandMark collapsed={collapsed} />
@@ -322,11 +322,11 @@ export function AppLayout() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 w-8 shrink-0 p-0 text-slate-300 hover:bg-white/10 hover:text-white"
+              className="h-7 w-7 shrink-0 p-0 text-white/35 hover:bg-white/8 hover:text-white/70"
               onClick={() => setCollapsed(true)}
               aria-label={t('nav.collapseSidebar')}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
           ) : null}
         </div>
@@ -346,11 +346,11 @@ export function AppLayout() {
           </div>
         ) : null}
         <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
-        <div className={cn('mt-auto border-t border-white/[0.14] px-3 py-4', collapsed && 'px-2')}>
-          <div className={cn('flex flex-col items-center gap-2 text-center', collapsed && 'justify-center')}>
-            <Leaf className="h-5 w-5 shrink-0 text-[var(--olive-500)]" aria-hidden />
+        <div className={cn('mt-auto border-t border-white/[0.14] px-3 py-3.5', collapsed && 'px-2')}>
+          <div className={cn('flex flex-col items-center gap-1.5 text-center', collapsed && 'justify-center')}>
+            <Leaf className="h-[18px] w-[18px] shrink-0 text-[var(--olive-500)]" aria-hidden />
             {!collapsed ? (
-              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.4] tracking-[0.08em] text-[rgba(237,241,232,0.78)]">
+              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[rgba(237,241,232,0.82)]">
                 BUENAS FRUTAS
                 <br />
                 HACEN UN
@@ -446,7 +446,7 @@ export function AppLayout() {
             <span className="min-w-0 md:hidden">
               <BrandMark tone="onLight" className="pointer-events-none [&_img]:h-8" />
             </span>
-            <p className="hidden min-w-0 truncate text-[13px] text-[var(--ink-muted)] lg:block" style={{ fontFamily: 'var(--font-display)' }}>
+            <p className="hidden min-w-0 truncate text-[13px] text-[var(--ink-muted)] lg:block">
               <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[var(--olive-700)]" aria-hidden />
               {appBranding.tagline}
             </p>

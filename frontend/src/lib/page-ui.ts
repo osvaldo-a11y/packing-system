@@ -6,7 +6,7 @@
  */
 
 /** Contenedor vertical estándar entre secciones (el ancho lo limita AppLayout). */
-export const pageStack = 'space-y-5';
+export const pageStack = 'space-y-3.5';
 
 /** Fila de título + acciones (desktop: acciones a la derecha). */
 export const pageHeaderRow = 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between';

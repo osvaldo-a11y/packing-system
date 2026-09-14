@@ -1445,8 +1445,8 @@ export function DashboardPage() {
 
 
 
-      <section className="space-y-2.5">
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
+      <section className="space-y-2">
+        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
             label={t('nav.items.recepciones')}
@@ -1495,12 +1495,15 @@ export function DashboardPage() {
       </section>
 
       {canWriteOps ? (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <section className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
             <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
               {t('dashboard.quickAccess.title')}
             </h2>
-            <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.quickAccess.subtitle')}</p>
+            <p className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+              <span className="hidden h-3.5 w-px bg-[var(--stone-300)] sm:inline-block" aria-hidden />
+              {t('dashboard.quickAccess.subtitle')}
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {(
@@ -1515,13 +1518,13 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex min-h-[48px] items-center gap-3 rounded-[var(--radius-md)] border px-3 text-[13px] font-semibold transition-colors sm:min-h-[50px]',
+                  'group flex min-h-[44px] items-center gap-2.5 rounded-[8px] border px-3 text-[13px] font-semibold transition-colors sm:min-h-[46px]',
                   processTokens[a.semantic].surface,
                   processTokens[a.semantic].border,
                   processTokens[a.semantic].ink,
                 )}
               >
-                <a.Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={2.15} />
+                <a.Icon className="h-5 w-5 shrink-0" strokeWidth={2.1} />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
                 <ChevronRight className="h-4 w-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -1530,12 +1533,15 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="space-y-2.5">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <section className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
           <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
             {t('dashboard.recentActivity.title')}
           </h2>
-          <p className="text-[12px] text-[var(--ink-muted)]">{t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}</p>
+          <p className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+            <span className="hidden h-3.5 w-px bg-[var(--stone-300)] sm:inline-block" aria-hidden />
+            {t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}
+          </p>
         </div>
         {activityRows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-500">

@@ -49,27 +49,27 @@ export function PeriodFilter<T extends string>({
             type="button"
             onClick={() => onChange(opt.key)}
             className={cn(
-              'inline-flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors sm:h-9 sm:px-3.5 sm:text-[13px]',
+              'inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-semibold transition-colors sm:h-[34px] sm:px-3 sm:text-[12.5px]',
               active
                 ? 'border-[var(--olive-700)] bg-[var(--olive-700)] text-white'
                 : 'border-[var(--stone-300)] bg-[var(--stone-50)] text-[var(--ink)] hover:bg-[var(--sage-100)]',
             )}
           >
-            <Icon className="h-3.5 w-3.5 opacity-90" strokeWidth={2} aria-hidden />
+            <Icon className="h-3.5 w-3.5 opacity-90" strokeWidth={1.9} aria-hidden />
             {opt.label}
           </button>
         );
       })}
       {onMoreClick && moreLabel ? (
         <>
-          <span className="mx-0.5 hidden h-5 w-px bg-[var(--stone-300)] sm:inline-block" aria-hidden />
+          <span className="mx-0.5 hidden h-4 w-px bg-[var(--stone-300)] sm:inline-block" aria-hidden />
           <button
             type="button"
             onClick={onMoreClick}
             aria-expanded={moreOpen}
-            className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-[var(--stone-300)] bg-transparent px-3 text-[12.5px] font-medium text-[var(--ink-muted)] hover:bg-[var(--sage-100)] hover:text-[var(--ink)] sm:h-9 sm:text-[13px]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--stone-300)] bg-transparent px-2.5 text-[12px] font-medium text-[var(--ink-muted)] hover:bg-[var(--sage-100)] hover:text-[var(--ink)] sm:h-[34px] sm:px-3 sm:text-[12.5px]"
           >
-            <Filter className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            <Filter className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
             {moreLabel}
           </button>
         </>
