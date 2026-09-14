@@ -1332,7 +1332,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">

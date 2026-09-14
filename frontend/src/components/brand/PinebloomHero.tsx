@@ -45,6 +45,7 @@ export function PinebloomHero({
         className={cn(
           'pointer-events-none absolute inset-y-0 right-0 h-full w-[56%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] sm:w-[58%]',
           wideLandscape && 'w-[58%] sm:w-[62%]',
+          '[mask-image:linear-gradient(to_right,transparent_0%,black_18%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_18%,black_100%)]',
         )}
         aria-hidden
       />
