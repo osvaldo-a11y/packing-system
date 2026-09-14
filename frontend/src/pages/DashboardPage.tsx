@@ -1567,6 +1567,13 @@ export function DashboardPage() {
                 />
               </li>
             ))}
+            {Array.from({ length: Math.max(0, 4 - activityRows.length) }).map((_, idx) => (
+              <li
+                key={`activity-empty-${idx}`}
+                className="h-9 border-t border-[var(--stone-200)]"
+                aria-hidden
+              />
+            ))}
           </ul>
         )}
       </section>
