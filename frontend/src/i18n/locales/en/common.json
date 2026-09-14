@@ -374,7 +374,8 @@
       "newReception": "New reception",
       "newProcess": "New process",
       "newPtUnit": "New PT unit",
-      "newDispatch": "New dispatch"
+      "newDispatch": "New dispatch",
+      "subtitle": "Frequent operations, one click away."
     },
     "activity": {
       "title": "Recent activity",
@@ -396,7 +397,13 @@
       "reception": "Reception",
       "process": "Process",
       "dispatch": "Dispatch"
-    }
+    },
+    "moduleReceptionDesc": "Receive fruit into the plant",
+    "moduleProcessDesc": "Manage process lines",
+    "modulePtDesc": "Finished product units",
+    "moduleStockDesc": "Check stock and cold rooms",
+    "moduleDispatchDesc": "Prepare and record dispatches",
+    "moduleMaterialsDesc": "Packaging supplies and materials"
   },
   "eod": {
     "title": "End of day",

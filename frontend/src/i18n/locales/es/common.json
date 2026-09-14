@@ -374,7 +374,8 @@
       "newReception": "Nueva recepción",
       "newProcess": "Nuevo proceso",
       "newPtUnit": "Nueva unidad PT",
-      "newDispatch": "Nuevo despacho"
+      "newDispatch": "Nuevo despacho",
+      "subtitle": "Operaciones frecuentes, a un clic."
     },
     "activity": {
       "title": "Actividad reciente",
@@ -396,7 +397,13 @@
       "reception": "Recepción",
       "process": "Proceso",
       "dispatch": "Despacho"
-    }
+    },
+    "moduleReceptionDesc": "Ingresá fruta al sistema",
+    "moduleProcessDesc": "Gestioná líneas de proceso",
+    "modulePtDesc": "Unidades de producto terminado",
+    "moduleStockDesc": "Consultá stock y cámaras",
+    "moduleDispatchDesc": "Prepará y registrá despachos",
+    "moduleMaterialsDesc": "Insumos y materiales de empaque"
   },
   "eod": {
     "title": "Fin del día",

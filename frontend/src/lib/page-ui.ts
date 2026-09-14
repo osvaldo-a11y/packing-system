@@ -12,10 +12,10 @@ export const pageStack = 'space-y-5';
 export const pageHeaderRow = 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between';
 
 /** Título principal de módulo (único estilo en toda la app). */
-export const pageTitle = 'text-[1.375rem] font-semibold tracking-tight text-slate-900 sm:text-[1.5rem]';
+export const pageTitle = 'font-display text-[1.5rem] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[1.75rem]';
 
 /** Subtítulo bajo el título. */
-export const pageSubtitle = 'text-[12px] text-slate-500 sm:text-[13px]';
+export const pageSubtitle = 'text-[12px] text-[hsl(var(--brand-muted))] sm:text-[13px]';
 
 /** Botón circular de ayuda / info (tooltip). */
 export const pageInfoButton =

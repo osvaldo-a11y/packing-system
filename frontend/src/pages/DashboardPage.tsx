@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   ClipboardList,
   DollarSign,
@@ -19,6 +20,7 @@ import { apiJson, isAccessTokenExpired } from '@/api';
 import { fetchSeasonPace, type SeasonPaceResult } from '@/api/seasonPace';
 import { useAuth } from '@/AuthContext';
 import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
+import { processTokens } from '@/lib/process-tokens';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,8 +29,6 @@ import { canOperate, isReadOnlySession } from '@/lib/roles';
 import {
   emptyStateBanner,
   pageStack,
-  pageSubtitle,
-  pageTitle,
   sectionHint,
   sectionTitle,
 } from '@/lib/page-ui';
@@ -1314,10 +1314,21 @@ export function DashboardPage() {
 
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-0.5">
-          <h1 className={pageTitle}>{t('dashboard.askWhat')}</h1>
-          <p className={pageSubtitle}>{t('dashboard.askHint')}</p>
+      <header className="relative overflow-hidden rounded-[16px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-4 sm:px-5 sm:py-5">
+        <img
+          src={appBranding.watermarkUrl}
+          alt=""
+          className="pointer-events-none absolute -right-2 top-0 h-28 w-auto opacity-70 sm:h-36"
+          aria-hidden
+        />
+        <div className="relative min-w-0 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--brand-muted))]">
+            {appBranding.companyName} · {appBranding.locationLine}
+          </p>
+          <h1 className="font-display text-[28px] font-semibold leading-tight text-[hsl(var(--brand-charcoal))] sm:text-[32px]">
+            {t('dashboard.askWhat')}
+          </h1>
+          <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('dashboard.askHint')}</p>
         </div>
       </header>
 
@@ -1445,18 +1456,21 @@ export function DashboardPage() {
             label={t('nav.items.recepciones')}
             semantic="reception"
             metric={t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length })}
+            description={t('dashboard.moduleReceptionDesc')}
           />
           <OperationalModuleCard
             to="/processes"
             label={t('nav.items.procesos')}
             semantic="process"
             metric={t('dashboard.moduleProcessMetric', { count: processesFiltered.length })}
+            description={t('dashboard.moduleProcessDesc')}
           />
           <OperationalModuleCard
             to="/pt-tags"
             label={t('nav.items.unidadPt')}
             semantic="pt"
             metric={t('dashboard.modulePtMetric', { count: ptTagsFiltered.length })}
+            description={t('dashboard.modulePtDesc')}
           />
           <OperationalModuleCard
             to="/existencias-pt/inventario"
@@ -1465,68 +1479,57 @@ export function DashboardPage() {
             metric={t('dashboard.moduleStockMetric', {
               boxes: Math.round(stockBoxesApprox).toLocaleString(),
             })}
+            description={t('dashboard.moduleStockDesc')}
           />
           <OperationalModuleCard
             to="/dispatches"
             label={t('nav.items.despachos')}
             semantic="dispatch"
             metric={t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length })}
+            description={t('dashboard.moduleDispatchDesc')}
           />
           <OperationalModuleCard
             to="/packaging/materials"
             label={t('nav.items.materiales')}
             semantic="materials"
             metric={t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount })}
+            description={t('dashboard.moduleMaterialsDesc')}
           />
         </div>
       </section>
 
       {canWriteOps ? (
         <section className="space-y-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-            {t('dashboard.quickAccess.title')}
-          </h2>
+          <div>
+            <h2 className="font-display text-[18px] font-semibold text-[hsl(var(--brand-charcoal))]">
+              {t('dashboard.quickAccess.title')}
+            </h2>
+            <p className="text-[12px] text-[hsl(var(--brand-muted))]">{t('dashboard.quickAccess.subtitle')}</p>
+          </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Button
-              variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-primary))] bg-[hsl(var(--brand-primary))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-primary-foreground))] hover:bg-[hsl(var(--brand-primary-hover))]"
-              asChild
-            >
-              <Link to="/receptions">
-                <Import className="mr-2 h-5 w-5 shrink-0" />
-                {t('dashboard.quickAccess.newReception')}
+            {(
+              [
+                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, Icon: Import },
+                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, Icon: ClipboardList },
+                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, Icon: Tag },
+                { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const, Icon: Truck },
+              ] as const
+            ).map((a) => (
+              <Link
+                key={a.to}
+                to={a.to}
+                className={cn(
+                  'group flex h-12 items-center gap-3 rounded-[12px] border px-3 text-[13px] font-semibold transition-colors',
+                  processTokens[a.semantic].surface,
+                  processTokens[a.semantic].border,
+                  processTokens[a.semantic].ink,
+                )}
+              >
+                <a.Icon className="h-5 w-5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                <ChevronRight className="h-4 w-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
               </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
-              asChild
-            >
-              <Link to="/processes">
-                <ClipboardList className="mr-2 h-5 w-5 shrink-0" />
-                {t('dashboard.quickAccess.newProcess')}
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
-              asChild
-            >
-              <Link to="/pt-tags">
-                <Tag className="mr-2 h-5 w-5 shrink-0" />
-                {t('dashboard.quickAccess.newPtUnit')}
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 justify-start whitespace-normal rounded-lg border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-3 text-[13px] font-semibold text-[hsl(var(--brand-charcoal))] hover:border-[hsl(var(--brand-primary) / 0.4)] hover:bg-[hsl(var(--brand-primary-soft))]"
-              asChild
-            >
-              <Link to="/dispatches">
-                <Truck className="mr-2 h-5 w-5 shrink-0" />
-                {t('dashboard.quickAccess.newDispatch')}
-              </Link>
-            </Button>
+            ))}
           </div>
         </section>
       ) : null}

@@ -11,6 +11,7 @@ import {
   House,
   Info,
   Library,
+  Leaf,
   LogOut,
   MoreHorizontal,
   Package,
@@ -31,7 +32,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useAuth } from '@/AuthContext';
 import { useDemoInfo } from '@/api/demoInfo';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { brandMarkParts } from '@/lib/branding';
+import { appBranding, brandMarkParts } from '@/lib/branding';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -182,7 +183,7 @@ function NavList({
                       item.emphasize ? 'py-2.5 text-[13px] font-semibold' : 'py-1.5 text-[12.5px] font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
-                        ? 'bg-[hsl(var(--brand-primary))]/25 text-white'
+                        ? 'bg-[hsl(var(--brand-primary-glow))] text-white shadow-sm'
                         : 'text-stone-300 hover:bg-white/8 hover:text-white',
                     )
                   }
@@ -228,7 +229,7 @@ function NavList({
                       cn(
                         'group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition-colors',
                         collapsed && 'justify-center px-0',
-                        isActive ? 'bg-[hsl(var(--brand-primary))]/25 text-white' : 'text-slate-300 hover:bg-white/8',
+                        isActive ? 'bg-[hsl(var(--brand-primary-glow))] text-white shadow-sm' : 'text-slate-300 hover:bg-white/8',
                       )
                     }
                   >
@@ -356,6 +357,16 @@ export function AppLayout() {
           </div>
         ) : null}
         <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
+        <div className={cn('mt-auto border-t border-white/10 px-3 py-3', collapsed && 'px-2')}>
+          <div className={cn('flex items-start gap-2', collapsed && 'justify-center')}>
+            <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--brand-primary-glow))]" aria-hidden />
+            {!collapsed ? (
+              <p className="font-display text-[10px] leading-snug tracking-[0.04em] text-white/55">
+                {appBranding.slogan}
+              </p>
+            ) : null}
+          </div>
+        </div>
       </aside>
 
       {drawerOpen ? (
@@ -442,9 +453,15 @@ export function AppLayout() {
             <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-md md:hidden">
               <BrandMark collapsed className="pointer-events-none [&_span]:!h-7 [&_span]:!w-7 [&_img]:!h-7 [&_img]:!w-7" />
             </span>
-            <h1 className="truncate text-[15px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[16px]">
-              {pageTitle}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-[17px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[18px]">
+                {pageTitle}
+              </h1>
+              <p className="hidden truncate text-[11px] text-[hsl(var(--brand-muted))] lg:block">
+                <Leaf className="mr-1 inline h-3 w-3 text-[hsl(var(--brand-primary))]" aria-hidden />
+                {appBranding.tagline}
+              </p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}

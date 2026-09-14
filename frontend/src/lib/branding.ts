@@ -1,18 +1,20 @@
 /**
- * Branding frontend centralizado (white-label).
- * Colores de marca ≠ colores de estado ≠ acentos sutiles de módulo.
+ * Branding white-label (Pinebloom Farms por defecto).
+ * Colores de marca ≠ colores de estado ≠ acentos de módulo.
  */
 
 export type AppBranding = {
   companyName: string;
   productName: string;
   displayName: string;
-  /** Monograma compacto (rail colapsado), p.ej. PB */
+  locationLine: string;
+  tagline: string;
+  slogan: string;
   monogram: string;
-  /** URL del logo completo (wordmark). */
   logoUrl: string;
-  /** URL del mark cuadrado. */
   markUrl: string;
+  windmillUrl: string;
+  watermarkUrl: string;
   documentTitle: string;
 };
 
@@ -28,16 +30,21 @@ const product = envProduct?.trim() || 'Packing';
 function defaultMonogram(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
-  return (name.slice(0, 2) || 'PB').toUpperCase();
+  return (name.slice(0, 2) || 'PF').toUpperCase();
 }
 
 export const appBranding: AppBranding = {
   companyName: company,
   productName: product,
   displayName: company.trim(),
+  locationLine: 'Newton, GA',
+  tagline: 'Fruta de nuestra tierra. Un futuro más brillante.',
+  slogan: 'BUENAS FRUTAS HACEN UN MEJOR MAÑANA',
   monogram: envMonogram?.trim() || defaultMonogram(company),
-  logoUrl: envLogo?.trim() || '/branding/pinebloom-wordmark.svg',
+  logoUrl: envLogo?.trim() || '/branding/pinebloom-windmill.svg',
   markUrl: envMark?.trim() || '/branding/pinebloom-mark.svg',
+  windmillUrl: '/branding/pinebloom-windmill.svg',
+  watermarkUrl: '/branding/farm-watermark.svg',
   documentTitle: `${company} · ${product}`,
 };
 
