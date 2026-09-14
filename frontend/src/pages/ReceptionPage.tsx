@@ -2434,10 +2434,19 @@ export function ReceptionPage() {
                           >
                             {primaryActionLabel(r.document_state?.codigo)}
                           </Button>
-                          <Button type="button" variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => void printReceptionPdf(r.id)}>
-                            <Printer className="h-3.5 w-3.5" />
-                            {t('reception.table.actionReport')}
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                <Printer className="mr-2 h-3.5 w-3.5" />
+                                {t('reception.table.actionReport')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     );
@@ -2587,10 +2596,19 @@ export function ReceptionPage() {
                       >
                         {primaryActionLabel(r.document_state?.codigo)}
                       </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-10 gap-1 px-2.5 text-xs" onClick={() => void printReceptionPdf(r.id)}>
-                        <Printer className="h-3.5 w-3.5" />
-                        {t('reception.table.actionReport')}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                            <Printer className="mr-2 h-3.5 w-3.5" />
+                            {t('reception.table.actionReport')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 );
@@ -2658,45 +2676,37 @@ export function ReceptionPage() {
                               >
                                 {primaryActionLabel(r.document_state?.codigo)}
                               </Button>
-                              <div className="flex flex-wrap justify-end gap-0.5">
-                                {r.document_state?.codigo === 'borrador' && canOperateReception ? (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 gap-1 px-1.5 text-[11px] text-green-700"
-                                    onClick={() => void confirmReceptionFromList(r.id)}
-                                  >
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    {t('reception.table.actionConfirm')}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
                                   </Button>
-                                ) : null}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 gap-1 px-1.5 text-xs"
-                                  onClick={() => void printReceptionPdf(r.id)}
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                  {t('reception.table.actionReport')}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 gap-1 px-1.5 text-xs text-slate-500"
-                                  onClick={() =>
-                                    setExpandedRows((prev) => ({
-                                      ...prev,
-                                      [r.id]: !prev[r.id],
-                                    }))
-                                  }
-                                >
-                                  {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                  {t('reception.table.actionDetail')}
-                                </Button>
-                              </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {r.document_state?.codigo === 'borrador' && canOperateReception ? (
+                                    <DropdownMenuItem onClick={() => void confirmReceptionFromList(r.id)}>
+                                      <CheckCircle className="mr-2 h-3.5 w-3.5" />
+                                      {t('reception.table.actionConfirm')}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                    <Printer className="mr-2 h-3.5 w-3.5" />
+                                    {t('reception.table.actionReport')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setExpandedRows((prev) => ({
+                                        ...prev,
+                                        [r.id]: !prev[r.id],
+                                      }))
+                                    }
+                                  >
+                                    {expandedRows[r.id] ? <ChevronDown className="mr-2 h-3.5 w-3.5" /> : <ChevronRight className="mr-2 h-3.5 w-3.5" />}
+                                    {t('reception.table.actionDetail')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </TableCell>
                         </TableRow>
