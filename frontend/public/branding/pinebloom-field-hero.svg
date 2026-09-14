@@ -1,144 +1,97 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" fill="none" aria-hidden="true">
-  <!-- Gold Master agricultural watermark: dense trees, lattice windmill, perspective furrows, seal -->
-  <g stroke="#3F4E2E" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <!-- soft field wash for presence -->
-  <g class="field-wash" opacity="0.08" fill="#3F4E2E" stroke="none">
-    <path d="M0 198 C120 184 280 200 440 180 C600 160 740 178 880 168 L880 330 L0 330 Z"/>
-  </g>
-  <!-- distant rolling hills -->
-    <path d="M0 118 C55 102 120 112 185 96 C280 72 355 108 450 88 C540 70 620 92 710 78 C780 68 830 62 880 58" stroke-width="1.8" opacity="0.55"/>
-    <path d="M0 142 C80 124 155 136 240 118 C330 98 420 128 520 110 C610 96 700 108 790 96 L880 90" stroke-width="2" opacity="0.62"/>
-    <path d="M0 168 C95 150 175 160 270 142 C370 122 470 152 580 134 C680 118 780 132 880 122" stroke-width="2.1" opacity="0.7"/>
+  <!-- Gold Master agricultural watermark — content packed for short heroes (object-cover) -->
+  <g stroke="#3A4A2A" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- soft field wash -->
+    <path d="M0 150 C140 130 300 155 480 135 C640 118 780 140 880 128 L880 300 L0 300 Z" fill="#3A4A2A" stroke="none" opacity="0.1"/>
 
-    <!-- left tree line (dense grove) -->
-    <g opacity="0.88">
-      <!-- tree cluster helpers: trunk + layered canopy -->
-      <g>
-        <path d="M36 176 V128" stroke-width="1.7"/>
-        <path d="M36 128 C12 128 6 98 36 72 C66 98 60 128 36 128Z" fill="#3F4E2E" stroke="none" opacity="0.42"/>
-        <path d="M36 118 C18 118 14 98 36 80 C58 98 54 118 36 118Z" fill="#3F4E2E" stroke="none" opacity="0.28"/>
-      </g>
-      <g>
-        <path d="M62 178 V118" stroke-width="1.85"/>
-        <path d="M62 118 C32 118 24 84 62 52 C100 84 92 118 62 118Z" fill="#3F4E2E" stroke="none" opacity="0.48"/>
-        <path d="M62 104 C40 104 34 80 62 60 C90 80 84 104 62 104Z" fill="#3F4E2E" stroke="none" opacity="0.3"/>
-      </g>
-      <g>
-        <path d="M92 176 V124" stroke-width="1.7"/>
-        <path d="M92 124 C68 124 60 98 92 74 C124 98 116 124 92 124Z" fill="#3F4E2E" stroke="none" opacity="0.44"/>
-      </g>
-      <g>
-        <path d="M118 180 V136" stroke-width="1.6"/>
-        <path d="M118 136 C98 136 92 114 118 94 C144 114 138 136 118 136Z" fill="#3F4E2E" stroke="none" opacity="0.4"/>
-      </g>
-      <g>
-        <path d="M146 182 V140" stroke-width="1.55"/>
-        <path d="M146 140 C128 140 122 120 146 102 C170 120 164 140 146 140Z" fill="#3F4E2E" stroke="none" opacity="0.38"/>
-      </g>
-      <g>
-        <path d="M172 184 V148" stroke-width="1.5"/>
-        <path d="M172 148 C156 148 152 132 172 116 C192 132 188 148 172 148Z" fill="#3F4E2E" stroke="none" opacity="0.36"/>
-      </g>
-      <g>
-        <path d="M198 186 V154" stroke-width="1.4"/>
-        <path d="M198 154 C184 154 180 140 198 126 C216 140 212 154 198 154Z" fill="#3F4E2E" stroke="none" opacity="0.34"/>
-      </g>
-      <g>
-        <path d="M222 188 V160" stroke-width="1.35"/>
-        <path d="M222 160 C210 160 206 148 222 136 C238 148 234 160 222 160Z" fill="#3F4E2E" stroke="none" opacity="0.32"/>
-      </g>
-      <g>
-        <path d="M246 190 V166" stroke-width="1.3"/>
-        <path d="M246 166 C236 166 232 156 246 146 C260 156 256 166 246 166Z" fill="#3F4E2E" stroke="none" opacity="0.3"/>
-      </g>
-      <!-- undergrowth / hedge -->
-      <path d="M20 178 C48 170 76 174 110 168 C150 160 190 170 240 166 C270 164 300 168 330 164" stroke-width="1.4" opacity="0.45"/>
-      <path d="M28 186 C70 178 120 184 170 176 C220 168 270 178 320 174" stroke-width="1.15" opacity="0.35"/>
+    <!-- distant hills -->
+    <path d="M0 95 C70 78 150 90 230 72 C340 48 430 88 540 68 C650 48 740 70 830 58 L880 52" stroke-width="2" opacity="0.58"/>
+    <path d="M0 118 C90 98 180 112 280 92 C390 68 500 110 620 90 C720 74 800 88 880 80" stroke-width="2.2" opacity="0.68"/>
+    <path d="M0 140 C100 122 200 134 320 114 C440 92 560 132 700 112 C780 102 840 108 880 104" stroke-width="2.3" opacity="0.75"/>
+
+    <!-- dense tree grove (left) -->
+    <g opacity="0.92">
+      <path d="M28 155 V108" stroke-width="1.8"/><path d="M28 108 C2 108 -4 78 28 48 C60 78 54 108 28 108Z" fill="#3A4A2A" stroke="none" opacity="0.55"/>
+      <path d="M56 158 V95" stroke-width="2"/><path d="M56 95 C22 95 12 58 56 22 C100 58 90 95 56 95Z" fill="#3A4A2A" stroke="none" opacity="0.62"/><path d="M56 82 C32 82 26 56 56 34 C86 56 80 82 56 82Z" fill="#3A4A2A" stroke="none" opacity="0.35"/>
+      <path d="M88 156 V105" stroke-width="1.85"/><path d="M88 105 C60 105 50 74 88 46 C126 74 116 105 88 105Z" fill="#3A4A2A" stroke="none" opacity="0.58"/>
+      <path d="M118 160 V118" stroke-width="1.7"/><path d="M118 118 C94 118 86 92 118 68 C150 92 142 118 118 118Z" fill="#3A4A2A" stroke="none" opacity="0.52"/>
+      <path d="M148 162 V124" stroke-width="1.6"/><path d="M148 124 C128 124 120 102 148 80 C176 102 168 124 148 124Z" fill="#3A4A2A" stroke="none" opacity="0.5"/>
+      <path d="M176 164 V132" stroke-width="1.5"/><path d="M176 132 C160 132 154 114 176 96 C198 114 192 132 176 132Z" fill="#3A4A2A" stroke="none" opacity="0.46"/>
+      <path d="M202 166 V140" stroke-width="1.4"/><path d="M202 140 C188 140 182 126 202 110 C222 126 216 140 202 140Z" fill="#3A4A2A" stroke="none" opacity="0.42"/>
+      <path d="M226 168 V146" stroke-width="1.35"/><path d="M226 146 C214 146 210 134 226 120 C242 134 238 146 226 146Z" fill="#3A4A2A" stroke="none" opacity="0.4"/>
+      <path d="M250 170 V152" stroke-width="1.25"/><path d="M250 152 C240 152 236 142 250 132 C264 142 260 152 250 152Z" fill="#3A4A2A" stroke="none" opacity="0.36"/>
+      <path d="M18 158 C55 148 95 154 140 146 C190 136 240 150 290 144" stroke-width="1.5" opacity="0.45"/>
     </g>
 
-    <!-- cultivated fields / dense perspective furrows -->
-    <g opacity="0.9">
-      <!-- horizon field bands -->
-      <path d="M0 198 C110 184 230 194 360 178 C490 162 620 178 780 166 L880 160" stroke-width="1.9"/>
-      <path d="M0 214 C120 200 250 210 390 194 C520 180 660 194 830 184 L880 180" stroke-width="1.7" opacity="0.95"/>
-      <path d="M8 230 C140 216 280 226 420 210 C560 196 700 210 860 202" stroke-width="1.55" opacity="0.9"/>
-      <path d="M0 246 C150 232 300 242 450 228 C590 216 730 228 880 222" stroke-width="1.45" opacity="0.85"/>
-      <path d="M12 262 C160 250 320 258 470 246 C610 236 750 246 880 242" stroke-width="1.35" opacity="0.78"/>
-      <path d="M4 278 C170 268 340 274 500 264 C640 256 770 264 880 262" stroke-width="1.25" opacity="0.7"/>
-      <path d="M20 294 C190 286 360 290 520 282 C660 276 790 282 880 280" stroke-width="1.15" opacity="0.6"/>
-      <path d="M10 310 C190 304 370 306 540 300 C680 296 800 300 880 298" stroke-width="1.05" opacity="0.5"/>
-      <path d="M30 324 C210 320 400 322 580 318 C720 316 820 318 880 318" stroke-width="0.95" opacity="0.4"/>
+    <!-- perspective furrows (mid band — visible in short heroes) -->
+    <g opacity="0.95">
+      <path d="M0 168 C120 152 260 168 420 148 C560 132 720 150 880 138" stroke-width="2.2"/>
+      <path d="M0 184 C130 168 280 184 440 164 C590 148 740 166 880 156" stroke-width="2" opacity="0.95"/>
+      <path d="M8 200 C150 184 310 200 470 180 C620 164 770 182 880 174" stroke-width="1.8" opacity="0.9"/>
+      <path d="M0 216 C160 202 330 216 500 198 C650 184 800 200 880 194" stroke-width="1.65" opacity="0.85"/>
+      <path d="M10 232 C180 220 360 232 540 216 C690 204 820 218 880 214" stroke-width="1.5" opacity="0.78"/>
+      <path d="M4 248 C190 238 380 248 560 236 C710 226 820 236 880 234" stroke-width="1.35" opacity="0.68"/>
+      <path d="M18 264 C210 256 410 262 600 254 C740 248 830 252 880 252" stroke-width="1.2" opacity="0.55"/>
+      <path d="M12 278 C220 272 430 276 630 270 C760 266 840 268 880 268" stroke-width="1.05" opacity="0.42"/>
 
-      <!-- diagonal furrow ticks (depth) — denser mid field -->
-      <g opacity="0.55" stroke-width="1.05">
-        <path d="M70 206 L98 228 M105 202 L135 226 M145 198 L177 224 M190 194 L224 222 M240 190 L276 220 M295 186 L333 218 M355 182 L395 216 M420 178 L462 214 M490 176 L534 212 M565 174 L611 212 M645 172 L693 210 M730 170 L780 208 M820 168 L872 206"/>
-        <path d="M55 222 L85 246 M95 218 L127 244 M140 214 L174 242 M190 210 L226 240 M245 206 L283 238 M305 202 L345 236 M370 198 L412 234 M440 194 L484 232 M515 192 L561 230 M595 190 L643 230 M680 188 L730 228 M775 186 L827 226 M850 184 L880 210"/>
-        <path d="M40 238 L72 264 M85 234 L119 262 M135 230 L171 260 M190 226 L228 258 M250 222 L290 256 M315 218 L357 254 M385 214 L429 252 M460 212 L506 250 M540 210 L588 250 M625 208 L675 248 M720 206 L772 246 M815 204 L868 244"/>
-        <path d="M50 254 L84 282 M100 250 L136 280 M155 246 L193 278 M215 242 L255 276 M280 238 L322 274 M350 234 L394 272 M425 230 L471 270 M505 228 L553 268 M590 226 L640 266 M685 224 L737 264 M780 222 L834 262"/>
-        <path d="M65 270 L100 296 M120 266 L157 294 M180 262 L219 292 M245 258 L286 290 M315 254 L358 288 M390 250 L435 286 M470 248 L517 284 M555 246 L604 282 M645 244 L696 280 M740 242 L793 278 M835 240 L880 270"/>
-        <path d="M45 286 L82 310 M105 282 L144 308 M170 278 L211 306 M240 274 L283 304 M315 270 L360 302 M395 266 L442 300 M485 264 L534 298 M580 262 L631 296 M675 260 L728 294 M770 258 L825 292"/>
+      <!-- diagonal tick furrows -->
+      <g opacity="0.62" stroke-width="1.15">
+        <path d="M60 176 L92 200 M100 172 L134 198 M145 168 L181 196 M195 164 L233 194 M250 160 L290 192 M310 156 L352 190 M375 152 L419 188 M445 148 L491 186 M520 146 L568 184 M600 144 L650 184 M685 142 L737 182 M775 140 L828 180 M845 138 L880 168"/>
+        <path d="M45 192 L79 218 M90 188 L126 216 M140 184 L178 214 M195 180 L235 212 M255 176 L297 210 M320 172 L364 208 M390 168 L436 206 M465 166 L513 204 M545 164 L595 204 M630 162 L682 202 M720 160 L774 200 M815 158 L870 198"/>
+        <path d="M55 208 L91 236 M105 204 L143 234 M160 200 L200 232 M220 196 L262 230 M285 192 L329 228 M355 188 L401 226 M430 186 L478 224 M510 184 L560 222 M595 182 L647 220 M685 180 L739 218 M780 178 L836 216"/>
+        <path d="M40 224 L78 254 M95 220 L135 252 M155 216 L197 250 M220 212 L264 248 M290 208 L336 246 M365 204 L413 244 M445 202 L495 242 M530 200 L582 240 M620 198 L674 238 M715 196 L771 236 M815 194 L872 234"/>
+        <path d="M50 240 L90 268 M110 236 L152 266 M175 232 L219 264 M245 228 L291 262 M320 224 L368 260 M400 222 L450 258 M485 220 L537 256 M575 218 L629 254 M670 216 L726 252 M770 214 L828 250"/>
       </g>
     </g>
 
-    <!-- LARGE lattice windmill (right) -->
+    <!-- AMERICAN FARM WINDMILL (lattice + multi-blade wheel) -->
     <g opacity="1">
       <!-- lattice tower -->
-      <path d="M668 312 V92" stroke-width="3.6"/>
-      <path d="M648 312 L668 92 L688 312" stroke-width="2.4" opacity="0.85"/>
-      <path d="M638 312 L668 130 L698 312" stroke-width="1.8" opacity="0.55"/>
-      <!-- cross bracing -->
-      <path d="M652 280 L684 250 M652 250 L684 220 M652 220 L684 190 M652 190 L684 160 M652 160 L684 130" stroke-width="1.5" opacity="0.7"/>
-      <path d="M652 250 L684 280 M652 220 L684 250 M652 190 L684 220 M652 160 L684 190 M652 130 L684 160" stroke-width="1.5" opacity="0.7"/>
-      <!-- platform / base -->
-      <path d="M618 312 H718" stroke-width="3.4"/>
-      <path d="M628 304 H708" stroke-width="1.6" opacity="0.55"/>
+      <path d="M670 290 V78" stroke-width="4"/>
+      <path d="M648 290 L670 78 L692 290" stroke-width="2.6" opacity="0.9"/>
+      <path d="M636 290 L670 110 L704 290" stroke-width="1.9" opacity="0.55"/>
+      <path d="M650 262 L690 232 M650 232 L690 202 M650 202 L690 172 M650 172 L690 142 M650 142 L690 112" stroke-width="1.7" opacity="0.75"/>
+      <path d="M650 232 L690 262 M650 202 L690 232 M650 172 L690 202 M650 142 L690 172 M650 112 L690 142" stroke-width="1.7" opacity="0.75"/>
+      <path d="M612 290 H728" stroke-width="3.8"/>
+      <path d="M624 280 H716" stroke-width="1.7" opacity="0.5"/>
       <!-- hub -->
-      <circle cx="668" cy="78" r="13" fill="#3F4E2E" stroke="none"/>
-      <circle cx="668" cy="78" r="6" fill="#E8EBDF" stroke="none" opacity="0.35"/>
-      <!-- 8 blades (farm wheel) -->
-      <g stroke-width="3.2">
-        <path d="M668 78 L668 8"/>
-        <path d="M668 78 L718 28"/>
-        <path d="M668 78 L738 78"/>
-        <path d="M668 78 L718 128"/>
-        <path d="M668 78 L668 148"/>
-        <path d="M668 78 L618 128"/>
-        <path d="M668 78 L598 78"/>
-        <path d="M668 78 L618 28"/>
+      <circle cx="670" cy="64" r="14" fill="#3A4A2A" stroke="none"/>
+      <circle cx="670" cy="64" r="5.5" fill="#E8EBDF" stroke="none" opacity="0.4"/>
+      <!-- 12 solid-ish blades -->
+      <g stroke-width="2.8">
+        <path d="M670 64 L670 -8"/><path d="M670 64 L706 4"/><path d="M670 64 L730 36"/><path d="M670 64 L738 64"/>
+        <path d="M670 64 L730 92"/><path d="M670 64 L706 124"/><path d="M670 64 L670 136"/>
+        <path d="M670 64 L634 124"/><path d="M670 64 L610 92"/><path d="M670 64 L602 64"/>
+        <path d="M670 64 L610 36"/><path d="M670 64 L634 4"/>
       </g>
-      <!-- blade tips / vanes -->
-      <g stroke-width="2.2" opacity="0.75">
-        <path d="M660 8 H676 M710 20 L726 36 M738 70 V86 M710 120 L726 136 M660 148 H676 M610 120 L594 136 M598 70 V86 M610 20 L594 36"/>
+      <!-- blade paddles -->
+      <g fill="#3A4A2A" stroke="none" opacity="0.55">
+        <path d="M666 -8 H674 L676 18 H664Z"/><path d="M702 0 L714 12 L698 28 L686 16Z"/>
+        <path d="M726 32 L742 40 L734 56 L718 48Z"/><path d="M738 60 V68 H712 V60Z"/>
+        <path d="M726 96 L742 88 L734 72 L718 80Z"/><path d="M702 128 L714 116 L698 100 L686 112Z"/>
+        <path d="M666 136 H674 L676 110 H664Z"/><path d="M638 128 L626 116 L642 100 L654 112Z"/>
+        <path d="M614 96 L598 88 L606 72 L622 80Z"/><path d="M602 60 V68 H628 V60Z"/>
+        <path d="M614 32 L598 40 L606 56 L622 48Z"/><path d="M638 0 L626 12 L642 28 L654 16Z"/>
       </g>
-      <!-- outer rim suggestion -->
-      <circle cx="668" cy="78" r="62" stroke-width="1.4" opacity="0.45"/>
-      <circle cx="668" cy="78" r="48" stroke-width="1.1" opacity="0.3"/>
+      <circle cx="670" cy="64" r="58" stroke-width="1.5" opacity="0.4"/>
+      <circle cx="670" cy="64" r="44" stroke-width="1.15" opacity="0.28"/>
+      <!-- tail vane -->
+      <path d="M670 64 L742 78" stroke-width="2.2" opacity="0.7"/>
+      <path d="M742 78 L768 70 L768 90 Z" fill="#3A4A2A" stroke="none" opacity="0.55"/>
     </g>
 
-    <!-- trees near windmill -->
-    <g opacity="0.82">
-      <g>
-        <path d="M738 218 V168" stroke-width="1.7"/>
-        <path d="M738 168 C710 168 702 140 738 110 C774 140 766 168 738 168Z" fill="#3F4E2E" stroke="none" opacity="0.45"/>
-      </g>
-      <g>
-        <path d="M772 212 V176" stroke-width="1.5"/>
-        <path d="M772 176 C750 176 744 154 772 132 C800 154 794 176 772 176Z" fill="#3F4E2E" stroke="none" opacity="0.4"/>
-      </g>
-      <g>
-        <path d="M800 206 V180" stroke-width="1.35"/>
-        <path d="M800 180 C784 180 780 164 800 148 C820 164 816 180 800 180Z" fill="#3F4E2E" stroke="none" opacity="0.36"/>
-      </g>
-      <g>
-        <path d="M826 200 V182" stroke-width="1.25"/>
-        <path d="M826 182 C814 182 810 170 826 158 C842 170 838 182 826 182Z" fill="#3F4E2E" stroke="none" opacity="0.32"/>
-      </g>
+    <!-- trees by windmill -->
+    <g opacity="0.88">
+      <path d="M742 200 V152" stroke-width="1.8"/><path d="M742 152 C712 152 702 122 742 90 C782 122 772 152 742 152Z" fill="#3A4A2A" stroke="none" opacity="0.55"/>
+      <path d="M778 194 V162" stroke-width="1.55"/><path d="M778 162 C754 162 746 138 778 114 C810 138 802 162 778 162Z" fill="#3A4A2A" stroke="none" opacity="0.48"/>
+      <path d="M808 188 V168" stroke-width="1.35"/><path d="M808 168 C790 168 784 150 808 132 C832 150 826 168 808 168Z" fill="#3A4A2A" stroke="none" opacity="0.42"/>
+      <path d="M834 182 V170" stroke-width="1.2"/><path d="M834 170 C822 170 818 160 834 148 C850 160 846 170 834 170Z" fill="#3A4A2A" stroke="none" opacity="0.36"/>
     </g>
   </g>
 
-  <!-- discreet seal (bottom-right watermark) -->
-  <g fill="#3F4E2E" opacity="0.62" font-family="Georgia, 'Times New Roman', serif">
-    <text x="868" y="328" text-anchor="end" font-size="11.5" font-weight="700" letter-spacing="0.18em">PINEBLOOM FARMS</text>
-    <text x="868" y="344" text-anchor="end" font-size="9" font-weight="600" letter-spacing="0.14em" opacity="0.88" font-family="Inter, system-ui, sans-serif">NEWTON, GA | EST. 2012</text>
+  <!-- seal — mid-lower so object-cover keeps it -->
+  <g fill="#3A4A2A" opacity="0.7" font-family="Georgia, 'Times New Roman', serif">
+    <text x="868" y="302" text-anchor="end" font-size="12" font-weight="700" letter-spacing="0.18em">PINEBLOOM FARMS</text>
+    <text x="868" y="318" text-anchor="end" font-size="9.5" font-weight="600" letter-spacing="0.14em" opacity="0.9" font-family="Inter, system-ui, sans-serif">NEWTON, GA | EST. 2012</text>
   </g>
 </svg>
