@@ -17,8 +17,8 @@ type Props = {
 };
 
 /**
- * Card operacional del mockup aprobado:
- * superficie tintada · pozo de icono suave · métrica fuerte · chevron circular.
+ * Card de módulo — estructura exacta de referencia:
+ * [ICON WELL 54–58] [NOMBRE / MÉTRICA / HELPER] [ARROW CIRCLE]
  */
 export function OperationalModuleCard({
   to,
@@ -37,21 +37,16 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group relative flex min-h-[118px] items-center gap-3 overflow-hidden rounded-[16px] border px-3.5 py-3.5 transition-all duration-150 sm:min-h-[128px] sm:gap-4 sm:px-4 sm:py-4',
+        'group relative flex min-h-[110px] items-center gap-3 overflow-hidden rounded-[12px] border border-[var(--pb-border)] px-3 py-3 transition-colors sm:min-h-[118px] sm:gap-3.5 sm:px-3.5 sm:py-3.5',
         tok.surface,
-        tok.border,
-        'shadow-[0_1px_0_rgba(51,56,53,0.04)] hover:-translate-y-0.5 hover:shadow-md',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-primary))]/35 focus-visible:ring-offset-2',
-        'active:translate-y-0 active:scale-[0.995]',
+        'hover:brightness-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pb-olive)]/35 focus-visible:ring-offset-2',
         className,
       )}
     >
       <span
         className={cn(
-          'inline-flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] ring-1 ring-inset sm:h-14 sm:w-14',
-          tok.surface,
-          tok.ink,
-          tok.border.replace('border-[', 'ring-['),
+          'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] sm:h-[54px] sm:w-[54px]',
+          tok.iconWell,
         )}
         aria-hidden
       >
@@ -59,24 +54,24 @@ export function OperationalModuleCard({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="font-display text-[15px] font-semibold leading-tight text-[hsl(var(--brand-charcoal))] sm:text-[16px]">
+        <p className="font-serif text-[16px] font-semibold leading-tight text-[var(--pb-charcoal)] sm:text-[18px]">
           {label}
         </p>
         {metric ? (
-          <p className={cn('mt-1 text-[22px] font-bold leading-none tabular-nums tracking-tight sm:text-[24px]', tok.ink)}>
+          <p className="mt-0.5 font-serif text-[24px] font-semibold leading-none tabular-nums tracking-tight text-[var(--pb-text)] sm:text-[28px]">
             {metric}
           </p>
         ) : null}
         {subtitle ? (
-          <p className="mt-1.5 text-[12px] leading-snug text-[hsl(var(--brand-muted))] sm:text-[13px]">{subtitle}</p>
+          <p className="mt-1 text-[12px] leading-snug text-[var(--pb-muted)] sm:text-[13px]">{subtitle}</p>
         ) : null}
       </div>
 
       <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] text-[hsl(var(--brand-charcoal))]/70 transition-colors group-hover:border-[hsl(var(--brand-primary))]/40 group-hover:bg-[hsl(var(--brand-primary-soft))] group-hover:text-[hsl(var(--brand-primary))]"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--pb-border)] bg-[var(--pb-surface)] text-[var(--pb-charcoal)]/65 transition-colors group-hover:border-[var(--pb-olive)]/35 group-hover:text-[var(--pb-olive)]"
         aria-hidden
       >
-        <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
+        <ChevronRight className="h-4 w-4" strokeWidth={2} />
       </span>
     </Link>
   );

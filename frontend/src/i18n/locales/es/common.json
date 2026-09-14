@@ -180,7 +180,13 @@
       "receive": "Recibir",
       "process": "Proceso",
       "stock": "Stock",
-      "dispatch": "Despacho"
+      "dispatch": "Despacho",
+      "operations": "Operaciones",
+      "reports": "Reportes",
+      "inventory": "Inventario",
+      "config": "Configuración",
+      "more": "Más",
+      "moreShort": "Más"
     }
   },
   "dashboard": {
@@ -396,7 +402,8 @@
       "empty": "Sin movimientos recientes.",
       "reception": "Recepción",
       "process": "Proceso",
-      "dispatch": "Despacho"
+      "dispatch": "Despacho",
+      "subtitle": "Últimas operaciones en el sistema."
     },
     "moduleReceptionDesc": "Ingresá fruta al sistema",
     "moduleProcessDesc": "Gestioná líneas de proceso",
@@ -559,7 +566,9 @@
       "saveStateButton": "Guardar estado",
       "saveButton": "Guardar recepción",
       "saveReception": "Guardar recepción",
-      "stepOriginTitle": "Origen"
+      "stepOriginTitle": "Origen",
+      "subtitle": "Registra la fruta que ingresa a la operación.",
+      "claim": "FRUTA DE NUESTRA TIERRA. UN FUTURO MÁS BRILLANTE."
     },
     "kpi": {
       "todayCount": "Recepciones hoy",
@@ -641,7 +650,7 @@
       "colProducer": "Productor",
       "colNotes": "Observaciones",
       "actionConfirm": "Confirmar",
-      "actionContinue": "Continuar",
+      "actionContinue": "Continuar →",
       "actionReviewClose": "Revisar / Cerrar",
       "actionView": "Ver detalle",
       "actionEdit": "Editar",

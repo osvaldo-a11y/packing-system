@@ -180,7 +180,13 @@
       "receive": "Receive",
       "process": "Process",
       "stock": "Stock",
-      "dispatch": "Dispatch"
+      "dispatch": "Dispatch",
+      "operations": "Operations",
+      "reports": "Reports",
+      "inventory": "Inventory",
+      "config": "Settings",
+      "more": "More",
+      "moreShort": "More"
     }
   },
   "dashboard": {
@@ -641,7 +647,7 @@
       "colProducer": "Producer",
       "colNotes": "Notes",
       "actionConfirm": "Confirm",
-      "actionContinue": "Continue",
+      "actionContinue": "Continue →",
       "actionReviewClose": "Review / Close",
       "actionView": "View detail",
       "actionEdit": "Edit",

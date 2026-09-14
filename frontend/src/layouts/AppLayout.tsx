@@ -10,21 +10,20 @@ import {
   GitBranch,
   House,
   Info,
-  Library,
   Leaf,
   LogOut,
   MoreHorizontal,
-  Package,
-  PackageOpen,
   ScrollText,
   ShoppingCart,
-  Tag,
   Truck,
   Upload,
   User,
   Bell,
-  Warehouse,
   X,
+  Box,
+  Settings,
+  Snowflake,
+  Boxes,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -59,56 +58,42 @@ type NavItem = {
 
 type NavGroup = { id: string; label: string; items: NavItem[]; emphasize?: boolean };
 
-const RAIL_COLLAPSED = 68;
-const RAIL_EXPANDED = 220;
+const RAIL_COLLAPSED = 72;
+const RAIL_EXPANDED = 168;
 
 function getNavGroups(t: (key: string) => string): NavGroup[] {
   return [
     {
-      id: 'operacion',
-      label: t('nav.groups.operacion'),
+      id: 'primary',
+      label: '',
       emphasize: true,
       items: [
         { to: '/', label: t('nav.items.inicio'), icon: House, end: true, emphasize: true },
-        { to: '/receptions', label: t('nav.items.recepciones'), icon: PackageOpen, emphasize: true },
+        { to: '/receptions', label: t('nav.items.recepciones'), icon: Truck, emphasize: true },
         { to: '/processes', label: t('nav.items.procesos'), icon: Cog, emphasize: true },
-        { to: '/pt-tags', label: t('nav.items.unidadPt'), icon: Tag, emphasize: true },
-        { to: '/existencias-pt', label: t('nav.items.existenciasPt'), icon: Warehouse, emphasize: true },
+        { to: '/pt-tags', label: t('nav.items.unidadPt'), icon: Boxes, emphasize: true },
+        { to: '/existencias-pt', label: t('nav.items.existenciasPt'), icon: Snowflake, emphasize: true },
         { to: '/dispatches', label: t('nav.items.despachos'), icon: Truck, emphasize: true },
+        { to: '/packaging/materials', label: t('nav.items.materiales'), icon: Box, emphasize: true },
       ],
     },
     {
-      id: 'packaging',
-      label: t('nav.groups.packaging'),
+      id: 'secondary',
+      label: '',
       items: [
-        { to: '/packaging/materials', label: t('nav.items.materiales'), icon: Package },
+        { to: '/reporting', label: t('nav.items.reportes'), icon: BarChart3 },
+        { to: '/masters', label: t('nav.bottom.config'), icon: Settings },
+      ],
+    },
+    {
+      id: 'more',
+      label: t('nav.groups.sistema'),
+      items: [
         { to: '/packaging/kardex', label: t('nav.items.kardex'), icon: ScrollText },
         { to: '/packaging/recipes', label: t('nav.items.recetas'), icon: ClipboardList },
         { to: '/packaging/consumptions', label: t('nav.items.consumos'), icon: BarChart3 },
-      ],
-    },
-    {
-      id: 'comercial',
-      label: t('nav.groups.comercial'),
-      items: [{ to: '/sales-orders', label: t('nav.items.pedidos'), icon: ShoppingCart }],
-    },
-    {
-      id: 'gestion',
-      label: t('nav.groups.gestion'),
-      items: [{ to: '/reporting', label: t('nav.items.reportes'), icon: BarChart3 }],
-    },
-    {
-      id: 'config',
-      label: t('nav.groups.config'),
-      items: [
-        { to: '/masters', label: t('nav.items.mantenedores'), icon: Library },
+        { to: '/sales-orders', label: t('nav.items.pedidos'), icon: ShoppingCart },
         { to: '/plant', label: t('nav.items.planta'), icon: Factory },
-      ],
-    },
-    {
-      id: 'sistema',
-      label: t('nav.groups.sistema'),
-      items: [
         { to: '/guide/sistema', label: t('nav.items.guia'), icon: GitBranch },
         { to: '/about', label: t('nav.items.acerca'), icon: Info },
       ],
@@ -158,7 +143,7 @@ function NavList({
     >
       {groups.map((group, gi) => (
         <div key={group.id} className={cn(gi > 0 && 'mt-2.5 border-t border-white/10 pt-2.5')}>
-          {!collapsed ? (
+          {!collapsed && group.label ? (
             <p
               className={cn(
                 'mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]',
@@ -167,8 +152,10 @@ function NavList({
             >
               {group.label}
             </p>
-          ) : gi === 1 ? (
+          ) : collapsed && gi === 1 ? (
             <div className="mx-auto mb-1.5 h-px w-6 bg-white/15" aria-hidden />
+          ) : !collapsed && !group.label && gi > 0 ? (
+            <div className="mx-2 mb-1.5 h-px bg-white/15" aria-hidden />
           ) : null}
           <ul className="space-y-0.5">
             {group.items.map((item) => {
@@ -184,7 +171,7 @@ function NavList({
                       item.emphasize ? 'py-2.5 text-[13px] font-semibold' : 'py-1.5 text-[12.5px] font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
-                        ? 'bg-[hsl(var(--brand-primary-glow))] text-white shadow-sm'
+                        ? 'bg-[var(--pb-olive)] text-white shadow-sm'
                         : 'text-stone-300 hover:bg-white/8 hover:text-white',
                     )
                   }
@@ -274,10 +261,10 @@ function NavList({
 
 const BOTTOM_PRIMARY = [
   { to: '/', end: true as const, icon: House, labelKey: 'nav.bottom.home' },
-  { to: '/receptions', icon: PackageOpen, labelKey: 'nav.bottom.receive' },
-  { to: '/processes', icon: Cog, labelKey: 'nav.bottom.process' },
-  { to: '/existencias-pt', icon: Warehouse, labelKey: 'nav.bottom.stock' },
-  { to: '/dispatches', icon: Truck, labelKey: 'nav.bottom.dispatch' },
+  { to: '/receptions', icon: Truck, labelKey: 'nav.bottom.operations' },
+  { to: '/reporting', icon: BarChart3, labelKey: 'nav.bottom.reports' },
+  { to: '/existencias-pt', icon: Box, labelKey: 'nav.bottom.inventory' },
+  { to: '/masters', icon: Settings, labelKey: 'nav.bottom.config' },
 ];
 
 export function AppLayout() {
@@ -291,7 +278,7 @@ export function AppLayout() {
   // Mockup: el chip DEMO es parte del chrome (visible si el backend reporta demo habilitado).
   const showDemoChip = Boolean(demoInfo?.enabled) || readOnlySession || sandboxWritable;
   const { pathname } = useLocation();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle = resolvePageTitle(pathname, t);
@@ -320,12 +307,12 @@ export function AppLayout() {
   return (
     <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[hsl(var(--brand-surface))]">
       <aside
-        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-[hsl(var(--brand-rail-border))] bg-[hsl(var(--brand-rail))] text-stone-100 transition-[width] duration-200 lg:flex"
+        className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-[hsl(var(--brand-rail-border))] bg-[var(--pb-charcoal)] text-stone-100 transition-[width] duration-200 lg:flex"
         style={{ width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED }}
       >
         <div
           className={cn(
-            'flex h-12 shrink-0 items-center border-b border-white/10',
+            'flex h-14 shrink-0 items-center border-b border-white/10',
             collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-2.5',
           )}
         >
@@ -363,8 +350,12 @@ export function AppLayout() {
           <div className={cn('flex items-start gap-2', collapsed && 'justify-center')}>
             <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--brand-primary-glow))]" aria-hidden />
             {!collapsed ? (
-              <p className="font-display text-[10px] leading-snug tracking-[0.04em] text-white/55">
-                {appBranding.slogan}
+              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.06em] text-white/70">
+                BUENAS FRUTAS
+                <br />
+                HACEN UN
+                <br />
+                MEJOR MAÑANA
               </p>
             ) : null}
           </div>
@@ -379,7 +370,7 @@ export function AppLayout() {
             aria-label={t('nav.closeMenu')}
             onClick={() => setDrawerOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[hsl(var(--brand-rail))] text-stone-100 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[var(--pb-charcoal)] text-stone-100 shadow-xl">
             <div className="flex h-12 items-center justify-between border-b border-white/10 px-3">
               <BrandMark />
               <Button
@@ -440,7 +431,7 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))]/95 px-3 backdrop-blur sm:px-4">
+        <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-[var(--pb-border)] bg-[var(--pb-surface)] px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -452,27 +443,19 @@ export function AppLayout() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-md md:hidden">
-              <BrandMark collapsed className="pointer-events-none [&_span]:!h-7 [&_span]:!w-7 [&_img]:!h-7 [&_img]:!w-7" />
+            <span className="min-w-0 md:hidden">
+              <BrandMark tone="onLight" className="pointer-events-none [&_img]:h-8" />
             </span>
-            <p className="hidden min-w-0 truncate text-[13px] text-[hsl(var(--brand-muted))] lg:block">
-              <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[hsl(var(--brand-primary))]" aria-hidden />
+            <p className="hidden min-w-0 truncate text-[13px] text-[var(--pb-muted)] lg:block">
+              <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[var(--pb-olive)]" aria-hidden />
               {appBranding.tagline}
             </p>
-            <h1 className="truncate font-display text-[16px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] lg:hidden">
+            <h1 className="hidden truncate font-serif text-[16px] font-semibold tracking-tight text-[var(--pb-charcoal)] md:block lg:hidden">
               {pageTitle}
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
-            <button
-              type="button"
-              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[hsl(var(--brand-muted))] hover:bg-stone-100 hover:text-[hsl(var(--brand-charcoal))] sm:inline-flex"
-              aria-label={t('nav.notifications', { defaultValue: 'Notificaciones' })}
-            >
-              <Bell className="h-4 w-4" aria-hidden />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
-            </button>
             <div className="hidden sm:block">
               <LanguageToggle />
             </div>
@@ -515,6 +498,14 @@ export function AppLayout() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <button
+              type="button"
+              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[hsl(var(--brand-muted))] hover:bg-stone-100 hover:text-[hsl(var(--brand-charcoal))] sm:inline-flex"
+              aria-label={t('nav.notifications', { defaultValue: 'Notificaciones' })}
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
+            </button>
           </div>
         </header>
 
@@ -525,7 +516,7 @@ export function AppLayout() {
         </main>
 
         <nav
-          className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--pb-border)] bg-[var(--pb-surface)] pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label={t('nav.bottomAria')}
         >
           {BOTTOM_PRIMARY.map((item) => {
@@ -538,14 +529,21 @@ export function AppLayout() {
                 className={({ isActive }) =>
                   cn(
                     'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-                    isActive ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-500',
+                    isActive ? 'text-[var(--pb-olive)]' : 'text-stone-500',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
+                    <span
+                      className={cn(
+                        'mb-0.5 h-0.5 w-6 rounded-full',
+                        isActive ? 'bg-[var(--pb-olive)]' : 'bg-transparent',
+                      )}
+                      aria-hidden
+                    />
                     <Icon
-                      className={cn('h-5 w-5', isActive ? 'text-[hsl(var(--brand-primary))]' : 'text-stone-400')}
+                      className={cn('h-5 w-5', isActive ? 'text-[var(--pb-olive)]' : 'text-stone-400')}
                       strokeWidth={2.25}
                       aria-hidden
                     />

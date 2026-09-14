@@ -3,15 +3,11 @@ import {
   AlertCircle,
   AlertTriangle,
   Boxes,
-  CalendarDays,
-  CalendarRange,
-  ChartColumn,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Cog,
   DollarSign,
-  Filter,
   Info,
   TrendingUp,
   Truck,
@@ -22,6 +18,9 @@ import { Link } from 'react-router-dom';
 import { apiJson, isAccessTokenExpired } from '@/api';
 import { fetchSeasonPace, type SeasonPaceResult } from '@/api/seasonPace';
 import { useAuth } from '@/AuthContext';
+import { PinebloomHero } from '@/components/brand/PinebloomHero';
+import { PeriodFilter } from '@/components/brand/PeriodFilter';
+import { RecentActivityRow } from '@/components/brand/RecentActivityRow';
 import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
 import { processTokens } from '@/lib/process-tokens';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
@@ -1184,7 +1183,19 @@ export function DashboardPage() {
   }, [ptTagsFiltered, dispatchesFiltered, clientsQ.data, ptTagById, processById, producerId, speciesId, workMode]);
 
   const activityRows = useMemo(() => {
-    const rows: Array<{ id: string; ts: number; when: string; kind: string; detail: string; to: string }> = [];
+    const rows: Array<{
+      id: string;
+      ts: number;
+      when: string;
+      kind: string;
+      detail: string;
+      subtitle: string;
+      statusLabel: string;
+      statusTone: 'success' | 'info' | 'muted' | 'warning';
+      user: string;
+      to: string;
+      icon: typeof Truck;
+    }> = [];
     for (const r of receptionsFiltered.slice(0, 8)) {
       const iso = r.received_at;
       rows.push({
@@ -1193,7 +1204,14 @@ export function DashboardPage() {
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindReception'),
         detail: r.reference_code || `#${r.id}`,
+        subtitle: t('dashboard.activity.receptionDetail', {
+          defaultValue: 'Ingreso de fruta registrado',
+        }),
+        statusLabel: t('dashboard.activity.statusRegistered', { defaultValue: 'Registrada' }),
+        statusTone: 'muted',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/receptions',
+        icon: Truck,
       });
     }
     for (const p of processesFiltered.slice(0, 8)) {
@@ -1204,18 +1222,28 @@ export function DashboardPage() {
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindProcess'),
         detail: `#${p.id}`,
+        subtitle: t('dashboard.activity.processDetail', { defaultValue: 'Línea de proceso' }),
+        statusLabel: t('dashboard.activity.statusOpen', { defaultValue: 'En proceso' }),
+        statusTone: 'info',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/processes',
+        icon: Cog,
       });
     }
-    for (const d of dispatchesFiltered.slice(0, 8)) {
-      const iso = d.fecha_despacho ?? d.despachado_at ?? d.confirmed_at;
+    for (const disp of dispatchesFiltered.slice(0, 8)) {
+      const iso = disp.fecha_despacho ?? disp.despachado_at ?? disp.confirmed_at;
       rows.push({
-        id: `d-${d.id}`,
+        id: `d-${disp.id}`,
         ts: new Date(iso).getTime(),
         when: new Date(iso).toLocaleString('es-AR'),
         kind: t('dashboard.activity.kindDispatch'),
-        detail: d.numero_bol || `#${d.id}`,
+        detail: disp.numero_bol || `#${disp.id}`,
+        subtitle: t('dashboard.activity.dispatchDetail', { defaultValue: 'Despacho preparado' }),
+        statusLabel: t('dashboard.activity.statusReady', { defaultValue: 'Listo' }),
+        statusTone: 'success',
+        user: t('dashboard.activity.systemUser', { defaultValue: 'Sistema' }),
         to: '/dispatches',
+        icon: Truck,
       });
     }
     return rows.sort((a, b) => b.ts - a.ts).slice(0, 5);
@@ -1318,95 +1346,62 @@ export function DashboardPage() {
   return (
     <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
       
-      <header className="relative overflow-hidden rounded-[18px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-5 sm:px-6 sm:py-6">
-        <img
-          src={appBranding.watermarkUrl}
-          alt=""
-          className="pointer-events-none absolute -right-4 top-[-8px] h-32 w-auto opacity-[0.55] sm:right-2 sm:top-0 sm:h-40 sm:opacity-70"
-          aria-hidden
+      <PinebloomHero
+        title={t('dashboard.askWhat')}
+        subtitle={t('dashboard.askHint')}
+        compact
+        claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
+      >
+        <PeriodFilter
+          value={period}
+          onChange={setPeriod}
+          moreLabel={showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
+          moreOpen={showMoreFilters}
+          onMoreClick={() => setShowMoreFilters((v) => !v)}
+          options={[
+            { key: 'today' as const, label: t('dashboard.filters.today') },
+            { key: 'week' as const, label: t('dashboard.filters.week') },
+            { key: 'accumulated' as const, label: t('dashboard.filters.accumulated') },
+          ]}
         />
-        <div className="relative z-[1] min-w-0 space-y-4">
-          <div className="space-y-1.5">
-            <h1 className="font-display text-[30px] font-semibold leading-[1.15] tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[34px]">
-              {t('dashboard.askWhat')}
-            </h1>
-            <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('dashboard.askHint')}</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                { key: 'today' as const, label: t('dashboard.filters.today'), Icon: CalendarDays },
-                { key: 'week' as const, label: t('dashboard.filters.week'), Icon: CalendarRange },
-                { key: 'accumulated' as const, label: t('dashboard.filters.accumulated'), Icon: ChartColumn },
-              ] as const
-            ).map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key)}
-                className={cn(
-                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors',
-                  period === p.key
-                    ? 'border-[hsl(var(--brand-primary))] bg-[hsl(var(--brand-primary))] text-[hsl(var(--brand-primary-foreground))] shadow-sm'
-                    : 'border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] text-[hsl(var(--brand-charcoal))] hover:bg-[hsl(var(--brand-primary-soft))]',
-                )}
-              >
-                <p.Icon className="h-3.5 w-3.5 opacity-80" aria-hidden />
-                {p.label}
-              </button>
-            ))}
-            <span className="mx-0.5 hidden h-5 w-px bg-[hsl(var(--brand-border))] sm:inline-block" aria-hidden />
-            <button
-              type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[hsl(var(--brand-border))] bg-transparent px-3 text-[13px] font-medium text-[hsl(var(--brand-muted))] hover:bg-[hsl(var(--brand-primary-soft))] hover:text-[hsl(var(--brand-charcoal))]"
-              onClick={() => setShowMoreFilters((v) => !v)}
-              aria-expanded={showMoreFilters}
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-[var(--pb-border)]/80 pt-3 sm:grid-cols-3">
+            <select
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
+              value={producerId === 'all' ? 'all' : String(producerId)}
+              onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
-              <Filter className="h-3.5 w-3.5" aria-hidden />
-              {showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
-            </button>
+              <option value="all">{t('dashboard.filters.allProducers')}</option>
+              {(producers ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
+              value={speciesId === 'all' ? 'all' : String(speciesId)}
+              onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            >
+              <option value="all">{t('dashboard.filters.allFruit')}</option>
+              {(species ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-11 w-full rounded-xl border border-[var(--pb-border)] bg-white px-3 text-sm"
+              value={workMode}
+              onChange={(e) => setWorkMode(e.target.value as WorkMode)}
+            >
+              <option value="both">{t('dashboard.filters.both')}</option>
+              <option value="hand">{t('dashboard.filters.hand')}</option>
+              <option value="machine">{t('dashboard.filters.machine')}</option>
+            </select>
           </div>
-
-          {showMoreFilters ? (
-            <div className="grid gap-2 border-t border-[hsl(var(--brand-border))]/80 pt-3 sm:grid-cols-3">
-              <select
-                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
-                value={producerId === 'all' ? 'all' : String(producerId)}
-                onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              >
-                <option value="all">{t('dashboard.filters.allProducers')}</option>
-                {(producers ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
-                value={speciesId === 'all' ? 'all' : String(speciesId)}
-                onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              >
-                <option value="all">{t('dashboard.filters.allFruit')}</option>
-                {(species ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="h-11 w-full rounded-xl border border-[hsl(var(--brand-border))] bg-white px-3 text-sm"
-                value={workMode}
-                onChange={(e) => setWorkMode(e.target.value as WorkMode)}
-              >
-                <option value="both">{t('dashboard.filters.both')}</option>
-                <option value="hand">{t('dashboard.filters.hand')}</option>
-                <option value="machine">{t('dashboard.filters.machine')}</option>
-              </select>
-            </div>
-          ) : null}
-        </div>
-      </header>
+        ) : null}
+      </PinebloomHero>
 
       {!canLoad ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
@@ -1549,26 +1544,19 @@ export function DashboardPage() {
             {t('dashboard.recentActivity.empty')}
           </p>
         ) : (
-          <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <ul className="overflow-hidden rounded-xl border border-[var(--pb-border)] bg-[var(--pb-surface)]">
             {activityRows.map((row, idx) => (
-              <li key={row.id} className={cn(idx > 0 && 'border-t border-slate-100')}>
-                <Link
+              <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--pb-border)]/70')}>
+                <RecentActivityRow
                   to={row.to}
-                  className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[hsl(var(--brand-primary-soft))]/40"
-                >
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--brand-primary-soft))] text-[hsl(var(--brand-primary))]">
-                    <Truck className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <p className="truncate text-[13px] font-semibold text-[hsl(var(--brand-charcoal))]">
-                        {row.kind} · {row.detail}
-                      </p>
-                      <span className="text-[11px] text-[hsl(var(--brand-muted))]">{row.when}</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[hsl(var(--brand-muted))]" aria-hidden />
-                </Link>
+                  icon={row.icon}
+                  title={`${row.kind} · ${row.detail}`}
+                  when={row.when}
+                  detail={row.subtitle}
+                  statusLabel={row.statusLabel}
+                  statusTone={row.statusTone}
+                  user={row.user}
+                />
               </li>
             ))}
           </ul>

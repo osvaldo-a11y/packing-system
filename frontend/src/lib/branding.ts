@@ -1,6 +1,6 @@
 /**
  * Branding white-label (Pinebloom Farms por defecto).
- * Colores de marca ≠ colores de estado ≠ acentos de módulo.
+ * Textos / claims alineados a la referencia visual aprobada.
  */
 
 export type AppBranding = {
@@ -10,11 +10,15 @@ export type AppBranding = {
   locationLine: string;
   tagline: string;
   slogan: string;
+  sealLine: string;
+  estYear: string;
   monogram: string;
   logoUrl: string;
+  logoFullUrl: string;
   markUrl: string;
   windmillUrl: string;
   watermarkUrl: string;
+  landscapeUrl: string;
   documentTitle: string;
 };
 
@@ -40,11 +44,15 @@ export const appBranding: AppBranding = {
   locationLine: 'Newton, GA',
   tagline: 'Fruta de nuestra tierra. Un futuro más brillante.',
   slogan: 'BUENAS FRUTAS HACEN UN MEJOR MAÑANA',
+  sealLine: 'PINEBLOOM FARMS · NEWTON, GA · EST. 2012',
+  estYear: '2012',
   monogram: envMonogram?.trim() || defaultMonogram(company),
-  logoUrl: envLogo?.trim() || '/branding/pinebloom-windmill.svg',
+  logoUrl: envLogo?.trim() || '/branding/pinebloom-logo-full.svg',
+  logoFullUrl: '/branding/pinebloom-logo-full.svg',
   markUrl: envMark?.trim() || '/branding/pinebloom-mark.svg',
   windmillUrl: '/branding/pinebloom-windmill.svg',
-  watermarkUrl: '/branding/farm-watermark.svg',
+  watermarkUrl: '/branding/pinebloom-farm-landscape.svg',
+  landscapeUrl: '/branding/pinebloom-farm-landscape.svg',
   documentTitle: `${company} · ${product}`,
 };
 

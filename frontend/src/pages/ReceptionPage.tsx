@@ -5,6 +5,7 @@ import { useMutation,
   useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
+  CalendarDays,
   CheckCircle,
   CheckCircle2,
   ChevronDown,
@@ -13,6 +14,7 @@ import {
   Clock3,
   FileText,
   Info,
+  Leaf,
   Lock,
   MoreHorizontal,
   Plus,
@@ -20,9 +22,10 @@ import {
   Scale,
   Trash2,
   Truck,
+  User,
   Users,
   X,
-  } from 'lucide-react';
+} from 'lucide-react';
 import { Fragment,
   useEffect,
   useMemo,
@@ -37,6 +40,12 @@ import { useAuth } from '@/AuthContext';
 import { canOperate,
   isAdmin } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card,
   CardDescription,
   CardHeader,
@@ -90,6 +99,8 @@ import {
   tableHeaderRow,
   tableShell,
 } from '@/lib/page-ui';
+import { PinebloomHero } from '@/components/brand/PinebloomHero';
+import { FieldRow } from '@/components/brand/FieldRow';
 import { appBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1329,8 +1340,8 @@ export function ReceptionPage() {
                 <p className="text-[13px] text-[hsl(var(--brand-muted))]">
                   {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
                 </p>
-                <p className="hidden font-display text-[9px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--brand-muted))] sm:block">
-                  {appBranding.tagline}
+                <p className="max-w-[11rem] font-serif text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--pb-muted)] sm:max-w-none sm:text-[9px] sm:tracking-[0.16em]">
+                  {t('reception.dialog.claim', { defaultValue: 'FRUTA DE NUESTRA TIERRA. UN FUTURO MÁS BRILLANTE.' })}
                 </p>
               </div>
               <button
@@ -1368,8 +1379,65 @@ export function ReceptionPage() {
                       </p>
                     </div>
                   </div>
+
                   <div className="space-y-[10px]">
-                    <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="overflow-hidden rounded-xl border border-[var(--pb-border)] bg-[var(--pb-surface)] md:hidden">
+                      <FieldRow icon={User} label={t('reception.dialog.fieldProducer')} required>
+                        <select
+                          className="w-full text-right text-sm"
+                          disabled={lockNonStateFields}
+                          {...form.register('producer_id', { valueAsNumber: true })}
+                        >
+                          <option value={0}>{t('reception.dialog.choosePlaceholder')}</option>
+                          {sortedProducers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </FieldRow>
+                      <FieldRow icon={FileText} label={t('reception.dialog.fieldReference')} required>
+                        {editingId == null && !viewOnly ? (
+                          <Input
+                            className="h-9 border-0 bg-transparent px-0 text-right font-mono text-xs uppercase shadow-none"
+                            maxLength={64}
+                            placeholder={t('reception.dialog.fieldReferencePlaceholder')}
+                            autoComplete="off"
+                            {...form.register('reference_code')}
+                          />
+                        ) : (
+                          <span className="block text-right font-mono text-xs">{serverReference ?? '—'}</span>
+                        )}
+                      </FieldRow>
+                      <FieldRow icon={CalendarDays} label={t('reception.dialog.fieldDatetime')} required>
+                        <Input
+                          type="datetime-local"
+                          disabled={lockNonStateFields}
+                          className="h-9 border-0 bg-transparent px-0 text-right text-xs shadow-none"
+                          {...form.register('received_at')}
+                        />
+                      </FieldRow>
+                      <FieldRow icon={Leaf} label={t('reception.dialog.fieldFruitType')}>
+                        <select
+                          className="w-full text-right text-sm"
+                          disabled={lockNonStateFields}
+                          {...form.register('reception_type_id', { valueAsNumber: true })}
+                        >
+                          {(receptionTypes ?? [])
+                            .filter((rt) => rt.activo !== false)
+                            .map((rt) => (
+                              <option key={rt.id} value={rt.id}>
+                                {rt.codigo === 'hand_picking'
+                                  ? t('reception.dialog.fruitTypeHand')
+                                  : rt.codigo === 'machine_picking'
+                                    ? t('reception.dialog.fruitTypeMachine')
+                                    : rt.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </FieldRow>
+                    </div>
+                    <div className="hidden grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 md:grid">
                       <div className="min-w-0 space-y-1.5">
                         <label className={compactFieldLabelClass}>{t('reception.dialog.fieldProducer')}</label>
                         <select
@@ -1936,26 +2004,20 @@ export function ReceptionPage() {
       </Dialog>
 
       
-      <header className="relative overflow-hidden rounded-[18px] border border-[hsl(var(--brand-border))] bg-[hsl(var(--brand-surface-elevated))] px-4 py-5 sm:px-5 sm:py-5">
-        <img
-          src={appBranding.watermarkUrl}
-          alt=""
-          className="pointer-events-none absolute -right-3 top-0 h-28 w-auto opacity-50 sm:h-36 sm:opacity-65"
-          aria-hidden
-        />
-        <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <h2 className="font-display text-[28px] font-semibold tracking-tight text-[hsl(var(--brand-charcoal))] sm:text-[32px]">
-              {t('reception.pageTitle')}
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[14px] text-[hsl(var(--brand-muted))]">{t('reception.pageSubtitle')}</p>
-              <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
-                <Info className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          {canOperateReception ? (
+      <PinebloomHero
+        title={t('reception.pageTitle')}
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>{t('reception.pageSubtitle')}</span>
+            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
+              <Info className="h-4 w-4" />
+            </button>
+          </span>
+        }
+        compact
+        claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
+        actions={
+          canOperateReception ? (
             <Button
               className={cn(
                 'h-10 shrink-0 gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-none',
@@ -1967,9 +2029,9 @@ export function ReceptionPage() {
               <Plus className="h-5 w-5" />
               {t('reception.newButton')}
             </Button>
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       <section aria-labelledby="rec-kpis" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2429,45 +2491,37 @@ export function ReceptionPage() {
                                   >
                                     {primaryActionLabel(r.document_state?.codigo)}
                                   </Button>
-                                  <div className="flex flex-wrap justify-end gap-0.5">
-                                    {r.document_state?.codigo === 'borrador' && canOperateReception ? (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 gap-1 px-1.5 text-[11px] text-green-700"
-                                        onClick={() => void confirmReceptionFromList(r.id)}
-                                      >
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                        {t('reception.table.actionConfirm')}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
                                       </Button>
-                                    ) : null}
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 gap-1 px-1.5 text-xs"
-                                      onClick={() => void printReceptionPdf(r.id)}
-                                    >
-                                      <Printer className="h-3.5 w-3.5" />
-                                      {t('reception.table.actionReport')}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 gap-1 px-1.5 text-xs text-slate-500"
-                                      onClick={() =>
-                                        setExpandedRows((prev) => ({
-                                          ...prev,
-                                          [r.id]: !prev[r.id],
-                                        }))
-                                      }
-                                    >
-                                      {expandedRows[r.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      {t('reception.table.actionDetail')}
-                                    </Button>
-                                  </div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      {r.document_state?.codigo === 'borrador' && canOperateReception ? (
+                                        <DropdownMenuItem onClick={() => void confirmReceptionFromList(r.id)}>
+                                          <CheckCircle className="mr-2 h-3.5 w-3.5" />
+                                          {t('reception.table.actionConfirm')}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
+                                        <Printer className="mr-2 h-3.5 w-3.5" />
+                                        {t('reception.table.actionReport')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setExpandedRows((prev) => ({
+                                            ...prev,
+                                            [r.id]: !prev[r.id],
+                                          }))
+                                        }
+                                      >
+                                        {expandedRows[r.id] ? <ChevronDown className="mr-2 h-3.5 w-3.5" /> : <ChevronRight className="mr-2 h-3.5 w-3.5" />}
+                                        {t('reception.table.actionDetail')}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </TableCell>
                             </TableRow>

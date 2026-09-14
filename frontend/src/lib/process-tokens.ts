@@ -1,6 +1,5 @@
 /**
- * Tokens semánticos de proceso (no son colores de marca).
- * Usar clases Tailwind derivadas de CSS variables en index.css.
+ * Tokens semánticos de módulo — superficies EXACTAS de la referencia Pinebloom.
  */
 
 export type ProcessSemantic =
@@ -14,83 +13,87 @@ export type ProcessSemantic =
   | 'admin';
 
 export type ProcessTokenClasses = {
-  /** Fondo suave de tarjeta */
   surface: string;
-  /** Borde */
   border: string;
-  /** Texto / icono principal */
   ink: string;
-  /** Chip / acento */
   accent: string;
-  /** Franja lateral (presencia sin sólido completo) */
+  iconWell: string;
   stripe: string;
-  /** Ring focus */
   ring: string;
 };
 
+/** Colores literales de la especificación (no HSL reinterpretado). */
 export const processTokens: Record<ProcessSemantic, ProcessTokenClasses> = {
   reception: {
-    surface: 'bg-[hsl(var(--proc-reception-surface))]',
-    border: 'border-[hsl(var(--proc-reception-border))]',
-    ink: 'text-[hsl(var(--proc-reception-ink))]',
-    accent: 'bg-[hsl(var(--proc-reception-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-reception-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-reception-ink))]',
+    surface: 'bg-[#EFF2E9]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#5E6654]',
+    accent: 'bg-[#87966C]',
+    iconWell: 'bg-[#E4EAD9] text-[#5E6654]',
+    stripe: 'border-l-[#87966C]',
+    ring: 'focus-visible:ring-[#87966C]',
   },
   process: {
-    surface: 'bg-[hsl(var(--proc-process-surface))]',
-    border: 'border-[hsl(var(--proc-process-border))]',
-    ink: 'text-[hsl(var(--proc-process-ink))]',
-    accent: 'bg-[hsl(var(--proc-process-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-process-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-process-ink))]',
+    surface: 'bg-[#F1EFEA]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#8D887E]',
+    accent: 'bg-[#8D887E]',
+    iconWell: 'bg-[#E8E5DF] text-[#6F6A62]',
+    stripe: 'border-l-[#8D887E]',
+    ring: 'focus-visible:ring-[#8D887E]',
   },
   pt: {
-    surface: 'bg-[hsl(var(--proc-pt-surface))]',
-    border: 'border-[hsl(var(--proc-pt-border))]',
-    ink: 'text-[hsl(var(--proc-pt-ink))]',
-    accent: 'bg-[hsl(var(--proc-pt-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-pt-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-pt-ink))]',
+    surface: 'bg-[#EEF4F6]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#8AA9B7]',
+    accent: 'bg-[#8AA9B7]',
+    iconWell: 'bg-[#E0EBF0] text-[#5F7F8C]',
+    stripe: 'border-l-[#8AA9B7]',
+    ring: 'focus-visible:ring-[#8AA9B7]',
   },
   stock: {
-    surface: 'bg-[hsl(var(--proc-stock-surface))]',
-    border: 'border-[hsl(var(--proc-stock-border))]',
-    ink: 'text-[hsl(var(--proc-stock-ink))]',
-    accent: 'bg-[hsl(var(--proc-stock-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-stock-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-stock-ink))]',
+    surface: 'bg-[#EEF4F6]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#8AA9B7]',
+    accent: 'bg-[#8AA9B7]',
+    iconWell: 'bg-[#E0EBF0] text-[#5F7F8C]',
+    stripe: 'border-l-[#8AA9B7]',
+    ring: 'focus-visible:ring-[#8AA9B7]',
   },
   dispatch: {
-    surface: 'bg-[hsl(var(--proc-dispatch-surface))]',
-    border: 'border-[hsl(var(--proc-dispatch-border))]',
-    ink: 'text-[hsl(var(--proc-dispatch-ink))]',
-    accent: 'bg-[hsl(var(--proc-dispatch-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-dispatch-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-dispatch-ink))]',
+    surface: 'bg-[#F7F1E3]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#B8995D]',
+    accent: 'bg-[#B8995D]',
+    iconWell: 'bg-[#EFE4CC] text-[#8A7040]',
+    stripe: 'border-l-[#B8995D]',
+    ring: 'focus-visible:ring-[#B8995D]',
   },
   materials: {
-    surface: 'bg-[hsl(var(--proc-materials-surface))]',
-    border: 'border-[hsl(var(--proc-materials-border))]',
-    ink: 'text-[hsl(var(--proc-materials-ink))]',
-    accent: 'bg-[hsl(var(--proc-materials-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-materials-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-materials-ink))]',
+    surface: 'bg-[#EFF2E9]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#87966C]',
+    accent: 'bg-[#87966C]',
+    iconWell: 'bg-[#E4EAD9] text-[#5E6654]',
+    stripe: 'border-l-[#87966C]',
+    ring: 'focus-visible:ring-[#87966C]',
   },
   error: {
-    surface: 'bg-[hsl(var(--proc-error-surface))]',
-    border: 'border-[hsl(var(--proc-error-border))]',
-    ink: 'text-[hsl(var(--proc-error-ink))]',
-    accent: 'bg-[hsl(var(--proc-error-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-error-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-error-ink))]',
+    surface: 'bg-[#F8EEEE]',
+    border: 'border-[#E5C8C6]',
+    ink: 'text-[#B84A43]',
+    accent: 'bg-[#B84A43]',
+    iconWell: 'bg-[#F0DADA] text-[#B84A43]',
+    stripe: 'border-l-[#B84A43]',
+    ring: 'focus-visible:ring-[#B84A43]',
   },
   admin: {
-    surface: 'bg-[hsl(var(--proc-admin-surface))]',
-    border: 'border-[hsl(var(--proc-admin-border))]',
-    ink: 'text-[hsl(var(--proc-admin-ink))]',
-    accent: 'bg-[hsl(var(--proc-admin-accent))]',
-    stripe: 'border-l-[hsl(var(--proc-admin-accent))]',
-    ring: 'focus-visible:ring-[hsl(var(--proc-admin-ink))]',
+    surface: 'bg-[#F1EFEA]',
+    border: 'border-[#D7D8D2]',
+    ink: 'text-[#484C47]',
+    accent: 'bg-[#484C47]',
+    iconWell: 'bg-[#E8E5DF] text-[#484C47]',
+    stripe: 'border-l-[#484C47]',
+    ring: 'focus-visible:ring-[#484C47]',
   },
 };

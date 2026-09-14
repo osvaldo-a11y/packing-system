@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" fill="none" aria-hidden="true">
+  <!-- Paisaje agrícola de referencia: campos, arboleda, molino -->
+  <g stroke="#313533" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- horizonte / colinas -->
+    <path d="M0 168 C80 148 150 156 230 142 C310 128 380 148 470 134 C540 124 600 118 720 108" stroke-width="1.5" opacity="0.55"/>
+    <path d="M0 196 C90 178 170 188 260 174 C360 156 450 178 560 162 C620 154 670 150 720 146" stroke-width="1.7" opacity="0.7"/>
+    <path d="M0 228 C100 212 190 220 290 208 C400 192 510 214 620 198 L720 192" stroke-width="1.8" opacity="0.85"/>
+    <!-- surcos del campo -->
+    <path d="M40 240 C140 230 240 238 340 228 C440 218 540 230 640 220" stroke-width="1.2" opacity="0.35"/>
+    <path d="M60 256 C170 246 280 254 390 244 C500 234 600 246 700 238" stroke-width="1.2" opacity="0.28"/>
+    <path d="M20 272 C130 262 250 270 370 260 C490 250 600 262 710 254" stroke-width="1.1" opacity="0.22"/>
+    <!-- arboleda izquierda -->
+    <g opacity="0.55">
+      <path d="M78 188 V158" stroke-width="1.5"/>
+      <path d="M78 158 C64 158 58 144 78 130 C98 144 92 158 78 158 Z" fill="#313533" stroke="none" opacity="0.45"/>
+      <path d="M112 184 V150" stroke-width="1.5"/>
+      <path d="M112 150 C94 150 88 132 112 116 C136 132 130 150 112 150 Z" fill="#313533" stroke="none" opacity="0.45"/>
+      <path d="M146 186 V156" stroke-width="1.5"/>
+      <path d="M146 156 C132 156 126 142 146 128 C166 142 160 156 146 156 Z" fill="#313533" stroke="none" opacity="0.4"/>
+      <path d="M176 190 V168" stroke-width="1.4"/>
+      <path d="M176 168 C166 168 162 158 176 148 C190 158 186 168 176 168 Z" fill="#313533" stroke="none" opacity="0.35"/>
+    </g>
+    <!-- molino derecho (elemento clave de marca) -->
+    <g opacity="0.75">
+      <path d="M548 196 V88" stroke-width="2"/>
+      <path d="M524 196 H572" stroke-width="2"/>
+      <circle cx="548" cy="78" r="6" fill="#313533" stroke="none"/>
+      <path d="M548 78 L492 42" stroke-width="2.2"/>
+      <path d="M548 78 L604 42" stroke-width="2.2"/>
+      <path d="M548 78 L498 128" stroke-width="2.2"/>
+      <path d="M548 78 L598 128" stroke-width="2.2"/>
+      <!-- base del molino -->
+      <path d="M536 196 L548 150 L560 196" stroke-width="1.6" opacity="0.5"/>
+    </g>
+    <!-- arbolitos cerca del molino -->
+    <g opacity="0.45">
+      <path d="M620 176 V152" stroke-width="1.4"/>
+      <path d="M620 152 C606 152 600 138 620 124 C640 138 634 152 620 152 Z" fill="#313533" stroke="none" opacity="0.4"/>
+      <path d="M656 172 V154" stroke-width="1.3"/>
+      <path d="M656 154 C646 154 642 144 656 134 C670 144 666 154 656 154 Z" fill="#313533" stroke="none" opacity="0.35"/>
+    </g>
+  </g>
+</svg>

@@ -5,76 +5,116 @@
 @layer base {
   :root {
     /*
-     * Pinebloom Farms — tokens del mockup aprobado.
-     * Primary moss #515E3E · Active #5B6849 · Rail #333835 · Cream #FAF8F6
+     * Pinebloom Farms — tokens EXACTOS de la referencia aprobada.
      */
-    --brand-primary: 82 21% 31%;
-    --brand-primary-hover: 82 22% 26%;
+    --pb-bg: #F9F8F5;
+    --pb-surface: #FFFFFF;
+    --pb-surface-warm: #F4F1E9;
+
+    --pb-charcoal: #313533;
+    --pb-charcoal-2: #484C47;
+
+    --pb-olive: #5E6654;
+    --pb-olive-strong: #596948;
+    --pb-olive-soft: #E9EEE3;
+
+    --pb-sage: #BDC4AC;
+    --pb-sage-soft: #EFF2E9;
+
+    --pb-bluegray: #B4C4CC;
+    --pb-bluegray-soft: #EEF4F6;
+
+    --pb-stone: #C8C4B8;
+    --pb-stone-soft: #F1EFEA;
+
+    --pb-harvest: #DCCDAA;
+    --pb-harvest-soft: #F7F1E3;
+
+    --pb-border: #D7D8D2;
+    --pb-muted: #7A7F79;
+    --pb-text: #303432;
+
+    --status-success: #5B7D47;
+    --status-warning: #B78A35;
+    --status-danger: #B84A43;
+    --status-info: #637D89;
+
+    /* Módulos — superficies exactas de referencia */
+    --pb-mod-reception-bg: #EFF2E9;
+    --pb-mod-reception-accent: #87966C;
+    --pb-mod-process-bg: #F1EFEA;
+    --pb-mod-process-accent: #8D887E;
+    --pb-mod-pt-bg: #EEF4F6;
+    --pb-mod-pt-accent: #8AA9B7;
+    --pb-mod-stock-bg: #EEF4F6;
+    --pb-mod-stock-accent: #8AA9B7;
+    --pb-mod-dispatch-bg: #F7F1E3;
+    --pb-mod-dispatch-accent: #B8995D;
+    --pb-mod-materials-bg: #EFF2E9;
+    --pb-mod-materials-accent: #87966C;
+
+    /* Compat shadcn / alias HSL (derivados) */
+    --brand-primary: 90 10% 36%;
+    --brand-primary-hover: 88 19% 32%;
     --brand-primary-soft: 90 18% 92%;
     --brand-primary-foreground: 40 33% 97%;
-    --brand-primary-glow: 81 18% 35%;
-    --brand-charcoal: 100 5% 21%;
-    --brand-muted: 40 6% 46%;
-    --brand-surface: 30 25% 97%;
+    --brand-primary-glow: 88 19% 36%;
+    --brand-charcoal: 150 3% 20%;
+    --brand-muted: 110 3% 49%;
+    --brand-surface: 45 22% 97%;
     --brand-surface-elevated: 0 0% 100%;
-    --brand-border: 40 10% 88%;
-    --brand-rail: 100 5% 21%;
-    --brand-rail-border: 100 4% 16%;
+    --brand-border: 70 6% 84%;
+    --brand-rail: 150 3% 20%;
+    --brand-rail-border: 150 3% 16%;
 
-    --status-success: 142 35% 36%;
-    --status-warning: 36 45% 42%;
-    --status-error: 0 55% 45%;
-    --status-info: 200 25% 42%;
-
-    --background: 30 25% 97%;
-    --foreground: 100 5% 18%;
+    --background: 45 22% 97%;
+    --foreground: 150 3% 19%;
     --card: 0 0% 100%;
-    --card-foreground: 100 5% 18%;
-    --primary: 82 21% 31%;
+    --card-foreground: 150 3% 19%;
+    --primary: 90 10% 36%;
     --primary-foreground: 40 33% 97%;
-    --secondary: 40 12% 93%;
-    --secondary-foreground: 100 5% 24%;
-    --muted: 40 14% 94%;
-    --muted-foreground: 40 6% 42%;
+    --secondary: 40 14% 94%;
+    --secondary-foreground: 150 3% 24%;
+    --muted: 45 16% 94%;
+    --muted-foreground: 110 3% 42%;
     --accent: 90 18% 92%;
-    --accent-foreground: 82 21% 26%;
-    --destructive: 0 55% 45%;
+    --accent-foreground: 88 19% 28%;
+    --destructive: 3 45% 49%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 10% 88%;
-    --input: 40 10% 88%;
-    --ring: 82 21% 31%;
+    --border: 70 6% 84%;
+    --input: 70 6% 84%;
+    --ring: 90 10% 36%;
     --radius: 0.75rem;
 
-    /* Módulos: tintes agrícolas del mockup (no rainbow SidePro) */
-    --proc-reception-surface: 90 22% 92%;
-    --proc-reception-border: 90 14% 80%;
-    --proc-reception-ink: 82 22% 28%;
-    --proc-reception-accent: 82 21% 31%;
+    --proc-reception-surface: 90 22% 93%;
+    --proc-reception-border: 90 12% 80%;
+    --proc-reception-ink: 88 16% 30%;
+    --proc-reception-accent: 88 16% 36%;
 
-    --proc-process-surface: 40 14% 94%;
+    --proc-process-surface: 40 12% 94%;
     --proc-process-border: 40 8% 84%;
-    --proc-process-ink: 30 8% 32%;
-    --proc-process-accent: 30 6% 40%;
+    --proc-process-ink: 30 6% 36%;
+    --proc-process-accent: 30 5% 42%;
 
-    --proc-pt-surface: 205 22% 94%;
-    --proc-pt-border: 205 14% 84%;
-    --proc-pt-ink: 205 22% 32%;
-    --proc-pt-accent: 205 20% 42%;
+    --proc-pt-surface: 198 22% 95%;
+    --proc-pt-border: 198 14% 84%;
+    --proc-pt-ink: 198 18% 38%;
+    --proc-pt-accent: 198 20% 42%;
 
-    --proc-stock-surface: 200 16% 94%;
-    --proc-stock-border: 200 12% 84%;
-    --proc-stock-ink: 200 18% 34%;
-    --proc-stock-accent: 200 16% 44%;
+    --proc-stock-surface: 198 22% 95%;
+    --proc-stock-border: 198 14% 84%;
+    --proc-stock-ink: 198 18% 38%;
+    --proc-stock-accent: 198 20% 42%;
 
-    --proc-dispatch-surface: 36 28% 94%;
-    --proc-dispatch-border: 36 16% 84%;
-    --proc-dispatch-ink: 28 24% 34%;
-    --proc-dispatch-accent: 32 28% 42%;
+    --proc-dispatch-surface: 40 45% 93%;
+    --proc-dispatch-border: 40 24% 82%;
+    --proc-dispatch-ink: 38 28% 36%;
+    --proc-dispatch-accent: 38 32% 42%;
 
-    --proc-materials-surface: 85 14% 93%;
-    --proc-materials-border: 85 10% 82%;
-    --proc-materials-ink: 90 12% 30%;
-    --proc-materials-accent: 90 12% 38%;
+    --proc-materials-surface: 90 22% 93%;
+    --proc-materials-border: 90 12% 80%;
+    --proc-materials-ink: 88 16% 30%;
+    --proc-materials-accent: 88 16% 36%;
 
     --proc-error-surface: 0 35% 96%;
     --proc-error-border: 0 28% 86%;
@@ -98,13 +138,19 @@
   }
 
   body {
-    @apply min-h-[100dvh] bg-background text-foreground font-sans;
-    background-color: hsl(var(--brand-surface));
+    @apply min-h-[100dvh] font-sans text-foreground;
+    background-color: var(--pb-bg);
+    color: var(--pb-text);
   }
 
-  h1, h2, .font-display {
-    font-family: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
-    @apply tracking-tight text-[hsl(var(--brand-charcoal))];
+  h1,
+  h2,
+  h3,
+  .font-display,
+  .font-serif {
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    color: var(--pb-charcoal);
+    letter-spacing: -0.01em;
   }
 
   #root {
