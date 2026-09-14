@@ -1565,7 +1565,8 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section className={cn(!showExecutive && 'border-0 bg-transparent px-0 py-0', showExecutive && 'space-y-1.5 rounded-lg border border-[var(--stone-200)]/80 bg-[var(--stone-50)]/40 px-2.5 py-2')}>
+      {!showExecutive ? null : (
+      <section className="space-y-1.5 rounded-lg border border-[var(--stone-200)]/80 bg-[var(--stone-50)]/40 px-2.5 py-2">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-2 text-left"
@@ -1574,18 +1575,15 @@ export function DashboardPage() {
         >
           <div>
             <h2 className="font-serif text-[14px] font-semibold text-[var(--ink)]">{t('dashboard.executiveTitle')}</h2>
-            {!showExecutive ? null : (
-              <p className="text-[11px] text-[var(--ink-muted)]">{t('dashboard.executiveHint')}</p>
-            )}
+            <p className="text-[11px] text-[var(--ink-muted)]">{t('dashboard.executiveHint')}</p>
           </div>
           <span className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--stone-300)] bg-white px-2 text-[11px] font-medium text-[var(--ink-muted)]">
-            {showExecutive ? t('dashboard.executiveToggleHide') : t('dashboard.executiveToggleShow')}
-            {showExecutive ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {t('dashboard.executiveToggleHide')}
+            <ChevronUp className="h-3.5 w-3.5" />
           </span>
         </button>
 
-        {showExecutive ? (
-          <div className="space-y-6 border-t border-slate-100 pt-4">
+        <div className="space-y-6 border-t border-slate-100 pt-4">
       <section className="space-y-3">
       <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('dashboard.kpi.sectionTitle')}</div>
@@ -2197,8 +2195,8 @@ export function DashboardPage() {
       </section>
 
           </div>
-        ) : null}
       </section>
+      )}
 
       <footer className="border-t border-slate-100 pt-8 text-[11px] text-slate-400">
         <p>
