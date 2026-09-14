@@ -9,17 +9,22 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M2 11h28v18H2z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M29 17h9l8 9v4H29V17Zm4 4v6h8l-5.2-6H33Z"
+        d="M3 11h26v18H3V11Zm3 3v11h20V14H6Z"
       />
-      <rect x="3" y="28" width="42" height="4" rx="1" fill="currentColor" />
+      <path fill="currentColor" d="M6 14h20v11H6z" opacity=".72" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M12 28a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM37 28a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+        d="M31 16h7l8 10v4H31V16Zm3 4v7h8l-5.4-7H34Z"
+      />
+      <path fill="currentColor" d="M4 28h41v4H4z" />
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M12.5 29a5.75 5.75 0 1 1 0 11.5 5.75 5.75 0 0 1 0-11.5Zm0 3.4a2.35 2.35 0 1 0 0 4.7 2.35 2.35 0 0 0 0-4.7ZM36.5 29a5.75 5.75 0 1 1 0 11.5 5.75 5.75 0 0 1 0-11.5Zm0 3.4a2.35 2.35 0 1 0 0 4.7 2.35 2.35 0 0 0 0-4.7Z"
       />
     </svg>
   );
@@ -62,6 +67,14 @@ export function PineBoxesIcon({ size = 24, strokeWidth: _strokeWidth, ...props }
         <path d="m35 21 9 5-9 5-9-5 9-5Z" />
         <path d="m26 26 9 5v11l-9-5V26Z" opacity=".78" />
         <path d="m44 26-9 5v11l9-5V26Z" opacity=".58" />
+        <path
+          d="m15 7 9 5 9-5M24 12v11M4 26l9 5 9-5M13 31v11M26 26l9 5 9-5M35 31v11"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.15"
+        />
       </g>
     </svg>
   );
