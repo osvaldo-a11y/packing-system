@@ -3,7 +3,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Boxes,
-  ChevronDown,
   ChevronRight,
   ChevronUp,
   Cog,
@@ -2198,12 +2197,12 @@ export function DashboardPage() {
       </section>
       )}
 
-      <footer className="border-t border-slate-100 pt-8 text-[11px] text-slate-400">
+      <footer className="pt-1 text-[10px] text-[var(--ink-muted)]/55">
         <p>
           {appBranding.displayName}
-          <span className="mx-1.5 text-slate-300">·</span>
+          <span className="mx-1.5 opacity-50">·</span>
           {t('dashboard.footer.season', { year: seasonAnchor.year })}
-          <span className="mx-1.5 text-slate-300">·</span>
+          <span className="mx-1.5 opacity-50">·</span>
           {t('dashboard.footer.version', { version: WEB_VERSION })}
         </p>
       </footer>
