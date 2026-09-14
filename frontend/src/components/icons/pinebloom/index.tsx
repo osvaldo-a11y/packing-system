@@ -5,86 +5,90 @@ type IconProps = SVGProps<SVGSVGElement> & {
   strokeWidth?: number;
 };
 
-const base = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-};
-
-/** Outline editorial — camión de ingreso / despacho. */
-export function PineTruckIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
+/** Silueta industrial — camión clásico de caja y cabina. */
+export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...props}>
-      <g {...base} strokeWidth={strokeWidth}>
-        <path d="M1.75 7.25h11.5v8.5H8.2" />
-        <path d="M13.25 10.25h4.1l3.9 3.35v2.15h-2.35" />
-        <path d="M1.75 12.5h11.5" />
-        <circle cx="6.15" cy="16.85" r="1.85" />
-        <circle cx="17.85" cy="16.85" r="1.85" />
-        <path d="M8.05 16.85h7.9" />
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <path fill="currentColor" d="M3 12h27v22H3z" />
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M29 18h9l7 9v7H29V18Zm4 4v7h8l-5.2-7H33Z"
+      />
+      <rect x="4" y="31" width="40" height="5" rx="1" fill="currentColor" />
+      <circle cx="13" cy="36" r="5.5" fill="currentColor" />
+      <circle cx="36" cy="36" r="5.5" fill="currentColor" />
+      <circle cx="13" cy="36" r="2" fill="currentColor" opacity=".34" />
+      <circle cx="36" cy="36" r="2" fill="currentColor" opacity=".34" />
+    </svg>
+  );
+}
+
+/** Engranaje clásico sólido, con dientes grandes y centro abierto. */
+export function PineGearIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <g fill="currentColor">
+        <rect x="20" y="2" width="8" height="12" rx="1.5" />
+        <rect x="20" y="34" width="8" height="12" rx="1.5" />
+        <rect x="34" y="20" width="12" height="8" rx="1.5" />
+        <rect x="2" y="20" width="12" height="8" rx="1.5" />
+        <rect x="20" y="2" width="8" height="12" rx="1.5" transform="rotate(45 24 24)" />
+        <rect x="20" y="34" width="8" height="12" rx="1.5" transform="rotate(45 24 24)" />
+        <rect x="34" y="20" width="12" height="8" rx="1.5" transform="rotate(45 24 24)" />
+        <rect x="2" y="20" width="12" height="8" rx="1.5" transform="rotate(45 24 24)" />
+      </g>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M24 8a16 16 0 1 1 0 32 16 16 0 0 1 0-32Zm0 10a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+      />
+    </svg>
+  );
+}
+
+/** Tres cajas físicas agrupadas: una superior y dos inferiores. */
+export function PineBoxesIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <g fill="currentColor">
+        <path d="m24 2 9 5-9 5-9-5 9-5Z" />
+        <path d="m15 7 9 5v11l-9-5V7Z" opacity=".78" />
+        <path d="m33 7-9 5v11l9-5V7Z" opacity=".58" />
+        <path d="m13 21 9 5-9 5-9-5 9-5Z" />
+        <path d="m4 26 9 5v11l-9-5V26Z" opacity=".78" />
+        <path d="m22 26-9 5v11l9-5V26Z" opacity=".58" />
+        <path d="m35 21 9 5-9 5-9-5 9-5Z" />
+        <path d="m26 26 9 5v11l-9-5V26Z" opacity=".78" />
+        <path d="m44 26-9 5v11l9-5V26Z" opacity=".58" />
       </g>
     </svg>
   );
 }
 
-/** Outline editorial — engranaje / procesos. */
-export function PineGearIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...props}>
-      <g {...base} strokeWidth={strokeWidth}>
-        <circle cx="12" cy="12" r="3.05" />
-        <path d="M12 3.4v2.2M12 18.4v2.2M3.4 12h2.2M18.4 12h2.2M5.9 5.9l1.55 1.55M16.55 16.55l1.55 1.55M18.1 5.9l-1.55 1.55M7.45 16.55l-1.55 1.55" />
-        <path d="M9.35 4.55l.55 2.05M14.65 4.55l-.55 2.05M19.45 9.35l-2.05.55M19.45 14.65l-2.05-.55M14.65 19.45l-.55-2.05M9.35 19.45l.55-2.05M4.55 14.65l2.05-.55M4.55 9.35l2.05.55" />
-      </g>
-    </svg>
-  );
-}
-
-/** Outline editorial — cajas agrupadas (PT). */
-export function PineBoxesIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...props}>
-      <g {...base} strokeWidth={strokeWidth}>
-        <path d="M4.2 10.4 8 8.3l3.8 2.1v4.4L8 16.9l-3.8-2.1z" />
-        <path d="M8 8.3v4.35" />
-        <path d="M8.6 11.55 12.2 9.5l3.8 2.1v4.35l-3.8 2.1-3.55-1.95" />
-        <path d="M12.2 9.5v4.25" />
-        <path d="M9.3 6.55 12.9 4.55 16.7 6.65v.95" />
-        <path d="M12.9 4.55v2.85" />
-      </g>
-    </svg>
-  );
-}
-
-/** Outline editorial — copo / cámara. */
+/** Copo clásico de seis ramas, grueso y de lectura inmediata. */
 export function PineSnowflakeIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
+  const weight = Math.max(3.4, strokeWidth * 2);
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...props}>
-      <g {...base} strokeWidth={strokeWidth}>
-        <path d="M12 3.4v17.2" />
-        <path d="M4.55 7.7 19.45 16.3" />
-        <path d="M4.55 16.3 19.45 7.7" />
-        <path d="M12 7.05l-1.7-1.2M12 7.05l1.7-1.2" />
-        <path d="M12 16.95l-1.7 1.2M12 16.95l1.7 1.2" />
-        <path d="M7.2 9.2 5.35 9.55M7.2 9.2l.2-1.9" />
-        <path d="M16.8 14.8l1.85-.35M16.8 14.8l-.2 1.9" />
-        <path d="M7.2 14.8 5.35 14.45M7.2 14.8l.2 1.9" />
-        <path d="M16.8 9.2l1.85.35M16.8 9.2l-.2-1.9" />
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <g fill="none" stroke="currentColor" strokeLinecap="square" strokeLinejoin="miter" strokeWidth={weight}>
+        <path d="M24 3v42M6 13.5l36 21M6 34.5l36-21" />
+        <path d="m24 11-6-4m6 4 6-4M24 37l-6 4m6-4 6 4" />
+        <path d="m13 17-7 1m7-1-2-7M35 31l7-1m-7 1 2 7" />
+        <path d="m13 31-7-1m7 1-2 7M35 17l7 1m-7-1 2-7" />
       </g>
     </svg>
   );
 }
 
-/** Outline editorial — cubo / materiales. */
+/** Cubo isométrico simple, con aristas de peso industrial. */
 export function PineCubeIcon({ size = 24, strokeWidth = 1.85, ...props }: IconProps) {
+  const weight = Math.max(3.2, strokeWidth * 2);
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...props}>
-      <g {...base} strokeWidth={strokeWidth}>
-        <path d="M12 3.6 19.1 7.55v8.9L12 20.4 4.9 16.45v-8.9z" />
-        <path d="M12 12.05 19.1 7.55" />
-        <path d="M12 12.05 4.9 7.55" />
-        <path d="M12 12.05v8.35" />
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={weight}>
+        <path d="m24 4 17 9.5v21L24 44 7 34.5v-21L24 4Z" />
+        <path d="m7 13.5 17 10 17-10M24 23.5V44" />
       </g>
     </svg>
   );
