@@ -37,7 +37,7 @@ export function PinebloomHero({
       className={cn(
         'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)]',
         homeDesktop
-          ? 'flex h-[200px] min-h-[200px] flex-col justify-between px-0 pb-4 pt-3'
+          ? 'flex h-[200px] min-h-[200px] flex-col justify-between bg-[#F9F7F5] pb-[24px] pl-2 pr-0 pt-[25px]'
           : compact
             ? 'min-h-[124px] px-0 py-2 sm:min-h-[136px] sm:py-2.5'
             : 'min-h-[132px] px-0 py-2.5 sm:min-h-[144px] sm:py-3',
@@ -76,12 +76,12 @@ export function PinebloomHero({
             <h1
               className={cn(
                 'font-serif text-[var(--ink)]',
-                homeDesktop ? 'text-[52px] tracking-[-0.8px]' : 'text-[40px] tracking-[-0.6px] sm:text-[44px]',
+                homeDesktop ? 'text-[62px] tracking-[-1px]' : 'text-[40px] tracking-[-0.6px] sm:text-[44px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                lineHeight: homeDesktop ? 0.98 : 1.05,
-                letterSpacing: homeDesktop ? '-0.8px' : '-0.6px',
+                lineHeight: homeDesktop ? 0.95 : 1.05,
+                letterSpacing: homeDesktop ? '-1px' : '-0.6px',
                 fontWeight: 600,
               }}
             >

@@ -15,6 +15,7 @@ type Props<T extends string> = {
   moreOpen?: boolean;
   onMoreClick?: () => void;
   className?: string;
+  homeDesktop?: boolean;
 };
 
 const DEFAULT_ICONS: Record<string, LucideIcon> = {
@@ -37,6 +38,7 @@ export function PeriodFilter<T extends string>({
   moreOpen,
   onMoreClick,
   className,
+  homeDesktop = false,
 }: Props<T>) {
   return (
     <div className={cn('flex flex-wrap items-center gap-2 sm:gap-2.5', className)}>
@@ -49,7 +51,8 @@ export function PeriodFilter<T extends string>({
             type="button"
             onClick={() => onChange(opt.key)}
             className={cn(
-              'inline-flex h-10 items-center gap-2 rounded-md border px-3 text-[13px] font-semibold transition-colors sm:h-[40px] sm:px-3.5 sm:text-[13.5px]',
+              'inline-flex items-center gap-2 rounded-md border px-3 text-[13px] font-semibold transition-colors sm:px-3.5 sm:text-[13.5px]',
+              homeDesktop ? 'h-[38px] sm:h-[38px]' : 'h-10 sm:h-[40px]',
               active
                 ? 'border-[var(--olive-700)] bg-[var(--olive-700)] text-white'
                 : 'border-[var(--stone-300)] bg-white text-[var(--ink)] hover:bg-[var(--sage-100)]',
@@ -67,7 +70,10 @@ export function PeriodFilter<T extends string>({
             type="button"
             onClick={onMoreClick}
             aria-expanded={moreOpen}
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--sage-100)] sm:h-[40px] sm:px-3.5 sm:text-[13.5px]"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--sage-100)] sm:px-3.5 sm:text-[13.5px]',
+              homeDesktop ? 'h-[38px] sm:h-[38px]' : 'h-10 sm:h-[40px]',
+            )}
           >
             <Filter className="h-4 w-4" strokeWidth={1.9} aria-hidden />
             {moreLabel}

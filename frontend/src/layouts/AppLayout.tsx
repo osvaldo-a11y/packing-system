@@ -128,17 +128,22 @@ function NavList({
   collapsed,
   onNavigate,
   isAdminRole,
+  homeReference = false,
   t,
 }: {
   groups: NavGroup[];
   collapsed: boolean;
   onNavigate?: () => void;
   isAdminRole: boolean;
+  homeReference?: boolean;
   t: (k: string) => string;
 }) {
   return (
     <nav
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2.5 py-3 [scrollbar-width:thin]"
+      className={cn(
+        'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2.5 [scrollbar-width:thin]',
+        homeReference ? 'py-5' : 'py-3',
+      )}
       aria-label={t('nav.ariaMain')}
     >
       {groups.map((group, gi) => (
@@ -157,7 +162,7 @@ function NavList({
           ) : !collapsed && !group.label && gi > 0 ? (
             <div className="mx-2 mb-1.5 h-px bg-white/15" aria-hidden />
           ) : null}
-          <ul className="space-y-0.5">
+          <ul className={cn(homeReference ? 'space-y-1' : 'space-y-0.5')}>
             {group.items.map((item) => {
               const Icon = item.icon;
               const link = (
@@ -168,7 +173,12 @@ function NavList({
                   className={({ isActive }) =>
                     cn(
                       'group flex items-center gap-2.5 rounded-full px-2.5 transition-colors duration-150',
-                      item.emphasize ? 'py-2 text-[13px] font-semibold' : 'py-[7px] text-[12.5px] font-medium',
+                      homeReference
+                        ? 'h-12 py-0 text-[13px]'
+                        : item.emphasize
+                          ? 'py-2 text-[13px]'
+                          : 'py-[7px] text-[12.5px]',
+                      item.emphasize ? 'font-semibold' : 'font-medium',
                       collapsed && 'justify-center px-0',
                       isActive
                         ? 'bg-[var(--olive-700)] text-white'
@@ -282,6 +292,7 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle = resolvePageTitle(pathname, t);
+  const isHomeDesktop = pathname === '/';
   useEffect(() => {
     setDrawerOpen(false);
     setMoreOpen(false);
@@ -308,15 +319,22 @@ export function AppLayout() {
     <div className="flex min-h-[100dvh] min-w-0 flex-1 bg-[var(--stone-50)]">
       <aside
         className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-black/20 bg-[var(--pine-950)] text-stone-100 transition-[width] duration-200 lg:flex"
-        style={{ width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED }}
+        style={{
+          width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED,
+          background: isHomeDesktop ? 'linear-gradient(180deg, #343936 0%, #303532 100%)' : undefined,
+        }}
       >
         <div
           className={cn(
-            'flex min-h-[76px] shrink-0 items-center border-b border-white/[0.14]',
+            'flex shrink-0 items-center border-b border-white/[0.14]',
+            isHomeDesktop ? 'min-h-[112px]' : 'min-h-[76px]',
             collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-4 py-2.5',
           )}
         >
-          <BrandMark collapsed={collapsed} />
+          <BrandMark
+            collapsed={collapsed}
+            className={isHomeDesktop && !collapsed ? '[&_img]:h-[70px] [&_img]:max-w-[198px]' : undefined}
+          />
           {!collapsed ? (
             <Button
               type="button"
@@ -345,12 +363,35 @@ export function AppLayout() {
             </Button>
           </div>
         ) : null}
-        <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
-        <div className={cn('mt-auto border-t border-white/[0.14] px-3 py-3.5', collapsed && 'px-2')}>
-          <div className={cn('flex flex-col items-center gap-1.5 text-center', collapsed && 'justify-center')}>
-            <Leaf className="h-[18px] w-[18px] shrink-0 text-[var(--olive-500)]" aria-hidden />
+        <NavList
+          groups={isHomeDesktop ? navGroups.slice(0, 2) : navGroups}
+          collapsed={collapsed}
+          isAdminRole={isHomeDesktop ? false : isAdminRole}
+          homeReference={isHomeDesktop}
+          t={t}
+        />
+        <div
+          className={cn(
+            'mt-auto px-3',
+            isHomeDesktop ? 'pb-12 pt-3.5' : 'py-3.5',
+            collapsed && 'px-2',
+          )}
+        >
+          <div className={cn('flex flex-col items-center text-center', isHomeDesktop ? 'gap-2' : 'gap-1.5', collapsed && 'justify-center')}>
+            <Leaf
+              className={cn(
+                'h-[18px] w-[18px] shrink-0 text-[var(--olive-500)]',
+                isHomeDesktop && !collapsed && 'h-[42px] w-[42px]',
+              )}
+              aria-hidden
+            />
             {!collapsed ? (
-              <p className="font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[rgba(237,241,232,0.82)]">
+              <p
+                className={cn(
+                  'font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[rgba(237,241,232,0.82)]',
+                  isHomeDesktop && 'text-[11.5px] leading-[1.45] tracking-[0.14em]',
+                )}
+              >
                 BUENAS FRUTAS
                 <br />
                 HACEN UN
@@ -456,18 +497,32 @@ export function AppLayout() {
           </div>
           <div className="flex shrink-0 items-center gap-3 sm:gap-3.5">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
-            <div className="hidden sm:block">
+            <div
+              className={cn(
+                'hidden sm:block',
+                isHomeDesktop && 'ml-2.5 min-w-[95px] border-r border-[var(--stone-300)] pr-3.5',
+              )}
+            >
               <LanguageToggle />
             </div>
+            <div className={cn(isHomeDesktop && 'border-r border-[var(--stone-300)] pr-3.5')}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2"
+                  className={cn(
+                    'h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2',
+                    isHomeDesktop && 'h-9 min-w-[206px] justify-start gap-2.5',
+                  )}
                 >
-                  <span className="inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]">
-                    <User className="h-3.5 w-3.5" aria-hidden />
+                  <span
+                    className={cn(
+                      'inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]',
+                      isHomeDesktop && 'h-[30px] w-[30px] bg-[var(--pine-950)] text-white',
+                    )}
+                  >
+                    <User className={cn('h-3.5 w-3.5', isHomeDesktop && 'h-4 w-4')} aria-hidden />
                   </span>
                   <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
                     <span className="max-w-[110px] truncate text-[12px] font-semibold text-[var(--ink)]">
@@ -498,6 +553,7 @@ export function AppLayout() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
             <button
               type="button"
               className="relative hidden h-8 w-8 items-center justify-center rounded-full text-[var(--ink-muted)] hover:bg-[var(--stone-100)] hover:text-[var(--ink)] sm:inline-flex"
@@ -509,7 +565,12 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-7 lg:py-0 lg:pt-0 lg:pb-4">
+        <main
+          className={cn(
+            'min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-7 lg:py-0 lg:pt-0 lg:pb-4',
+            isHomeDesktop && 'bg-[#F9F7F5]',
+          )}
+        >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
             <Outlet />
           </div>

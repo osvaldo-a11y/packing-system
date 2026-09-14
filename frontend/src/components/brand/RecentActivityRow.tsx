@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pictogramForSemantic } from '@/components/dashboard/OperationalPictogram';
-import { processTokens, type ProcessSemantic } from '@/lib/process-tokens';
+import type { ProcessSemantic } from '@/lib/process-tokens';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -30,7 +30,18 @@ const DOT: Record<NonNullable<Props['statusTone']>, string> = {
   warning: 'bg-[var(--status-warning)]',
 };
 
-/** Fila de actividad editorial (~42–44px) — pictograma semántico. */
+const ACTIVITY_WELL: Record<ProcessSemantic, string> = {
+  reception: 'bg-[#D9DED3] text-[#536047]',
+  process: 'bg-[#E5E1D8] text-[#59594F]',
+  pt: 'bg-[#DCE5E9] text-[#485C66]',
+  stock: 'bg-[#DCE5E9] text-[#485C66]',
+  dispatch: 'bg-[#E9DFC9] text-[#6A5632]',
+  materials: 'bg-[#D9DED3] text-[#536047]',
+  error: 'bg-[#F0DADA] text-[var(--status-danger)]',
+  admin: 'bg-[#E5E1D8] text-[#59594F]',
+};
+
+/** Fila de actividad editorial — geometría visible de la referencia. */
 export function RecentActivityRow({
   to,
   semantic,
@@ -43,20 +54,19 @@ export function RecentActivityRow({
   className,
 }: Props) {
   const Icon = pictogramForSemantic(semantic);
-  const tok = processTokens[semantic] ?? processTokens.admin;
 
   return (
     <Link
       to={to}
       className={cn(
-        'grid min-h-[48px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[10px] transition-colors hover:bg-[var(--sage-100)]/50 sm:min-h-[50px] sm:grid-cols-[auto_minmax(0,1.2fr)_auto_minmax(0,1.05fr)_auto_auto_auto] sm:py-[11px]',
+        'grid h-9 min-h-9 grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-6 gap-y-0.5 px-1.5 py-1 transition-colors hover:bg-[var(--sage-100)]/50 sm:grid-cols-[auto_minmax(0,1.2fr)_auto_minmax(0,1.05fr)_auto_auto_auto]',
         className,
       )}
     >
       <span
         className={cn(
           'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]',
-          tok.iconWell,
+          ACTIVITY_WELL[semantic],
         )}
       >
         <Icon size={17} strokeWidth={1.85} />

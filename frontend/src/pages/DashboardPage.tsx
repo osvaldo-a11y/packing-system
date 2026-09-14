@@ -19,7 +19,6 @@ import { PeriodFilter } from '@/components/brand/PeriodFilter';
 import { RecentActivityRow } from '@/components/brand/RecentActivityRow';
 import { OperationalModuleCard } from '@/components/dashboard/OperationalModuleCard';
 import { pictogramForSemantic } from '@/components/dashboard/OperationalPictogram';
-import { processTokens } from '@/lib/process-tokens';
 import { SeasonPaceSection } from '@/components/dashboard/SeasonPaceSection';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -1340,7 +1339,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="flex min-w-0 max-w-full flex-col overflow-x-hidden">
+    <div className="flex min-w-0 max-w-full flex-col overflow-x-hidden bg-[#F9F7F5]">
       
       <PinebloomHero
         title={t('dashboard.askWhat')}
@@ -1350,6 +1349,7 @@ export function DashboardPage() {
         className="mb-[3px]"
       >
         <PeriodFilter
+          homeDesktop
           value={period}
           onChange={setPeriod}
           moreLabel={showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
@@ -1512,16 +1512,22 @@ export function DashboardPage() {
               ] as const
             ).map((a) => {
               const Icon = pictogramForSemantic(a.semantic);
+              const quickSurface = {
+                reception: 'bg-[#D6DBCF] border-[#AEB9A3]',
+                process: 'bg-[#EBE8E1] border-[#C8C2B7]',
+                pt: 'bg-[#E2E7ED] border-[#A9BDC8]',
+                dispatch: 'bg-[#EEE5D0] border-[#D4BA86]',
+              }[a.semantic];
               return (
               <Link
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex h-[55px] min-h-[55px] items-center gap-3 rounded-[8px] border border-[var(--stone-300)]/90 px-3.5 text-[14px] font-semibold text-[var(--ink)] transition-colors',
-                  processTokens[a.semantic].surface,
+                  'group flex h-[55px] min-h-[55px] items-center gap-3.5 rounded-[8px] border px-5 text-[14px] font-semibold text-[var(--ink)] transition-colors',
+                  quickSurface,
                 )}
               >
-                <Icon size={24} strokeWidth={1.85} className="shrink-0 text-[var(--ink)]" />
+                <Icon size={40} strokeWidth={1.85} className="shrink-0 text-[var(--ink)]" />
                 <span className="min-w-0 flex-1 truncate font-serif leading-none">{a.label}</span>
                 <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -1531,7 +1537,7 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="mt-4 space-y-2">
+      <section className="mt-9 space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
           <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
             {t('dashboard.recentActivity.title')}
@@ -1546,7 +1552,7 @@ export function DashboardPage() {
             {t('dashboard.recentActivity.empty')}
           </p>
         ) : (
-          <ul className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-white">
+          <ul className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--stone-200)] bg-[var(--stone-50)]">
             {activityRows.map((row, idx) => (
               <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--stone-200)]')}>
                 <RecentActivityRow

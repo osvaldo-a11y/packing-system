@@ -32,8 +32,9 @@ export function OperationalModuleCard({
     <Link
       to={to}
       className={cn(
-        'group relative flex h-[140px] min-h-[140px] items-center gap-4 overflow-hidden rounded-[10px] border border-[var(--stone-300)]/85 px-4 py-3.5 transition-colors',
+        'group relative flex h-[140px] min-h-[140px] items-center gap-4 overflow-hidden rounded-[10px] border px-4 py-3.5 transition-colors',
         tok.surface,
+        tok.border,
         'hover:brightness-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 focus-visible:ring-offset-2',
         className,
       )}
@@ -45,18 +46,18 @@ export function OperationalModuleCard({
         )}
         aria-hidden
       >
-        <OperationalPictogram semantic={semantic} size={46} />
+        <OperationalPictogram semantic={semantic} size={56} />
       </span>
 
-      <div className="min-w-0 flex-1 self-center pr-1">
-        <p className="font-serif text-[21px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
+      <div className="min-w-0 flex-1 self-center pl-1.5 pr-0">
+        <p className="whitespace-nowrap font-serif text-[19.5px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
         {metric ? (
-          <p className="mt-1 font-serif text-[32px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)]">
+          <p className="mt-1 font-serif text-[34px] font-bold leading-none tabular-nums tracking-tight text-[var(--ink)]">
             {metric}
           </p>
         ) : null}
         {subtitle ? (
-          <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-[var(--ink-muted)]">{subtitle}</p>
+          <p className="mt-3.5 truncate text-[12px] leading-snug text-[var(--ink-muted)]">{subtitle}</p>
         ) : null}
       </div>
 
