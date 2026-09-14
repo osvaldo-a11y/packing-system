@@ -57,7 +57,7 @@ export function OperationalModuleCard({
           </p>
         ) : null}
         {subtitle ? (
-          <p className="mt-3.5 truncate text-[12px] leading-snug text-[var(--ink-muted)]">{subtitle}</p>
+          <p className="mt-3.5 truncate text-[11px] leading-snug tracking-[-0.01em] text-[var(--ink-muted)]">{subtitle}</p>
         ) : null}
       </div>
 
