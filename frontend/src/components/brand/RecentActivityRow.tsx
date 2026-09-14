@@ -49,17 +49,17 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid min-h-[42px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[8px] transition-colors hover:bg-[var(--sage-100)]/50 sm:min-h-[44px] sm:grid-cols-[auto_minmax(0,1.2fr)_auto_minmax(0,1.05fr)_auto_auto_auto] sm:py-[9px]',
+        'grid min-h-[48px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-[10px] transition-colors hover:bg-[var(--sage-100)]/50 sm:min-h-[50px] sm:grid-cols-[auto_minmax(0,1.2fr)_auto_minmax(0,1.05fr)_auto_auto_auto] sm:py-[11px]',
         className,
       )}
     >
       <span
         className={cn(
-          'inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] sm:h-8 sm:w-8',
+          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]',
           tok.iconWell,
         )}
       >
-        <Icon size={16} strokeWidth={1.9} />
+        <Icon size={17} strokeWidth={1.85} />
       </span>
       <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)] sm:text-[13.5px]">{title}</p>
       <span className="hidden text-[11.5px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>

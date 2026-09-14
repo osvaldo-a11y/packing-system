@@ -59,7 +59,7 @@ type NavItem = {
 type NavGroup = { id: string; label: string; items: NavItem[]; emphasize?: boolean };
 
 const RAIL_COLLAPSED = 72;
-const RAIL_EXPANDED = 206;
+const RAIL_EXPANDED = 230;
 
 function getNavGroups(t: (key: string) => string): NavGroup[] {
   return [
@@ -312,7 +312,7 @@ export function AppLayout() {
       >
         <div
           className={cn(
-            'flex min-h-[70px] shrink-0 items-center border-b border-white/[0.14]',
+            'flex min-h-[76px] shrink-0 items-center border-b border-white/[0.14]',
             collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-4 py-2.5',
           )}
         >
@@ -431,7 +431,7 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-[42px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-5">
+        <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -509,7 +509,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-5 lg:py-3">
+        <main className="min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-7 lg:py-0 lg:pt-0 lg:pb-4">
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
             <Outlet />
           </div>

@@ -36,8 +36,8 @@ export function OperationalPictogram({ semantic, className, iconClassName, size 
     <span className={cn('inline-flex items-center justify-center', className)} aria-hidden>
       <Icon
         size={size ?? 30}
-        className={cn('sm:size-[30px]', iconClassName)}
-        strokeWidth={1.9}
+        className={iconClassName}
+        strokeWidth={1.85}
       />
     </span>
   );

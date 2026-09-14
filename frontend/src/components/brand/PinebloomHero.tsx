@@ -13,6 +13,8 @@ type Props = {
   claimLines?: string[];
   /** Amplía el paisaje (otras pantallas). */
   wideLandscape?: boolean;
+  /** Geometría medida HOME 1440×900 — no usar en Recepciones. */
+  homeDesktop?: boolean;
 };
 
 /**
@@ -28,14 +30,17 @@ export function PinebloomHero({
   showSeal = false,
   claimLines,
   wideLandscape = false,
+  homeDesktop = false,
 }: Props) {
   return (
     <header
       className={cn(
         'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)]',
-        compact
-          ? 'min-h-[124px] px-0 py-2 sm:min-h-[136px] sm:py-2.5'
-          : 'min-h-[132px] px-0 py-2.5 sm:min-h-[144px] sm:py-3',
+        homeDesktop
+          ? 'flex h-[200px] min-h-[200px] flex-col justify-between px-0 pb-4 pt-3'
+          : compact
+            ? 'min-h-[124px] px-0 py-2 sm:min-h-[136px] sm:py-2.5'
+            : 'min-h-[132px] px-0 py-2.5 sm:min-h-[144px] sm:py-3',
         className,
       )}
     >
@@ -43,26 +48,40 @@ export function PinebloomHero({
         src={appBranding.landscapeUrl}
         alt=""
         className={cn(
-          'pointer-events-none absolute right-[-2%] top-[48%] h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[92%_45%] opacity-[0.78] contrast-[0.98] brightness-[1.0] saturate-[0.85]',
-          wideLandscape && 'right-[-4%] h-[210%] opacity-[0.82]',
-          '[mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
-          '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
-          '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
+          homeDesktop
+            ? cn(
+                'pointer-events-none absolute right-0 top-0 h-full w-[640px] max-w-[54%] object-contain object-right opacity-[0.72] contrast-[0.92] brightness-[1.04] saturate-[0.82]',
+                '[mask-image:linear-gradient(to_right,transparent_0%,transparent_18%,rgba(0,0,0,0.14)_38%,rgba(0,0,0,0.55)_58%,black_78%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.28)_12%,black_32%,black_100%)]',
+                '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_18%,rgba(0,0,0,0.14)_38%,rgba(0,0,0,0.55)_58%,black_78%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.28)_12%,black_32%,black_100%)]',
+                '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
+              )
+            : cn(
+                'pointer-events-none absolute right-[-2%] top-[48%] h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[92%_45%] opacity-[0.78] contrast-[0.98] brightness-[1.0] saturate-[0.85]',
+                wideLandscape && 'right-[-4%] h-[210%] opacity-[0.82]',
+                '[mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
+                '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
+                '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
+              ),
         )}
         aria-hidden
       />
-      <div className="relative z-[1] flex flex-col justify-between gap-1.5 sm:gap-2">
+      <div
+        className={cn(
+          'relative z-[1] flex flex-col',
+          homeDesktop ? 'min-h-0 flex-1 justify-between gap-3' : 'justify-between gap-1.5 sm:gap-2',
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 max-w-[58%]">
+          <div className={cn('min-w-0', homeDesktop ? 'max-w-[56%]' : 'max-w-[58%]')}>
             <h1
               className={cn(
-                'font-serif tracking-[-0.6px] text-[var(--ink)]',
-                'text-[40px] sm:text-[44px]',
+                'font-serif text-[var(--ink)]',
+                homeDesktop ? 'text-[52px] tracking-[-0.8px]' : 'text-[40px] tracking-[-0.6px] sm:text-[44px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                lineHeight: 1.05,
-                letterSpacing: '-0.6px',
+                lineHeight: homeDesktop ? 0.98 : 1.05,
+                letterSpacing: homeDesktop ? '-0.8px' : '-0.6px',
                 fontWeight: 600,
               }}
             >
@@ -71,8 +90,12 @@ export function PinebloomHero({
             {subtitle ? (
               <div
                 className={cn(
-                  'mt-1 font-serif leading-snug text-[var(--ink-muted)]/85',
-                  compact ? 'text-[16px] sm:text-[17px]' : 'text-[14px] sm:text-[15px]',
+                  'font-serif leading-snug text-[var(--ink-muted)]/85',
+                  homeDesktop
+                    ? 'mt-1.5 text-[25px]'
+                    : compact
+                      ? 'mt-1 text-[16px] sm:text-[17px]'
+                      : 'mt-1 text-[14px] sm:text-[15px]',
                 )}
               >
                 {subtitle}

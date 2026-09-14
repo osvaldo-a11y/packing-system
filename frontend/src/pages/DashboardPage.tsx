@@ -27,7 +27,6 @@ import { appBranding } from '@/lib/branding';
 import { canOperate, isReadOnlySession } from '@/lib/roles';
 import {
   emptyStateBanner,
-  pageStack,
   sectionHint,
   sectionTitle,
 } from '@/lib/page-ui';
@@ -1341,13 +1340,14 @@ export function DashboardPage() {
   };
 
   return (
-    <div className={cn(pageStack, 'min-w-0 max-w-full overflow-x-hidden')}>
+    <div className="flex min-w-0 max-w-full flex-col overflow-x-hidden">
       
       <PinebloomHero
         title={t('dashboard.askWhat')}
         subtitle={t('dashboard.askHint')}
-        compact
+        homeDesktop
         showSeal={false}
+        className="mb-[3px]"
       >
         <PeriodFilter
           value={period}
@@ -1442,8 +1442,8 @@ export function DashboardPage() {
 
 
 
-      <section className="space-y-2">
-        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-3">
+      <section>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
             label={t('nav.items.recepciones')}
@@ -1492,12 +1492,12 @@ export function DashboardPage() {
       </section>
 
       {canWriteOps ? (
-        <section className="space-y-2">
+        <section className="mt-[30px] space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-            <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+            <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
               {t('dashboard.quickAccess.title')}
             </h2>
-            <p className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
+            <p className="flex items-center gap-2 text-[13px] text-[var(--ink-muted)]">
               <span className="hidden h-3.5 w-px bg-[var(--stone-300)] sm:inline-block" aria-hidden />
               {t('dashboard.quickAccess.subtitle')}
             </p>
@@ -1517,11 +1517,11 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex min-h-[46px] items-center gap-2.5 rounded-[7px] border border-[var(--stone-300)]/90 px-3 text-[13px] font-semibold text-[var(--ink)] transition-colors sm:min-h-[48px]',
+                  'group flex h-[55px] min-h-[55px] items-center gap-3 rounded-[8px] border border-[var(--stone-300)]/90 px-3.5 text-[14px] font-semibold text-[var(--ink)] transition-colors',
                   processTokens[a.semantic].surface,
                 )}
               >
-                <Icon size={20} strokeWidth={1.9} className="shrink-0 text-[var(--ink)]" />
+                <Icon size={24} strokeWidth={1.85} className="shrink-0 text-[var(--ink)]" />
                 <span className="min-w-0 flex-1 truncate font-serif leading-none">{a.label}</span>
                 <ChevronRight className="h-4 w-4 text-[var(--ink-muted)] opacity-70 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -1531,9 +1531,9 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="space-y-2">
+      <section className="mt-4 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-          <h2 className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+          <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
             {t('dashboard.recentActivity.title')}
           </h2>
           <p className="flex items-center gap-2 text-[12px] text-[var(--ink-muted)]">
