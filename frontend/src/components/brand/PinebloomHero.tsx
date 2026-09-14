@@ -17,6 +17,7 @@ type Props = {
 
 /**
  * Hero editorial Pinebloom: tipografía Georgia + watermark agrícola + sello.
+ * Altura objetivo desktop con filtros: ~125–145px.
  */
 export function PinebloomHero({
   title,
@@ -33,30 +34,30 @@ export function PinebloomHero({
       className={cn(
         'relative overflow-hidden rounded-[16px] border border-[var(--pb-border)] bg-[var(--pb-surface)]',
         compact
-          ? 'min-h-[125px] px-4 py-4 sm:min-h-[135px] sm:px-5 sm:py-5'
-          : 'min-h-[125px] px-4 py-5 sm:min-h-[140px] sm:px-6 sm:py-6',
+          ? 'px-4 py-3 sm:px-5 sm:py-3.5'
+          : 'px-4 py-3.5 sm:px-5 sm:py-4',
         className,
       )}
     >
       <img
         src={appBranding.landscapeUrl}
         alt=""
-        className="pointer-events-none absolute inset-y-0 right-0 h-full w-auto max-w-[62%] object-contain object-right opacity-[0.15] sm:max-w-[50%] sm:opacity-[0.17]"
+        className="pointer-events-none absolute inset-y-0 right-0 h-full w-auto max-w-[58%] object-contain object-right opacity-[0.16] sm:max-w-[48%] sm:opacity-[0.18]"
         aria-hidden
       />
-      <div className="relative z-[1] flex min-h-[inherit] flex-col justify-between gap-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 max-w-[640px] space-y-1">
+      <div className="relative z-[1] flex flex-col justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 max-w-[640px] space-y-0.5">
             <h1 className="font-serif text-[30px] font-semibold leading-none tracking-tight text-[var(--pb-text)] sm:text-[42px]">
               {title}
             </h1>
             {subtitle ? (
-              <div className="font-serif text-[14px] leading-snug text-[var(--pb-muted)] sm:text-[16px]">
+              <div className="font-serif text-[13px] leading-snug text-[var(--pb-muted)] sm:text-[15px]">
                 {subtitle}
               </div>
             ) : null}
             {claimLines?.length ? (
-              <p className="mt-3 max-w-[11rem] font-serif text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--pb-muted)] sm:hidden">
+              <p className="mt-2 max-w-[11rem] font-serif text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--pb-muted)] sm:hidden">
                 {claimLines.map((line, i) => (
                   <span key={i} className="block">
                     {line}
