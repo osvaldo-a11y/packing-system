@@ -25,6 +25,10 @@ import {
   User,
   Users,
   X,
+  Search,
+  Filter,
+  CalendarRange,
+  List,
 } from 'lucide-react';
 import { Fragment,
   useEffect,
@@ -1327,7 +1331,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute -right-4 top-2 h-[7.5rem] w-auto opacity-[0.4] sm:h-36 sm:opacity-[0.5]"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[52%] max-w-none object-cover object-right opacity-[0.26] md:hidden"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1339,7 +1343,7 @@ export function ReceptionPage() {
                 <p className="text-[13px] text-[var(--ink-muted)]">
                   {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
                 </p>
-                <p className="max-w-[12rem] text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[var(--ink-muted)] sm:max-w-[16rem]">
+                <p className="max-w-[11rem] text-[10px] font-semibold uppercase leading-[1.45] tracking-[0.18em] text-[var(--ink-muted)] sm:max-w-[14rem] sm:text-[11px]">
                   {t('reception.dialog.claim', { defaultValue: 'FRUTA DE NUESTRA TIERRA. UN FUTURO MÁS BRILLANTE.' })}
                 </p>
               </div>
@@ -1581,7 +1585,7 @@ export function ReceptionPage() {
                         <div className="flex w-full flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 sm:flex-none"
+                            className="inline-flex h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 sm:flex-none"
                             disabled={lockNonStateFields}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1593,7 +1597,7 @@ export function ReceptionPage() {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-[var(--stone-100)] px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--stone-200)] disabled:opacity-50 sm:flex-none"
+                            className="inline-flex h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50 sm:flex-none"
                             disabled={lockNonStateFields || lineDrafts.length === 0}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1928,7 +1932,7 @@ export function ReceptionPage() {
             <DialogFooter
               className={cn(
                 operationalModalFooterClass,
-                'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+                'sticky bottom-0 z-10 flex flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between',
               )}
             >
               <div className="order-1 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
@@ -1946,7 +1950,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[var(--ink)] hover:bg-[var(--stone-200)] sm:flex-none"
+                  className="h-11 min-h-11 basis-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[var(--ink)] hover:bg-[var(--stone-200)] sm:basis-auto"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -1968,7 +1972,7 @@ export function ReceptionPage() {
                   </button>
                 ) : null}
               </div>
-              <div className="order-2 flex items-center gap-1.5 text-[11px] text-[var(--ink-muted)] sm:order-1">
+              <div className="order-2 flex items-center gap-1.5 text-[10px] text-[var(--ink-muted)] sm:order-1">
                 <Scale className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>
                   {t('reception.dialog.footerNet')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.net, 2)} lb</span>
@@ -2037,6 +2041,7 @@ export function ReceptionPage() {
           </span>
         }
         compact
+        wideLandscape
         claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
         actions={
           canOperateReception ? (
@@ -2064,47 +2069,47 @@ export function ReceptionPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3">
-            <div className="flex items-center gap-2 text-[var(--olive-700)]">
-              <Truck className="h-4 w-4" aria-hidden />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)]" aria-hidden>
+              <Truck className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
               <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.todayShort')}</p>
-            </div>
-            <div>
-              <p className="font-serif text-[28px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
-              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3">
-            <div className="flex items-center gap-2 text-[var(--harvest-700)]">
-              <Clock3 className="h-4 w-4" aria-hidden />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)]" aria-hidden>
+              <Clock3 className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
               <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.pendingShort')}</p>
-            </div>
-            <div>
-              <p className={cn('font-serif text-[28px] font-semibold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
-              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
+              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3">
-            <div className="flex items-center gap-2 text-[var(--bluegray-700)]">
-              <Scale className="h-4 w-4" aria-hidden />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)]" aria-hidden>
+              <Scale className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
               <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.weightShort')}</p>
-            </div>
-            <div>
-              <p className="font-serif text-[24px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
-              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">lb total recibido</p>
+              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">lb total recibido</p>
             </div>
           </div>
 
-          <div className="flex min-h-[96px] flex-col justify-between rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3">
-            <div className="flex items-center gap-2 text-[var(--olive-700)]">
-              <Users className="h-4 w-4" aria-hidden />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)]" aria-hidden>
+              <Users className="h-7 w-7" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 pt-0.5">
               <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.producersShort')}</p>
-            </div>
-            <div>
-              <p className="font-serif text-[28px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
-              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
         </div>
@@ -2169,32 +2174,34 @@ export function ReceptionPage() {
         ) : null}
       </section>
 
-      <div className={cn(filterPanel, 'space-y-2')}>
+      <div className={cn(filterPanel, 'mt-1 space-y-2.5')}>
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
-              ['today', t('reception.filters.presetToday')],
-              ['week', t('reception.filters.presetWeek')],
-              ['all', t('reception.filters.presetAll')],
-            ] as const
-          ).map(([key, label]) => (
+              ['today', t('reception.filters.presetToday'), CalendarDays] as const,
+              ['week', t('reception.filters.presetWeek'), CalendarRange] as const,
+              ['all', t('reception.filters.presetAll'), List] as const,
+            ]
+          ).map(([key, label, Icon]) => (
             <Button
               key={key}
               type="button"
               size="sm"
               variant={datePreset === key ? 'default' : 'outline'}
               className={cn(
-                'h-8 rounded-md px-3 text-[13px] font-semibold',
+                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold',
                 datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
               )}
               onClick={() => applyDatePreset(key)}
             >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
               {label}
             </Button>
           ))}
-          <div className="min-w-[12rem] flex-1">
+          <div className="relative min-w-[12rem] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
             <Input
-              className={cn(filterInputClass, 'h-8')}
+              className={cn(filterInputClass, 'h-9 pl-8')}
               placeholder={t('reception.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -2205,9 +2212,11 @@ export function ReceptionPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-9 gap-1.5"
             onClick={() => setShowMoreFilters((v) => !v)}
           >
+            <Filter className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+
             {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
             <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
           </Button>
@@ -2485,24 +2494,24 @@ export function ReceptionPage() {
                         const isLowNet = netLb > 0 && netLb < 400;
                         return (
                           <Fragment key={r.id}>
-                            <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
-                              <TableCell className="max-w-[180px] py-2 align-top">
+                            <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                              <TableCell className="max-w-[180px] py-3 align-middle">
                                 <div className="flex flex-col gap-1">
                                   <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
                                   <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
                                 </div>
                               </TableCell>
-                              <TableCell className="py-2 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                              <TableCell className="max-w-[100px] py-2 align-top text-xs text-slate-700">{especieCabecera(r)}</TableCell>
-                              <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
-                              <TableCell className="max-w-[200px] py-2 align-top font-mono text-xs text-slate-800">
+                              <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                              <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700">{especieCabecera(r)}</TableCell>
+                              <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                              <TableCell className="max-w-[200px] py-3 align-middle font-mono text-xs text-slate-800">
                                 {r.reference_code ?? r.document_number ?? '—'}
                                 {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                               </TableCell>
-                              <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                              <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
                                 <span className="text-[15px] font-semibold leading-none">{formatLb(netLb, 2)}</span>
                               </TableCell>
-                              <TableCell className="py-2 align-top">
+                              <TableCell className="py-3 align-middle">
                                 <div className="flex flex-col items-end gap-1">
                                   <Button
                                     type="button"
@@ -2648,27 +2657,35 @@ export function ReceptionPage() {
                     const isLowNet = netLb > 0 && netLb < 400;
                     return (
                       <Fragment key={r.id}>
-                        <TableRow className={cn(tableBodyRow, 'border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors', tone.rowHover)}>
                           <TableCell className="max-w-[200px] py-2 align-top">
                             <div className="flex flex-col gap-1">
                               <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
                               <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
                             </div>
                           </TableCell>
-                          <TableCell className="py-2 align-top text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                          <TableCell className="max-w-[180px] py-2 align-top">
-                            <p className="truncate text-sm font-medium text-slate-900" title={r.producer?.nombre ?? ''}>
-                              {r.producer?.nombre ?? '—'}
-                            </p>
+                          <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                          <TableCell className="max-w-[180px] py-3 align-middle">
+                            <div className="flex min-w-0 items-start gap-1.5" title={r.producer?.nombre ?? ''}>
+                              <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-slate-900">{r.producer?.nombre ?? '—'}</p>
+                                {r.producer?.codigo ? (
+                                  <p className="truncate text-[11px] text-slate-500">#{r.producer.codigo}</p>
+                                ) : r.producer_id ? (
+                                  <p className="truncate text-[11px] text-slate-500">#{r.producer_id}</p>
+                                ) : null}
+                              </div>
+                            </div>
                             <p className="font-mono text-[11px] text-slate-400">#{r.id}</p>
                           </TableCell>
                           <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
                             {r.reference_code ?? r.document_number ?? '—'}
                             {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                           </TableCell>
-                          <TableCell className="max-w-[100px] py-2 align-top text-xs text-slate-700">{especieCabecera(r)}</TableCell>
-                          <TableCell className="max-w-[120px] py-2 align-top text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
-                          <TableCell className={cn('py-2 align-top text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
+                          <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700">{especieCabecera(r)}</TableCell>
+                          <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                          <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
                             <span className="text-[15px] font-semibold leading-none">
                               {formatLb(netLb, 2)}
                             </span>
@@ -2678,7 +2695,7 @@ export function ReceptionPage() {
                               {r.notes?.trim() || '—'}
                             </p>
                           </TableCell>
-                          <TableCell className="py-2 align-top">
+                          <TableCell className="py-3 align-middle">
                             <div className="flex flex-col items-end gap-1">
                               <Button
                                 type="button"

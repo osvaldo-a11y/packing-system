@@ -1514,13 +1514,13 @@ export function DashboardPage() {
                 key={a.to}
                 to={a.to}
                 className={cn(
-                  'group flex h-[48px] items-center gap-3 rounded-[var(--radius-md)] border px-3 text-[13px] font-semibold transition-colors sm:h-[50px]',
+                  'group flex min-h-[48px] items-center gap-3 rounded-[var(--radius-md)] border px-3 text-[13px] font-semibold transition-colors sm:min-h-[50px]',
                   processTokens[a.semantic].surface,
                   processTokens[a.semantic].border,
                   processTokens[a.semantic].ink,
                 )}
               >
-                <a.Icon className="h-5 w-5 shrink-0" />
+                <a.Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={2.15} />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
                 <ChevronRight className="h-4 w-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
               </Link>

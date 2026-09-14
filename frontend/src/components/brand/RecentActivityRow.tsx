@@ -28,9 +28,7 @@ const DOT: Record<NonNullable<Props['statusTone']>, string> = {
   warning: 'bg-[var(--status-warning)]',
 };
 
-/**
- * Fila de actividad compacta GOLD MASTER (~36–42px).
- */
+/** Fila de actividad editorial (~40–44px). */
 export function RecentActivityRow({
   to,
   icon: Icon,
@@ -46,12 +44,12 @@ export function RecentActivityRow({
     <Link
       to={to}
       className={cn(
-        'grid grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-[var(--sage-100)]/60 sm:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[9px]',
+        'grid min-h-[42px] grid-cols-[auto_minmax(0,1.2fr)_auto] items-center gap-x-3.5 gap-y-0.5 px-3.5 py-[9px] transition-colors hover:bg-[var(--sage-100)]/60 sm:grid-cols-[auto_minmax(0,1.15fr)_auto_minmax(0,1fr)_auto_auto_auto] sm:py-[10px]',
         className,
       )}
     >
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-100)] text-[var(--olive-700)]">
-        <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-100)] text-[var(--olive-700)]">
+        <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
       </span>
       <p className="min-w-0 truncate text-[13px] font-semibold text-[var(--ink)]">{title}</p>
       <span className="hidden text-[11px] tabular-nums text-[var(--ink-muted)] sm:inline">{when}</span>
@@ -66,7 +64,7 @@ export function RecentActivityRow({
       ) : (
         <span className="hidden sm:inline" />
       )}
-      <span className="hidden max-w-[100px] truncate text-[12px] text-[var(--ink-muted)] sm:inline">
+      <span className="hidden max-w-[110px] truncate text-[12px] text-[var(--ink-muted)] sm:inline">
         {user || '—'}
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)]" aria-hidden />

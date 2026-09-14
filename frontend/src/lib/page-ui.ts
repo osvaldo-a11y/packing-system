@@ -54,7 +54,7 @@ export const kpiFootnoteLead = 'mt-3 text-[11px] leading-snug text-slate-400';
 
 /** Panel de filtros unificado. */
 export const filterPanel =
-  'rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-none sm:px-3.5';
+  'rounded-xl border border-[var(--stone-200)] bg-white px-3 py-3 shadow-none sm:px-3.5';
 
 export const filterLabel = 'text-xs text-slate-500';
 
@@ -73,7 +73,7 @@ export const tableShell =
   'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none [&>div]:rounded-none [&>div]:border-0 [&>div]:shadow-none';
 
 export const tableHeaderRow = 'border-slate-100 hover:bg-transparent';
-export const tableBodyRow = 'border-slate-100/90 hover:bg-slate-50/60';
+export const tableBodyRow = 'min-h-[68px] border-slate-100/90 hover:bg-slate-50/60';
 export const tableCellComfortable = 'py-3.5 align-top';
 
 /** Bloques “señales operativas” / alertas compactas. */
@@ -172,7 +172,7 @@ export const modalFormFooterTotals = 'text-xs tabular-nums text-muted-foreground
 
 /** Primario operativo (verde oliva Gold Master). */
 export const modalFormPrimaryButton =
-  'h-12 min-h-12 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-[var(--olive-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 disabled:pointer-events-none disabled:opacity-50 max-md:min-h-[50px] max-md:flex-[1.35] max-md:px-4';
+  'h-11 min-h-11 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-5 text-sm font-semibold text-white shadow-none transition-colors hover:bg-[var(--olive-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--olive-700)]/35 disabled:pointer-events-none disabled:opacity-50 max-md:h-11 max-md:min-h-11 max-md:basis-[62%] max-md:flex-none max-md:px-4';
 
 /** Botón “agregar” suave (p. ej. + Línea). */
 export const modalFormSoftGreenButton =

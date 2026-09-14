@@ -142,7 +142,7 @@ function NavList({
       aria-label={t('nav.ariaMain')}
     >
       {groups.map((group, gi) => (
-        <div key={group.id} className={cn(gi > 0 && 'mt-2.5 border-t border-white/10 pt-2.5')}>
+        <div key={group.id} className={cn(gi > 0 && 'mt-2.5 border-t border-white/[0.14] pt-2.5')}>
           {!collapsed && group.label ? (
             <p
               className={cn(
@@ -200,7 +200,7 @@ function NavList({
       ))}
 
       {isAdminRole ? (
-        <div className="mt-2.5 border-t border-white/10 pt-2.5">
+        <div className="mt-2.5 border-t border-white/[0.14] pt-2.5">
           {!collapsed ? (
             <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               {t('nav.groups.admin')}
@@ -237,7 +237,7 @@ function NavList({
       ) : null}
 
       {isAdminRole ? (
-        <div className="mt-auto border-t border-white/10 pt-2">
+        <div className="mt-auto border-t border-white/[0.14] pt-2">
           <a
             href="/api/docs"
             target="_blank"
@@ -312,8 +312,8 @@ export function AppLayout() {
       >
         <div
           className={cn(
-            'flex min-h-[64px] shrink-0 items-center border-b border-white/10',
-            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3',
+            'flex min-h-[72px] shrink-0 items-center border-b border-white/[0.14]',
+            collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-3.5',
           )}
         >
           <BrandMark collapsed={collapsed} />
@@ -331,7 +331,7 @@ export function AppLayout() {
           ) : null}
         </div>
         {collapsed ? (
-          <div className="flex justify-center border-b border-white/10 py-1.5">
+          <div className="flex justify-center border-b border-white/[0.14] py-1.5">
             <Button
               type="button"
               variant="ghost"
@@ -346,7 +346,7 @@ export function AppLayout() {
           </div>
         ) : null}
         <NavList groups={navGroups} collapsed={collapsed} isAdminRole={isAdminRole} t={t} />
-        <div className={cn('mt-auto border-t border-white/10 px-3 py-4', collapsed && 'px-2')}>
+        <div className={cn('mt-auto border-t border-white/[0.14] px-3 py-4', collapsed && 'px-2')}>
           <div className={cn('flex flex-col items-center gap-2 text-center', collapsed && 'justify-center')}>
             <Leaf className="h-5 w-5 shrink-0 text-[var(--olive-500)]" aria-hidden />
             {!collapsed ? (
@@ -371,7 +371,7 @@ export function AppLayout() {
             onClick={() => setDrawerOpen(false)}
           />
           <aside className="absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col bg-[var(--pine-950)] text-stone-100 shadow-xl">
-            <div className="flex h-12 items-center justify-between border-b border-white/10 px-3">
+            <div className="flex h-12 items-center justify-between border-b border-white/[0.14] px-3">
               <BrandMark />
               <Button
                 type="button"
@@ -454,7 +454,7 @@ export function AppLayout() {
               {pageTitle}
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             {showDemoChip ? <DemoModeChip writable={sandboxWritable} /> : null}
             <div className="hidden sm:block">
               <LanguageToggle />

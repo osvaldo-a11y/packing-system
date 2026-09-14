@@ -1,38 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" fill="none" aria-hidden="true">
-  <!-- Gold master agricultural watermark: fields, trees, windmill — higher contrast -->
-  <g stroke="#596b3e" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="1">
-    <path d="M0 150 C90 128 170 138 260 122 C350 106 430 128 520 114 C590 104 650 98 720 90" stroke-width="1.8"/>
-    <path d="M0 178 C100 158 190 168 290 152 C390 136 480 158 590 144 C650 136 690 132 720 128" stroke-width="2"/>
-    <path d="M0 210 C110 192 210 200 320 186 C430 170 530 192 640 178 L720 172" stroke-width="2.1"/>
-    <path d="M36 232 C150 220 260 228 370 216 C480 204 580 216 690 206" stroke-width="1.4" opacity="0.7"/>
-    <path d="M50 248 C170 236 290 244 410 232 C520 222 620 232 710 224" stroke-width="1.3" opacity="0.55"/>
-    <path d="M24 264 C150 252 280 260 410 248 C530 238 630 248 720 240" stroke-width="1.2" opacity="0.45"/>
-    <path d="M70 280 C190 270 320 276 450 266 C560 258 650 266 720 262" stroke-width="1.1" opacity="0.35"/>
-    <g opacity="0.85">
-      <path d="M72 176 V142" stroke-width="1.6"/>
-      <path d="M72 142 C56 142 50 124 72 108 C94 124 88 142 72 142Z" fill="#596b3e" stroke="none" opacity="0.45"/>
-      <path d="M108 172 V132" stroke-width="1.7"/>
-      <path d="M108 132 C88 132 80 110 108 90 C136 110 128 132 108 132Z" fill="#596b3e" stroke="none" opacity="0.5"/>
-      <path d="M142 174 V144" stroke-width="1.5"/>
-      <path d="M142 144 C126 144 120 126 142 110 C164 126 158 144 142 144Z" fill="#596b3e" stroke="none" opacity="0.42"/>
-      <path d="M172 178 V154" stroke-width="1.4"/>
-      <path d="M172 154 C160 154 156 140 172 128 C188 140 184 154 172 154Z" fill="#596b3e" stroke="none" opacity="0.38"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" fill="none" aria-hidden="true">
+  <!-- Pinebloom agricultural watermark: trees, windmill, perspective furrows, seal -->
+  <g opacity="0.92" stroke="#596B3E" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- distant hills -->
+    <path d="M0 128 C70 108 140 118 210 102 C300 82 380 108 470 94 C560 80 640 96 720 86 C780 78 830 74 880 70" stroke-width="1.5" opacity="0.55"/>
+    <path d="M0 156 C90 136 170 146 260 130 C350 114 440 136 540 122 C620 112 700 118 780 108 L880 102" stroke-width="1.7" opacity="0.65"/>
+    <path d="M0 186 C100 168 190 176 290 160 C390 144 490 166 600 152 C690 142 780 150 880 140" stroke-width="1.9" opacity="0.75"/>
+
+    <!-- tree line (left–center) -->
+    <g opacity="0.82">
+      <path d="M48 178 V138" stroke-width="1.5"/><path d="M48 138 C30 138 24 116 48 96 C72 116 66 138 48 138Z" fill="#596B3E" stroke="none" opacity="0.38"/>
+      <path d="M78 176 V128" stroke-width="1.6"/><path d="M78 128 C56 128 48 102 78 78 C108 102 100 128 78 128Z" fill="#596B3E" stroke="none" opacity="0.42"/>
+      <path d="M112 174 V136" stroke-width="1.5"/><path d="M112 136 C94 136 88 116 112 98 C136 116 130 136 112 136Z" fill="#596B3E" stroke="none" opacity="0.36"/>
+      <path d="M142 178 V146" stroke-width="1.4"/><path d="M142 146 C128 146 122 130 142 116 C162 130 156 146 142 146Z" fill="#596B3E" stroke="none" opacity="0.34"/>
+      <path d="M170 180 V150" stroke-width="1.35"/><path d="M170 150 C158 150 154 136 170 124 C186 136 182 150 170 150Z" fill="#596B3E" stroke="none" opacity="0.32"/>
+      <path d="M198 182 V156" stroke-width="1.3"/><path d="M198 156 C188 156 184 144 198 134 C212 144 208 156 198 156Z" fill="#596B3E" stroke="none" opacity="0.3"/>
+      <path d="M224 184 V160" stroke-width="1.25"/><path d="M224 160 C214 160 210 148 224 138 C238 148 234 160 224 160Z" fill="#596B3E" stroke="none" opacity="0.28"/>
     </g>
+
+    <!-- cultivated fields / furrows in perspective -->
+    <g opacity="0.78">
+      <path d="M0 210 C120 196 240 204 360 190 C480 176 600 190 760 178 L880 172" stroke-width="1.6"/>
+      <path d="M20 226 C140 212 270 220 400 206 C520 194 650 206 820 196 L880 192" stroke-width="1.45" opacity="0.9"/>
+      <path d="M8 242 C150 228 290 236 430 222 C560 210 700 222 860 214" stroke-width="1.35" opacity="0.8"/>
+      <path d="M40 258 C170 246 310 252 450 240 C580 230 720 240 880 234" stroke-width="1.25" opacity="0.7"/>
+      <path d="M16 274 C160 262 320 268 470 258 C600 250 740 258 880 254" stroke-width="1.15" opacity="0.58"/>
+      <path d="M60 290 C200 280 350 284 500 276 C640 270 770 276 880 274" stroke-width="1.05" opacity="0.48"/>
+      <path d="M30 306 C180 298 340 300 500 294 C650 290 780 294 880 292" stroke-width="1" opacity="0.38"/>
+      <path d="M80 320 C220 314 380 316 540 312 C680 310 800 312 880 312" stroke-width="0.95" opacity="0.28"/>
+      <!-- short furrow ticks suggesting cultivated rows -->
+      <path d="M90 232 L110 248 M150 228 L172 246 M210 224 L234 244 M280 220 L306 242 M350 216 L378 240 M430 212 L460 238 M520 210 L552 236 M610 208 L644 236 M700 206 L736 234 M780 204 L818 232" stroke-width="0.9" opacity="0.35"/>
+    </g>
+
+    <!-- large agricultural windmill (right) -->
     <g opacity="0.95">
-      <path d="M548 210 V78" stroke-width="2.4"/>
-      <path d="M520 210 H576" stroke-width="2.3"/>
-      <path d="M534 210 L548 148 L562 210" stroke-width="1.7" opacity="0.65"/>
-      <circle cx="548" cy="68" r="7" fill="#596b3e" stroke="none"/>
-      <path d="M548 68 L486 28" stroke-width="2.5"/>
-      <path d="M548 68 L610 28" stroke-width="2.5"/>
-      <path d="M548 68 L492 120" stroke-width="2.5"/>
-      <path d="M548 68 L604 120" stroke-width="2.5"/>
+      <path d="M668 292 V92" stroke-width="2.8"/>
+      <path d="M628 292 H708" stroke-width="2.6"/>
+      <path d="M644 292 L668 188 L692 292" stroke-width="1.9" opacity="0.7"/>
+      <path d="M652 292 L668 220 L684 292" stroke-width="1.4" opacity="0.45"/>
+      <circle cx="668" cy="78" r="9" fill="#596B3E" stroke="none"/>
+      <path d="M668 78 L582 28" stroke-width="2.8"/>
+      <path d="M668 78 L754 28" stroke-width="2.8"/>
+      <path d="M668 78 L590 148" stroke-width="2.8"/>
+      <path d="M668 78 L746 148" stroke-width="2.8"/>
+      <!-- blade tips -->
+      <path d="M582 28 L572 22 M754 28 L764 22 M590 148 L580 156 M746 148 L756 156" stroke-width="1.6" opacity="0.55"/>
     </g>
-    <g opacity="0.7">
-      <path d="M618 168 V140" stroke-width="1.5"/>
-      <path d="M618 140 C600 140 594 122 618 104 C642 122 636 140 618 140Z" fill="#596b3e" stroke="none" opacity="0.45"/>
-      <path d="M654 164 V146" stroke-width="1.35"/>
-      <path d="M654 146 C642 146 638 134 654 122 C670 134 666 146 654 146Z" fill="#596b3e" stroke="none" opacity="0.4"/>
+
+    <!-- trees near windmill -->
+    <g opacity="0.72">
+      <path d="M742 210 V168" stroke-width="1.55"/><path d="M742 168 C718 168 710 144 742 118 C774 144 766 168 742 168Z" fill="#596B3E" stroke="none" opacity="0.4"/>
+      <path d="M778 204 V174" stroke-width="1.4"/><path d="M778 174 C760 174 754 156 778 138 C802 156 796 174 778 174Z" fill="#596B3E" stroke="none" opacity="0.36"/>
+      <path d="M808 198 V178" stroke-width="1.25"/><path d="M808 178 C796 178 792 164 808 150 C824 164 820 178 808 178Z" fill="#596B3E" stroke="none" opacity="0.32"/>
     </g>
+  </g>
+
+  <!-- discreet seal -->
+  <g fill="#596B3E" opacity="0.55" font-family="Georgia, 'Times New Roman', serif">
+    <text x="868" y="318" text-anchor="end" font-size="11" font-weight="700" letter-spacing="0.16em">PINEBLOOM FARMS</text>
+    <text x="868" y="334" text-anchor="end" font-size="9" font-weight="600" letter-spacing="0.12em" opacity="0.85" font-family="Inter, system-ui, sans-serif">NEWTON, GA | EST. 2012</text>
+  </g>
+
+  <g opacity="0.35" stroke="#596B3E" stroke-width="0.85" stroke-linecap="round">
+    <path d="M70 238 L95 258 M110 234 L137 256 M155 230 L184 254 M205 226 L236 252 M260 222 L293 250 M320 218 L355 248 M385 214 L422 246 M455 212 L494 244 M530 210 L571 242 M610 208 L653 240 M695 206 L740 238 M780 204 L828 236"/>
+    <path d="M55 254 L82 276 M100 250 L129 274 M150 246 L181 272 M205 242 L238 270 M265 238 L300 268 M330 234 L367 266 M400 230 L439 264 M475 228 L516 262 M555 226 L598 260 M640 224 L685 258 M730 222 L777 256 M820 220 L868 254"/>
+    <path d="M85 270 L112 290 M130 266 L159 288 M180 262 L211 286 M235 258 L268 284 M295 254 L330 282 M360 250 L397 280 M430 248 L469 278 M505 246 L546 276 M585 244 L628 274 M670 242 L715 272 M760 240 L807 270"/>
   </g>
 </svg>

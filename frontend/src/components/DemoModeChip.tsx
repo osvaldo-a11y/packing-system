@@ -6,9 +6,7 @@ type Props = {
   className?: string;
 };
 
-/**
- * Chip DEMO quieto — Gold Master topbar.
- */
+/** Chip DEMO quieto — Gold Master topbar. */
 export function DemoModeChip({ writable = false, className }: Props) {
   const { t } = useTranslation('common');
   const tip = writable ? t('auth.sandboxChipTooltip') : t('auth.demoChipTooltip');
@@ -16,7 +14,7 @@ export function DemoModeChip({ writable = false, className }: Props) {
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center rounded-full border border-[var(--stone-300)] bg-[var(--stone-100)] px-2.5 text-[10px] font-semibold tracking-[0.14em] text-[var(--ink)]',
+        'inline-flex h-5 items-center rounded-full border border-[var(--stone-300)] bg-[var(--stone-100)] px-2 text-[9px] font-semibold tracking-[0.12em] text-[var(--ink)]',
         className,
       )}
       title={tip}
