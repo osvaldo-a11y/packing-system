@@ -1827,8 +1827,8 @@ export function ProcessesPage() {
                 card,
               )}
             >
-              <span className={cn('inline-flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
-                <Icon size={38} />
+              <span className={cn('inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} />
               </span>
               <div className="min-w-0">
                 <p className="font-serif text-[13px] font-medium leading-tight text-[var(--ink)]">{label}</p>
