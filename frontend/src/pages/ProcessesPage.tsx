@@ -1499,7 +1499,13 @@ export function ProcessesPage() {
               <img
                 src={appBranding.landscapeUrl}
                 alt=""
-                className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden lg:block lg:right-[-1%] lg:w-[58%] lg:opacity-[0.72] lg:contrast-[0.98] lg:brightness-[1.02] lg:[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)]"
+                className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] lg:hidden"
+                aria-hidden
+              />
+              <img
+                src={appBranding.landscapeUrl}
+                alt=""
+                className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
                 aria-hidden
               />
               <div className="relative z-[1] flex items-start justify-between gap-4">
