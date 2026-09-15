@@ -316,6 +316,8 @@ export function AppLayout() {
   const pageTitle = resolvePageTitle(pathname, t);
   const isHomeDesktop = pathname === '/';
   const isReceptionsPage = pathname === '/receptions';
+  const isProcessesPage = pathname === '/processes';
+  const usesOperationalMobileNav = isReceptionsPage || isProcessesPage;
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
   const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
@@ -501,6 +503,7 @@ export function AppLayout() {
           className={cn(
             'sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7',
             isHomeDesktop && 'max-md:h-[72px]',
+            isProcessesPage && 'max-md:h-[72px]',
             isReceptionsPage && 'max-md:h-[48px]',
           )}
         >
@@ -521,6 +524,7 @@ export function AppLayout() {
                 className={cn(
                   'pointer-events-none [&_img]:h-8',
                   isHomeDesktop && '[&_img]:h-[52px] [&_img]:max-w-[132px]',
+                  isProcessesPage && 'max-md:[&_img]:h-[52px] max-md:[&_img]:max-w-[132px]',
                   isReceptionsPage && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
                 )}
               />
@@ -552,7 +556,7 @@ export function AppLayout() {
             >
               <LanguageToggle />
             </div>
-            {isHomeDesktop ? (
+            {isHomeDesktop || isProcessesPage ? (
               <div className="flex items-center border-r border-[var(--stone-300)] pr-2 md:hidden">
                 <LanguageToggle plain showChevron />
               </div>
@@ -634,6 +638,7 @@ export function AppLayout() {
             usesApprovedDesktopTopbar && 'lg:bg-[#F9F7F5]',
             isReceptionsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
             isHomeDesktop && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
+            isProcessesPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
           )}
         >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
@@ -645,7 +650,7 @@ export function AppLayout() {
           className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--stone-200)] bg-[var(--stone-50)] pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label={t('nav.bottomAria')}
         >
-          {(isReceptionsPage ? RECEPTIONS_BOTTOM_PRIMARY : BOTTOM_PRIMARY).map((item) => {
+          {(usesOperationalMobileNav ? RECEPTIONS_BOTTOM_PRIMARY : BOTTOM_PRIMARY).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -669,7 +674,7 @@ export function AppLayout() {
                     <span
                       className={cn(
                         'mb-0.5 h-0.5 w-6 rounded-full',
-                        isReceptionsPage && 'hidden',
+                      usesOperationalMobileNav && 'hidden',
                         isActive ? 'bg-[var(--olive-700)]' : 'bg-transparent',
                       )}
                       aria-hidden
@@ -709,7 +714,7 @@ export function AppLayout() {
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
           >
-            {isReceptionsPage ? (
+            {usesOperationalMobileNav ? (
               <PineEllipsisIcon
                 size={20}
                 className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
