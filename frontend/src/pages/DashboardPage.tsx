@@ -1343,19 +1343,19 @@ export function DashboardPage() {
 
       <header
         data-home-mobile-hero
-        className="relative overflow-hidden border-b border-[var(--stone-200)] bg-[#F9F7F5] pb-4 pt-2 lg:hidden"
+        className="relative overflow-hidden border-b border-[var(--stone-200)] bg-[#F9F7F5] pb-5 pt-3 lg:hidden"
       >
         <img
           src={appBranding.landscapeUrl}
           alt=""
-          className="pointer-events-none absolute bottom-[-5px] right-[-9px] h-[132px] w-[292px] max-w-none object-contain object-right-bottom opacity-[0.66] contrast-[0.98] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_18%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.45)_10%,black_36%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_18%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.45)_10%,black_36%,black_100%)]"
+          className="pointer-events-none absolute bottom-[-8px] right-[-12px] h-[172px] w-[366px] max-w-none object-contain object-right-bottom opacity-[0.74] contrast-[0.98] brightness-[1.03] saturate-[0.64] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.12)_14%,rgba(0,0,0,0.58)_38%,black_62%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.55)_12%,black_38%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.12)_14%,rgba(0,0,0,0.58)_38%,black_62%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.55)_12%,black_38%,black_100%)]"
           aria-hidden
         />
         <div className="relative z-[1]">
-          <h1 className="max-w-full font-serif text-[38px] font-semibold leading-[0.98] tracking-[-1.35px] text-[var(--ink)]">
+          <h1 className="max-w-full font-serif text-[42px] font-semibold leading-[0.94] tracking-[-1.8px] text-[var(--ink)]">
             {t('dashboard.askWhat')}
           </h1>
-          <p className="mt-1.5 font-serif text-[19px] leading-tight text-[var(--ink-muted)]">
+          <p className="mt-2 font-serif text-[24px] leading-tight tracking-[-0.25px] text-[var(--ink-muted)]">
             {t('dashboard.askHint')}
           </p>
           <PeriodFilter
@@ -1364,7 +1364,7 @@ export function DashboardPage() {
             moreLabel={showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
             moreOpen={showMoreFilters}
             onMoreClick={() => setShowMoreFilters((v) => !v)}
-            className="mt-3 gap-2 [&>button]:h-10 [&>button]:px-2.5 [&>button]:text-[12px]"
+            className="mt-4 gap-2.5 [&>button]:h-[46px] [&>button]:gap-2.5 [&>button]:px-3.5 [&>button]:text-[14px] [&>button>svg]:h-[18px] [&>button>svg]:w-[18px]"
             options={[
               { key: 'today' as const, label: t('dashboard.filters.today') },
               { key: 'week' as const, label: t('dashboard.filters.week') },
@@ -1508,7 +1508,7 @@ export function DashboardPage() {
         </div>
       ) : null}
       <section data-home-mobile-modules className="mt-4 lg:hidden">
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           {(
             [
               {
@@ -1574,25 +1574,25 @@ export function DashboardPage() {
                 to={module.to}
                 data-home-mobile-module-card
                 className={cn(
-                  'relative min-h-[164px] overflow-hidden rounded-[12px] border px-3 pb-3 pt-2.5 text-[var(--ink)]',
+                  'relative min-h-[180px] overflow-hidden rounded-[12px] border px-4 pb-4 pt-4 text-[var(--ink)]',
                   module.surface,
                 )}
               >
                 <div className="flex items-center justify-between">
-                  <span className={cn('inline-flex h-12 w-12 items-center justify-center rounded-[9px]', module.well)} aria-hidden>
-                    <Icon size={29} strokeWidth={1.85} />
+                  <span className={cn('inline-flex h-16 w-16 items-center justify-center rounded-[10px]', module.well)} aria-hidden>
+                    <Icon size={38} strokeWidth={1.85} />
                   </span>
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white/90 text-[var(--ink-muted)]" aria-hidden>
-                    <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white/90 text-[var(--ink-muted)]" aria-hidden>
+                    <ChevronRight className="h-5 w-5" strokeWidth={2} />
                   </span>
                 </div>
-                <p className="mt-2 min-h-[19px] font-serif text-[16px] font-semibold leading-[1.05] tracking-[-0.15px]">
+                <p className="mt-3 font-serif text-[19px] font-bold leading-[1.02] tracking-[-0.25px]">
                   {module.label}
                 </p>
-                <p className="mt-1 font-serif text-[25px] font-bold leading-none tracking-[-0.35px]">
+                <p className="mt-1.5 font-serif text-[31px] font-bold leading-none tracking-[-0.85px]">
                   {module.metric}
                 </p>
-                <p className="mt-1.5 line-clamp-2 text-[11px] leading-[1.25] text-[var(--ink-muted)]">
+                <p className="mt-2 line-clamp-2 text-[14px] leading-[1.22] tracking-[-0.15px] text-[var(--ink-muted)]">
                   {module.description}
                 </p>
               </Link>
@@ -1671,13 +1671,13 @@ export function DashboardPage() {
                   key={action.to}
                   to={action.to}
                   className={cn(
-                    'flex h-12 items-center gap-3 rounded-[9px] border px-3 text-[13px] font-semibold text-[var(--ink)]',
+                    'flex h-[62px] items-center gap-4 rounded-[9px] border px-4 text-[18px] font-semibold text-[var(--ink)]',
                     action.surface,
                   )}
                 >
-                  <Icon size={24} strokeWidth={1.85} className={cn('shrink-0', action.ink)} />
+                  <Icon size={32} strokeWidth={1.85} className={cn('shrink-0', action.ink)} />
                   <span className="min-w-0 flex-1 truncate font-serif">{action.label}</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)]" />
+                  <ChevronRight className="h-5 w-5 shrink-0 text-[var(--ink-muted)]" />
                 </Link>
               );
             })}

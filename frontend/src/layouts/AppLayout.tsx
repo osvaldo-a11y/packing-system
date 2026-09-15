@@ -501,7 +501,8 @@ export function AppLayout() {
         <header
           className={cn(
             'sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7',
-            usesApprovedMobileNav && 'max-md:h-[48px]',
+            isHomeDesktop && 'max-md:h-[72px]',
+            isReceptionsPage && 'max-md:h-[48px]',
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -518,7 +519,11 @@ export function AppLayout() {
             <span className="min-w-0 shrink-0 md:hidden">
               <BrandMark
                 tone="onLight"
-                className={cn('pointer-events-none [&_img]:h-8', usesApprovedMobileNav && '[&_img]:h-[30px] [&_img]:max-w-[79px]')}
+                className={cn(
+                  'pointer-events-none [&_img]:h-8',
+                  isHomeDesktop && '[&_img]:h-[46px] [&_img]:max-w-[118px]',
+                  isReceptionsPage && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
+                )}
               />
             </span>
             {isReceptionsPage ? (
@@ -548,6 +553,11 @@ export function AppLayout() {
             >
               <LanguageToggle />
             </div>
+            {isHomeDesktop ? (
+              <div className="flex items-center border-r border-[var(--stone-300)] pr-2 md:hidden">
+                <LanguageToggle plain showChevron />
+              </div>
+            ) : null}
             <div className={cn(isHomeDesktop && 'border-r border-[var(--stone-300)] pr-3.5 max-md:border-r-0 max-md:pr-0', usesApprovedDesktopTopbar && 'lg:border-r lg:border-[var(--stone-300)] lg:pr-3.5')}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -636,7 +646,7 @@ export function AppLayout() {
           className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--stone-200)] bg-[var(--stone-50)] pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label={t('nav.bottomAria')}
         >
-          {(usesApprovedMobileNav ? RECEPTIONS_BOTTOM_PRIMARY : BOTTOM_PRIMARY).map((item) => {
+          {(isReceptionsPage ? RECEPTIONS_BOTTOM_PRIMARY : BOTTOM_PRIMARY).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -655,7 +665,7 @@ export function AppLayout() {
                     <span
                       className={cn(
                         'mb-0.5 h-0.5 w-6 rounded-full',
-                        usesApprovedMobileNav && 'hidden',
+                        isReceptionsPage && 'hidden',
                         isActive ? 'bg-[var(--olive-700)]' : 'bg-transparent',
                       )}
                       aria-hidden
@@ -682,7 +692,7 @@ export function AppLayout() {
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
           >
-            {usesApprovedMobileNav ? (
+            {isReceptionsPage ? (
               <PineEllipsisIcon
                 size={20}
                 className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
