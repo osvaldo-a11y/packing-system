@@ -15,6 +15,8 @@ type Props = {
   wideLandscape?: boolean;
   /** Geometría medida HOME 1440×900 — no usar en Recepciones. */
   homeDesktop?: boolean;
+  /** Geometría editorial aprobada para Recepciones, solo desde desktop. */
+  receptionsDesktop?: boolean;
 };
 
 /**
@@ -31,6 +33,7 @@ export function PinebloomHero({
   claimLines,
   wideLandscape = false,
   homeDesktop = false,
+  receptionsDesktop = false,
 }: Props) {
   return (
     <header
@@ -41,6 +44,7 @@ export function PinebloomHero({
           : compact
             ? 'min-h-[124px] px-0 py-2 sm:min-h-[136px] sm:py-2.5'
             : 'min-h-[132px] px-0 py-2.5 sm:min-h-[144px] sm:py-3',
+        receptionsDesktop && 'lg:h-[151px] lg:min-h-[151px] lg:pb-5 lg:pl-2 lg:pr-0 lg:pt-7',
         className,
       )}
     >
@@ -58,6 +62,7 @@ export function PinebloomHero({
             : cn(
                 'pointer-events-none absolute right-[-2%] top-[48%] h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[92%_45%] opacity-[0.78] contrast-[0.98] brightness-[1.0] saturate-[0.85]',
                 wideLandscape && 'right-[-4%] h-[210%] opacity-[0.82]',
+                receptionsDesktop && 'lg:right-[-2%] lg:h-[205%] lg:opacity-[0.68] lg:contrast-[0.96] lg:brightness-[1.03] lg:saturate-[0.68]',
                 '[mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
                 '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
                 '[mask-composite:intersect] [-webkit-mask-composite:source-in]',
@@ -72,11 +77,12 @@ export function PinebloomHero({
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className={cn('min-w-0', homeDesktop ? 'max-w-[56%]' : 'max-w-[58%]')}>
+          <div className={cn('min-w-0', homeDesktop ? 'max-w-[56%]' : 'max-w-[58%]', receptionsDesktop && 'lg:max-w-[60%]')}>
             <h1
               className={cn(
                 'font-serif text-[var(--ink)]',
                 homeDesktop ? 'text-[62px] tracking-[-1px]' : 'text-[40px] tracking-[-0.6px] sm:text-[44px]',
+                receptionsDesktop && 'lg:text-[52px] lg:tracking-[-0.8px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
@@ -96,6 +102,7 @@ export function PinebloomHero({
                     : compact
                       ? 'mt-1 text-[16px] sm:text-[17px]'
                       : 'mt-1 text-[14px] sm:text-[15px]',
+                  receptionsDesktop && 'lg:mt-1 lg:text-[24px]',
                 )}
               >
                 {subtitle}

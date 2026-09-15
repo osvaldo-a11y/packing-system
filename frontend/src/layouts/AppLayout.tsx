@@ -300,6 +300,8 @@ export function AppLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle = resolvePageTitle(pathname, t);
   const isHomeDesktop = pathname === '/';
+  const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
+  const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
     setDrawerOpen(false);
     setMoreOpen(false);
@@ -328,19 +330,19 @@ export function AppLayout() {
         className="sticky top-0 z-30 hidden h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-black/20 bg-[var(--pine-950)] text-stone-100 transition-[width] duration-200 lg:flex"
         style={{
           width: collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED,
-          background: isHomeDesktop ? 'linear-gradient(180deg, #343936 0%, #303532 100%)' : undefined,
+          background: usesApprovedDesktopRail ? 'linear-gradient(180deg, #343936 0%, #303532 100%)' : undefined,
         }}
       >
         <div
           className={cn(
             'flex shrink-0 items-center border-b border-white/[0.14]',
-            isHomeDesktop ? 'min-h-[112px]' : 'min-h-[76px]',
+            usesApprovedDesktopRail ? 'min-h-[112px]' : 'min-h-[76px]',
             collapsed ? 'justify-center px-1' : 'justify-between gap-1 px-4 py-2.5',
           )}
         >
           <BrandMark
             collapsed={collapsed}
-            className={isHomeDesktop && !collapsed ? '[&_img]:h-[75px] [&_img]:max-w-[212px]' : undefined}
+            className={usesApprovedDesktopRail && !collapsed ? '[&_img]:h-[75px] [&_img]:max-w-[212px]' : undefined}
           />
           {!collapsed ? (
             <Button
@@ -371,24 +373,24 @@ export function AppLayout() {
           </div>
         ) : null}
         <NavList
-          groups={isHomeDesktop ? navGroups.slice(0, 2) : navGroups}
+          groups={usesApprovedDesktopRail ? navGroups.slice(0, 2) : navGroups}
           collapsed={collapsed}
-          isAdminRole={isHomeDesktop ? false : isAdminRole}
-          homeReference={isHomeDesktop}
+          isAdminRole={usesApprovedDesktopRail ? false : isAdminRole}
+          homeReference={usesApprovedDesktopRail}
           t={t}
         />
         <div
           className={cn(
             'mt-auto px-3',
-            isHomeDesktop ? 'pb-12 pt-3.5' : 'py-3.5',
+            usesApprovedDesktopRail ? 'pb-12 pt-3.5' : 'py-3.5',
             collapsed && 'px-2',
           )}
         >
-          <div className={cn('flex flex-col items-center text-center', isHomeDesktop ? 'gap-2' : 'gap-1.5', collapsed && 'justify-center')}>
+          <div className={cn('flex flex-col items-center text-center', usesApprovedDesktopRail ? 'gap-2' : 'gap-1.5', collapsed && 'justify-center')}>
             <Leaf
               className={cn(
                 'h-[18px] w-[18px] shrink-0 text-[var(--olive-500)]',
-                isHomeDesktop && !collapsed && 'h-[42px] w-[42px]',
+                usesApprovedDesktopRail && !collapsed && 'h-[42px] w-[42px]',
               )}
               aria-hidden
             />
@@ -396,7 +398,7 @@ export function AppLayout() {
               <p
                 className={cn(
                   'font-serif text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em] text-[#E3E6DF]',
-                  isHomeDesktop && 'text-[11.5px] leading-[1.45] tracking-[0.14em]',
+                  usesApprovedDesktopRail && 'text-[11.5px] leading-[1.45] tracking-[0.14em]',
                 )}
               >
                 BUENAS FRUTAS
@@ -508,11 +510,12 @@ export function AppLayout() {
               className={cn(
                 'hidden sm:block',
                 isHomeDesktop && 'ml-2.5 min-w-[95px] border-r border-[var(--stone-300)] pr-3.5',
+                usesApprovedDesktopTopbar && 'lg:ml-2.5 lg:min-w-[95px] lg:border-r lg:border-[var(--stone-300)] lg:pr-3.5',
               )}
             >
               <LanguageToggle />
             </div>
-            <div className={cn(isHomeDesktop && 'border-r border-[var(--stone-300)] pr-3.5')}>
+            <div className={cn(isHomeDesktop && 'border-r border-[var(--stone-300)] pr-3.5', usesApprovedDesktopTopbar && 'lg:border-r lg:border-[var(--stone-300)] lg:pr-3.5')}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -521,15 +524,17 @@ export function AppLayout() {
                   className={cn(
                     'h-8 gap-2 rounded-full px-1.5 text-slate-600 hover:bg-stone-100 hover:text-slate-900 sm:rounded-md sm:px-2',
                     isHomeDesktop && 'h-9 min-w-[206px] justify-start gap-2.5',
+                    usesApprovedDesktopTopbar && 'lg:h-9 lg:min-w-[206px] lg:justify-start lg:gap-2.5',
                   )}
                 >
                   <span
                     className={cn(
                       'inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]',
                       isHomeDesktop && 'h-[30px] w-[30px] bg-[var(--pine-950)] text-white',
+                      usesApprovedDesktopTopbar && 'lg:h-[30px] lg:w-[30px] lg:bg-[var(--pine-950)] lg:text-white',
                     )}
                   >
-                    <User className={cn('h-3.5 w-3.5', isHomeDesktop && 'h-4 w-4')} aria-hidden />
+                    <User className={cn('h-3.5 w-3.5', isHomeDesktop && 'h-4 w-4', usesApprovedDesktopTopbar && 'lg:h-4 lg:w-4')} aria-hidden />
                   </span>
                   <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
                     <span className="max-w-[110px] truncate text-[12px] font-semibold text-[var(--ink)]">
@@ -576,6 +581,7 @@ export function AppLayout() {
           className={cn(
             'min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-7 lg:py-0 lg:pt-0 lg:pb-4',
             isHomeDesktop && 'bg-[#F9F7F5]',
+            usesApprovedDesktopTopbar && 'lg:bg-[#F9F7F5]',
           )}
         >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">

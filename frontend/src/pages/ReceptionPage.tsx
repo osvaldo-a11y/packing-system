@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDashed,
-  Clock3,
   FileText,
   Info,
   Leaf,
@@ -23,7 +22,6 @@ import {
   Trash2,
   Truck,
   User,
-  Users,
   X,
   Search,
   Filter,
@@ -104,6 +102,7 @@ import {
   tableShell,
 } from '@/lib/page-ui';
 import { PinebloomHero } from '@/components/brand/PinebloomHero';
+import { PineClockIcon, PineTruckIcon, PineUsersIcon, PineWeightIcon } from '@/components/icons/pinebloom';
 import { FieldRow } from '@/components/brand/FieldRow';
 import { appBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
@@ -1312,7 +1311,7 @@ export function ReceptionPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-0">
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -2093,75 +2092,79 @@ export function ReceptionPage() {
         }
         compact
         wideLandscape
+        receptionsDesktop
         showSeal={false}
         claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
         actions={
           canOperateReception ? (
             <Button
               className={cn(
-                'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)]',
+                'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)] lg:h-[52px] lg:min-w-[216px] lg:px-6 lg:text-[16px]',
               )}
               onClick={() => openNew()}
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-5 w-5 lg:h-6 lg:w-6" />
               {t('reception.newButton')}
             </Button>
           ) : null
         }
       />
 
-      <section aria-labelledby="rec-kpis" className="space-y-3">
+      <section
+        aria-labelledby="rec-kpis"
+        className="space-y-3 lg:mt-5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:p-[14px]"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)]">
+          <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)] lg:text-[20px]">
             {t('reception.srKpis')}
           </h2>
-          <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowSummary((v) => !v)}>
+          <Button type="button" variant="ghost" size="sm" className="h-8 text-xs lg:px-2 lg:text-[12px]" onClick={() => setShowSummary((v) => !v)}>
             {showSummary ? t('reception.hideSummary') : t('reception.viewSummary')}
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)]" aria-hidden>
-              <Truck className="h-7 w-7" strokeWidth={2.2} />
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineTruckIcon size={39} className="lg:h-[44px] lg:w-[44px]" />
             </span>
-            <div className="min-w-0 pt-0.5">
-              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.todayShort')}</p>
+            <div className="min-w-0 pt-0.5 lg:pt-0">
+              <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.todayShort')}</p>
               <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)]" aria-hidden>
-              <Clock3 className="h-7 w-7" strokeWidth={2.2} />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineClockIcon size={38} />
             </span>
-            <div className="min-w-0 pt-0.5">
-              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.pendingShort')}</p>
+            <div className="min-w-0 pt-0.5 lg:pt-0">
+              <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.pendingShort')}</p>
               <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)]" aria-hidden>
-              <Scale className="h-7 w-7" strokeWidth={2.2} />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineWeightIcon size={38} />
             </span>
-            <div className="min-w-0 pt-0.5">
-              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.weightShort')}</p>
+            <div className="min-w-0 pt-0.5 lg:pt-0">
+              <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.weightShort')}</p>
               <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">lb total recibido</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">lb total recibido</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)]" aria-hidden>
-              <Users className="h-7 w-7" strokeWidth={2.2} />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineUsersIcon size={40} />
             </span>
-            <div className="min-w-0 pt-0.5">
-              <p className="text-[12px] font-semibold text-[var(--ink)]">{t('reception.kpi.producersShort')}</p>
+            <div className="min-w-0 pt-0.5 lg:pt-0">
+              <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.producersShort')}</p>
               <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
         </div>
@@ -2226,7 +2229,7 @@ export function ReceptionPage() {
         ) : null}
       </section>
 
-      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5')}>
+      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5 lg:mt-3 lg:min-h-[64px] lg:px-3.5 lg:py-[11px]')}>
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
@@ -2241,19 +2244,19 @@ export function ReceptionPage() {
               size="sm"
               variant={datePreset === key ? 'default' : 'outline'}
               className={cn(
-                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold',
+                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold lg:h-10 lg:min-w-[104px] lg:px-4',
                 datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
               )}
               onClick={() => applyDatePreset(key)}
             >
-              <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <Icon className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
               {label}
             </Button>
           ))}
           <div className="relative min-w-[12rem] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)] lg:left-3 lg:h-4 lg:w-4" aria-hidden />
             <Input
-              className={cn(filterInputClass, 'h-9 pl-8')}
+              className={cn(filterInputClass, 'h-9 pl-8 lg:h-10 lg:pl-10')}
               placeholder={t('reception.filters.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -2264,10 +2267,10 @@ export function ReceptionPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5"
+            className="h-9 gap-1.5 lg:h-10 lg:min-w-[146px] lg:px-4"
             onClick={() => setShowMoreFilters((v) => !v)}
           >
-            <Filter className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            <Filter className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
 
             {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
             <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
@@ -2357,13 +2360,16 @@ export function ReceptionPage() {
         ) : null}
       </div>
 
-      <section className="space-y-3" aria-labelledby="rec-tabla">
-        <div className="flex flex-wrap items-end justify-between gap-2">
+      <section
+        className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="rec-tabla"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[64px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="rec-tabla" className={sectionTitle}>
+            <h2 id="rec-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight')}>
               {datePreset === 'today' ? t('reception.workTodayTitle') : t('reception.table.title')}
             </h2>
-            <p className={sectionHint}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
+            <p className={cn(sectionHint, 'lg:mt-1 lg:text-[12px]')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isAdminRole || canOperateReception ? (
@@ -2372,7 +2378,7 @@ export function ReceptionPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs lg:h-10 lg:min-w-[142px] lg:px-4"
                   onClick={() => setShowMoreActions((v) => !v)}
                 >
                   <MoreHorizontal className="mr-1 h-3.5 w-3.5" />
@@ -2687,7 +2693,7 @@ export function ReceptionPage() {
                 );
               })}
             </div>
-            <div className={cn(tableShell, 'hidden md:block')}>
+            <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
               <Table className="min-w-[980px]">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>

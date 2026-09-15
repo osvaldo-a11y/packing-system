@@ -27,6 +27,45 @@ export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }
   );
 }
 
+/** Reloj operativo sólido, con lectura editorial compacta. */
+export function PineClockIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M24 3a21 21 0 1 1 0 42 21 21 0 0 1 0-42Zm0 5a16 16 0 1 0 0 32 16 16 0 0 0 0-32Zm-2.5 5.5h5V23l8 5-2.7 4.2L21.5 26V13.5Z"
+      />
+    </svg>
+  );
+}
+
+/** Pesa de recepción sólida, con asa calada. */
+export function PineWeightIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M18 14a6 6 0 0 1 12 0v3h4.2c1.9 0 3.5 1.3 3.9 3.1L43 42H5l4.9-21.9a4 4 0 0 1 3.9-3.1H18v-3Zm5 3h2v-3a1 1 0 1 0-2 0v3Z"
+      />
+    </svg>
+  );
+}
+
+/** Grupo de productores en silueta sólida. */
+export function PineUsersIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <circle cx="24" cy="14" r="8" fill="currentColor" />
+      <circle cx="9.5" cy="20" r="5.5" fill="currentColor" opacity=".84" />
+      <circle cx="38.5" cy="20" r="5.5" fill="currentColor" opacity=".84" />
+      <path fill="currentColor" d="M10 43c.3-11 5.2-17 14-17s13.7 6 14 17H10Z" />
+      <path fill="currentColor" d="M0 42c.2-8 3.6-12.5 9.8-12.5 2.4 0 4.5.7 6.1 2.1A20.7 20.7 0 0 0 12.5 42H0ZM48 42c-.2-8-3.6-12.5-9.8-12.5-2.4 0-4.5.7-6.1 2.1A20.7 20.7 0 0 1 35.5 42H48Z" opacity=".84" />
+    </svg>
+  );
+}
+
 /** Camión de despacho — caja de carga más larga y cabina lateral compacta. */
 export function PineDispatchTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
