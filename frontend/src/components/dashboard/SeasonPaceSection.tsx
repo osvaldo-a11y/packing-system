@@ -202,9 +202,9 @@ export function SeasonPaceSection({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/40 p-3 sm:p-4">
       <div>
-        <h2 className="text-base font-semibold text-slate-900 sm:text-lg">{tr('title')}</h2>
+        <h2 className="text-sm font-semibold text-slate-700 sm:text-base">{tr('title')}</h2>
         <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
           {data
             ? tr('subtitleIso', {
