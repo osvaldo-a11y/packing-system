@@ -2694,7 +2694,7 @@ export function ReceptionPage() {
               })}
             </div>
             <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
-              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-3">
+              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-2">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>
                     <TableHead className="w-[112px]">{t('reception.table.colState')}</TableHead>
