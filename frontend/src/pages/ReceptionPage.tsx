@@ -27,6 +27,7 @@ import {
   Filter,
   CalendarRange,
   List,
+  LayoutGrid,
   Ellipsis,
 } from 'lucide-react';
 import { Fragment,
@@ -2364,14 +2365,50 @@ export function ReceptionPage() {
         className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="rec-tabla"
       >
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[64px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
-          <div>
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+          <div className="lg:flex lg:items-baseline lg:gap-4">
             <h2 id="rec-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight')}>
               {datePreset === 'today' ? t('reception.workTodayTitle') : t('reception.table.title')}
             </h2>
-            <p className={cn(sectionHint, 'lg:mt-1 lg:text-[12px]')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
+            <p className={cn(sectionHint, 'lg:hidden')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
+            <p className="hidden text-[12px] text-[var(--ink-muted)] lg:block">
+              {filteredReceptions.length} {filteredReceptions.length === 1 ? 'recepción' : 'recepciones'}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden items-center gap-2 lg:flex">
+            <span className="mr-1 text-[12px] text-[var(--ink-muted)]">Ordenar por</span>
+            <Button type="button" variant="outline" size="sm" className="h-9 min-w-[116px] justify-between gap-2 px-3 text-[12px] font-medium">
+              Más reciente
+              <ChevronDown className="h-3.5 w-3.5 text-[var(--ink-muted)]" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === 'detailed' ? 'default' : 'outline'}
+              size="sm"
+              className={cn(
+                'h-9 w-9 p-0',
+                viewMode === 'detailed' && 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]',
+              )}
+              onClick={() => setViewMode('detailed')}
+              aria-label={t('reception.table.viewDetailed')}
+            >
+              <List className="h-4 w-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === 'compact' ? 'default' : 'outline'}
+              size="sm"
+              className={cn(
+                'h-9 w-9 p-0',
+                viewMode === 'compact' && 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]',
+              )}
+              onClick={() => setViewMode('compact')}
+              aria-label={t('reception.table.viewCompact')}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:hidden">
             {isAdminRole || canOperateReception ? (
               <div className="relative">
                 <Button
@@ -2694,7 +2731,7 @@ export function ReceptionPage() {
               })}
             </div>
             <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
-              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-2">
+              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-3 lg:[&_th]:!h-[46px]">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>
                     <TableHead className="w-[112px]">{t('reception.table.colState')}</TableHead>
@@ -2715,14 +2752,14 @@ export function ReceptionPage() {
                     const isLowNet = netLb > 0 && netLb < 400;
                     return (
                       <Fragment key={r.id}>
-                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors', tone.rowHover)}>
+                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors lg:h-[72px]', tone.rowHover)}>
                           <TableCell className="max-w-[200px] py-2 align-top">
                             <div className="flex flex-col gap-1">
                               <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
                               <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
                             </div>
                           </TableCell>
-                          <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
+                          <TableCell className="py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{formatReceptionDate(r.received_at)}</TableCell>
                           <TableCell className="max-w-[180px] py-3 align-middle lg:py-1.5">
                             <div className="flex min-w-0 items-start gap-1.5" title={r.producer?.nombre ?? ''}>
                               <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
@@ -2735,19 +2772,19 @@ export function ReceptionPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
+                          <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800 lg:text-[13px]">
                             {r.reference_code ?? r.document_number ?? '—'}
                             {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                           </TableCell>
-                          <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700">{especieCabecera(r)}</TableCell>
-                          <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700">{variedadCabecera(r)}</TableCell>
+                          <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{especieCabecera(r)}</TableCell>
+                          <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{variedadCabecera(r)}</TableCell>
                           <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
                             <span className="text-[15px] font-semibold leading-none">
                               {formatLb(netLb, 2)}
                             </span>
                           </TableCell>
                           <TableCell className="max-w-[220px] py-2 align-top">
-                            <p className="line-clamp-2 text-[11px] leading-snug text-slate-500" title={r.notes?.trim() ?? ''}>
+                            <p className="line-clamp-2 text-[11px] leading-snug text-slate-500 lg:text-[12px]" title={r.notes?.trim() ?? ''}>
                               {r.notes?.trim() || '—'}
                             </p>
                           </TableCell>
@@ -2819,17 +2856,17 @@ export function ReceptionPage() {
                   })}
                 </TableBody>
               </Table>
-              <div className="hidden h-[58px] items-center justify-end gap-4 border-t border-[var(--stone-200)] px-4 text-[12px] text-[var(--ink-muted)] lg:flex">
+              <div className="hidden h-[52px] items-center justify-end gap-3 border-t border-[var(--stone-200)] px-4 text-[12px] text-[var(--ink-muted)] lg:flex">
                 <span>
                   Mostrando {filteredReceptions.length > 0 ? 1 : 0}–{filteredReceptions.length} de {filteredReceptions.length}
                 </span>
-                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" disabled aria-label="Página anterior">
+                <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0 text-[var(--ink-muted)]" aria-label="Página anterior">
                   <ChevronRight className="h-4 w-4 rotate-180" />
                 </Button>
-                <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-2 font-medium text-[var(--ink)]">
+                <span className="inline-flex h-10 min-w-[48px] items-center justify-center rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-2 font-medium text-[var(--ink)]">
                   1
                 </span>
-                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" disabled aria-label="Página siguiente">
+                <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0 text-[var(--ink-muted)]" aria-label="Página siguiente">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
