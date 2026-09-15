@@ -35,7 +35,7 @@ export function FieldRow({ icon: Icon, label, children, className, required }: P
         <Icon className="h-4 w-4" strokeWidth={1.85} />
       </span>
       <div className="w-[34%] min-w-0 shrink-0 sm:w-[30%]">
-        <p className="truncate text-[13px] font-medium text-[var(--ink)]">
+        <p className="truncate text-[13px] font-semibold text-[var(--ink)]">
           {label}
           {required ? <span className="text-[var(--status-danger)]"> *</span> : null}
         </p>

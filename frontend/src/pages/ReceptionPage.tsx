@@ -1669,7 +1669,7 @@ export function ReceptionPage() {
                   <section
                     className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-[14px] py-[14px] sm:px-4 lg:bg-white')}
                   >
-                    <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between lg:items-start">
+                    <div className="mb-2 flex shrink-0 flex-col gap-2 border-b border-border/60 pb-2 sm:mb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:pb-4 lg:items-start">
                       <div className="flex min-w-0 flex-wrap items-start gap-2">
                         <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
                         <div>
@@ -1679,11 +1679,11 @@ export function ReceptionPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                      <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:items-end sm:gap-2">
                         <div className="flex w-full flex-nowrap items-center gap-2">
                           <button
                             type="button"
-                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 lg:min-w-[170px] lg:px-4"
+                            className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 sm:h-[46px] lg:min-w-[170px] lg:px-4"
                             disabled={lockNonStateFields}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1696,7 +1696,7 @@ export function ReceptionPage() {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50 lg:min-w-[190px] lg:px-4"
+                            className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50 sm:h-[46px] lg:min-w-[190px] lg:px-4"
                             disabled={lockNonStateFields || lineDrafts.length === 0}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1710,7 +1710,7 @@ export function ReceptionPage() {
                             {t('reception.dialog.copyLastLine')}
                           </button>
                         </div>
-                        <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-2 text-[12px] text-[var(--ink)]">
+                        <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-1.5 text-[12px] text-[var(--ink)] sm:py-2">
                           <PineLeafIcon size={17} className="shrink-0 text-[var(--olive-700)]" aria-hidden />
                           <input
                             type="checkbox"
@@ -2052,7 +2052,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 min-h-10 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto lg:h-11 lg:min-h-11 lg:min-w-[120px] lg:bg-white lg:px-5"
+                  className="h-11 min-h-11 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto lg:min-w-[120px] lg:bg-white lg:px-5"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -2062,7 +2062,7 @@ export function ReceptionPage() {
                     type="submit"
                     className={cn(
                       modalFormPrimaryButton,
-                      'inline-flex h-10 min-h-10 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto lg:h-11 lg:min-h-11 lg:min-w-[210px] lg:px-5 lg:text-[14px]',
+                      'inline-flex h-11 min-h-11 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto lg:min-w-[210px] lg:px-5 lg:text-[14px]',
                     )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
