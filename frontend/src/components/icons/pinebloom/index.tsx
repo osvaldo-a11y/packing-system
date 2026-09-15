@@ -238,4 +238,12 @@ export function PineTrashIcon({ size = 24, strokeWidth = 1.8, ...props }: IconPr
   );
 }
 
+export function PineChevronIcon({ size = 24, strokeWidth = 1.9, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="m9 5 7 7-7 7" />
+    </svg>
+  );
+}
+
 export type PineIconComponent = typeof PineTruckIcon;

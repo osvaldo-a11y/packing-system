@@ -19,16 +19,12 @@ import {
   Plus,
   Printer,
   Scale,
-  Trash2,
-  Truck,
-  User,
   X,
   Search,
   Filter,
   CalendarRange,
   List,
   LayoutGrid,
-  Ellipsis,
 } from 'lucide-react';
 import { Fragment,
   useEffect,
@@ -105,6 +101,7 @@ import {
 import { PinebloomHero } from '@/components/brand/PinebloomHero';
 import {
   PineCalendarIcon,
+  PineChevronIcon,
   PineClockIcon,
   PineCopyIcon,
   PineDocumentIcon,
@@ -1354,7 +1351,7 @@ export function ReceptionPage() {
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden lg:block lg:right-[-1%] lg:w-[58%] lg:opacity-[0.72] lg:contrast-[0.98] lg:brightness-[1.02] lg:[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)]"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden lg:block lg:right-[-1%] lg:w-[58%] lg:opacity-[0.72] lg:contrast-[0.98] lg:brightness-[1.02] lg:[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)]"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
@@ -1411,7 +1408,7 @@ export function ReceptionPage() {
 
                   <div className="space-y-[10px]">
                     <div className="overflow-hidden rounded-xl border border-[var(--pb-border)] bg-[var(--pb-surface)] md:hidden">
-                      <FieldRow icon={User} label={t('reception.dialog.fieldProducer')} required>
+                      <FieldRow icon={PinePersonIcon} label={t('reception.dialog.fieldProducer')} required>
                         <select
                           className="w-full text-right text-sm"
                           disabled={lockNonStateFields}
@@ -1425,7 +1422,12 @@ export function ReceptionPage() {
                           ))}
                         </select>
                       </FieldRow>
-                      <FieldRow icon={FileText} label={t('reception.dialog.fieldReference')} required>
+                      <FieldRow
+                        icon={PineDocumentIcon}
+                        label={t('reception.dialog.fieldReference')}
+                        required
+                        className="[&>div:nth-child(2)]:w-[39%]"
+                      >
                         {editingId == null && !viewOnly ? (
                           <Input
                             className="h-9 border-0 bg-transparent px-0 text-right font-mono text-xs uppercase shadow-none"
@@ -1438,7 +1440,7 @@ export function ReceptionPage() {
                           <span className="block text-right font-mono text-xs">{serverReference ?? '—'}</span>
                         )}
                       </FieldRow>
-                      <FieldRow icon={CalendarDays} label={t('reception.dialog.fieldDatetime')} required>
+                      <FieldRow icon={PineCalendarIcon} label={t('reception.dialog.fieldDatetime')} required>
                         <Input
                           type="datetime-local"
                           disabled={lockNonStateFields}
@@ -1446,7 +1448,7 @@ export function ReceptionPage() {
                           {...form.register('received_at')}
                         />
                       </FieldRow>
-                      <FieldRow icon={Leaf} label={t('reception.dialog.fieldFruitType')}>
+                      <FieldRow icon={PineLeafIcon} label={t('reception.dialog.fieldFruitType')} required>
                         <select
                           className="w-full text-right text-sm"
                           disabled={lockNonStateFields}
@@ -1468,15 +1470,15 @@ export function ReceptionPage() {
                       <details className="group border-b-0">
                         <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none [&::-webkit-details-marker]:hidden">
                           <span className="inline-flex h-[33px] w-[33px] shrink-0 items-center justify-center rounded-full bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
-                            <Ellipsis className="h-4 w-4" strokeWidth={1.85} />
+                            <PineEllipsisIcon size={16} />
                           </span>
-                          <span className="w-[34%] min-w-0 shrink-0 text-[13px] font-medium text-[var(--ink)]">
+                          <span className="w-[27%] min-w-0 shrink-0 text-[13px] font-medium text-[var(--ink)]">
                             {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-right text-[12px] text-[var(--ink-muted)]">
                             Campo, transportista, vehículo…
                           </span>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" aria-hidden />
+                          <PineChevronIcon size={16} className="shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" aria-hidden />
                         </summary>
                         <div className="space-y-2 border-t border-[var(--stone-200)]/70 bg-[var(--stone-50)] px-3.5 py-3">
                           <div className="min-w-0 space-y-1">
@@ -1689,9 +1691,8 @@ export function ReceptionPage() {
                               })
                             }
                           >
-                            <PinePlusIcon size={18} className="hidden lg:block" />
-                            <span className="lg:hidden">{t('reception.dialog.addLine')}</span>
-                            <span className="hidden lg:inline">{t('reception.dialog.addLine').replace(/^\+\s*/, '')}</span>
+                            <PinePlusIcon size={18} />
+                            <span>{t('reception.dialog.addLine').replace(/^\+\s*/, '')}</span>
                           </button>
                           <button
                             type="button"
@@ -1705,13 +1706,12 @@ export function ReceptionPage() {
                               })
                             }
                           >
-                            <PineCopyIcon size={18} className="hidden lg:block" />
+                            <PineCopyIcon size={18} />
                             {t('reception.dialog.copyLastLine')}
                           </button>
                         </div>
                         <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-2 text-[12px] text-[var(--ink)]">
-                          <Leaf className="h-3.5 w-3.5 shrink-0 text-[var(--olive-700)] lg:hidden" aria-hidden />
-                          <PineLeafIcon size={17} className="hidden shrink-0 text-[var(--olive-700)] lg:block" aria-hidden />
+                          <PineLeafIcon size={17} className="shrink-0 text-[var(--olive-700)]" aria-hidden />
                           <input
                             type="checkbox"
                             className="sr-only"
@@ -1749,15 +1749,14 @@ export function ReceptionPage() {
                                 </p>
                                 <button
                                   type="button"
-                                  className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 lg:h-8 lg:w-auto lg:gap-1.5 lg:border-transparent lg:bg-transparent lg:px-2 lg:text-[12px] lg:text-red-700"
+                                  className="inline-flex h-[30px] w-auto items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent px-2 text-[11px] text-red-700 lg:h-8 lg:text-[12px]"
                                   aria-label={t('reception.dialog.deleteLineAriaLabel', { n: idx + 1 })}
                                   title={t('reception.dialog.deleteLineTitle')}
                                   onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
                                   disabled={lockNonStateFields || lineDrafts.length <= 1}
                                 >
-                                  <Trash2 className="h-4 w-4 shrink-0 lg:hidden" />
-                                  <PineTrashIcon size={17} className="hidden shrink-0 lg:block" />
-                                  <span className="hidden lg:inline">Eliminar</span>
+                                  <PineTrashIcon size={17} className="shrink-0" />
+                                  <span>Eliminar</span>
                                 </button>
                               </div>
                               {L.lot_code ? (
@@ -2069,8 +2068,7 @@ export function ReceptionPage() {
                   >
                     {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
                       <>
-                        <Truck className="h-4 w-4 lg:hidden" aria-hidden />
-                        <PineTruckIcon size={19} className="hidden lg:block" aria-hidden />
+                        <PineTruckIcon size={19} aria-hidden />
                       </>
                     ) : null}
                     {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending

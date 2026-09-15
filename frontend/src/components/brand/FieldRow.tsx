@@ -1,9 +1,15 @@
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { cn } from '@/lib/utils';
 
+type FieldIcon = ComponentType<
+  SVGProps<SVGSVGElement> & {
+    size?: number;
+    strokeWidth?: number;
+  }
+>;
+
 type Props = {
-  icon: LucideIcon;
+  icon: FieldIcon;
   label: ReactNode;
   children: ReactNode;
   className?: string;
