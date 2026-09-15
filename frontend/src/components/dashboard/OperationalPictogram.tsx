@@ -3,6 +3,7 @@ import type { ProcessSemantic } from '@/lib/process-tokens';
 import {
   PineBoxesIcon,
   PineCubeIcon,
+  PineDispatchTruckIcon,
   PineGearIcon,
   PineSnowflakeIcon,
   PineTruckIcon,
@@ -15,7 +16,7 @@ const PICTOGRAMS: Record<Exclude<ProcessSemantic, 'error' | 'admin'>, PineIconCo
   process: PineGearIcon,
   pt: PineBoxesIcon,
   stock: PineSnowflakeIcon,
-  dispatch: PineTruckIcon,
+  dispatch: PineDispatchTruckIcon,
   materials: PineCubeIcon,
 };
 

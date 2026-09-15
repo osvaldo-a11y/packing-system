@@ -9,17 +9,37 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M4 13h24v15H4z" />
+      <path fill="currentColor" d="M2 10h28v19H2z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M31 16h7l8 10v4H31V16Zm3 4v7h8l-5.4-7H34Z"
+        d="M32 15h7l8 10v6H32V15Zm3 4v7h8l-5-7h-3Z"
       />
-      <path fill="currentColor" d="M4 28h41v4H4z" />
+      <path fill="currentColor" d="M2 28h44v4H2z" />
       <path
         fill="currentColor"
         fillRule="evenodd"
-        d="M12.5 29a5.75 5.75 0 1 1 0 11.5 5.75 5.75 0 0 1 0-11.5Zm0 3.4a2.35 2.35 0 1 0 0 4.7 2.35 2.35 0 0 0 0-4.7ZM36.5 29a5.75 5.75 0 1 1 0 11.5 5.75 5.75 0 0 1 0-11.5Zm0 3.4a2.35 2.35 0 1 0 0 4.7 2.35 2.35 0 0 0 0-4.7Z"
+        d="M12 29a6.25 6.25 0 1 1 0 12.5A6.25 6.25 0 0 1 12 29Zm0 3.75a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM39 29a6.25 6.25 0 1 1 0 12.5A6.25 6.25 0 0 1 39 29Zm0 3.75a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
+      />
+    </svg>
+  );
+}
+
+/** Camión de despacho — caja de carga más larga y cabina lateral compacta. */
+export function PineDispatchTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
+      <path fill="currentColor" d="M1 12h31v18H1z" />
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M33 16h6l8 10v5H33V16Zm3 4v7h7l-4.8-7H36Z"
+      />
+      <path fill="currentColor" d="M2 29h44v4H2z" />
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M12 30a6.25 6.25 0 1 1 0 12.5A6.25 6.25 0 0 1 12 30Zm0 3.75a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM39.5 30a6.25 6.25 0 1 1 0 12.5 6.25 6.25 0 0 1 0-12.5Zm0 3.75a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"
       />
     </svg>
   );
