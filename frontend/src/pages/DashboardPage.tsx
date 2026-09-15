@@ -1340,14 +1340,81 @@ export function DashboardPage() {
 
   return (
     <div className="flex min-w-0 max-w-full flex-col overflow-x-hidden bg-[#F9F7F5]">
-      
-      <PinebloomHero
-        title={t('dashboard.askWhat')}
-        subtitle={t('dashboard.askHint')}
-        homeDesktop
-        showSeal={false}
-        className="mb-[3px]"
+
+      <header
+        data-home-mobile-hero
+        className="relative overflow-hidden border-b border-[var(--stone-200)] bg-[#F9F7F5] pb-4 pt-2 lg:hidden"
       >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute bottom-[-5px] right-[-9px] h-[132px] w-[292px] max-w-none object-contain object-right-bottom opacity-[0.66] contrast-[0.98] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_18%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.45)_10%,black_36%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_18%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.45)_10%,black_36%,black_100%)]"
+          aria-hidden
+        />
+        <div className="relative z-[1]">
+          <h1 className="max-w-full font-serif text-[38px] font-semibold leading-[0.98] tracking-[-1.35px] text-[var(--ink)]">
+            {t('dashboard.askWhat')}
+          </h1>
+          <p className="mt-1.5 font-serif text-[19px] leading-tight text-[var(--ink-muted)]">
+            {t('dashboard.askHint')}
+          </p>
+          <PeriodFilter
+            value={period}
+            onChange={setPeriod}
+            moreLabel={showMoreFilters ? t('dashboard.lessFilters') : t('dashboard.moreFilters')}
+            moreOpen={showMoreFilters}
+            onMoreClick={() => setShowMoreFilters((v) => !v)}
+            className="mt-3 gap-2 [&>button]:h-10 [&>button]:px-2.5 [&>button]:text-[12px]"
+            options={[
+              { key: 'today' as const, label: t('dashboard.filters.today') },
+              { key: 'week' as const, label: t('dashboard.filters.week') },
+              { key: 'accumulated' as const, label: t('dashboard.filters.accumulated') },
+            ]}
+          />
+          {showMoreFilters ? (
+            <div className="mt-3 grid gap-2 border-t border-[var(--pb-border)]/80 pt-3">
+              <select
+                className="h-10 w-full rounded-[9px] border border-[var(--pb-border)] bg-white px-3 text-[12px]"
+                value={producerId === 'all' ? 'all' : String(producerId)}
+                onChange={(e) => setProducerId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">{t('dashboard.filters.allProducers')}</option>
+                {(producers ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <select
+                className="h-10 w-full rounded-[9px] border border-[var(--pb-border)] bg-white px-3 text-[12px]"
+                value={speciesId === 'all' ? 'all' : String(speciesId)}
+                onChange={(e) => setSpeciesId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">{t('dashboard.filters.allFruit')}</option>
+                {(species ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+              <select
+                className="h-10 w-full rounded-[9px] border border-[var(--pb-border)] bg-white px-3 text-[12px]"
+                value={workMode}
+                onChange={(e) => setWorkMode(e.target.value as WorkMode)}
+              >
+                <option value="both">{t('dashboard.filters.both')}</option>
+                <option value="hand">{t('dashboard.filters.hand')}</option>
+                <option value="machine">{t('dashboard.filters.machine')}</option>
+              </select>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="hidden lg:block">
+        <PinebloomHero
+          title={t('dashboard.askWhat')}
+          subtitle={t('dashboard.askHint')}
+          homeDesktop
+          showSeal={false}
+          className="mb-[3px]"
+        >
         <PeriodFilter
           homeDesktop
           value={period}
@@ -1398,7 +1465,8 @@ export function DashboardPage() {
             </select>
           </div>
         ) : null}
-      </PinebloomHero>
+        </PinebloomHero>
+      </div>
 
       {!canLoad ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
@@ -1439,10 +1507,101 @@ export function DashboardPage() {
           ) : null}
         </div>
       ) : null}
+      <section data-home-mobile-modules className="mt-4 lg:hidden">
+        <div className="grid grid-cols-2 gap-2.5">
+          {(
+            [
+              {
+                to: '/receptions',
+                label: t('nav.items.recepciones'),
+                semantic: 'reception' as const,
+                metric: t('dashboard.moduleReceptionMetric', { count: receptionsFiltered.length }),
+                description: t('dashboard.moduleReceptionDesc'),
+                surface: 'border-[#AEB9A3] bg-[#EDF1E9]',
+                well: 'bg-[#D6DBCF] text-[#4D5F3C]',
+              },
+              {
+                to: '/processes',
+                label: t('nav.items.procesos'),
+                semantic: 'process' as const,
+                metric: t('dashboard.moduleProcessMetric', { count: processesFiltered.length }),
+                description: t('dashboard.moduleProcessDesc'),
+                surface: 'border-[#C8C2B7] bg-[#F4F2EE]',
+                well: 'bg-[#E1DDD4] text-[#454743]',
+              },
+              {
+                to: '/pt-tags',
+                label: t('nav.items.unidadPt'),
+                semantic: 'pt' as const,
+                metric: t('dashboard.modulePtMetric', { count: ptTagsFiltered.length }),
+                description: t('dashboard.modulePtDesc'),
+                surface: 'border-[#A9BDC8] bg-[#ECF2F5]',
+                well: 'bg-[#D5E3E9] text-[#405B68]',
+              },
+              {
+                to: '/existencias-pt/inventario',
+                label: t('nav.items.existenciasPt'),
+                semantic: 'stock' as const,
+                metric: t('dashboard.moduleStockMetric', { boxes: Math.round(stockBoxesApprox).toLocaleString() }),
+                description: t('dashboard.moduleStockDesc'),
+                surface: 'border-[#A9BDC8] bg-[#ECF2F5]',
+                well: 'bg-[#D5E3E9] text-[#405B68]',
+              },
+              {
+                to: '/dispatches',
+                label: t('nav.items.despachos'),
+                semantic: 'dispatch' as const,
+                metric: t('dashboard.moduleDispatchMetric', { count: dispatchesFiltered.length }),
+                description: t('dashboard.moduleDispatchDesc'),
+                surface: 'border-[#D4BA86] bg-[#F7F1E4]',
+                well: 'bg-[#EEE0BE] text-[#725B2D]',
+              },
+              {
+                to: '/packaging/materials',
+                label: t('nav.items.materiales'),
+                semantic: 'materials' as const,
+                metric: t('dashboard.moduleMaterialsMetric', { count: materialsActiveCount }),
+                description: t('dashboard.moduleMaterialsDesc'),
+                surface: 'border-[#AEB9A3] bg-[#EDF1E9]',
+                well: 'bg-[#D6DBCF] text-[#4D5F3C]',
+              },
+            ] as const
+          ).map((module) => {
+            const Icon = pictogramForSemantic(module.semantic);
+            return (
+              <Link
+                key={module.to}
+                to={module.to}
+                data-home-mobile-module-card
+                className={cn(
+                  'relative min-h-[164px] overflow-hidden rounded-[12px] border px-3 pb-3 pt-2.5 text-[var(--ink)]',
+                  module.surface,
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={cn('inline-flex h-12 w-12 items-center justify-center rounded-[9px]', module.well)} aria-hidden>
+                    <Icon size={29} strokeWidth={1.85} />
+                  </span>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white/90 text-[var(--ink-muted)]" aria-hidden>
+                    <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                  </span>
+                </div>
+                <p className="mt-2 min-h-[19px] font-serif text-[16px] font-semibold leading-[1.05] tracking-[-0.15px]">
+                  {module.label}
+                </p>
+                <p className="mt-1 font-serif text-[25px] font-bold leading-none tracking-[-0.35px]">
+                  {module.metric}
+                </p>
+                <p className="mt-1.5 line-clamp-2 text-[11px] leading-[1.25] text-[var(--ink-muted)]">
+                  {module.description}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
-
-
-      <section>
+      <section className="hidden lg:block">
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 xl:grid-cols-3">
           <OperationalModuleCard
             to="/receptions"
@@ -1492,7 +1651,40 @@ export function DashboardPage() {
       </section>
 
       {canWriteOps ? (
-        <section className="mt-[22px] space-y-2">
+        <>
+        <section data-home-mobile-quick className="mt-5 space-y-2 lg:hidden">
+          <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+            {t('dashboard.quickAccess.title')}
+          </h2>
+          <div className="space-y-2">
+            {(
+              [
+                { to: '/receptions', label: t('dashboard.quickAccess.newReception'), semantic: 'reception' as const, surface: 'border-[#AEB9A3] bg-[#EDF1E9]', ink: 'text-[#4D5F3C]' },
+                { to: '/processes', label: t('dashboard.quickAccess.newProcess'), semantic: 'process' as const, surface: 'border-[#C8C2B7] bg-[#F4F2EE]', ink: 'text-[#454743]' },
+                { to: '/pt-tags', label: t('dashboard.quickAccess.newPtUnit'), semantic: 'pt' as const, surface: 'border-[#A9BDC8] bg-[#ECF2F5]', ink: 'text-[#405B68]' },
+                { to: '/dispatches', label: t('dashboard.quickAccess.newDispatch'), semantic: 'dispatch' as const, surface: 'border-[#D4BA86] bg-[#F7F1E4]', ink: 'text-[#725B2D]' },
+              ] as const
+            ).map((action) => {
+              const Icon = pictogramForSemantic(action.semantic);
+              return (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  className={cn(
+                    'flex h-12 items-center gap-3 rounded-[9px] border px-3 text-[13px] font-semibold text-[var(--ink)]',
+                    action.surface,
+                  )}
+                >
+                  <Icon size={24} strokeWidth={1.85} className={cn('shrink-0', action.ink)} />
+                  <span className="min-w-0 flex-1 truncate font-serif">{action.label}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)]" />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-[22px] hidden space-y-2 lg:block">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
             <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
               {t('dashboard.quickAccess.title')}
@@ -1541,9 +1733,59 @@ export function DashboardPage() {
             })}
           </div>
         </section>
+        </>
       ) : null}
 
-      <section className="mt-9 space-y-1">
+      <section data-home-mobile-activity className="mt-6 space-y-2 lg:hidden">
+        <div>
+          <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+            {t('dashboard.recentActivity.title')}
+          </h2>
+          <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
+            {t('dashboard.recentActivity.subtitle', { defaultValue: 'Últimas operaciones en el sistema.' })}
+          </p>
+        </div>
+        {activityRows.length === 0 ? (
+          <p className="rounded-[10px] border border-dashed border-[var(--stone-300)] bg-white/70 px-3 py-3 text-[12px] text-[var(--ink-muted)]">
+            {t('dashboard.recentActivity.empty')}
+          </p>
+        ) : (
+          <ul className="overflow-hidden rounded-[10px] border border-[var(--stone-300)] bg-white/70">
+            {activityRows.map((row, idx) => {
+              const Icon = pictogramForSemantic(row.semantic);
+              const well = {
+                reception: 'bg-[#D9DED3] text-[#536047]',
+                process: 'bg-[#E5E1D8] text-[#59594F]',
+                pt: 'bg-[#DCE5E9] text-[#485C66]',
+                dispatch: 'bg-[#E9DFC9] text-[#6A5632]',
+              }[row.semantic];
+              const status = {
+                success: 'text-[var(--status-success)]',
+                info: 'text-[var(--status-info)]',
+                muted: 'text-[var(--ink-muted)]',
+                warning: 'text-[var(--status-warning)]',
+              }[row.statusTone];
+              return (
+                <li key={row.id} className={cn(idx > 0 && 'border-t border-[var(--stone-200)]')}>
+                  <Link to={row.to} className="grid min-h-[70px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-x-2.5 px-2.5 py-2">
+                    <span className={cn('inline-flex h-[38px] w-[38px] items-center justify-center rounded-[7px]', well)} aria-hidden>
+                      <Icon size={20} strokeWidth={1.85} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--ink)]">{row.kind} · {row.detail}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-[var(--ink-muted)]">{row.when}</p>
+                      <p className={cn('mt-0.5 text-[11px] font-medium', status)}>{row.statusLabel}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-muted)]" aria-hidden />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-9 hidden space-y-1 lg:block">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
           <h2 className="font-serif text-[20px] font-semibold text-[var(--ink)]">
             {t('dashboard.recentActivity.title')}
