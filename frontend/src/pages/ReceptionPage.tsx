@@ -119,7 +119,15 @@ function weekStartYmd(d = new Date()): string {
   return localDateYmd(x);
 }
 
-function DocumentStateBadge({ codigo, nombre }: { codigo?: string | null; nombre?: string | null }) {
+function DocumentStateBadge({
+  codigo,
+  nombre,
+  className,
+}: {
+  codigo?: string | null;
+  nombre?: string | null;
+  className?: string;
+}) {
   const { t } = useTranslation('common');
   const c = String(codigo ?? '').toLowerCase();
   const knownCodes = ['borrador', 'confirmado', 'cerrado', 'anulado'] as const;
@@ -152,6 +160,7 @@ function DocumentStateBadge({ codigo, nombre }: { codigo?: string | null; nombre
         badgePill,
         'inline-flex items-center gap-1 px-2 py-0.5 text-[10px]',
         entry?.className ?? 'border-slate-200 bg-slate-50 text-slate-800',
+        className,
       )}
       title={label}
     >
@@ -2731,7 +2740,7 @@ export function ReceptionPage() {
               })}
             </div>
             <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
-              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-3 lg:[&_th]:!h-[46px]">
+              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-3 lg:[&_th]:!h-12 lg:[&_th]:!py-3 lg:[&_th]:leading-none">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>
                     <TableHead className="w-[112px]">{t('reception.table.colState')}</TableHead>
@@ -2752,20 +2761,24 @@ export function ReceptionPage() {
                     const isLowNet = netLb > 0 && netLb < 400;
                     return (
                       <Fragment key={r.id}>
-                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors lg:h-[72px]', tone.rowHover)}>
+                        <TableRow className={cn(tableBodyRow, 'h-[68px] border-b border-slate-100/80 transition-colors lg:h-[78px]', tone.rowHover)}>
                           <TableCell className="max-w-[200px] py-2 align-top">
                             <div className="flex flex-col gap-1">
-                              <span className={cn('h-1 w-8 rounded-full', tone.leftBar)} />
-                              <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
+                              <span className={cn('h-1 w-8 rounded-full lg:h-[5px] lg:w-[42px]', tone.leftBar)} />
+                              <DocumentStateBadge
+                                codigo={r.document_state?.codigo}
+                                nombre={r.document_state?.nombre}
+                                className="lg:min-h-6 lg:px-2.5 lg:py-1 lg:text-[11px] lg:[&>svg]:h-3.5 lg:[&>svg]:w-3.5"
+                              />
                             </div>
                           </TableCell>
-                          <TableCell className="py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{formatReceptionDate(r.received_at)}</TableCell>
+                          <TableCell className="py-3 align-middle text-xs text-slate-700 lg:text-[13px] lg:leading-[1.35]">{formatReceptionDate(r.received_at)}</TableCell>
                           <TableCell className="max-w-[180px] py-3 align-middle lg:py-1.5">
                             <div className="flex min-w-0 items-start gap-1.5" title={r.producer?.nombre ?? ''}>
                               <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-medium leading-tight text-slate-900">{r.producer?.nombre ?? '—'}</p>
-                                <p className="truncate text-[11px] leading-tight text-slate-500">
+                                <p className="truncate text-sm font-medium leading-tight text-slate-900 lg:leading-[1.25]">{r.producer?.nombre ?? '—'}</p>
+                                <p className="truncate text-[11px] leading-tight text-slate-500 lg:text-[12px] lg:leading-snug">
                                   {r.producer?.codigo ? `#${r.producer.codigo}` : r.producer_id ? `#${r.producer_id}` : '—'}
                                   {' · '}#{r.id}
                                 </p>
@@ -2774,17 +2787,17 @@ export function ReceptionPage() {
                           </TableCell>
                           <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800 lg:text-[13px]">
                             {r.reference_code ?? r.document_number ?? '—'}
-                            {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
+                            {lotesResumen(r) !== '—' ? <p className="mt-0.5 text-[9px] text-slate-500 lg:text-[11px] lg:leading-snug">{t('reception.table.lotPrefix')} {lotesResumen(r)}</p> : null}
                           </TableCell>
                           <TableCell className="max-w-[100px] py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{especieCabecera(r)}</TableCell>
                           <TableCell className="max-w-[120px] py-3 align-middle text-xs text-slate-700 lg:text-[13px]">{variedadCabecera(r)}</TableCell>
                           <TableCell className={cn('py-3 align-middle text-right tabular-nums', isLowNet ? 'text-amber-700' : 'text-slate-900')}>
-                            <span className="text-[15px] font-semibold leading-none">
+                            <span className="text-[15px] font-semibold leading-none lg:text-[16px]">
                               {formatLb(netLb, 2)}
                             </span>
                           </TableCell>
                           <TableCell className="max-w-[220px] py-2 align-top">
-                            <p className="line-clamp-2 text-[11px] leading-snug text-slate-500 lg:text-[12px]" title={r.notes?.trim() ?? ''}>
+                            <p className="line-clamp-2 text-[11px] leading-snug text-slate-500 lg:text-[12px] lg:leading-[1.45]" title={r.notes?.trim() ?? ''}>
                               {r.notes?.trim() || '—'}
                             </p>
                           </TableCell>
@@ -2793,14 +2806,14 @@ export function ReceptionPage() {
                               <Button
                                 type="button"
                                 size="sm"
-                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white lg:min-w-[135px]', receptionTok.accent)}
+                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white lg:h-[42px] lg:min-w-[135px] lg:px-4', receptionTok.accent)}
                                 onClick={() => runPrimaryAction(r)}
                               >
                                 {primaryActionLabel(r.document_state?.codigo)}
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 lg:h-10 lg:w-10 lg:rounded-[var(--radius-md)] lg:border lg:border-[var(--stone-300)] lg:bg-white">
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 lg:h-[42px] lg:w-11 lg:rounded-[var(--radius-md)] lg:border lg:border-[var(--stone-300)] lg:bg-white">
                                     <MoreHorizontal className="h-4 w-4" />
                                     <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
                                   </Button>
@@ -2856,17 +2869,17 @@ export function ReceptionPage() {
                   })}
                 </TableBody>
               </Table>
-              <div className="hidden h-[52px] items-center justify-end gap-3 border-t border-[var(--stone-200)] px-4 text-[12px] text-[var(--ink-muted)] lg:flex">
+              <div className="hidden h-[54px] items-center justify-end gap-3 border-t border-[var(--stone-200)] px-4 pb-0.5 text-[12px] text-[var(--ink-muted)] lg:flex">
                 <span>
                   Mostrando {filteredReceptions.length > 0 ? 1 : 0}–{filteredReceptions.length} de {filteredReceptions.length}
                 </span>
-                <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0 text-[var(--ink-muted)]" aria-label="Página anterior">
+                <Button type="button" variant="ghost" size="sm" className="h-[42px] w-[42px] p-0 text-[var(--ink-muted)]" aria-label="Página anterior">
                   <ChevronRight className="h-4 w-4 rotate-180" />
                 </Button>
-                <span className="inline-flex h-10 min-w-[48px] items-center justify-center rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-2 font-medium text-[var(--ink)]">
+                <span className="inline-flex h-[42px] min-w-[50px] items-center justify-center rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-2 font-medium text-[var(--ink)]">
                   1
                 </span>
-                <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0 text-[var(--ink-muted)]" aria-label="Página siguiente">
+                <Button type="button" variant="ghost" size="sm" className="h-[42px] w-[42px] p-0 text-[var(--ink-muted)]" aria-label="Página siguiente">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
