@@ -2212,7 +2212,7 @@ export function ReceptionPage() {
 
       <section
         aria-labelledby="rec-kpis"
-        className="space-y-2.5 lg:mt-0 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+        className="space-y-3 max-lg:space-y-2.5 lg:mt-0 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)] lg:text-[20px]">
@@ -2223,48 +2223,48 @@ export function ReceptionPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
-          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
-            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-200)] text-[var(--pine-950)] lg:h-[76px] lg:w-[76px]" aria-hidden>
-              <PineTruckIcon size={30} className="lg:h-[44px] lg:w-[44px]" />
+        <div className="grid grid-cols-2 gap-2.5 max-lg:gap-2 lg:grid-cols-4 lg:gap-3">
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5 max-lg:min-h-[110px] max-lg:gap-2.5 max-lg:px-3 max-lg:py-3 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)] max-lg:h-[46px] max-lg:w-[46px] max-lg:rounded-[9px] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineTruckIcon size={39} className="max-lg:h-[30px] max-lg:w-[30px] lg:h-[44px] lg:w-[44px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.todayShort')}</p>
-              <p className="mt-1 font-serif text-[29px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.count)}</p>
-              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] max-lg:text-[29px] lg:text-[34px]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] max-lg:text-[11px] max-lg:leading-tight lg:mt-1">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
-            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--harvest-200)] text-[var(--harvest-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
-              <PineClockIcon size={30} className="lg:h-[38px] lg:w-[38px]" />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5 max-lg:min-h-[110px] max-lg:gap-2.5 max-lg:px-3 max-lg:py-3 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)] max-lg:h-[46px] max-lg:w-[46px] max-lg:rounded-[9px] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineClockIcon size={38} className="max-lg:h-[30px] max-lg:w-[30px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.pendingShort')}</p>
-              <p className={cn('mt-1 font-serif text-[29px] font-bold tabular-nums leading-none lg:text-[34px]', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
-              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
+              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none max-lg:text-[29px] lg:text-[34px]', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] max-lg:text-[11px] max-lg:leading-tight lg:mt-1">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
-            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
-              <PineWeightIcon size={30} className="lg:h-[38px] lg:w-[38px]" />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5 max-lg:min-h-[110px] max-lg:gap-2.5 max-lg:px-3 max-lg:py-3 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)] max-lg:h-[46px] max-lg:w-[46px] max-lg:rounded-[9px] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineWeightIcon size={38} className="max-lg:h-[30px] max-lg:w-[30px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.weightShort')}</p>
-              <p className="mt-1 font-serif text-[22px] font-bold tabular-nums leading-none tracking-[-0.35px] text-[var(--ink)] lg:text-[30px]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
-              <p className="mt-1.5 text-[11px] leading-[1.25] text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">lb total recibido</p>
+              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)] max-lg:text-[22px] max-lg:tracking-[-0.35px] lg:text-[30px]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] max-lg:text-[11px] max-lg:leading-[1.25] lg:mt-1">lb total recibido</p>
             </div>
           </div>
 
-          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
-            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-200)] text-[var(--olive-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
-              <PineUsersIcon size={31} className="lg:h-[40px] lg:w-[40px]" />
+          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5 max-lg:min-h-[110px] max-lg:gap-2.5 max-lg:px-3 max-lg:py-3 lg:items-center lg:gap-5 lg:py-3">
+            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)] max-lg:h-[46px] max-lg:w-[46px] max-lg:rounded-[9px] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
+              <PineUsersIcon size={40} className="max-lg:h-[31px] max-lg:w-[31px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.producersShort')}</p>
-              <p className="mt-1 font-serif text-[29px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.producers)}</p>
-              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] max-lg:text-[29px] lg:text-[34px]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] max-lg:text-[11px] max-lg:leading-tight lg:mt-1">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
         </div>
@@ -2469,12 +2469,12 @@ export function ReceptionPage() {
         className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="rec-tabla"
       >
-        <div className="flex items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
-          <div className="min-w-0 lg:flex lg:items-baseline lg:gap-4">
-            <h2 id="rec-tabla" className={cn(sectionTitle, 'font-serif text-[20px] leading-tight lg:text-[21px]')}>
+        <div className="flex flex-wrap items-end justify-between gap-2 max-lg:flex-nowrap lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+          <div className="max-lg:min-w-0 lg:flex lg:items-baseline lg:gap-4">
+            <h2 id="rec-tabla" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:leading-tight lg:font-serif lg:text-[21px] lg:leading-tight')}>
               {datePreset === 'today' ? t('reception.workTodayTitle') : t('reception.table.title')}
             </h2>
-            <p className={cn(sectionHint, 'mt-1 text-[11px] leading-snug lg:hidden')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
+            <p className={cn(sectionHint, 'max-lg:mt-1 max-lg:leading-snug lg:hidden')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
             <p className="hidden text-[12px] text-[var(--ink-muted)] lg:block">
               {filteredReceptions.length} {filteredReceptions.length === 1 ? 'recepción' : 'recepciones'}
             </p>
@@ -2512,14 +2512,14 @@ export function ReceptionPage() {
               <LayoutGrid className="h-4 w-4" aria-hidden />
             </Button>
           </div>
-          <div className="flex shrink-0 items-center gap-2 lg:hidden">
+          <div className="flex flex-wrap items-center gap-2 max-lg:shrink-0 max-lg:flex-nowrap lg:hidden">
             {isAdminRole || canOperateReception ? (
               <div className="relative">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-10 rounded-[9px] border-[var(--stone-300)] bg-white px-3 text-[11px] font-semibold"
+                  className="h-8 text-xs max-lg:h-10 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:px-3 max-lg:text-[11px] max-lg:font-semibold lg:h-10 lg:min-w-[142px] lg:px-4"
                   onClick={() => setShowMoreActions((v) => !v)}
                 >
                   <MoreHorizontal className="mr-1 h-3.5 w-3.5" />
