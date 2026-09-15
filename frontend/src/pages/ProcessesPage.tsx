@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ChevronDown, HelpCircle, Info, Link2Off, Pencil, Plus, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Filter, HelpCircle, Info, Link2Off, Pencil, Plus, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -26,20 +26,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PineBoxesIcon, PineCubeIcon, PineGearIcon, PineWeightIcon } from '@/components/icons/pinebloom';
 import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCodeMatchKey } from '@/lib/format-code';
 import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
+import { appBranding } from '@/lib/branding';
 import {
   contentCard,
   emptyStateBanner,
   filterInputClass,
   filterSelectClass,
-  kpiCard,
-  kpiCardSm,
-  kpiFootnote,
-  kpiLabel,
-  kpiValueLg,
-  kpiValueMd,
   pageInfoButton,
   operationalModalBodyClass,
   operationalModalContentClass,
@@ -517,6 +513,8 @@ export function ProcessesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterProcessClient, setFilterProcessClient] = useState(0);
   const [filterProcessFormat, setFilterProcessFormat] = useState('');
+  const [filterSearch, setFilterSearch] = useState('');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
 
   const producersForCreate = useMemo(() => {
@@ -1106,6 +1104,9 @@ export function ProcessesPage() {
         return Number(tag?.client_id ?? 0) === filterProcessClient;
       });
     }
+    if (filterSearch.trim()) {
+      rows = rows.filter((r) => processRowMatchesGlobalSearch(r, filterSearch));
+    }
     return rows;
   }, [
     data,
@@ -1116,6 +1117,7 @@ export function ProcessesPage() {
     filterStatus,
     filterProcessFormat,
     filterProcessClient,
+    filterSearch,
     tagById,
   ]);
 
@@ -1430,21 +1432,35 @@ export function ProcessesPage() {
   }
 
   return (
-    <div className="font-inter space-y-8">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
+    <div className="font-inter space-y-8 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <header
+        data-processes-desktop-hero
+        className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:relative lg:min-h-[107px] lg:overflow-hidden lg:border-b lg:border-[var(--stone-200)] lg:py-[11px]"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[58%] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.16)_18%,rgba(0,0,0,0.68)_43%,black_69%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.58)_13%,black_38%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.16)_18%,rgba(0,0,0,0.68)_43%,black_69%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.58)_13%,black_38%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-1.5 lg:space-y-2">
           <div className="flex items-center gap-2">
-            <h1 className={pageTitle}>{t('process.pageTitle')}</h1>
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[46px] lg:font-semibold lg:leading-none lg:tracking-[-1.2px] lg:text-[var(--ink)]')}>
+              <span className="lg:hidden">{t('process.pageTitle')}</span>
+              <span className="hidden lg:inline">{t('nav.items.procesos')}</span>
+            </h1>
             <button
               type="button"
-              className={pageInfoButton}
+              className={cn(pageInfoButton, 'lg:mt-1')}
               title="Lb entrada = reparto por línea; packout desde unidades PT. Estados: borrador → confirmar → cerrado."
               aria-label={t('process.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
           </div>
-          <p className={pageSubtitle}>{t('process.pageSubtitle')}</p>
+          <p className={cn(pageSubtitle, 'lg:font-serif lg:text-[17px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('process.pageSubtitle')}
+          </p>
         </div>
         <Dialog
           open={open}
@@ -1458,8 +1474,8 @@ export function ProcessesPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm">
-              <Plus className="h-4 w-4" />
+            <Button className="relative z-[1] h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm lg:h-[52px] lg:min-w-[216px] lg:rounded-[var(--radius-md)] lg:bg-[var(--olive-700)] lg:px-6 lg:text-[16px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]">
+              <Plus className="h-4 w-4 lg:h-6 lg:w-6" />
               {t('process.newButton')}
             </Button>
           </DialogTrigger>
@@ -1759,98 +1775,88 @@ export function ProcessesPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </header>
 
-      <section aria-labelledby="proc-kpis" className="space-y-3">
-        <h2 id="proc-kpis" className="sr-only">
-          {t('process.srKpis')}
+      <section
+        data-processes-desktop-kpis
+        aria-labelledby="proc-kpis"
+        className="space-y-3 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <h2 id="proc-kpis" className="sr-only lg:not-sr-only lg:font-serif lg:text-[20px] lg:font-semibold lg:text-[var(--ink)]">
+          Resumen del día
         </h2>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('process.kpi.entrada')}</p>
-            <p className={cn(kpiValueLg, 'text-blue-700')}>{fmtLb2(processKpis.lbEntrada)}</p>
-            <p className={kpiFootnote}>{t('process.kpi.entradaNote')}</p>
-          </div>
-          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('process.kpi.packout')}</p>
-            <p className={cn(kpiValueLg, 'text-green-700')}>{fmtLb2(processKpis.lbPack)}</p>
-            <p className={kpiFootnote}>{t('process.kpi.packoutNote')}</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              processKpis.rendimientoPct != null
-                ? processKpis.rendimientoPct >= 90
-                  ? 'border-green-200 bg-green-50'
-                  : processKpis.rendimientoPct >= 75
-                    ? 'border-amber-200 bg-amber-50'
-                    : 'border-red-200 bg-red-50'
-                : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('process.kpi.rendimiento')}</p>
-            <p
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+          {[
+            {
+              label: t('process.kpi.entrada'),
+              value: fmtLb2(processKpis.lbEntrada),
+              note: t('process.kpi.entradaNote'),
+              Icon: PineGearIcon,
+              card: 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('process.kpi.packout'),
+              value: fmtLb2(processKpis.lbPack),
+              note: t('process.kpi.packoutNote'),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+            {
+              label: t('process.kpi.rendimiento'),
+              value: processKpis.rendimientoPct != null ? `${formatPercent(processKpis.rendimientoPct, 2)}%` : '—',
+              note: t('process.kpi.rendimientoNote'),
+              Icon: PineWeightIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('process.kpi.boxes'),
+              value: formatCount(processKpis.totalCajas),
+              note: t('process.kpi.boxesNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
               className={cn(
-                kpiValueLg,
-                processKpis.rendimientoPct != null
-                  ? processKpis.rendimientoPct >= 90
-                    ? 'text-green-700'
-                    : processKpis.rendimientoPct >= 75
-                      ? 'text-amber-700'
-                      : 'text-red-700'
-                  : '',
+                'flex min-h-[104px] items-center gap-4 rounded-[var(--radius-lg)] border px-3.5 py-3',
+                card,
               )}
             >
-              {processKpis.rendimientoPct != null ? `${formatPercent(processKpis.rendimientoPct, 2)}%` : '—'}
-            </p>
-            <p className={kpiFootnote}>{t('process.kpi.rendimientoNote')}</p>
-          </div>
-          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('process.kpi.boxes')}</p>
-            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(processKpis.totalCajas)}</p>
-            <p className={kpiFootnote}>{t('process.kpi.boxesNote')}</p>
-          </div>
+              <span className={cn('inline-flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={38} />
+              </span>
+              <div className="min-w-0">
+                <p className="font-serif text-[13px] font-medium leading-tight text-[var(--ink)]">{label}</p>
+                <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none tracking-[-0.65px] text-[var(--ink)]">
+                  {value}
+                </p>
+                <p className="mt-1 text-[11px] leading-tight text-[var(--ink-muted)]">{note}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div
-            className={cn(
-              kpiCardSm,
-              processKpis.lbEntrada > 0
-                ? (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 15
-                  ? 'border-red-200 bg-red-50'
-                  : (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 8
-                    ? 'border-amber-200 bg-amber-50'
-                    : ''
-                : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('process.kpi.merma')}</p>
-            <p
-              className={cn(
-                kpiValueMd,
-                processKpis.lbEntrada > 0
-                  ? (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 15
-                    ? 'text-red-700'
-                    : (processKpis.lbMerma / processKpis.lbEntrada) * 100 > 8
-                      ? 'text-amber-700'
-                      : ''
-                  : '',
-              )}
+        <div className="grid gap-2 sm:grid-cols-3 lg:gap-3">
+          {[
+            [t('process.kpi.merma'), fmtLb2(processKpis.lbMerma), t('process.kpi.mermaNote')],
+            [t('process.kpi.jugo'), fmtLb2(processKpis.lbJugo), t('process.kpi.jugoNote')],
+            [t('process.kpi.desecho'), fmtLb2(processKpis.lbDesecho), t('process.kpi.desechoNote')],
+          ].map(([label, value, note]) => (
+            <div
+              key={label}
+              className="flex min-h-[42px] items-center justify-between gap-4 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3"
             >
-              {fmtLb2(processKpis.lbMerma)}
-            </p>
-            <p className={kpiFootnote}>{t('process.kpi.mermaNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('process.kpi.jugo')}</p>
-            <p className={kpiValueMd}>{fmtLb2(processKpis.lbJugo)}</p>
-            <p className={kpiFootnote}>{t('process.kpi.jugoNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('process.kpi.desecho')}</p>
-            <p className={kpiValueMd}>{fmtLb2(processKpis.lbDesecho)}</p>
-            <p className={kpiFootnote}>{t('process.kpi.desechoNote')}</p>
-          </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{label}</p>
+                <p className="truncate text-[10px] text-[var(--ink-muted)]">{note}</p>
+              </div>
+              <p className="shrink-0 font-serif text-[20px] font-semibold tabular-nums text-[var(--ink)]">{value}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -2704,7 +2710,137 @@ export function ProcessesPage() {
         </DialogContent>
       </Dialog>
 
-      <div className={cn(contentCard, 'px-4 py-5 sm:px-5')}>
+      <div
+        data-processes-desktop-filters
+        className="mt-3 hidden rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+      >
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={filterDateFrom === localDateYmd() && filterDateTo === localDateYmd() ? 'default' : 'outline'}
+            className={cn(
+              'h-10 min-w-[104px] gap-1.5 rounded-md px-4 text-[13px] font-semibold',
+              filterDateFrom === localDateYmd() && filterDateTo === localDateYmd()
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {t('process.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant={!filterDateFrom && !filterDateTo ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'h-10 min-w-[104px] rounded-md px-4 text-[13px] font-semibold',
+              !filterDateFrom && !filterDateTo
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('process.filters.clearDates')}
+          </Button>
+          <div className="relative min-w-[16rem] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
+            <Input
+              className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white pl-10')}
+              placeholder={t('process.search.placeholder')}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              aria-label={t('process.search.placeholder')}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? 'Ocultar filtros' : 'Más filtros'}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('process.filters.dateFrom')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-9 border-[var(--stone-300)] bg-white')}
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('process.filters.dateTo')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-9 border-[var(--stone-300)] bg-white')}
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2">
+              <select className={cn(filterSelectClass, 'border-[var(--stone-300)] bg-white')} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
+                <option value={0}>{t('process.filters.allProducers')}</option>
+                {(producers ?? []).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <select className={cn(filterSelectClass, 'border-[var(--stone-300)] bg-white')} value={filterVariedad} onChange={(e) => setFilterVariedad(Number(e.target.value))}>
+                <option value={0}>{t('process.filters.allVarieties')}</option>
+                {varietyOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <select className={cn(filterSelectClass, 'border-[var(--stone-300)] bg-white')} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="todos">{t('process.filters.allStates')}</option>
+                <option value="vinculable_pt">{t('process.filters.linkablePt')}</option>
+                <option value="borrador">borrador</option>
+                <option value="confirmado">confirmado</option>
+                <option value="cerrado">cerrado</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <select
+                className={cn(filterSelectClass, 'border-[var(--stone-300)] bg-white')}
+                value={filterProcessFormat}
+                onChange={(e) => setFilterProcessFormat(e.target.value)}
+                title="Filtra procesos con unidad PT del formato indicado"
+              >
+                <option value="">{t('process.filters.allFormats')}</option>
+                {formatFilterOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="col-span-3">
+              <select
+                className={cn(filterSelectClass, 'border-[var(--stone-300)] bg-white')}
+                value={filterProcessClient}
+                onChange={(e) => setFilterProcessClient(Number(e.target.value))}
+                title="Filtra procesos con unidad PT asignada a este cliente"
+              >
+                <option value={0}>{t('process.filters.allClients')}</option>
+                {(commercialClients ?? []).map((c) => <option key={c.id} value={c.id}>{c.codigo} — {c.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className={cn(contentCard, 'px-4 py-5 sm:px-5 lg:hidden')}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('process.filters.title')}</span>
           <button
@@ -2836,21 +2972,28 @@ export function ProcessesPage() {
         </div>
       </div>
 
-      <section className="space-y-3" aria-labelledby="proc-listado">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 id="proc-listado" className={sectionTitle}>
+      <section
+        data-processes-desktop-list
+        className="space-y-3 lg:mt-3 lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="proc-listado"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+          <div className="lg:flex lg:items-baseline lg:gap-4">
+            <h2 id="proc-listado" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:font-semibold lg:leading-tight lg:text-[var(--ink)]')}>
               {t('process.table.title')}
             </h2>
-            <span className={cn(sectionHint, '!mt-0')}>{t('process.table.hint')}</span>
+            <span className={cn(sectionHint, '!mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>{t('process.table.hint')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <div className="inline-flex rounded-[8px] border border-[var(--stone-300)] bg-white p-1">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs shadow-none',
+                  viewMode === 'compact' && 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]',
+                )}
                 onClick={() => setViewMode('compact')}
               >
                 {t('process.table.viewCompact')}
@@ -2859,17 +3002,20 @@ export function ProcessesPage() {
                 type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs shadow-none',
+                  viewMode === 'detailed' && 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]',
+                )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('process.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+              <summary className="cursor-pointer list-none rounded-md border border-[var(--stone-300)] bg-white px-2.5 py-2 text-[11px] font-medium text-[var(--ink-muted)] hover:bg-[var(--stone-100)]">
                 {t('process.table.criteria')}
               </summary>
-              <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+              <div className="mt-1 rounded-md border border-[var(--stone-300)] bg-white p-2 text-[11px] leading-snug text-[var(--ink-muted)]">
                 <p>
                   <span className="font-semibold text-emerald-700">{t('process.table.criteriaGood')}</span> &ge; 80%
                 </p>
@@ -2887,20 +3033,19 @@ export function ProcessesPage() {
           </div>
         </div>
         {viewMode === 'compact' ? (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 lg:min-h-[192px] lg:bg-white">
             {compactGroups.length === 0 ? (
-              <p className={emptyStateBanner}>{t('process.table.empty')}</p>
+              <p className={cn(emptyStateBanner, 'lg:flex lg:min-h-[192px] lg:items-center lg:justify-center lg:rounded-none lg:border-0 lg:bg-[#FBFCFD] lg:text-[13px] lg:text-[var(--bluegray-700)]')}>
+                {t('process.table.empty')}
+              </p>
             ) : (
               compactGroups.map((group, gi) => {
                 return (
-                  <div key={group.key} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
-                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-muted/40 px-3 py-2 text-[12px] backdrop-blur supports-[backdrop-filter]:bg-muted/35">
-                      <div className="min-w-0 truncate text-slate-800">
+                  <div key={group.key} className="overflow-hidden border-b border-[var(--stone-200)] bg-white last:border-b-0">
+                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-100)] px-3.5 py-2 text-[12px]">
+                      <div className="min-w-0 truncate text-[var(--ink)]">
                         <span
-                          className={cn(
-                            'mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle',
-                            ['bg-teal-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500'][gi % 4],
-                          )}
+                          className={cn('mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle', gi % 2 === 0 ? 'bg-[var(--olive-700)]' : 'bg-[var(--bluegray-700)]')}
                         />
                         <span className="font-semibold">{group.producerName}</span>
                         <span className="mx-2 text-slate-400">·</span>
@@ -2927,7 +3072,7 @@ export function ProcessesPage() {
                     </div>
                     <div className="overflow-x-auto">
                       <Table className="min-w-[980px]">
-                        <TableHeader>
+                        <TableHeader className="bg-[var(--stone-50)]">
                           <TableRow className="hover:bg-transparent">
                             <TableHead>{t('process.columns.estado')}</TableHead>
                             <TableHead>{t('process.columns.fecha')}</TableHead>
@@ -2951,7 +3096,7 @@ export function ProcessesPage() {
                             const cerrado = r.process_status === 'cerrado';
                             const adminEdit = cerrado && isAdminRole;
                             return (
-                              <TableRow key={r.id} className="border-b border-slate-100/70 hover:bg-slate-50/70">
+                              <TableRow key={r.id} className="border-b border-[var(--stone-200)] hover:bg-[var(--stone-50)]">
                                 <TableCell className="py-2.5">
                                   <div className="flex items-center gap-2">
                                     <span className={cn('h-5 w-1.5 rounded-full', rt.bar)} />
@@ -2982,7 +3127,7 @@ export function ProcessesPage() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      className="h-8 gap-1 border-slate-200 bg-white px-2.5 text-xs font-medium shadow-sm"
+                                      className="h-8 gap-1 border-[var(--stone-300)] bg-white px-2.5 text-xs font-medium shadow-none"
                                       onClick={() => openWeights(r)}
                                       title={
                                         cerrado && !isAdminRole
@@ -3033,7 +3178,7 @@ export function ProcessesPage() {
             )}
           </div>
         ) : (
-          <div className={cn(tableShell, 'overflow-x-auto')}>
+          <div className={cn(tableShell, 'overflow-x-auto lg:rounded-none lg:border-0 lg:shadow-none')}>
             <DataTable
               columns={columns}
               data={sortedFilteredProcesses}
@@ -3042,8 +3187,8 @@ export function ProcessesPage() {
               initialPageSize={25}
               scrollToRowId={focusPid}
               getRowClassName={(r) => (r.id === focusPid ? 'bg-sky-50/60 ring-1 ring-inset ring-sky-200/70' : undefined)}
-              containerClassName="px-3 py-3 sm:px-4"
-              tableClassName="min-w-[1180px] [&_td]:py-3 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right"
+              containerClassName="px-3 py-3 sm:px-4 lg:px-0 lg:py-0"
+              tableClassName="min-w-[1180px] [&_td]:border-b [&_td]:border-[var(--stone-200)] [&_td]:py-3 [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-[var(--stone-50)] [&_th]:py-2.5 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-[var(--ink-muted)] [&_th:last-child]:text-right"
             />
           </div>
         )}
