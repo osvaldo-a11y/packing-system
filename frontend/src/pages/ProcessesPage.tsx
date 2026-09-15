@@ -35,6 +35,7 @@ import {
   emptyStateBanner,
   filterInputClass,
   filterSelectClass,
+  modalFormPrimaryButton,
   pageInfoButton,
   operationalModalBodyClass,
   operationalModalContentClass,
@@ -1480,32 +1481,41 @@ export function ProcessesPage() {
             </Button>
           </DialogTrigger>
           <DialogContent
+            hideCloseButton
+            fullScreenMobile
             className={cn(
               operationalModalContentClass,
-              'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:max-w-[min(1050px,calc(100vw-2rem))] lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] [&>button]:hidden',
+              'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] max-lg:overflow-x-hidden lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:max-w-[min(1050px,calc(100vw-2rem))] lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] [&>button]:hidden',
             )}
           >
             <DialogHeader
               data-new-process-header
               className={cn(
                 operationalModalHeaderClass,
-                'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
+                'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] max-lg:!pr-4 max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
               )}
             >
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)] lg:hidden" aria-hidden />
               <img
                 src={appBranding.landscapeUrl}
                 alt=""
-                className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
+                className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden lg:block lg:right-[-1%] lg:w-[58%] lg:opacity-[0.72] lg:contrast-[0.98] lg:brightness-[1.02] lg:[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)]"
                 aria-hidden
               />
               <div className="relative z-[1] flex items-start justify-between gap-4">
                 <div className="min-w-0 space-y-1">
-                  <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 lg:text-[26px] lg:leading-tight')}>
+                  <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 max-lg:text-[23px] lg:text-[26px] lg:leading-tight')}>
                     <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
                     {t('process.dialog.title')}
                   </DialogTitle>
                   <p className="text-[13px] text-[var(--ink-muted)] lg:text-[14px]">
                     {t('process.pageSubtitle')}
+                  </p>
+                  <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] lg:hidden">
+                    <span className="block">FRUTA DE</span>
+                    <span className="block">NUESTRA TIERRA.</span>
+                    <span className="block">UN FUTURO</span>
+                    <span className="block">MÁS BRILLANTE.</span>
                   </p>
                 </div>
                 <button
@@ -1519,30 +1529,30 @@ export function ProcessesPage() {
               </div>
             </DialogHeader>
             <form onSubmit={form.handleSubmit(submitNewProcess)} className={operationalModalFormClass}>
-              <div className={cn(operationalModalBodyClass, 'lg:overflow-y-auto lg:px-2 lg:py-0')}>
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:grid lg:grid-cols-[390px_minmax(0,1fr)] lg:items-start lg:gap-4 lg:overflow-visible lg:py-2">
+              <div className={cn(operationalModalBodyClass, 'max-lg:overflow-y-auto max-lg:px-[14px] max-lg:py-3 max-lg:pb-5 lg:overflow-y-auto lg:px-2 lg:py-0')}>
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:grid-cols-[390px_minmax(0,1fr)] lg:items-start lg:gap-4 lg:overflow-visible lg:py-2">
                   <section
                     data-new-process-step1
                     className={cn(
                       operationalModalSectionMuted,
-                      'flex min-h-0 flex-col gap-2 overflow-hidden lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
+                      'flex min-h-0 flex-col gap-2 overflow-hidden max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
                     )}
                   >
-                    <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-4 lg:gap-3')}>
                       <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
-                      <div>
-                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('process.dialog.step1')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                      <div className="min-w-0">
+                        <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[21px]')}>{t('process.dialog.step1')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                           Seleccioná el productor y distribuí la fruta disponible.
                         </p>
                       </div>
                     </div>
                     <div className="grid shrink-0 gap-2">
-                      <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                      <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                         {t('process.dialog.producerLabel')} <span className="text-red-700">*</span>
                       </Label>
                       <select
-                        className={cn(filterSelectClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
+                        className={cn(filterSelectClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:w-full max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
                         value={producerId}
                         onChange={(e) => setProducerId(Number(e.target.value))}
                       >
@@ -1555,7 +1565,7 @@ export function ProcessesPage() {
                         ))}
                       </select>
                       {producerIdsWithMp && producersForCreate.length === 0 ? (
-                        <p className="text-sm text-amber-700 dark:text-amber-500">
+                        <p className="w-full text-sm leading-relaxed text-amber-700 dark:text-amber-500 max-lg:text-[13px] max-lg:leading-[1.5] max-lg:text-[var(--harvest-700,#B45309)]">
                           {t('process.dialog.noMpWarning')}
                         </p>
                       ) : null}
@@ -1622,31 +1632,31 @@ export function ProcessesPage() {
                   </section>
 
                   <div data-new-process-main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-                  <section className={cn(operationalModalSectionCard, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}>
-                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 lg:gap-3')}>
+                  <section data-new-process-step2 className={cn(operationalModalSectionCard, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:gap-3')}>
                       <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
-                      <div>
-                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('process.dialog.step2')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                      <div className="min-w-0">
+                        <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[21px]')}>{t('process.dialog.step2')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                           Definí cuándo y en qué línea se realiza el proceso.
                         </p>
                       </div>
                     </div>
-                    <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-4 lg:grid-cols-2">
                       <div className="grid gap-1.5">
-                        <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]" htmlFor="fecha_proceso">
+                        <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]" htmlFor="fecha_proceso">
                           {t('process.dialog.fieldDatetime')} <span className="text-red-700">*</span>
                         </Label>
                         <Input
                           id="fecha_proceso"
                           type="datetime-local"
-                          className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
+                          className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
                           {...form.register('fecha_proceso')}
                         />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldMachine')}</Label>
-                        <select className={cn(filterSelectClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')} {...form.register('process_machine_id', { valueAsNumber: true })}>
+                        <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldMachine')}</Label>
+                        <select className={cn(filterSelectClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')} {...form.register('process_machine_id', { valueAsNumber: true })}>
                           <option value={0}>{t('process.dialog.chooseLine')}</option>
                           {activeMachineByKind.single ? (
                             <option value={activeMachineByKind.single.id}>{t('process.dialog.machineLineSingle')}</option>
@@ -1655,63 +1665,66 @@ export function ProcessesPage() {
                             <option value={activeMachineByKind.double.id}>{t('process.dialog.machineLineDouble')}</option>
                           ) : null}
                         </select>
-                        <p className="text-[11px] leading-snug text-muted-foreground">
+                        <p className="text-[11px] leading-snug text-muted-foreground max-lg:text-[12px]">
                           {t('process.dialog.machineHint')}
                         </p>
                       </div>
                     </div>
                   </section>
 
-                  <section className={cn(operationalModalSectionCard, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}>
-                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 lg:gap-3')}>
+                  <section data-new-process-step3 className={cn(operationalModalSectionCard, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:gap-3')}>
                       <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
-                      <div>
-                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('process.dialog.step3')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                      <div className="min-w-0">
+                        <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[21px]')}>{t('process.dialog.step3')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                           Revisá la entrada calculada y agregá una nota si corresponde.
                         </p>
                       </div>
                     </div>
-                    <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-4 lg:grid-cols-2">
                       <div className="grid gap-1.5">
-                        <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldEntrada')}</Label>
+                        <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldEntrada')}</Label>
                         <Input
                           readOnly
-                          className={cn(filterInputClass, 'bg-muted/50 lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]')}
+                          className={cn(filterInputClass, 'bg-muted/50 font-serif tabular-nums max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--stone-100)] max-lg:text-[16px] max-lg:text-[var(--ink-muted)] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]')}
                           value={entradaSum > 0 ? fmtLb2(entradaSum) : ''}
                         />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldNota')}</Label>
-                        <Input className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')} {...form.register('nota')} />
+                        <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldNota')}</Label>
+                        <Input className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')} {...form.register('nota')} />
                       </div>
                     </div>
                     {createSpeciesId == null ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
+                      <p className="mt-2 text-xs text-muted-foreground max-lg:text-[13px] max-lg:leading-snug">
                         {t('process.dialog.speciesHint')}
                       </p>
                     ) : null}
                   </section>
 
-                  <section className={cn(operationalModalSectionMuted, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/45 lg:p-4')}>
-                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 lg:gap-3')}>
+                  <section data-new-process-step4 className={cn(operationalModalSectionMuted, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/45 lg:p-4')}>
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:gap-3')}>
                       <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
-                      <div>
-                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('process.dialog.step4')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                      <div className="min-w-0">
+                        <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[21px]')}>{t('process.dialog.step4')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                           Distribuí el resultado cuando la especie esté determinada.
                         </p>
                       </div>
                     </div>
                     {activeCreateComponents.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                         {activeCreateComponents.map((c) => (
-                          <div key={c.id} className="grid gap-1">
-                            <Label className="text-xs lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{c.nombre}</Label>
+                          <div
+                            key={c.id}
+                            className="grid gap-1 max-lg:rounded-[10px] max-lg:border max-lg:border-[var(--stone-200)] max-lg:bg-white max-lg:px-3.5 max-lg:py-3.5"
+                          >
+                            <Label className="text-xs max-lg:text-[13px] max-lg:font-medium max-lg:normal-case max-lg:tracking-normal max-lg:text-[var(--ink)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{c.nombre}</Label>
                             <Input
                               type="number"
                               step="0.01"
-                              className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
+                              className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white')}
                               value={createComponentsDraft[c.id] ?? 0}
                               onChange={(e) =>
                                 setCreateComponentsDraft((prev) => ({
@@ -1724,52 +1737,52 @@ export function ProcessesPage() {
                         ))}
                       </div>
                     ) : createSpeciesId != null ? (
-                      <p className="text-xs text-muted-foreground">{t('process.dialog.noComponents')}</p>
+                      <p className="text-xs text-muted-foreground max-lg:text-[13px] max-lg:leading-snug">{t('process.dialog.noComponents')}</p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground max-lg:text-[13px] max-lg:leading-snug">
                         {t('process.dialog.componentsHint')}
                       </p>
                     )}
                   </section>
 
-                  <div data-new-process-calculations className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5">
+                  <div data-new-process-calculations className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5 max-lg:px-[14px] max-lg:py-[14px]">
                     {entradaSum > 0 ? (
-                      <p className="mb-3 rounded-[8px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] p-2 text-[11px] leading-snug text-[var(--bluegray-700)]">
+                      <p className="mb-3 rounded-[8px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] p-2 text-[11px] leading-snug text-[var(--bluegray-700)] max-lg:text-[12px]">
                         {t('process.dialog.calcNewNotice')}
                       </p>
                     ) : null}
-                    <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)]">
+                    <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)] max-lg:text-[18px]">
                       {t('process.dialog.calcTitle')}
                     </p>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                      <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 max-lg:gap-[10px]">
+                      <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3 max-lg:min-h-[88px]">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                           {t('process.dialog.calcEntrada')}
                         </p>
-                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)] max-lg:text-[24px]">
                           {fmtLb2(entradaSum)}
                         </p>
                       </div>
-                      <div className="rounded-[9px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-3">
+                      <div className="rounded-[9px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-3 max-lg:min-h-[88px]">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                           {t('process.dialog.calcPackout')}
                         </p>
-                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)] max-lg:text-[24px]">
                           {fmtLb2(packoutFromTagsCreate)}
                         </p>
-                        <p className="mt-1 text-[9px] leading-tight text-slate-400">{t('process.dialog.calcPackoutNote')}</p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-400 max-lg:text-[10px]">{t('process.dialog.calcPackoutNote')}</p>
                       </div>
-                      <div className="rounded-[9px] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-3">
+                      <div className="rounded-[9px] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-3 max-lg:min-h-[88px]">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                           {t('process.dialog.calcComponents')}
                         </p>
-                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                        <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)] max-lg:text-[24px]">
                           {fmtLb2(createComponentsTotal)}
                         </p>
                       </div>
                       <div
                         className={cn(
-                          'rounded-[9px] border px-3 py-3',
+                          'rounded-[9px] border px-3 py-3 max-lg:min-h-[88px]',
                           Math.abs(diferenciaRep) < ALLOC_EPS
                             ? 'border-[var(--sage-200)] bg-[var(--sage-100)]'
                             : 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
@@ -1778,11 +1791,11 @@ export function ProcessesPage() {
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                           {t('process.dialog.calcDiff')}
                         </p>
-                        <p className="mt-1 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                        <p className="mt-1 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)] max-lg:text-[24px]">
                           {fmtLb2(diferenciaRep)}
                           <span className="ml-1 text-[10px] font-sans font-normal text-slate-500">lb</span>
                         </p>
-                        <p className="mt-1 text-[9px] leading-tight text-slate-500">{t('process.dialog.calcDiffNote')}</p>
+                        <p className="mt-1 text-[9px] leading-tight text-slate-500 max-lg:text-[10px]">{t('process.dialog.calcDiffNote')}</p>
                       </div>
                     </div>
                     {activeCreateComponents.length > 0 ? (
@@ -1804,13 +1817,38 @@ export function ProcessesPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter className={cn(operationalModalFooterClass, 'lg:hidden')}>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                {t('process.dialog.cancelButton')}
-              </Button>
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? t('process.dialog.savingButton') : t('process.dialog.registerButton')}
-              </Button>
+            <DialogFooter
+              data-new-process-footer-mobile
+              className={cn(
+                operationalModalFooterClass,
+                '!flex !flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2',
+                'sticky bottom-0 z-10 lg:hidden',
+              )}
+            >
+              <div className="flex w-full flex-nowrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 min-h-11 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)]"
+                  onClick={() => setOpen(false)}
+                >
+                  {t('process.dialog.cancelButton')}
+                </Button>
+                <button
+                  type="submit"
+                  className={cn(modalFormPrimaryButton, 'inline-flex h-11 min-h-11 w-[62%] flex-none items-center justify-center gap-2 text-[13px]')}
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending ? t('process.dialog.savingButton') : t('process.dialog.registerButton')}
+                </button>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 text-[10px] leading-none text-[var(--ink-muted)]">
+                <span>
+                  Entrada <span className="font-serif font-semibold text-[var(--ink)]">{fmtLb2(entradaSum)} lb</span>
+                  {' · '}
+                  Diferencia <span className="font-serif font-semibold text-[var(--ink)]">{fmtLb2(diferenciaRep)} lb</span>
+                </span>
+              </div>
             </DialogFooter>
             <DialogFooter
               data-new-process-footer
