@@ -32,7 +32,6 @@ import { formatCodeMatchKey } from '@/lib/format-code';
 import { formatCount, formatLb, formatPercent } from '@/lib/number-format';
 import { appBranding } from '@/lib/branding';
 import {
-  contentCard,
   emptyStateBanner,
   filterInputClass,
   filterSelectClass,
