@@ -83,7 +83,7 @@ export function PinebloomHero({
               className={cn(
                 'font-serif text-[var(--ink)]',
                 homeDesktop ? 'text-[62px] tracking-[-1px]' : 'text-[40px] tracking-[-0.6px] sm:text-[44px]',
-                receptionsDesktop && 'lg:text-[56px] lg:tracking-[-0.8px]',
+                receptionsDesktop && 'lg:text-[66px] lg:tracking-[-0.9px]',
               )}
               style={{
                 fontFamily: 'Georgia, "Times New Roman", Times, serif',
@@ -103,7 +103,7 @@ export function PinebloomHero({
                     : compact
                       ? 'mt-1 text-[16px] sm:text-[17px]'
                       : 'mt-1 text-[14px] sm:text-[15px]',
-                  receptionsDesktop && 'lg:mt-4 lg:text-[24px]',
+                  receptionsDesktop && 'lg:mt-1 lg:text-[24px]',
                 )}
               >
                 {subtitle}

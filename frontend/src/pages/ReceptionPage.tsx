@@ -2131,7 +2131,7 @@ export function ReceptionPage() {
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.todayShort')}</p>
-              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.count)}</p>
               <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
@@ -2142,7 +2142,7 @@ export function ReceptionPage() {
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.pendingShort')}</p>
-              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none lg:text-[34px]', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
               <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
@@ -2153,7 +2153,7 @@ export function ReceptionPage() {
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.weightShort')}</p>
-              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[30px]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
               <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">lb total recibido</p>
             </div>
           </div>
@@ -2164,7 +2164,7 @@ export function ReceptionPage() {
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.producersShort')}</p>
-              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.producers)}</p>
               <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
