@@ -41,6 +41,7 @@ import {
 import { ReturnableContainer } from './operational.entities';
 import { DocumentState, Mercado, ReceptionType } from './catalog.entities';
 import { MasterUsageService } from './master-usage.service';
+import { normalizeFlowType, serializeSpeciesWithFlow } from './species-flow';
 
 const FORMAT_CODE_RE = /^(\d+)x(\d+)oz$/i;
 /** Alias comercial pint (acepta PINT o PINTA por compatibilidad). */
@@ -714,23 +715,26 @@ export class TraceabilityService {
   }
 
   // --- Species ---
-  listSpecies(includeInactive = false) {
-    return this.speciesRepo.find({
+  async listSpecies(includeInactive = false) {
+    const rows = await this.speciesRepo.find({
       where: includeInactive ? {} : { activo: true },
       order: { nombre: 'ASC' },
     });
+    return rows.map((r) => serializeSpeciesWithFlow(r));
   }
 
   async createSpecies(dto: CreateSpeciesDto) {
     const codigo = dto.codigo.trim().toUpperCase();
     const nombre = dto.nombre.trim();
     await this.assertUniqueSpecies(codigo, nombre);
-    return this.speciesRepo.save(
+    const saved = await this.speciesRepo.save(
       this.speciesRepo.create({
         codigo,
         nombre,
+        flow_type: normalizeFlowType(dto.flow_type),
       }),
     );
+    return serializeSpeciesWithFlow(saved);
   }
 
   async updateSpecies(id: number, dto: UpdateSpeciesDto) {
@@ -747,7 +751,11 @@ export class TraceabilityService {
     if (dto.codigo != null) row.codigo = nextCodigo;
     if (dto.nombre != null) row.nombre = nextNombre;
     if (dto.activo != null) row.activo = dto.activo;
-    return this.speciesRepo.save(row);
+    if (dto.flow_type != null) {
+      row.flow_type = normalizeFlowType(dto.flow_type);
+    }
+    const saved = await this.speciesRepo.save(row);
+    return serializeSpeciesWithFlow(saved);
   }
 
   async deleteSpecies(id: number) {

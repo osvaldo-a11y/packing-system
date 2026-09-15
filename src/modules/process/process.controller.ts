@@ -91,6 +91,39 @@ export class ProcessController {
     return this.service.getMpDisponibleResumen({ planningOnly, borradorOnly });
   }
 
+  /** Fruta DIRECT disponible para despacho (no proceso). */
+  @Get('raw-stock')
+  @Roles(...READ_ACCESS_ROLES)
+  rawStock(
+    @Query('producer_id') producerIdRaw?: string,
+    @Query('species_id') speciesIdRaw?: string,
+  ) {
+    const producer_id = producerIdRaw ? Number(producerIdRaw) : undefined;
+    const species_id = speciesIdRaw ? Number(speciesIdRaw) : undefined;
+    return this.service.listRawStock({
+      producer_id: Number.isFinite(producer_id) && (producer_id as number) > 0 ? producer_id : undefined,
+      species_id: Number.isFinite(species_id) && (species_id as number) > 0 ? species_id : undefined,
+    });
+  }
+
+  @Post('raw-stock/adjustments')
+  @Roles(...OPERATE_ROLES)
+  createRawAdjustment(
+    @Body()
+    body: {
+      reception_line_id: number;
+      adjustment_type: 'LOSS' | 'REJECTION' | 'CORRECTION';
+      lb_delta: number;
+      reason?: string;
+    },
+    @Req() req: JwtRequest,
+  ) {
+    return this.service.createRawAdjustment({
+      ...body,
+      created_by: String((req.user as { username?: string })?.username ?? req.user?.role ?? 'user'),
+    });
+  }
+
   @Get('processes/:id/editable-mp-lines')
   @Roles(...READ_ACCESS_ROLES)
   editableMpLines(@Param('id', ParseIntPipe) id: number) {

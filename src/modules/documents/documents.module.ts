@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   Dispatch,
   DispatchPtPackingList,
+  DispatchReceptionLine,
   DispatchTagItem,
   Invoice,
   InvoiceItem,
@@ -30,6 +31,7 @@ import { DocumentsPdfService } from './documents-pdf.service';
       Dispatch,
       DispatchPtPackingList,
       DispatchTagItem,
+      DispatchReceptionLine,
       Client,
       Producer,
       Variety,

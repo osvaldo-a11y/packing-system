@@ -7,6 +7,7 @@ import { groupFinalPalletsForCommercialInvoice } from '../dispatch/commercial-in
 import {
   Dispatch,
   DispatchPtPackingList,
+  DispatchReceptionLine,
   DispatchTagItem,
   Invoice,
   InvoiceItem,
@@ -679,6 +680,8 @@ export class DocumentsPdfService {
     @InjectRepository(PtTagItem) private readonly tagItemRepo: Repository<PtTagItem>,
     @InjectRepository(Dispatch) private readonly dispatchRepo: Repository<Dispatch>,
     @InjectRepository(DispatchTagItem) private readonly dtiRepo: Repository<DispatchTagItem>,
+    @InjectRepository(DispatchReceptionLine)
+    private readonly dispatchRawLineRepo: Repository<DispatchReceptionLine>,
     @InjectRepository(PackingList) private readonly plRepo: Repository<PackingList>,
     @InjectRepository(Invoice) private readonly invRepo: Repository<Invoice>,
     @InjectRepository(InvoiceItem) private readonly invItemRepo: Repository<InvoiceItem>,
@@ -2342,7 +2345,7 @@ export class DocumentsPdfService {
     const fps = allFpIds.length > 0
       ? await this.fpRepo.find({
           where: { id: In(allFpIds) },
-          relations: { presentation_format: true },
+          relations: { presentation_format: true, species: true },
         })
       : [];
 
@@ -2350,21 +2353,37 @@ export class DocumentsPdfService {
       ? await this.finalPalletService.resolveUnidadPtTraceabilityForPalletIds(allFpIds)
       : new Map();
 
+    const rawLines =
+      dtiItems.length === 0 && fps.length === 0
+        ? await this.dispatchRawLineRepo.find({
+            where: { dispatch_id: dispatchId },
+            relations: ['reception_line', 'reception_line.species', 'reception_line.variety'],
+          })
+        : [];
+
     const useDti = dtiItems.length > 0;
+    const useRaw = rawLines.length > 0;
     const colWidths = useDti
       ? [w * 0.18, w * 0.22, w * 0.18, w * 0.14, w * 0.14, w * 0.14]
-      : [w * 0.22, w * 0.34, w * 0.16, w * 0.14, w * 0.14, 0];
+      : useRaw
+        ? [w * 0.22, w * 0.28, w * 0.2, w * 0.15, w * 0.15, 0]
+        : [w * 0.22, w * 0.34, w * 0.16, w * 0.14, w * 0.14, 0];
     const header = useDti
       ? (lang === 'en'
           ? ['Ref.', 'Description', 'Format', 'Boxes', 'Pallets', 'Special Marks']
           : ['Ref.', 'Descripción', 'Formato', 'Cajas', 'Pallets', 'Observaciones'])
-      : (lang === 'en'
-          ? ['Format', 'Description', '', 'Boxes', 'Pallets', '']
-          : ['Formato', 'Descripción', '', 'Cajas', 'Pallets', '']);
+      : useRaw
+        ? (lang === 'en'
+            ? ['Lot', 'Description', 'Variety', 'Lb', '', '']
+            : ['Lote', 'Descripción', 'Variedad', 'Lb', '', ''])
+        : (lang === 'en'
+            ? ['Format', 'Description', '', 'Boxes', 'Pallets', '']
+            : ['Formato', 'Descripción', '', 'Cajas', 'Pallets', '']);
 
     const tableRows: string[][] = [];
     let totalBoxes   = 0;
     let totalPallets = 0;
+    let totalLb = 0;
 
     if (dtiItems.length > 0) {
       for (const item of dtiItems) {
@@ -2372,7 +2391,7 @@ export class DocumentsPdfService {
         const tag  = tid > 0 ? tagById2.get(tid) : undefined;
         const ref  = tag?.tag_code?.trim() ?? `#${item.tarja_id ?? '—'}`;
         const fmt  = tag?.format_code?.trim() ?? '—';
-        const desc = lang === 'en' ? 'BLUEBERRIES' : 'ARÁNDANOS';
+        const desc = lang === 'en' ? 'Fresh fruit' : 'Fruta fresca';
         const cajas   = Number(item.cajas_despachadas ?? 0);
         const pallets = Number(item.pallets_despachados ?? 0);
         totalBoxes   += cajas;
@@ -2380,22 +2399,37 @@ export class DocumentsPdfService {
         tableRows.push([ref, desc, fmt, String(cajas), String(pallets), '']);
       }
     } else if (fps.length > 0) {
-      // Agrupar por formato
-      const fmtMap = new Map<string, { cajas: number; pallets: number }>();
+      // Agrupar por formato + especie
+      const fmtMap = new Map<string, { cajas: number; pallets: number; desc: string }>();
       for (const fp of fps) {
         const fmt = fp.presentation_format?.format_code?.trim() ?? '—';
+        const desc =
+          fp.species?.nombre?.trim() ||
+          (lang === 'en' ? 'Fresh fruit' : 'Fruta fresca');
+        const key = `${fmt}||${desc}`;
         const fpLines = await this.fplLineRepo.find({ where: { final_pallet_id: fp.id } });
         const cajas   = fpLines.reduce((s, l) => s + l.amount, 0);
-        const cur = fmtMap.get(fmt) ?? { cajas: 0, pallets: 0 };
+        const cur = fmtMap.get(key) ?? { cajas: 0, pallets: 0, desc };
         cur.cajas   += cajas;
         cur.pallets += 1;
-        fmtMap.set(fmt, cur);
+        fmtMap.set(key, cur);
       }
-      const desc = lang === 'en' ? 'BLUEBERRIES' : 'ARÁNDANOS';
-      for (const [fmt, val] of [...fmtMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      for (const [key, val] of [...fmtMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        const fmt = key.split('||')[0] ?? '—';
         totalBoxes   += val.cajas;
         totalPallets += val.pallets;
-        tableRows.push([fmt, desc, '', String(val.cajas), String(val.pallets), '']);
+        tableRows.push([fmt, val.desc, '', String(val.cajas), String(val.pallets), '']);
+      }
+    } else if (rawLines.length > 0) {
+      for (const rl of rawLines) {
+        const lot = rl.reception_line?.lot_code?.trim() || `#${rl.reception_line_id}`;
+        const desc =
+          rl.reception_line?.species?.nombre?.trim() ||
+          (lang === 'en' ? 'Fresh fruit' : 'Fruta fresca');
+        const variety = rl.reception_line?.variety?.nombre?.trim() || '—';
+        const lb = Number(rl.lb_dispatched) || 0;
+        totalLb += lb;
+        tableRows.push([lot, desc, variety, lb.toFixed(3), '', '']);
       }
     }
 
@@ -2407,14 +2441,19 @@ export class DocumentsPdfService {
       { fs: 8, rowHeight: 16, wrap: false });
 
     // ── Totales ──
+    void fpTrMap;
     y += 4;
     const totalH = 26;
     doc.save();
     doc.rect(x0, y, w, totalH).fill(ACCENT);
     doc.restore();
-    const totalLabel = lang === 'en'
-      ? `Total: ${totalBoxes} boxes  ·  ${totalPallets} pallets`
-      : `Total: ${totalBoxes} cajas  ·  ${totalPallets} pallets`;
+    const totalLabel = useRaw
+      ? (lang === 'en'
+          ? `Total: ${totalLb.toFixed(3)} lb`
+          : `Total: ${totalLb.toFixed(3)} lb`)
+      : (lang === 'en'
+          ? `Total: ${totalBoxes} boxes  ·  ${totalPallets} pallets`
+          : `Total: ${totalBoxes} cajas  ·  ${totalPallets} pallets`);
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff')
        .text(totalLabel, x0 + 10, y + 8, { width: w - 20 });
     y += totalH + 16;

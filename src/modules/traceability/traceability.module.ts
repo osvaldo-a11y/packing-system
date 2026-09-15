@@ -32,6 +32,12 @@ import { MasterUsageService } from './master-usage.service';
 import { MasterForceDeleteService } from './master-force-delete.service';
 import { OperationalService } from './operational.service';
 import { TraceabilityService } from './traceability.service';
+import { RawInventoryService } from './raw-inventory.service';
+import {
+  Dispatch,
+  ReceptionLineDirectAllocation,
+  ReceptionLineAdjustment,
+} from '../dispatch/dispatch.entities';
 
 @Module({
   imports: [
@@ -48,6 +54,9 @@ import { TraceabilityService } from './traceability.service';
       SpeciesProcessResultComponent,
       RawMaterialMovement,
       FruitProcessLineAllocation,
+      ReceptionLineDirectAllocation,
+      ReceptionLineAdjustment,
+      Dispatch,
       Client,
       Brand,
       PackingSupplier,
@@ -63,7 +72,21 @@ import { TraceabilityService } from './traceability.service';
     ]),
   ],
   controllers: [MastersController, ReceptionController, TraceabilityDashboardController],
-  providers: [TraceabilityService, TraceabilityDashboardService, OperationalService, MasterUsageService, MasterForceDeleteService],
-  exports: [TypeOrmModule, TraceabilityService, OperationalService, MasterUsageService, MasterForceDeleteService],
+  providers: [
+    TraceabilityService,
+    TraceabilityDashboardService,
+    OperationalService,
+    MasterUsageService,
+    MasterForceDeleteService,
+    RawInventoryService,
+  ],
+  exports: [
+    TypeOrmModule,
+    TraceabilityService,
+    OperationalService,
+    MasterUsageService,
+    MasterForceDeleteService,
+    RawInventoryService,
+  ],
 })
 export class TraceabilityModule {}
