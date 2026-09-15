@@ -316,7 +316,6 @@ export function AppLayout() {
   const pageTitle = resolvePageTitle(pathname, t);
   const isHomeDesktop = pathname === '/';
   const isReceptionsPage = pathname === '/receptions';
-  const usesApprovedMobileNav = isHomeDesktop || isReceptionsPage;
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
   const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
