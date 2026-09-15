@@ -1495,19 +1495,21 @@ export function ProcessesPage() {
                 'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] max-lg:!pr-4 max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
               )}
             >
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)] lg:hidden" aria-hidden />
-              <img
-                src={appBranding.landscapeUrl}
-                alt=""
-                className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] lg:hidden"
-                aria-hidden
-              />
               <img
                 src={appBranding.landscapeUrl}
                 alt=""
                 className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
                 aria-hidden
               />
+              <div className="lg:hidden">
+                <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)]" aria-hidden />
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)]"
+                  aria-hidden
+                />
+              </div>
               <div className="relative z-[1] flex items-start justify-between gap-4">
                 <div className="min-w-0 space-y-1">
                   <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 max-lg:text-[23px] lg:text-[26px] lg:leading-tight')}>
