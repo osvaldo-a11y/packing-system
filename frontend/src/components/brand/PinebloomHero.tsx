@@ -62,7 +62,8 @@ export function PinebloomHero({
             : cn(
                 'pointer-events-none absolute right-[-2%] top-[48%] h-[240%] w-auto max-w-none -translate-y-1/2 object-cover object-[92%_45%] opacity-[0.78] contrast-[0.98] brightness-[1.0] saturate-[0.85]',
                 wideLandscape && 'right-[-4%] h-[210%] opacity-[0.82]',
-                receptionsDesktop && 'lg:right-[-13%] lg:h-[205%] lg:opacity-[0.68] lg:contrast-[0.96] lg:brightness-[1.03] lg:saturate-[0.68]',
+                receptionsDesktop &&
+                  'lg:right-0 lg:top-0 lg:h-full lg:w-[640px] lg:max-w-[58%] lg:translate-y-0 lg:object-contain lg:object-right lg:opacity-[0.68] lg:contrast-[0.96] lg:brightness-[1.03] lg:saturate-[0.68]',
                 '[mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
                 '[-webkit-mask-image:linear-gradient(to_right,transparent_0%,transparent_20%,rgba(0,0,0,0.12)_36%,rgba(0,0,0,0.5)_52%,black_70%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)]',
                 '[mask-composite:intersect] [-webkit-mask-composite:source-in]',

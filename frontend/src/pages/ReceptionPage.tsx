@@ -2705,7 +2705,7 @@ export function ReceptionPage() {
                     <TableHead className="w-[90px]">{t('reception.table.colVariety')}</TableHead>
                     <TableHead className="w-[95px] text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
                     <TableHead className="w-[155px]">{t('reception.table.colNotes')}</TableHead>
-                    <TableHead className="w-[210px] text-right">{t('reception.table.colActions')}</TableHead>
+                    <TableHead className="w-[210px] text-center">{t('reception.table.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2728,14 +2728,12 @@ export function ReceptionPage() {
                               <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-medium leading-tight text-slate-900">{r.producer?.nombre ?? '—'}</p>
-                                {r.producer?.codigo ? (
-                                  <p className="truncate text-[11px] leading-tight text-slate-500">#{r.producer.codigo}</p>
-                                ) : r.producer_id ? (
-                                  <p className="truncate text-[11px] leading-tight text-slate-500">#{r.producer_id}</p>
-                                ) : null}
+                                <p className="truncate text-[11px] leading-tight text-slate-500">
+                                  {r.producer?.codigo ? `#${r.producer.codigo}` : r.producer_id ? `#${r.producer_id}` : '—'}
+                                  {' · '}#{r.id}
+                                </p>
                               </div>
                             </div>
-                            <p className="font-mono text-[11px] leading-tight text-slate-400">#{r.id}</p>
                           </TableCell>
                           <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
                             {r.reference_code ?? r.document_number ?? '—'}
@@ -2753,12 +2751,12 @@ export function ReceptionPage() {
                               {r.notes?.trim() || '—'}
                             </p>
                           </TableCell>
-                          <TableCell className="py-3 align-middle">
+                          <TableCell className="py-3 align-middle lg:!px-2">
                             <div className="flex flex-col items-end gap-1 lg:flex-row lg:items-center lg:justify-end lg:gap-3">
                               <Button
                                 type="button"
                                 size="sm"
-                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                                className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white lg:min-w-[135px]', receptionTok.accent)}
                                 onClick={() => runPrimaryAction(r)}
                               >
                                 {primaryActionLabel(r.document_state?.codigo)}
