@@ -1435,7 +1435,7 @@ export function ProcessesPage() {
       <header
         data-processes-mobile-hero
         data-processes-desktop-hero
-        className="relative flex flex-col gap-3 overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 sm:flex-row sm:items-start sm:justify-between lg:h-[171px] lg:min-h-[171px] lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+        className="relative flex flex-col gap-3 overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 sm:flex-row sm:items-start sm:justify-between lg:h-[171px] lg:min-h-[171px] lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
       >
         <img
           src={appBranding.landscapeUrl}
@@ -3298,14 +3298,13 @@ export function ProcessesPage() {
         </div>
       </section>
 
-      <section data-processes-mobile-analysis className="space-y-3 pb-2" aria-labelledby="proc-analisis">
-        <h2 id="proc-analisis" className={cn(signalsTitle, 'max-lg:font-serif max-lg:text-[22px] max-lg:font-semibold max-lg:normal-case max-lg:tracking-normal max-lg:text-[var(--ink)]')}>
-          <span className="lg:hidden">Análisis · cajas</span>
-          <span className="hidden lg:inline">Análisis · cajas (filtrado)</span>
+      <section data-processes-mobile-analysis className="space-y-3 pb-2 lg:hidden" aria-labelledby="proc-analisis-mobile">
+        <h2 id="proc-analisis-mobile" className="font-serif text-[22px] font-semibold text-[var(--ink)]">
+          Análisis · cajas
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[11px] border border-[var(--stone-300)] bg-white/65 px-4 py-4 lg:rounded-2xl lg:border-slate-100 lg:bg-slate-50/50">
-            <p className="font-serif text-[17px] font-semibold text-[var(--ink)] lg:font-sans lg:text-xs lg:font-medium lg:text-slate-600">Top formatos</p>
+        <div className="grid gap-3">
+          <div className="rounded-[11px] border border-[var(--stone-300)] bg-white/65 px-4 py-4">
+            <p className="font-serif text-[17px] font-semibold text-[var(--ink)]">Top formatos</p>
             <ul className="mt-3 space-y-2.5">
               {processKpis.topFormatos.length === 0 ? (
                 <li className="text-sm text-slate-400">Sin datos.</li>
@@ -3321,8 +3320,50 @@ export function ProcessesPage() {
               )}
             </ul>
           </div>
-          <div className="rounded-[11px] border border-[var(--stone-300)] bg-white/65 px-4 py-4 lg:rounded-2xl lg:border-slate-100 lg:bg-slate-50/50">
-            <p className="font-serif text-[17px] font-semibold text-[var(--ink)] lg:font-sans lg:text-xs lg:font-medium lg:text-slate-600">Top clientes</p>
+          <div className="rounded-[11px] border border-[var(--stone-300)] bg-white/65 px-4 py-4">
+            <p className="font-serif text-[17px] font-semibold text-[var(--ink)]">Top clientes</p>
+            <ul className="mt-3 space-y-2.5">
+              {processKpis.topClientes.length === 0 ? (
+                <li className="text-sm text-slate-400">Sin datos.</li>
+              ) : (
+                processKpis.topClientes.map(([name, n], i) => (
+                  <li key={name} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium text-slate-800" title={name}>
+                      {i + 1}. {name}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-500">{formatCount(n)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="hidden space-y-3 pb-2 lg:block" aria-labelledby="proc-analisis">
+        <h2 id="proc-analisis" className={signalsTitle}>
+          Análisis · cajas (filtrado)
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 px-4 py-4">
+            <p className="text-xs font-medium text-slate-600">Top formatos</p>
+            <ul className="mt-3 space-y-2.5">
+              {processKpis.topFormatos.length === 0 ? (
+                <li className="text-sm text-slate-400">Sin datos.</li>
+              ) : (
+                processKpis.topFormatos.map(([name, n], i) => (
+                  <li key={name} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium text-slate-800" title={name}>
+                      {i + 1}. {name}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-500">{formatCount(n)}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 px-4 py-4">
+            <p className="text-xs font-medium text-slate-600">Top clientes</p>
             <ul className="mt-3 space-y-2.5">
               {processKpis.topClientes.length === 0 ? (
                 <li className="text-sm text-slate-400">Sin datos.</li>
