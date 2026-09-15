@@ -109,6 +109,7 @@ import {
   PineLeafIcon,
   PinePersonIcon,
   PinePlusIcon,
+  PinePrinterIcon,
   PineTrashIcon,
   PineTruckIcon,
   PineUsersIcon,
@@ -2137,39 +2138,81 @@ export function ReceptionPage() {
       </Dialog>
 
       
-      <PinebloomHero
-        title={t('reception.pageTitle')}
-        subtitle={
-          <span className="inline-flex flex-wrap items-center gap-2">
+      <header
+        data-receptions-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[34px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('reception.pageTitle')}
+          </h1>
+          <div className="mt-2 flex items-center gap-2 text-[15px] leading-snug text-[var(--ink-muted)]">
             <span>{t('reception.pageSubtitle')}</span>
             <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
               <Info className="h-4 w-4" />
             </button>
-          </span>
-        }
-        compact
-        wideLandscape
-        receptionsDesktop
-        showSeal={false}
-        claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
-        actions={
-          canOperateReception ? (
+          </div>
+          {canOperateReception ? (
             <Button
-              className={cn(
-                'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)] lg:h-[52px] lg:min-w-[216px] lg:px-6 lg:text-[16px]',
-              )}
+              className="mt-3 h-[46px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
               onClick={() => openNew()}
             >
-              <Plus className="h-5 w-5 lg:h-6 lg:w-6" />
+              <PinePlusIcon size={20} strokeWidth={2.1} />
               {t('reception.newButton')}
             </Button>
-          ) : null
-        }
-      />
+          ) : null}
+        </div>
+        <div className="relative mt-2.5 h-[72px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2.5 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.55] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-5px] right-[-3px] h-[82px] w-[244px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
+        </div>
+      </header>
+
+      <div className="hidden lg:block">
+        <PinebloomHero
+          title={t('reception.pageTitle')}
+          subtitle={
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span>{t('reception.pageSubtitle')}</span>
+              <button type="button" className={pageInfoButton} title={helpTitle} aria-label={helpTitle}>
+                <Info className="h-4 w-4" />
+              </button>
+            </span>
+          }
+          compact
+          wideLandscape
+          receptionsDesktop
+          showSeal={false}
+          claimLines={['FRUTA DE NUESTRA TIERRA.', 'UN FUTURO MÁS BRILLANTE.']}
+          actions={
+            canOperateReception ? (
+              <Button
+                className={cn(
+                  'h-10 shrink-0 gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-sm font-semibold text-white shadow-none hover:bg-[var(--olive-600)] lg:h-[52px] lg:min-w-[216px] lg:px-6 lg:text-[16px]',
+                )}
+                onClick={() => openNew()}
+              >
+                <Plus className="h-5 w-5 lg:h-6 lg:w-6" />
+                {t('reception.newButton')}
+              </Button>
+            ) : null
+          }
+        />
+      </div>
 
       <section
         aria-labelledby="rec-kpis"
-        className="space-y-3 lg:mt-0 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+        className="space-y-2.5 lg:mt-0 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)] lg:text-[20px]">
@@ -2180,48 +2223,48 @@ export function ReceptionPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--pine-950)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
-              <PineTruckIcon size={39} className="lg:h-[44px] lg:w-[44px]" />
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
+          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
+            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-200)] text-[var(--pine-950)] lg:h-[76px] lg:w-[76px]" aria-hidden>
+              <PineTruckIcon size={30} className="lg:h-[44px] lg:w-[44px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.todayShort')}</p>
-              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.count)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
+              <p className="mt-1 font-serif text-[29px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.count)}</p>
+              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.receptionsUnit', { defaultValue: 'recepciones' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--harvest-200)] text-[var(--harvest-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
-              <PineClockIcon size={38} />
+          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
+            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--harvest-200)] text-[var(--harvest-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
+              <PineClockIcon size={30} className="lg:h-[38px] lg:w-[38px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.pendingShort')}</p>
-              <p className={cn('mt-1 font-serif text-[30px] font-bold tabular-nums leading-none lg:text-[34px]', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
+              <p className={cn('mt-1 font-serif text-[29px] font-bold tabular-nums leading-none lg:text-[34px]', todayOpsKpis.pending > 0 ? 'text-[var(--harvest-700)]' : 'text-[var(--ink)]')}>{formatCount(todayOpsKpis.pending)}</p>
+              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.pendingUnit', { defaultValue: 'por procesar' })}</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
-              <PineWeightIcon size={38} />
+          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
+            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--bluegray-200)] text-[var(--bluegray-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
+              <PineWeightIcon size={30} className="lg:h-[38px] lg:w-[38px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.weightShort')}</p>
-              <p className="mt-1 font-serif text-[26px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[30px]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">lb total recibido</p>
+              <p className="mt-1 font-serif text-[22px] font-bold tabular-nums leading-none tracking-[-0.35px] text-[var(--ink)] lg:text-[30px]">{formatLb(todayOpsKpis.totalNet, 2)}</p>
+              <p className="mt-1.5 text-[11px] leading-[1.25] text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">lb total recibido</p>
             </div>
           </div>
 
-          <div className="flex min-h-[118px] items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3.5 py-3.5 lg:items-center lg:gap-5 lg:py-3">
-            <span className="inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[8px] bg-[var(--sage-200)] text-[var(--olive-700)] lg:h-[76px] lg:w-[76px] lg:rounded-[9px]" aria-hidden>
-              <PineUsersIcon size={40} />
+          <div className="flex min-h-[110px] items-start gap-2.5 rounded-[var(--radius-lg)] border border-[var(--sage-200)] bg-[var(--stone-100)] px-3 py-3 lg:min-h-[118px] lg:items-center lg:gap-5 lg:px-3.5 lg:py-3">
+            <span className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--sage-200)] text-[var(--olive-700)] lg:h-[76px] lg:w-[76px]" aria-hidden>
+              <PineUsersIcon size={31} className="lg:h-[40px] lg:w-[40px]" />
             </span>
             <div className="min-w-0 pt-0.5 lg:pt-0">
               <p className="text-[12px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[14px] lg:font-medium">{t('reception.kpi.producersShort')}</p>
-              <p className="mt-1 font-serif text-[30px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.producers)}</p>
-              <p className="mt-1.5 text-[12px] text-[var(--ink-muted)] lg:mt-1">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
+              <p className="mt-1 font-serif text-[29px] font-bold tabular-nums leading-none text-[var(--ink)] lg:text-[34px]">{formatCount(todayOpsKpis.producers)}</p>
+              <p className="mt-1.5 text-[11px] leading-tight text-[var(--ink-muted)] lg:mt-1 lg:text-[12px]">{t('reception.kpi.todayUnit', { defaultValue: 'hoy' })}</p>
             </div>
           </div>
         </div>
@@ -2287,51 +2330,56 @@ export function ReceptionPage() {
       </section>
 
       <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5 lg:mt-3 lg:min-h-[64px] lg:px-3.5 lg:py-[11px]')}>
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              ['today', t('reception.filters.presetToday'), CalendarDays] as const,
-              ['week', t('reception.filters.presetWeek'), CalendarRange] as const,
-              ['all', t('reception.filters.presetAll'), List] as const,
-            ]
-          ).map(([key, label, Icon]) => (
-            <Button
-              key={key}
-              type="button"
-              size="sm"
-              variant={datePreset === key ? 'default' : 'outline'}
-              className={cn(
-                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold lg:h-10 lg:min-w-[104px] lg:px-4',
-                datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
-              )}
-              onClick={() => applyDatePreset(key)}
-            >
-              <Icon className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
-              {label}
-            </Button>
-          ))}
-          <div className="relative min-w-[12rem] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)] lg:left-3 lg:h-4 lg:w-4" aria-hidden />
-            <Input
-              className={cn(filterInputClass, 'h-9 pl-8 lg:h-10 lg:pl-10')}
-              placeholder={t('reception.filters.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label={t('reception.filters.search')}
-            />
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2">
+          <div className="flex items-center gap-2 lg:contents">
+            {(
+              [
+                ['today', t('reception.filters.presetToday'), CalendarDays] as const,
+                ['week', t('reception.filters.presetWeek'), CalendarRange] as const,
+                ['all', t('reception.filters.presetAll'), List] as const,
+              ]
+            ).map(([key, label, Icon]) => (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant={datePreset === key ? 'default' : 'outline'}
+                className={cn(
+                  'h-10 flex-1 gap-1.5 rounded-[8px] px-2 text-[12px] font-semibold lg:h-10 lg:min-w-[104px] lg:flex-none lg:px-4 lg:text-[13px]',
+                  datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : 'max-lg:border-[var(--stone-300)] max-lg:bg-white',
+                )}
+                onClick={() => applyDatePreset(key)}
+              >
+                <Icon className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
+                {label}
+              </Button>
+            ))}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 lg:h-10 lg:min-w-[146px] lg:px-4"
-            onClick={() => setShowMoreFilters((v) => !v)}
-          >
-            <Filter className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
-
-            {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
-            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
-          </Button>
+          <div className="flex min-w-0 items-center gap-2 lg:contents">
+            <div className="relative min-w-0 flex-1 lg:min-w-[12rem]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)] lg:left-3" aria-hidden />
+              <Input
+                className={cn(filterInputClass, 'h-10 min-w-0 pl-8 text-[12px] max-lg:border-[var(--stone-300)] max-lg:bg-white lg:pl-10 lg:text-sm')}
+                placeholder={t('reception.filters.searchPlaceholder')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label={t('reception.filters.search')}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 shrink-0 gap-1 px-2.5 text-[11px] font-semibold max-lg:border-[var(--stone-300)] max-lg:bg-white lg:min-w-[146px] lg:gap-1.5 lg:px-4 lg:text-sm lg:font-medium"
+              onClick={() => setShowMoreFilters((v) => !v)}
+            >
+              <Filter className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
+              <span className="whitespace-nowrap">
+                {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
+              </span>
+              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform lg:ml-1', showMoreFilters ? 'rotate-180' : '')} />
+            </Button>
+          </div>
         </div>
         {showMoreFilters ? (
           <div className="grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
@@ -2421,12 +2469,12 @@ export function ReceptionPage() {
         className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="rec-tabla"
       >
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
-          <div className="lg:flex lg:items-baseline lg:gap-4">
-            <h2 id="rec-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight')}>
+        <div className="flex items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+          <div className="min-w-0 lg:flex lg:items-baseline lg:gap-4">
+            <h2 id="rec-tabla" className={cn(sectionTitle, 'font-serif text-[20px] leading-tight lg:text-[21px]')}>
               {datePreset === 'today' ? t('reception.workTodayTitle') : t('reception.table.title')}
             </h2>
-            <p className={cn(sectionHint, 'lg:hidden')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
+            <p className={cn(sectionHint, 'mt-1 text-[11px] leading-snug lg:hidden')}>{t('reception.workTodayHint', { count: filteredReceptions.length })}</p>
             <p className="hidden text-[12px] text-[var(--ink-muted)] lg:block">
               {filteredReceptions.length} {filteredReceptions.length === 1 ? 'recepción' : 'recepciones'}
             </p>
@@ -2464,14 +2512,14 @@ export function ReceptionPage() {
               <LayoutGrid className="h-4 w-4" aria-hidden />
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+          <div className="flex shrink-0 items-center gap-2 lg:hidden">
             {isAdminRole || canOperateReception ? (
               <div className="relative">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs lg:h-10 lg:min-w-[142px] lg:px-4"
+                  className="h-10 rounded-[9px] border-[var(--stone-300)] bg-white px-3 text-[11px] font-semibold"
                   onClick={() => setShowMoreActions((v) => !v)}
                 >
                   <MoreHorizontal className="mr-1 h-3.5 w-3.5" />
@@ -2741,48 +2789,94 @@ export function ReceptionPage() {
                 const tone = receptionVisualTone(r);
                 const netLb = receptionNetLb(r);
                 return (
-                  <div key={r.id} className={cn('rounded-xl border border-slate-200 bg-white p-3.5 shadow-none', tone.rowHover)}>
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <DocumentStateBadge codigo={r.document_state?.codigo} nombre={r.document_state?.nombre} />
-                      <span className={cn('text-sm font-semibold tabular-nums', netLb > 0 && netLb < 400 ? 'text-amber-700' : 'text-slate-900')}>
-                        {formatLb(netLb, 2)} lb
-                      </span>
+                  <article
+                    key={r.id}
+                    data-reception-mobile-card
+                    className={cn('rounded-[12px] border border-[var(--stone-300)] bg-white px-3.5 pb-3.5 pt-3 shadow-none', tone.rowHover)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="relative pl-2">
+                        <span className={cn('absolute inset-y-0 left-0 w-[3px] rounded-full', tone.leftBar)} aria-hidden />
+                        <DocumentStateBadge
+                          codigo={r.document_state?.codigo}
+                          nombre={r.document_state?.nombre}
+                          className="!border-[var(--stone-300)] !bg-[var(--stone-50)] !px-2.5 !py-1 !text-[11px] !font-semibold !text-[var(--ink)]"
+                        />
+                      </div>
+                      <p className={cn('shrink-0 text-right tabular-nums leading-none text-[var(--ink)]', netLb > 0 && netLb < 400 && 'text-[var(--harvest-700)]')}>
+                        <span className="font-serif text-[20px] font-bold tracking-[-0.2px]">{formatLb(netLb, 2)}</span>
+                        <span className="ml-1 text-[12px] font-semibold text-[var(--ink-muted)]">lb</span>
+                      </p>
                     </div>
-                    <p className="truncate text-sm font-medium text-slate-900">{r.producer?.nombre ?? '—'}</p>
-                    <p className="mt-1 text-xs text-slate-600">{formatReceptionDate(r.received_at)}</p>
-                    <p className="mt-1 text-sm text-slate-800">
-                      {especieCabecera(r)} · {variedadCabecera(r)}
-                    </p>
-                    <p className="mt-0.5 font-mono text-xs text-slate-700">
-                      {r.reference_code ?? r.document_number ?? '—'}
-                    </p>
+
+                    <div className="mt-3 border-t border-[var(--stone-200)] pt-3">
+                      <p className="truncate text-[16px] font-semibold leading-tight text-[var(--ink)]">{r.producer?.nombre ?? '—'}</p>
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[var(--ink-muted)]">
+                        <PineCalendarIcon size={14} className="shrink-0 text-[var(--olive-700)]" />
+                        <span>{formatReceptionDate(r.received_at)}</span>
+                      </p>
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[var(--ink)]">
+                        <PineLeafIcon size={14} className="shrink-0 text-[var(--olive-700)]" />
+                        <span>{especieCabecera(r)} · {variedadCabecera(r)}</span>
+                      </p>
+                      <div className="mt-2 flex items-start gap-1.5 rounded-[8px] bg-[var(--stone-100)] px-2.5 py-2 text-[12px] text-[var(--ink)]">
+                        <PineDocumentIcon size={14} className="mt-px shrink-0 text-[var(--olive-700)]" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{r.reference_code ?? r.document_number ?? '—'}</p>
+                          {lotesResumen(r) !== '—' ? (
+                            <p className="mt-0.5 truncate text-[11px] text-[var(--ink-muted)]">
+                              {t('reception.table.lotPrefix')} {lotesResumen(r)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
                     {r.notes?.trim() ? (
-                      <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{r.notes.trim()}</p>
+                      <p className="mt-2 line-clamp-2 text-[12px] leading-snug text-[var(--ink-muted)]">{r.notes.trim()}</p>
                     ) : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       <Button
                         type="button"
                         size="sm"
-                        className={cn('h-10 min-w-[7.5rem] gap-1.5 px-3 text-[13px] font-bold text-white', receptionTok.accent)}
+                        className={cn('h-11 w-full rounded-[9px] px-3 text-[13px] font-semibold text-white shadow-none', receptionTok.accent)}
                         onClick={() => runPrimaryAction(r)}
                       >
-                        {primaryActionLabel(r.document_state?.codigo)}
+                        {primaryActionLabel(r.document_state?.codigo).replace(/\s*→\s*$/, '')}
                       </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => void printReceptionPdf(r.id)}>
-                            <Printer className="mr-2 h-3.5 w-3.5" />
-                            {t('reception.table.actionReport')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-11 w-full gap-2 rounded-[9px] border-[var(--stone-300)] bg-white px-3 text-[13px] font-semibold text-[var(--ink)]"
+                        onClick={() => void printReceptionPdf(r.id)}
+                      >
+                        <PinePrinterIcon size={17} className="text-[var(--olive-700)]" />
+                        {t('reception.table.actionReport')}
+                      </Button>
                     </div>
-                  </div>
+                    <button
+                      type="button"
+                      className="mt-2 flex h-8 w-full items-center justify-center gap-1 text-[11px] font-semibold text-[var(--olive-700)]"
+                      onClick={() =>
+                        setExpandedRows((prev) => ({
+                          ...prev,
+                          [r.id]: !prev[r.id],
+                        }))
+                      }
+                    >
+                      {t('reception.table.actionDetail')}
+                      <PineChevronIcon size={13} className={cn('transition-transform', expandedRows[r.id] && 'rotate-90')} />
+                    </button>
+                    {expandedRows[r.id] ? (
+                      <div className="rounded-[8px] border border-[var(--stone-200)] bg-[var(--stone-50)] p-2.5 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+                        <p>{t('reception.table.detailType')} {r.reception_type?.nombre ?? '—'}</p>
+                        <p>{t('reception.table.detailDoc')} {r.document_number ?? '—'}</p>
+                        <p>{t('reception.table.detailMarket')} {r.mercado?.nombre ?? '—'}</p>
+                      </div>
+                    ) : null}
+                  </article>
                 );
               })}
             </div>

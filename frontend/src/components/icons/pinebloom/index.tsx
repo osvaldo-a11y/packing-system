@@ -230,6 +230,16 @@ export function PineCopyIcon({ size = 24, strokeWidth = 1.8, ...props }: IconPro
   );
 }
 
+export function PinePrinterIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M7 8V3.75h10V8M7 17H5.25A2.25 2.25 0 0 1 3 14.75v-4.5A2.25 2.25 0 0 1 5.25 8h13.5A2.25 2.25 0 0 1 21 10.25v4.5A2.25 2.25 0 0 1 18.75 17H17" />
+      <rect x="7" y="14" width="10" height="6.25" rx="1" />
+      <circle cx="17.5" cy="11.25" r=".75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function PineTrashIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>

@@ -37,6 +37,13 @@ import { appBranding, brandMarkParts } from '@/lib/branding';
 import { isAdmin, isReadOnlySession } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import {
+  PineCubeIcon,
+  PineDispatchTruckIcon,
+  PineEllipsisIcon,
+  PineGearIcon,
+  PineTruckIcon,
+} from '@/components/icons/pinebloom';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -284,6 +291,14 @@ const BOTTOM_PRIMARY = [
   { to: '/masters', icon: Settings, labelKey: 'nav.bottom.config' },
 ];
 
+const RECEPTIONS_BOTTOM_PRIMARY = [
+  { to: '/', end: true as const, icon: House, label: 'Inicio' },
+  { to: '/receptions', icon: PineTruckIcon, label: 'Recibir' },
+  { to: '/processes', icon: PineGearIcon, label: 'Proceso' },
+  { to: '/existencias-pt', icon: PineCubeIcon, label: 'Stock' },
+  { to: '/dispatches', icon: PineDispatchTruckIcon, label: 'Despacho' },
+];
+
 export function AppLayout() {
   const { t } = useTranslation('common');
   const navGroups = useMemo(() => getNavGroups(t), [t]);
@@ -300,6 +315,7 @@ export function AppLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const pageTitle = resolvePageTitle(pathname, t);
   const isHomeDesktop = pathname === '/';
+  const isReceptionsPage = pathname === '/receptions';
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
   const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
@@ -481,7 +497,12 @@ export function AppLayout() {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7">
+        <header
+          className={cn(
+            'sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7',
+            isReceptionsPage && 'max-md:h-[48px]',
+          )}
+        >
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -493,9 +514,20 @@ export function AppLayout() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="min-w-0 md:hidden">
-              <BrandMark tone="onLight" className="pointer-events-none [&_img]:h-8" />
+            <span className="min-w-0 shrink-0 md:hidden">
+              <BrandMark
+                tone="onLight"
+                className={cn('pointer-events-none [&_img]:h-8', isReceptionsPage && '[&_img]:h-[30px] [&_img]:max-w-[79px]')}
+              />
             </span>
+            {isReceptionsPage ? (
+              <>
+                <span className="h-6 w-px bg-[var(--stone-300)] md:hidden" aria-hidden />
+                <h1 className="min-w-0 truncate font-serif text-[16px] font-semibold tracking-[-0.2px] text-[var(--ink)] md:hidden">
+                  {pageTitle}
+                </h1>
+              </>
+            ) : null}
             <p className="hidden min-w-0 truncate text-[13px] text-[var(--ink-muted)] lg:block">
               <Leaf className="mr-1.5 inline h-3.5 w-3.5 text-[var(--olive-700)]" aria-hidden />
               {appBranding.tagline}
@@ -527,9 +559,15 @@ export function AppLayout() {
                     usesApprovedDesktopTopbar && 'lg:h-9 lg:min-w-[206px] lg:justify-start lg:gap-2.5',
                   )}
                 >
+                  {isReceptionsPage ? (
+                    <span className="inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full text-[var(--olive-700)] md:hidden">
+                      <PineEllipsisIcon size={19} aria-hidden />
+                    </span>
+                  ) : null}
                   <span
                     className={cn(
                       'inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]',
+                      isReceptionsPage && 'max-md:hidden',
                       isHomeDesktop && 'h-[30px] w-[30px] bg-[var(--pine-950)] text-white',
                       usesApprovedDesktopTopbar && 'lg:h-[30px] lg:w-[30px] lg:bg-[var(--pine-950)] lg:text-white',
                     )}
@@ -582,6 +620,7 @@ export function AppLayout() {
             'min-h-0 flex-1 overflow-x-auto overflow-y-auto px-[14px] py-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:pb-4 lg:px-7 lg:py-0 lg:pt-0 lg:pb-4',
             isHomeDesktop && 'bg-[#F9F7F5]',
             usesApprovedDesktopTopbar && 'lg:bg-[#F9F7F5]',
+            isReceptionsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
           )}
         >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
@@ -593,7 +632,7 @@ export function AppLayout() {
           className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-[var(--stone-200)] bg-[var(--stone-50)] pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label={t('nav.bottomAria')}
         >
-          {BOTTOM_PRIMARY.map((item) => {
+          {(isReceptionsPage ? RECEPTIONS_BOTTOM_PRIMARY : BOTTOM_PRIMARY).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -612,6 +651,7 @@ export function AppLayout() {
                     <span
                       className={cn(
                         'mb-0.5 h-0.5 w-6 rounded-full',
+                        isReceptionsPage && 'hidden',
                         isActive ? 'bg-[var(--olive-700)]' : 'bg-transparent',
                       )}
                       aria-hidden
@@ -621,7 +661,9 @@ export function AppLayout() {
                       strokeWidth={2.25}
                       aria-hidden
                     />
-                    <span className="max-w-full truncate">{t(item.labelKey)}</span>
+                    <span className="max-w-full truncate">
+                      {'label' in item ? item.label : t(item.labelKey)}
+                    </span>
                   </>
                 )}
               </NavLink>
@@ -636,11 +678,19 @@ export function AppLayout() {
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
           >
-            <MoreHorizontal
-              className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
-              strokeWidth={2.25}
-              aria-hidden
-            />
+            {isReceptionsPage ? (
+              <PineEllipsisIcon
+                size={20}
+                className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
+                aria-hidden
+              />
+            ) : (
+              <MoreHorizontal
+                className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
+                strokeWidth={2.25}
+                aria-hidden
+              />
+            )}
             <span>{t('nav.moreShort')}</span>
           </button>
         </nav>
