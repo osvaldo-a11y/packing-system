@@ -1311,7 +1311,7 @@ export function ReceptionPage() {
   }
 
   return (
-    <div className="space-y-5 lg:space-y-0">
+    <div className="flex flex-col gap-5 lg:gap-0">
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -2112,7 +2112,7 @@ export function ReceptionPage() {
 
       <section
         aria-labelledby="rec-kpis"
-        className="space-y-3 lg:mt-5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:p-[14px]"
+        className="space-y-3 lg:mt-5 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)] lg:text-[20px]">
@@ -2754,7 +2754,7 @@ export function ReceptionPage() {
                             </p>
                           </TableCell>
                           <TableCell className="py-3 align-middle">
-                            <div className="flex flex-col items-end gap-1">
+                            <div className="flex flex-col items-end gap-1 lg:flex-row lg:items-center lg:justify-end lg:gap-3">
                               <Button
                                 type="button"
                                 size="sm"
@@ -2765,7 +2765,7 @@ export function ReceptionPage() {
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500">
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-500 lg:h-10 lg:w-10 lg:rounded-[var(--radius-md)] lg:border lg:border-[var(--stone-300)] lg:bg-white">
                                     <MoreHorizontal className="h-4 w-4" />
                                     <span className="sr-only">{t('reception.table.moreActions', { defaultValue: 'Más acciones' })}</span>
                                   </Button>
@@ -2821,6 +2821,20 @@ export function ReceptionPage() {
                   })}
                 </TableBody>
               </Table>
+              <div className="hidden h-[58px] items-center justify-end gap-4 border-t border-[var(--stone-200)] px-4 text-[12px] text-[var(--ink-muted)] lg:flex">
+                <span>
+                  Mostrando {filteredReceptions.length > 0 ? 1 : 0}–{filteredReceptions.length} de {filteredReceptions.length}
+                </span>
+                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" disabled aria-label="Página anterior">
+                  <ChevronRight className="h-4 w-4 rotate-180" />
+                </Button>
+                <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-2 font-medium text-[var(--ink)]">
+                  1
+                </span>
+                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" disabled aria-label="Página siguiente">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </>
         )}
