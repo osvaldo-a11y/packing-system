@@ -1565,7 +1565,7 @@ export function ProcessesPage() {
                         ))}
                       </select>
                       {producerIdsWithMp && producersForCreate.length === 0 ? (
-                        <p className="w-full text-sm leading-relaxed text-amber-700 dark:text-amber-500 max-lg:text-[13px] max-lg:leading-[1.5] max-lg:text-[var(--harvest-700,#B45309)]">
+                        <p className="text-sm text-amber-700 dark:text-amber-500 max-lg:w-full max-lg:text-[13px] max-lg:leading-[1.5] max-lg:text-[var(--harvest-700,#B45309)]">
                           {t('process.dialog.noMpWarning')}
                         </p>
                       ) : null}
@@ -1687,7 +1687,7 @@ export function ProcessesPage() {
                         <Label className="text-xs max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('process.dialog.fieldEntrada')}</Label>
                         <Input
                           readOnly
-                          className={cn(filterInputClass, 'bg-muted/50 font-serif tabular-nums max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--stone-100)] max-lg:text-[16px] max-lg:text-[var(--ink-muted)] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]')}
+                          className={cn(filterInputClass, 'bg-muted/50 max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--stone-100)] max-lg:font-serif max-lg:text-[16px] max-lg:tabular-nums max-lg:text-[var(--ink-muted)] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]')}
                           value={entradaSum > 0 ? fmtLb2(entradaSum) : ''}
                         />
                       </div>
@@ -1821,8 +1821,8 @@ export function ProcessesPage() {
               data-new-process-footer-mobile
               className={cn(
                 operationalModalFooterClass,
-                '!flex !flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2',
-                'sticky bottom-0 z-10 lg:hidden',
+                'hidden max-lg:!flex max-lg:!flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2',
+                'sticky bottom-0 z-10',
               )}
             >
               <div className="flex w-full flex-nowrap items-center gap-2">
