@@ -2112,7 +2112,7 @@ export function ReceptionPage() {
 
       <section
         aria-labelledby="rec-kpis"
-        className="space-y-3 lg:mt-5 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+        className="space-y-3 lg:mt-0 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="rec-kpis" className="font-serif text-[18px] font-semibold text-[var(--ink)] lg:text-[20px]">
@@ -2361,7 +2361,7 @@ export function ReceptionPage() {
       </div>
 
       <section
-        className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="rec-tabla"
       >
         <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[64px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
@@ -2694,7 +2694,7 @@ export function ReceptionPage() {
               })}
             </div>
             <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
-              <Table className="w-full min-w-0 table-fixed">
+              <Table className="w-full min-w-0 table-fixed lg:[&_td]:!py-3">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>
                     <TableHead className="w-[112px]">{t('reception.table.colState')}</TableHead>
