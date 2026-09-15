@@ -1816,7 +1816,7 @@ export function ProcessesPage() {
               data-new-process-footer
               className={cn(
                 operationalModalFooterClass,
-                'hidden min-h-[65px] items-center justify-between border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-7 py-3 lg:flex lg:flex-row',
+                'hidden min-h-[65px] items-center border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-7 py-3 lg:flex lg:!flex-row lg:!justify-between',
               )}
             >
               <div className="flex items-center gap-5 text-[12px] text-[var(--ink-muted)]">
