@@ -1514,7 +1514,7 @@ export function ReceptionPage() {
                         <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
                           <PinePersonIcon size={19} />
                         </span>
-                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[140px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
                           {t('reception.dialog.fieldProducer')} <span className="text-red-700">*</span>
                         </label>
                         <select
@@ -1534,7 +1534,7 @@ export function ReceptionPage() {
                         <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
                           <PineDocumentIcon size={19} />
                         </span>
-                        <label className={cn(compactFieldLabelClass, 'lg:w-[132px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[160px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
                           {t('reception.dialog.fieldReference')} <span className="text-red-700">*</span>
                         </label>
                         {editingId == null && !viewOnly ? (
@@ -1566,7 +1566,7 @@ export function ReceptionPage() {
                         <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
                           <PineCalendarIcon size={19} />
                         </span>
-                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[140px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
                           {t('reception.dialog.fieldDatetime')} <span className="text-red-700">*</span>
                         </label>
                         <Input
@@ -1580,7 +1580,7 @@ export function ReceptionPage() {
                         <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
                           <PineLeafIcon size={19} />
                         </span>
-                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[140px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
                           {t('reception.dialog.fieldFruitType')} <span className="text-red-700">*</span>
                         </label>
                         <select
@@ -1690,7 +1690,8 @@ export function ReceptionPage() {
                             }
                           >
                             <PinePlusIcon size={18} className="hidden lg:block" />
-                            <span>{t('reception.dialog.addLine').replace(/^\+\s*/, '')}</span>
+                            <span className="lg:hidden">{t('reception.dialog.addLine')}</span>
+                            <span className="hidden lg:inline">{t('reception.dialog.addLine').replace(/^\+\s*/, '')}</span>
                           </button>
                           <button
                             type="button"
