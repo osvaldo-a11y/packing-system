@@ -1348,7 +1348,7 @@ export function DashboardPage() {
         <img
           src={appBranding.landscapeUrl}
           alt=""
-          className="pointer-events-none absolute right-[-12px] top-[-5px] h-[182px] w-[400px] max-w-none object-contain object-right-top opacity-[0.7] contrast-[0.98] brightness-[1.03] saturate-[0.64] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.1)_15%,rgba(0,0,0,0.52)_40%,black_64%,black_100%),linear-gradient(to_bottom,black_0%,black_72%,rgba(0,0,0,0.62)_88%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.1)_15%,rgba(0,0,0,0.52)_40%,black_64%,black_100%),linear-gradient(to_bottom,black_0%,black_72%,rgba(0,0,0,0.62)_88%,transparent_100%)]"
+          className="pointer-events-none absolute right-[-94px] top-[-5px] h-[182px] w-[400px] max-w-none object-contain object-right-top opacity-[0.7] contrast-[0.98] brightness-[1.03] saturate-[0.64] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.1)_15%,rgba(0,0,0,0.52)_40%,black_64%,black_100%),linear-gradient(to_bottom,black_0%,black_72%,rgba(0,0,0,0.62)_88%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.1)_15%,rgba(0,0,0,0.52)_40%,black_64%,black_100%),linear-gradient(to_bottom,black_0%,black_72%,rgba(0,0,0,0.62)_88%,transparent_100%)]"
           aria-hidden
         />
         <div className="relative z-[1]">
