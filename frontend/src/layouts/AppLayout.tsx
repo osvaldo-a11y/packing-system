@@ -520,7 +520,7 @@ export function AppLayout() {
                 tone="onLight"
                 className={cn(
                   'pointer-events-none [&_img]:h-8',
-                  isHomeDesktop && '[&_img]:h-[46px] [&_img]:max-w-[118px]',
+                  isHomeDesktop && '[&_img]:h-[52px] [&_img]:max-w-[132px]',
                   isReceptionsPage && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
                 )}
               />
@@ -655,8 +655,12 @@ export function AppLayout() {
                 className={({ isActive }) =>
                   cn(
                     'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-                    isHomeDesktop && 'max-md:text-[9px] max-md:font-medium',
-                    isActive ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
+                    isHomeDesktop && 'max-md:text-[9.5px] max-md:font-semibold',
+                    isActive
+                      ? 'text-[var(--olive-700)]'
+                      : isHomeDesktop
+                        ? 'text-[#62685F]'
+                        : 'text-[var(--ink-muted)]',
                   )
                 }
               >
@@ -671,7 +675,15 @@ export function AppLayout() {
                       aria-hidden
                     />
                     <Icon
-                      className={cn('h-5 w-5', isActive ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
+                      className={cn(
+                        'h-5 w-5',
+                        isHomeDesktop && 'max-md:h-[22px] max-md:w-[22px]',
+                        isActive
+                          ? 'text-[var(--olive-700)]'
+                          : isHomeDesktop
+                            ? 'text-[#62685F]'
+                            : 'text-[var(--ink-muted)]',
+                      )}
                       strokeWidth={2.25}
                       aria-hidden
                     />
@@ -687,8 +699,12 @@ export function AppLayout() {
             type="button"
             className={cn(
               'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
-              isHomeDesktop && 'max-md:text-[9px] max-md:font-medium',
-              moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
+              isHomeDesktop && 'max-md:text-[9.5px] max-md:font-semibold',
+              moreOpen
+                ? 'text-[var(--olive-700)]'
+                : isHomeDesktop
+                  ? 'text-[#62685F]'
+                  : 'text-[var(--ink-muted)]',
             )}
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.moreTitle')}
@@ -701,7 +717,15 @@ export function AppLayout() {
               />
             ) : (
               <MoreHorizontal
-                className={cn('h-5 w-5', moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]')}
+                className={cn(
+                  'h-5 w-5',
+                  isHomeDesktop && 'max-md:h-[22px] max-md:w-[22px]',
+                  moreOpen
+                    ? 'text-[var(--olive-700)]'
+                    : isHomeDesktop
+                      ? 'text-[#62685F]'
+                      : 'text-[var(--ink-muted)]',
+                )}
                 strokeWidth={2.25}
                 aria-hidden
               />
