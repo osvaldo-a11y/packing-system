@@ -9,18 +9,20 @@ type IconProps = SVGProps<SVGSVGElement> & {
 export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M0 0h30v25H0z" />
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M32 5h7l9 11v10H32V5Zm3 4v9h9l-6-9h-3Z"
-      />
-      <path fill="currentColor" d="M0 25h48v4H0z" />
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M10.5 27a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM39.5 27a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
-      />
+      <g transform="translate(-0.96 -2.46) scale(1.04)">
+        <path fill="currentColor" d="M0 0h30v25H0z" />
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          d="M32 5h7l9 11v10H32V5Zm3 4v9h9l-6-9h-3Z"
+        />
+        <path fill="currentColor" d="M0 25h48v4H0z" />
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          d="M10.5 27a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM39.5 27a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+        />
+      </g>
     </svg>
   );
 }
@@ -29,18 +31,20 @@ export function PineTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }
 export function PineDispatchTruckIcon({ size = 24, strokeWidth: _strokeWidth, ...props }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden {...props}>
-      <path fill="currentColor" d="M0 3h33v23H0z" />
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M34 6h6l8 10v10H34V6Zm3 4v8h7l-5-8h-2Z"
-      />
-      <path fill="currentColor" d="M0 26h48v4H0z" />
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M11 28a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM40 28a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
-      />
+      <g transform="translate(-0.96 -2.46) scale(1.04)">
+        <path fill="currentColor" d="M0 3h33v23H0z" />
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          d="M34 6h6l8 10v10H34V6Zm3 4v8h7l-5-8h-2Z"
+        />
+        <path fill="currentColor" d="M0 26h48v4H0z" />
+        <path
+          fill="currentColor"
+          fillRule="evenodd"
+          d="M11 28a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM40 28a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+        />
+      </g>
     </svg>
   );
 }
