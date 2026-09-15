@@ -1,9 +1,16 @@
+import { ChevronDown, Globe } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import i18n from '@/i18n';
 
 const LANG_STORAGE_KEY = 'lang';
 
-export function LanguageToggle() {
+export function LanguageToggle({
+  plain = false,
+  showChevron = false,
+}: {
+  plain?: boolean;
+  showChevron?: boolean;
+} = {}) {
   const [active, setActive] = useState<'es' | 'en'>(
     i18n.language.startsWith('en') ? 'en' : 'es'
   );
@@ -26,10 +33,18 @@ export function LanguageToggle() {
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex h-8 min-w-[2.25rem] items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold tracking-wide text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
-      aria-label={active === 'en' ? 'Cambiar a español' : 'Switch to English'}
+      className={
+        plain
+          ? 'inline-flex h-9 items-center justify-center gap-1.5 px-1 text-[12px] font-semibold tracking-wide text-[var(--ink)] transition-colors hover:text-[var(--olive-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive-700)]'
+          : 'inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[var(--stone-300)] bg-[var(--stone-50)] px-2.5 text-[12px] font-semibold tracking-wide text-[var(--ink)] transition-colors hover:bg-[var(--sage-100)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive-700)]'
+      }
+      aria-label={active === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'}
+      title={active === 'en' ? 'Language: English (click for Spanish)' : 'Idioma: español (clic para inglés)'}
     >
-      {active === 'en' ? 'ES' : 'EN'}
+      {/* Muestra el idioma activo (no el destino) para evitar confusión en revisión visual. */}
+      <Globe className={plain ? 'h-[18px] w-[18px] opacity-75' : 'h-3 w-3 opacity-70'} aria-hidden />
+      {active === 'en' ? 'EN' : 'ES'}
+      {showChevron ? <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden /> : null}
     </button>
   );
 }
