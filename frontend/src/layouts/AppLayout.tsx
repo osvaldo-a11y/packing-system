@@ -655,6 +655,7 @@ export function AppLayout() {
                 className={({ isActive }) =>
                   cn(
                     'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
+                    isHomeDesktop && 'max-md:text-[9px] max-md:font-medium',
                     isActive ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
                   )
                 }
@@ -686,6 +687,7 @@ export function AppLayout() {
             type="button"
             className={cn(
               'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-semibold leading-none',
+              isHomeDesktop && 'max-md:text-[9px] max-md:font-medium',
               moreOpen ? 'text-[var(--olive-700)]' : 'text-[var(--ink-muted)]',
             )}
             onClick={() => setMoreOpen(true)}

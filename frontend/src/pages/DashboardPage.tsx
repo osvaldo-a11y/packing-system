@@ -1574,25 +1574,25 @@ export function DashboardPage() {
                 to={module.to}
                 data-home-mobile-module-card
                 className={cn(
-                  'relative min-h-[180px] overflow-hidden rounded-[12px] border px-4 pb-4 pt-4 text-[var(--ink)]',
+                  'relative min-h-[180px] overflow-hidden rounded-[12px] border px-3.5 pb-3.5 pt-3.5 text-[var(--ink)]',
                   module.surface,
                 )}
               >
                 <div className="flex items-center justify-between">
-                  <span className={cn('inline-flex h-16 w-16 items-center justify-center rounded-[10px]', module.well)} aria-hidden>
-                    <Icon size={38} strokeWidth={1.85} />
+                  <span className={cn('inline-flex h-[60px] w-[60px] items-center justify-center rounded-[10px]', module.well)} aria-hidden>
+                    <Icon size={36} strokeWidth={1.85} />
                   </span>
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white/90 text-[var(--ink-muted)]" aria-hidden>
                     <ChevronRight className="h-5 w-5" strokeWidth={2} />
                   </span>
                 </div>
-                <p className="mt-3 font-serif text-[19px] font-bold leading-[1.02] tracking-[-0.25px]">
+                <p className="mt-1.5 whitespace-nowrap font-serif text-[18px] font-bold leading-none tracking-[-0.75px]">
                   {module.label}
                 </p>
-                <p className="mt-1.5 font-serif text-[31px] font-bold leading-none tracking-[-0.85px]">
+                <p className="mt-0.5 whitespace-nowrap font-serif text-[29px] font-bold leading-none tracking-[-1.1px]">
                   {module.metric}
                 </p>
-                <p className="mt-2 line-clamp-2 text-[14px] leading-[1.22] tracking-[-0.15px] text-[var(--ink-muted)]">
+                <p className="mt-1 line-clamp-2 text-[14px] leading-[1.22] tracking-[-0.15px] text-[var(--ink-muted)]">
                   {module.description}
                 </p>
               </Link>
