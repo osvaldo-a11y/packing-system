@@ -2329,7 +2329,129 @@ export function ReceptionPage() {
         ) : null}
       </section>
 
-      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5 lg:mt-3 lg:min-h-[64px] lg:px-3.5 lg:py-[11px]')}>
+      <div className={cn(filterPanel, 'mt-1 hidden space-y-3 py-3.5 lg:mt-3 lg:block lg:min-h-[64px] lg:px-3.5 lg:py-[11px]')}>
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              ['today', t('reception.filters.presetToday'), CalendarDays] as const,
+              ['week', t('reception.filters.presetWeek'), CalendarRange] as const,
+              ['all', t('reception.filters.presetAll'), List] as const,
+            ]
+          ).map(([key, label, Icon]) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={datePreset === key ? 'default' : 'outline'}
+              className={cn(
+                'h-9 gap-1.5 rounded-md px-3 text-[13px] font-semibold lg:h-10 lg:min-w-[104px] lg:px-4',
+                datePreset === key ? cn('text-white', receptionTok.accent, 'hover:opacity-95') : '',
+              )}
+              onClick={() => applyDatePreset(key)}
+            >
+              <Icon className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
+              {label}
+            </Button>
+          ))}
+          <div className="relative min-w-[12rem] flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)] lg:left-3 lg:h-4 lg:w-4" aria-hidden />
+            <Input
+              className={cn(filterInputClass, 'h-9 pl-8 lg:h-10 lg:pl-10')}
+              placeholder={t('reception.filters.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('reception.filters.search')}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 lg:h-10 lg:min-w-[146px] lg:px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-3.5 w-3.5 lg:h-4 lg:w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? t('reception.filters.hideFilters') : t('reception.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.dateFrom')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-8')}
+                value={filterDateFrom}
+                onChange={(e) => {
+                  setDatePreset('all');
+                  setFilterDateFrom(e.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.dateTo')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-8')}
+                value={filterDateTo}
+                onChange={(e) => {
+                  setDatePreset('all');
+                  setFilterDateTo(e.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.producer')}</Label>
+              <select className={filterSelectClass} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.producerAll')}</option>
+                {(producers ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.species')}</Label>
+              <select className={filterSelectClass} value={filterSpecies} onChange={(e) => setFilterSpecies(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.speciesAll')}</option>
+                {(speciesList ?? []).map((sp) => (
+                  <option key={sp.id} value={sp.id}>{sp.nombre || sp.codigo}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.variety')}</Label>
+              <select className={filterSelectClass} value={filterVariety} onChange={(e) => setFilterVariety(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.varietyAll')}</option>
+                {(varieties ?? [])
+                  .filter((v) => filterSpecies <= 0 || v.species_id === filterSpecies)
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>{v.nombre}</option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.fruitType')}</Label>
+              <select className={filterSelectClass} value={filterTipo} onChange={(e) => setFilterTipo(Number(e.target.value))}>
+                <option value={0}>{t('reception.filters.fruitTypeAll')}</option>
+                {(receptionTypes ?? []).map((rt) => (
+                  <option key={rt.id} value={rt.id}>{rt.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5 lg:col-span-2">
+              <Label className="text-xs text-slate-500">{t('reception.filters.usage')}</Label>
+              <select className={filterSelectClass} value={filterUso} onChange={(e) => setFilterUso(e.target.value as typeof filterUso)}>
+                <option value="todos">{t('reception.filters.usageAll')}</option>
+                <option value="abierto">{t('reception.filters.usageOpen')}</option>
+                <option value="cerrado">{t('reception.filters.usageClosed')}</option>
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className={cn(filterPanel, 'mt-1 space-y-3 py-3.5 lg:hidden')}>
         <div className="flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2">
           <div className="flex items-center gap-2 lg:contents">
             {(
