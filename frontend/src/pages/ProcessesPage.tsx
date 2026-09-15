@@ -1435,17 +1435,17 @@ export function ProcessesPage() {
     <div className="font-inter space-y-8 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
       <header
         data-processes-desktop-hero
-        className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:relative lg:min-h-[107px] lg:overflow-hidden lg:border-b lg:border-[var(--stone-200)] lg:py-[11px]"
+        className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:relative lg:h-[171px] lg:min-h-[171px] lg:overflow-hidden lg:border-b lg:border-[var(--stone-200)] lg:pb-5 lg:pl-2 lg:pt-7"
       >
         <img
           src={appBranding.landscapeUrl}
           alt=""
-          className="pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[58%] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.16)_18%,rgba(0,0,0,0.68)_43%,black_69%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.58)_13%,black_38%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.16)_18%,rgba(0,0,0,0.68)_43%,black_69%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.58)_13%,black_38%)] lg:block"
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
           aria-hidden
         />
         <div className="relative z-[1] min-w-0 space-y-1.5 lg:space-y-2">
           <div className="flex items-center gap-2">
-            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[46px] lg:font-semibold lg:leading-none lg:tracking-[-1.2px] lg:text-[var(--ink)]')}>
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.05] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
               <span className="lg:hidden">{t('process.pageTitle')}</span>
               <span className="hidden lg:inline">{t('nav.items.procesos')}</span>
             </h1>
@@ -1458,7 +1458,7 @@ export function ProcessesPage() {
               <Info className="h-4 w-4" />
             </button>
           </div>
-          <p className={cn(pageSubtitle, 'lg:font-serif lg:text-[17px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+          <p className={cn(pageSubtitle, 'lg:font-serif lg:text-[24px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
             {t('process.pageSubtitle')}
           </p>
         </div>
