@@ -2694,18 +2694,18 @@ export function ReceptionPage() {
               })}
             </div>
             <div className={cn(tableShell, 'hidden md:block lg:rounded-none lg:border-0')}>
-              <Table className="min-w-[980px]">
+              <Table className="w-full min-w-0 table-fixed">
                 <TableHeader>
                   <TableRow className={tableHeaderRow}>
-                    <TableHead className="min-w-[168px]">{t('reception.table.colState')}</TableHead>
-                    <TableHead className="whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
-                    <TableHead className="min-w-[140px]">{t('reception.table.colProducer')}</TableHead>
-                    <TableHead className="min-w-[120px]">{t('reception.table.colGuide')}</TableHead>
-                    <TableHead className="min-w-[100px]">{t('reception.table.colSpecies')}</TableHead>
-                    <TableHead className="min-w-[100px]">{t('reception.table.colVariety')}</TableHead>
-                    <TableHead className="text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
-                    <TableHead className="min-w-[140px]">{t('reception.table.colNotes')}</TableHead>
-                    <TableHead className="w-[200px] text-right">{t('reception.table.colActions')}</TableHead>
+                    <TableHead className="w-[112px]">{t('reception.table.colState')}</TableHead>
+                    <TableHead className="w-[110px] whitespace-nowrap">{t('reception.table.colDate')}</TableHead>
+                    <TableHead className="w-[145px]">{t('reception.table.colProducer')}</TableHead>
+                    <TableHead className="w-[115px]">{t('reception.table.colGuide')}</TableHead>
+                    <TableHead className="w-[105px]">{t('reception.table.colSpecies')}</TableHead>
+                    <TableHead className="w-[90px]">{t('reception.table.colVariety')}</TableHead>
+                    <TableHead className="w-[95px] text-right tabular-nums">{t('reception.table.colNetLb')}</TableHead>
+                    <TableHead className="w-[155px]">{t('reception.table.colNotes')}</TableHead>
+                    <TableHead className="w-[210px] text-right">{t('reception.table.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2723,19 +2723,19 @@ export function ReceptionPage() {
                             </div>
                           </TableCell>
                           <TableCell className="py-3 align-middle text-xs text-slate-700">{formatReceptionDate(r.received_at)}</TableCell>
-                          <TableCell className="max-w-[180px] py-3 align-middle">
+                          <TableCell className="max-w-[180px] py-3 align-middle lg:py-1.5">
                             <div className="flex min-w-0 items-start gap-1.5" title={r.producer?.nombre ?? ''}>
                               <Leaf className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--olive-600)]" aria-hidden />
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-slate-900">{r.producer?.nombre ?? '—'}</p>
+                                <p className="truncate text-sm font-medium leading-tight text-slate-900">{r.producer?.nombre ?? '—'}</p>
                                 {r.producer?.codigo ? (
-                                  <p className="truncate text-[11px] text-slate-500">#{r.producer.codigo}</p>
+                                  <p className="truncate text-[11px] leading-tight text-slate-500">#{r.producer.codigo}</p>
                                 ) : r.producer_id ? (
-                                  <p className="truncate text-[11px] text-slate-500">#{r.producer_id}</p>
+                                  <p className="truncate text-[11px] leading-tight text-slate-500">#{r.producer_id}</p>
                                 ) : null}
                               </div>
                             </div>
-                            <p className="font-mono text-[11px] text-slate-400">#{r.id}</p>
+                            <p className="font-mono text-[11px] leading-tight text-slate-400">#{r.id}</p>
                           </TableCell>
                           <TableCell className="max-w-[180px] py-2 align-top font-mono text-xs text-slate-800">
                             {r.reference_code ?? r.document_number ?? '—'}
