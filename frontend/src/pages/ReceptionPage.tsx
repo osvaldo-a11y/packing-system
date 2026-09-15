@@ -103,7 +103,20 @@ import {
   tableShell,
 } from '@/lib/page-ui';
 import { PinebloomHero } from '@/components/brand/PinebloomHero';
-import { PineClockIcon, PineTruckIcon, PineUsersIcon, PineWeightIcon } from '@/components/icons/pinebloom';
+import {
+  PineCalendarIcon,
+  PineClockIcon,
+  PineCopyIcon,
+  PineDocumentIcon,
+  PineEllipsisIcon,
+  PineLeafIcon,
+  PinePersonIcon,
+  PinePlusIcon,
+  PineTrashIcon,
+  PineTruckIcon,
+  PineUsersIcon,
+  PineWeightIcon,
+} from '@/components/icons/pinebloom';
 import { FieldRow } from '@/components/brand/FieldRow';
 import { appBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
@@ -1333,27 +1346,27 @@ export function ReceptionPage() {
           fullScreenMobile
           className={cn(
             operationalModalContentClass,
-            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] [&>button]:hidden',
+            'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1024px,calc(100vw-2rem))] sm:max-w-[min(1024px,calc(100vw-2rem))] lg:max-w-[min(1050px,calc(100vw-2rem))] lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] [&>button]:hidden',
           )}
         >
-          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4')}>
+          <DialogHeader className={cn(operationalModalHeaderClass, 'relative overflow-hidden border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4 lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5')}>
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)] md:hidden" aria-hidden />
             <img
               src={appBranding.landscapeUrl}
               alt=""
-              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-[-4%] h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] md:hidden lg:block lg:right-[-1%] lg:w-[58%] lg:opacity-[0.72] lg:contrast-[0.98] lg:brightness-[1.02] lg:[mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)]"
               aria-hidden
             />
             <div className="relative z-[1] flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-1">
-                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5')}>
+                <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 lg:text-[26px] lg:leading-tight')}>
                   <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
                   {receptionDialogTitle}
                 </DialogTitle>
-                <p className="text-[13px] text-[var(--ink-muted)]">
+                <p className="text-[13px] text-[var(--ink-muted)] lg:text-[14px]">
                   {t('reception.dialog.subtitle', { defaultValue: 'Registra la fruta que ingresa a la operación.' })}
                 </p>
-                <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] sm:max-w-[14rem] sm:text-[11px]">
+                <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] sm:max-w-[14rem] sm:text-[11px] lg:hidden">
                   <span className="block">FRUTA DE</span>
                   <span className="block">NUESTRA TIERRA.</span>
                   <span className="block">UN FUTURO</span>
@@ -1363,7 +1376,7 @@ export function ReceptionPage() {
               <button
                 type="button"
                 onClick={() => closeDialog()}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)] lg:h-9 lg:w-9"
                 aria-label={t('reception.dialog.closeAriaLabel')}
               >
                 <X size={16} />
@@ -1386,11 +1399,11 @@ export function ReceptionPage() {
                     'min-h-0 w-full border-b border-border px-[14px] py-[14px] sm:px-4',
                   )}
                 >
-                  <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                    <span className={operationalModalStepBadge}>1</span>
+                  <div className={cn(operationalModalSectionHeadingRow, 'mb-3 lg:mb-4 lg:gap-3')}>
+                    <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
                     <div>
-                      <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepOriginTitle', { defaultValue: t('reception.dialog.stepOrigin') })}</h3>
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('reception.dialog.stepOriginTitle', { defaultValue: t('reception.dialog.stepOrigin') })}</h3>
+                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground lg:text-[12px]">
                         {t('reception.dialog.stepOriginHint')}
                       </p>
                     </div>
@@ -1496,11 +1509,16 @@ export function ReceptionPage() {
                         </div>
                       </details>
                     </div>
-                    <div className="hidden grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3 md:grid">
-                      <div className="min-w-0 space-y-1.5">
-                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldProducer')}</label>
+                    <div className="hidden grid-cols-1 gap-[10px] sm:grid-cols-2 md:grid lg:grid-cols-2">
+                      <div className="min-w-0 space-y-1.5 lg:flex lg:h-11 lg:items-center lg:space-y-0 lg:overflow-hidden lg:rounded-[8px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
+                        <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
+                          <PinePersonIcon size={19} />
+                        </span>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                          {t('reception.dialog.fieldProducer')} <span className="text-red-700">*</span>
+                        </label>
                         <select
-                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-full lg:min-w-0 lg:flex-1 lg:border-0 lg:bg-white/65 lg:px-3 lg:text-[13px] lg:shadow-none lg:outline-none"
                           disabled={lockNonStateFields}
                           {...form.register('producer_id', { valueAsNumber: true })}
                         >
@@ -1512,18 +1530,23 @@ export function ReceptionPage() {
                           ))}
                         </select>
                       </div>
-                      <div className="min-w-0 space-y-1.5">
-                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldReference')}</label>
+                      <div className="min-w-0 space-y-1.5 lg:flex lg:h-11 lg:items-center lg:space-y-0 lg:overflow-hidden lg:rounded-[8px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
+                        <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
+                          <PineDocumentIcon size={19} />
+                        </span>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[132px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                          {t('reception.dialog.fieldReference')} <span className="text-red-700">*</span>
+                        </label>
                         {editingId == null && !viewOnly ? (
-                          <div className="space-y-0.5">
+                          <div className="space-y-0.5 lg:h-full lg:min-w-0 lg:flex-1 lg:space-y-0">
                             <Input
-                              className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase"
+                              className="h-8 rounded-md border border-border px-2 py-1.5 font-mono text-xs uppercase lg:h-full lg:border-0 lg:bg-white/65 lg:px-3 lg:text-[13px] lg:shadow-none"
                               maxLength={64}
                               placeholder={t('reception.dialog.fieldReferencePlaceholder')}
                               autoComplete="off"
                               {...form.register('reference_code')}
                             />
-                            <p className="text-[10px] leading-tight text-muted-foreground">
+                            <p className="text-[10px] leading-tight text-muted-foreground lg:hidden">
                               {t('reception.dialog.fieldReferenceHint')}
                             </p>
                           </div>
@@ -1539,19 +1562,29 @@ export function ReceptionPage() {
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0 space-y-1.5">
-                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDatetime')}</label>
+                      <div className="min-w-0 space-y-1.5 lg:flex lg:h-11 lg:items-center lg:space-y-0 lg:overflow-hidden lg:rounded-[8px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
+                        <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
+                          <PineCalendarIcon size={19} />
+                        </span>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                          {t('reception.dialog.fieldDatetime')} <span className="text-red-700">*</span>
+                        </label>
                         <Input
                           type="datetime-local"
                           disabled={lockNonStateFields}
-                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs"
+                          className="h-8 rounded-md border border-border px-2 py-1.5 text-xs lg:h-full lg:min-w-0 lg:flex-1 lg:border-0 lg:bg-white/65 lg:px-3 lg:text-[13px] lg:shadow-none"
                           {...form.register('received_at')}
                         />
                       </div>
-                      <div className="min-w-0 space-y-1.5">
-                        <label className={compactFieldLabelClass}>{t('reception.dialog.fieldFruitType')}</label>
+                      <div className="min-w-0 space-y-1.5 lg:flex lg:h-11 lg:items-center lg:space-y-0 lg:overflow-hidden lg:rounded-[8px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
+                        <span className="hidden h-full w-11 shrink-0 items-center justify-center border-r border-[var(--stone-200)] text-[var(--olive-700)] lg:inline-flex" aria-hidden>
+                          <PineLeafIcon size={19} />
+                        </span>
+                        <label className={cn(compactFieldLabelClass, 'lg:w-[112px] lg:shrink-0 lg:px-3 lg:text-[12px] lg:font-semibold lg:text-[var(--ink)]')}>
+                          {t('reception.dialog.fieldFruitType')} <span className="text-red-700">*</span>
+                        </label>
                         <select
-                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs max-md:min-h-11"
+                          className="h-8 w-full rounded-md border border-border px-2 py-1.5 text-xs max-md:min-h-11 lg:h-full lg:min-w-0 lg:flex-1 lg:border-0 lg:bg-white/65 lg:px-3 lg:text-[13px] lg:shadow-none lg:outline-none"
                           disabled={lockNonStateFields}
                           {...form.register('reception_type_id', { valueAsNumber: true })}
                         >
@@ -1569,11 +1602,18 @@ export function ReceptionPage() {
                         </select>
                       </div>
                     </div>
-                    <details className="mt-2 hidden rounded-md border border-border/70 bg-muted/20 px-3 py-2 md:block">
-                      <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-700">
-                        {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                    <details className="group mt-2 hidden rounded-md border border-border/70 bg-muted/20 px-3 py-2 md:block lg:overflow-hidden lg:rounded-[8px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:p-0">
+                      <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-700 lg:flex lg:h-11 lg:list-none lg:items-center lg:gap-3 lg:px-3.5">
+                        <PineEllipsisIcon size={18} className="hidden shrink-0 text-[var(--olive-700)] lg:block" />
+                        <span className="lg:text-[13px] lg:text-[var(--ink)]">
+                          {t('reception.dialog.moreData', { defaultValue: 'Más datos' })}
+                        </span>
+                        <span className="hidden min-w-0 flex-1 truncate text-right text-[11px] font-normal text-[var(--ink-muted)] lg:block">
+                          Documento, mercado y estado
+                        </span>
+                        <ChevronRight className="hidden h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90 lg:block" aria-hidden />
                       </summary>
-                      <div className="mt-3 grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="mt-3 grid grid-cols-1 gap-[10px] sm:grid-cols-2 lg:mt-0 lg:grid-cols-3 lg:border-t lg:border-[var(--stone-200)] lg:bg-white/55 lg:p-3">
                       <div className="min-w-0 space-y-1.5">
                         <label className={compactFieldLabelClass}>{t('reception.dialog.fieldDoc')}</label>
                         <Input
@@ -1625,14 +1665,14 @@ export function ReceptionPage() {
 
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                   <section
-                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-[14px] py-[14px] sm:px-4')}
+                    className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col border-b border-border px-[14px] py-[14px] sm:px-4 lg:bg-white')}
                   >
-                    <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="mb-4 flex shrink-0 flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between lg:items-start">
                       <div className="flex min-w-0 flex-wrap items-start gap-2">
-                        <span className={operationalModalStepBadge}>2</span>
+                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
                         <div>
-                          <h3 className={operationalModalStepTitle}>{t('reception.dialog.sectionLines')}</h3>
-                          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('reception.dialog.sectionLines')}</h3>
+                          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground lg:text-[12px]">
                             {t('reception.dialog.stepFruitHint')} · {t('reception.dialog.stepWeightHint')}
                           </p>
                         </div>
@@ -1641,7 +1681,7 @@ export function ReceptionPage() {
                         <div className="flex w-full flex-nowrap items-center gap-2">
                           <button
                             type="button"
-                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-3 text-[13px] font-semibold text-white hover:bg-[var(--olive-600)] disabled:opacity-50 lg:min-w-[170px] lg:px-4"
                             disabled={lockNonStateFields}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1649,11 +1689,12 @@ export function ReceptionPage() {
                               })
                             }
                           >
-                            {t('reception.dialog.addLine')}
+                            <PinePlusIcon size={18} className="hidden lg:block" />
+                            <span>{t('reception.dialog.addLine').replace(/^\+\s*/, '')}</span>
                           </button>
                           <button
                             type="button"
-                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50"
+                            className="inline-flex h-[46px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--stone-300)] bg-white px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-100)] disabled:opacity-50 lg:min-w-[190px] lg:px-4"
                             disabled={lockNonStateFields || lineDrafts.length === 0}
                             onClick={() =>
                               setLineDrafts((d) => {
@@ -1663,11 +1704,13 @@ export function ReceptionPage() {
                               })
                             }
                           >
+                            <PineCopyIcon size={18} className="hidden lg:block" />
                             {t('reception.dialog.copyLastLine')}
                           </button>
                         </div>
                         <label className="flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--sage-100)] px-3 py-2 text-[12px] text-[var(--ink)]">
-                          <Leaf className="h-3.5 w-3.5 shrink-0 text-[var(--olive-700)]" aria-hidden />
+                          <Leaf className="h-3.5 w-3.5 shrink-0 text-[var(--olive-700)] lg:hidden" aria-hidden />
+                          <PineLeafIcon size={17} className="hidden shrink-0 text-[var(--olive-700)] lg:block" aria-hidden />
                           <input
                             type="checkbox"
                             className="sr-only"
@@ -1698,20 +1741,22 @@ export function ReceptionPage() {
                             (v) => L.species_id <= 0 || v.species_id === L.species_id,
                           );
                           return (
-                            <div key={idx} className={cn(modalFormLineCard, 'space-y-3 rounded-md bg-muted/30 p-3')}>
+                            <div key={idx} className={cn(modalFormLineCard, 'space-y-3 rounded-md bg-muted/30 p-3 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:p-3.5')}>
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-semibold text-slate-700">
+                                <p className="text-xs font-semibold text-slate-700 lg:font-serif lg:text-[18px] lg:text-[var(--ink)]">
                                   {t('reception.dialog.lineLabel', { n: idx + 1 })}
                                 </p>
                                 <button
                                   type="button"
-                                  className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600"
+                                  className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 lg:h-8 lg:w-auto lg:gap-1.5 lg:border-transparent lg:bg-transparent lg:px-2 lg:text-[12px] lg:text-red-700"
                                   aria-label={t('reception.dialog.deleteLineAriaLabel', { n: idx + 1 })}
                                   title={t('reception.dialog.deleteLineTitle')}
                                   onClick={() => setLineDrafts((d) => d.filter((_, i) => i !== idx))}
                                   disabled={lockNonStateFields || lineDrafts.length <= 1}
                                 >
-                                  <Trash2 className="h-4 w-4 shrink-0" />
+                                  <Trash2 className="h-4 w-4 shrink-0 lg:hidden" />
+                                  <PineTrashIcon size={17} className="hidden shrink-0 lg:block" />
+                                  <span className="hidden lg:inline">Eliminar</span>
                                 </button>
                               </div>
                               {L.lot_code ? (
@@ -1720,17 +1765,17 @@ export function ReceptionPage() {
                                 </p>
                               ) : null}
 
-                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5">
-                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5 lg:rounded-[8px] lg:border-[var(--stone-200)] lg:p-3">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground lg:text-[11px]">
                                   {t('reception.dialog.stepFruit')}
                                 </p>
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:gap-2.5 lg:[&_label]:text-[10px]">
                                   <div className="min-w-0 space-y-1">
                                     <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
                                       {t('reception.dialog.colSpecies')}
                                     </label>
                                     <select
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       title={
                                         (speciesList ?? []).find((s) => s.id === L.species_id)?.nombre ??
                                         (speciesList ?? []).find((s) => s.id === L.species_id)?.codigo ??
@@ -1761,7 +1806,7 @@ export function ReceptionPage() {
                                       {t('reception.dialog.colVariety')}
                                     </label>
                                     <select
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       title={sortedVarieties.find((v) => v.id === L.variety_id)?.nombre ?? '—'}
                                       disabled={lockNonStateFields}
                                       value={L.variety_id}
@@ -1797,7 +1842,7 @@ export function ReceptionPage() {
                                       {t('reception.dialog.colQuality')}
                                     </label>
                                     <select
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       title={
                                         (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.codigo ??
                                         (qualityGrades ?? []).find((q) => q.id === L.quality_grade_id)?.nombre ??
@@ -1821,11 +1866,11 @@ export function ReceptionPage() {
                                 </div>
                               </div>
 
-                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5">
-                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                              <div className="rounded-md border border-border/70 bg-white/70 p-2.5 lg:rounded-[8px] lg:border-[var(--stone-200)] lg:p-3">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground lg:text-[11px]">
                                   {t('reception.dialog.stepWeight')}
                                 </p>
-                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-2.5 lg:[&_label]:text-[10px]">
                                   <div className="min-w-0 space-y-1">
                                     <label className="block text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
                                       {t('reception.dialog.colGrossLb')}
@@ -1835,7 +1880,7 @@ export function ReceptionPage() {
                                       step="0.01"
                                       placeholder="0"
                                       disabled={lockNonStateFields}
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       value={L.gross_lb}
                                       onChange={(e) =>
                                         setLineDrafts((d) =>
@@ -1852,7 +1897,7 @@ export function ReceptionPage() {
                                       type="number"
                                       step="0.01"
                                       disabled={lockNonStateFields}
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       value={L.net_lb}
                                       onChange={(e) =>
                                         setLineDrafts((d) =>
@@ -1867,7 +1912,7 @@ export function ReceptionPage() {
                                     </label>
                                     <Input
                                       disabled={lockNonStateFields}
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs font-medium lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       value={L.quantity}
                                       onChange={(e) =>
                                         setLineDrafts((d) =>
@@ -1881,7 +1926,7 @@ export function ReceptionPage() {
                                       {t('reception.dialog.colContainer')}
                                     </label>
                                     <select
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       title={(() => {
                                         const c = activeContainers.find((x) => x.id === L.returnable_container_id);
                                         if (!c) return '—';
@@ -1911,7 +1956,7 @@ export function ReceptionPage() {
                                     </label>
                                     <Input
                                       disabled={lockNonStateFields}
-                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs"
+                                      className="h-8 min-w-0 w-full rounded-md border border-border px-2 py-1.5 text-xs lg:h-11 lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:px-3 lg:text-[13px]"
                                       value={L.temperature_str}
                                       onChange={(e) =>
                                         setLineDrafts((d) =>
@@ -1931,9 +1976,9 @@ export function ReceptionPage() {
 
                   <section className={cn(operationalModalSectionCard, 'shrink-0 px-[14px] py-[14px] sm:px-4')}>
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                      <span className={operationalModalStepBadge}>3</span>
+                      <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
                       <div>
-                        <h3 className={operationalModalStepTitle}>{t('reception.dialog.stepReview')}</h3>
+                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[21px]')}>{t('reception.dialog.stepReview')}</h3>
                         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                           {t('reception.dialog.stepReviewHint')}
                         </p>
@@ -1989,7 +2034,7 @@ export function ReceptionPage() {
               className={cn(
                 operationalModalFooterClass,
                 '!flex !flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 sm:!flex-row sm:items-center sm:justify-between',
-                'sticky bottom-0 z-10',
+                'sticky bottom-0 z-10 lg:min-h-[64px] lg:px-5 lg:py-2.5',
               )}
             >
               <div className="order-1 flex w-full flex-nowrap items-center gap-2 sm:order-2 sm:w-auto sm:justify-end">
@@ -2007,7 +2052,7 @@ export function ReceptionPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 min-h-10 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto"
+                  className="h-10 min-h-10 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)] sm:w-auto lg:h-11 lg:min-h-11 lg:min-w-[120px] lg:bg-white lg:px-5"
                   onClick={() => closeDialog()}
                 >
                   {viewOnly ? t('reception.dialog.closeButton') : t('reception.dialog.cancelButton')}
@@ -2017,12 +2062,15 @@ export function ReceptionPage() {
                     type="submit"
                     className={cn(
                       modalFormPrimaryButton,
-                      'inline-flex h-10 min-h-10 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto',
+                      'inline-flex h-10 min-h-10 w-[62%] flex-none items-center justify-center gap-2 text-[13px] sm:w-auto lg:h-11 lg:min-h-11 lg:min-w-[210px] lg:px-5 lg:text-[14px]',
                     )}
                     disabled={createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending}
                   >
                     {!createMut.isPending && !updateMut.isPending && !adminPatchStateMut.isPending && !adminStateOnlyEdit ? (
-                      <Truck className="h-4 w-4" aria-hidden />
+                      <>
+                        <Truck className="h-4 w-4 lg:hidden" aria-hidden />
+                        <PineTruckIcon size={19} className="hidden lg:block" aria-hidden />
+                      </>
                     ) : null}
                     {createMut.isPending || updateMut.isPending || adminPatchStateMut.isPending
                       ? t('reception.dialog.savingButton')
@@ -2032,7 +2080,7 @@ export function ReceptionPage() {
                   </button>
                 ) : null}
               </div>
-              <div className="order-2 flex items-center gap-1.5 text-[9px] text-[var(--ink-muted)] sm:order-1">
+              <div className="order-2 flex items-center gap-1.5 text-[9px] text-[var(--ink-muted)] sm:order-1 lg:text-[11px]">
                 <Scale className="h-3 w-3 shrink-0" aria-hidden />
                 <span>
                   {t('reception.dialog.footerNet')} <span className="font-medium text-[var(--ink)]">{formatLb(lineTotals.net, 2)} lb</span>

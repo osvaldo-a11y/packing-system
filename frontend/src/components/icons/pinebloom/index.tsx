@@ -166,4 +166,76 @@ export function PineCubeIcon({ size = 24, strokeWidth = 1.85, ...props }: IconPr
   );
 }
 
+/** Familia lineal compacta para formularios operativos Pinebloom. */
+export function PinePersonIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="12" cy="7.5" r="3.25" />
+      <path d="M5.75 20c.35-4.4 2.45-6.6 6.25-6.6s5.9 2.2 6.25 6.6" />
+    </svg>
+  );
+}
+
+export function PineDocumentIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M6 3.5h8l4 4V20.5H6z" />
+      <path d="M14 3.5v4h4M9 12h6M9 15.5h6" />
+    </svg>
+  );
+}
+
+export function PineCalendarIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+      <path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14h2M14 14h2M8 17.5h2" />
+    </svg>
+  );
+}
+
+export function PineLeafIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M20 4.5C12.2 4.6 6.5 7.1 6.5 13.1c0 3.2 2.1 5.4 5.1 5.4 6.2 0 8.4-6.8 8.4-14Z" />
+      <path d="M4 20c2.8-4.2 6.2-7.2 10.4-9.3" />
+    </svg>
+  );
+}
+
+export function PineEllipsisIcon({ size = 24, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <circle cx="5" cy="12" r="1.65" />
+      <circle cx="12" cy="12" r="1.65" />
+      <circle cx="19" cy="12" r="1.65" />
+    </svg>
+  );
+}
+
+export function PinePlusIcon({ size = 24, strokeWidth = 2, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" aria-hidden {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function PineCopyIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" aria-hidden {...props}>
+      <rect x="8" y="8" width="11.5" height="12" rx="1.8" />
+      <path d="M16 8V5.8A1.8 1.8 0 0 0 14.2 4H5.8A1.8 1.8 0 0 0 4 5.8v9.4A1.8 1.8 0 0 0 5.8 17H8" />
+    </svg>
+  );
+}
+
+export function PineTrashIcon({ size = 24, strokeWidth = 1.8, ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M4.5 7h15M9 7V4.5h6V7M7 7l.8 13h8.4L17 7M10 10.5v6M14 10.5v6" />
+    </svg>
+  );
+}
+
 export type PineIconComponent = typeof PineTruckIcon;
