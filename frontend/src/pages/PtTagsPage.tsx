@@ -48,7 +48,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PineWeightIcon } from '@/components/icons/pinebloom';
+import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PinePlusIcon, PineWeightIcon } from '@/components/icons/pinebloom';
 import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
 import { appBranding } from '@/lib/branding';
@@ -76,7 +76,6 @@ import {
 import {
   emptyStatePanel,
   filterInputClass,
-  filterPanel,
   filterSelectClass,
   kpiCard,
   kpiFootnote,
@@ -96,7 +95,6 @@ import {
   pageInfoButton,
   pageSubtitle,
   pageTitle,
-  sectionHint,
   sectionTitle,
   tableBodyRow,
   tableHeaderRow,
@@ -1373,10 +1371,60 @@ export function PtTagsPage() {
   }
 
   return (
-    <div className="font-inter space-y-8 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+    <div className="font-inter space-y-5 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <header
+        data-pt-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[33px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('nav.items.unidadPt')}
+          </h1>
+          <div className="mt-2 flex items-center gap-2 text-[15px] leading-snug text-[var(--ink-muted)]">
+            <span>{t('ptTag.pageSubtitle')}</span>
+            <button
+              type="button"
+              className={pageInfoButton}
+              title="Alta de tarja TAR-… y vínculo a proceso; genera pallet PF-… y stock en Existencias PT. Flujo: repalet, packing lists, BOL, despacho."
+              aria-label={t('nav.items.unidadPt')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+          {canOperate(role) ? (
+            <Button
+              type="button"
+              className="mt-3 h-[46px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+              onClick={() => {
+                openPtModalForEditRef.current = false;
+                setEditTag(null);
+                setTagOpen(true);
+              }}
+            >
+              <PinePlusIcon size={20} strokeWidth={2.1} />
+              {t('ptTag.newButton')}
+            </Button>
+          ) : null}
+        </div>
+        <div className="relative mt-2.5 h-[72px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2.5 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.55] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-5px] right-[-3px] h-[82px] w-[244px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
+        </div>
+      </header>
+
       <header
         data-pt-desktop-hero
-        className="relative flex flex-col gap-3 overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 sm:flex-row sm:items-start sm:justify-between lg:h-[171px] lg:min-h-[171px] lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+        className="relative hidden flex-col gap-3 overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 sm:flex-row sm:items-start sm:justify-between lg:flex lg:h-[171px] lg:min-h-[171px] lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
       >
         <img
           src={appBranding.landscapeUrl}
@@ -1813,19 +1861,19 @@ export function PtTagsPage() {
       <section
         data-pt-desktop-kpis
         aria-labelledby="pt-kpis"
-        className="space-y-4 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+        className="space-y-2.5 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
       >
-        <h2 id="pt-kpis" className="sr-only lg:not-sr-only lg:font-serif lg:text-[20px] lg:font-semibold lg:text-[var(--ink)]">
+        <h2 id="pt-kpis" className="font-serif text-[20px] font-semibold text-[var(--ink)] lg:font-serif lg:text-[20px] lg:font-semibold lg:text-[var(--ink)]">
           {t('ptTag.srKpis')}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
           {[
             {
               label: t('ptTag.kpi.units'),
               value: formatCount(listKpis.unidades),
               note: t('ptTag.kpi.unitsNote'),
               Icon: PineBoxesIcon,
-              card: 'border-blue-200 bg-blue-50 lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]',
+              card: 'border-[var(--stone-300)] bg-[var(--stone-100)] lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]',
               well: 'bg-[#DED9CF] text-[#41443F]',
             },
             {
@@ -1833,7 +1881,7 @@ export function PtTagsPage() {
               value: formatCount(listKpis.cajas),
               note: t('ptTag.kpi.boxesNote'),
               Icon: PineCubeIcon,
-              card: 'border-green-200 bg-green-50 lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)] lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
               well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
             },
             {
@@ -1841,7 +1889,7 @@ export function PtTagsPage() {
               value: formatLb(listKpis.lb, 2),
               note: t('ptTag.kpi.lbNote'),
               Icon: PineWeightIcon,
-              card: 'border-blue-200 bg-blue-50 lg:border-[var(--bluegray-200)] lg:bg-[var(--bluegray-100)]',
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)] lg:border-[var(--bluegray-200)] lg:bg-[var(--bluegray-100)]',
               well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
             },
             {
@@ -1851,8 +1899,8 @@ export function PtTagsPage() {
               Icon: PineDocumentIcon,
               card:
                 listKpis.sinCliente > 0
-                  ? 'border-amber-200 bg-amber-50 lg:border-[var(--harvest-200)] lg:bg-[var(--harvest-100)]'
-                  : 'border-green-200 bg-green-50 lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
+                  ? 'border-[var(--harvest-200)] bg-[var(--harvest-100)] lg:border-[var(--harvest-200)] lg:bg-[var(--harvest-100)]'
+                  : 'border-[var(--sage-200)] bg-[var(--sage-100)] lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
               well:
                 listKpis.sinCliente > 0
                   ? 'bg-[var(--harvest-200)] text-[var(--harvest-700)]'
@@ -1863,66 +1911,59 @@ export function PtTagsPage() {
               key={label}
               className={cn(
                 kpiCard,
-                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                'max-lg:min-h-[112px] max-lg:flex-row max-lg:items-start max-lg:gap-2.5 max-lg:rounded-[var(--radius-lg)] max-lg:px-3 max-lg:py-3 lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
                 card,
               )}
             >
-              <span className={cn('hidden lg:inline-flex lg:h-[58px] lg:w-[58px] lg:shrink-0 lg:items-center lg:justify-center lg:rounded-[9px]', well)} aria-hidden>
-                <Icon size={36} className="h-9 w-9" />
+              <span className={cn('inline-flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[9px] lg:inline-flex lg:h-[58px] lg:w-[58px] lg:shrink-0 lg:items-center lg:justify-center lg:rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
               </span>
               <div className="min-w-0">
-                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
-                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                <p className={cn(kpiLabel, 'max-lg:font-serif max-lg:text-[12px] max-lg:font-semibold max-lg:normal-case max-lg:tracking-normal max-lg:text-[var(--ink)] lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
+                <p className={cn(kpiValueLg, 'max-lg:mt-1 max-lg:font-serif max-lg:text-[24px] max-lg:font-bold max-lg:tabular-nums max-lg:leading-none max-lg:tracking-[-0.65px] max-lg:text-[var(--ink)] lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
                   {value}
                 </p>
-                <p className={cn(kpiFootnote, 'lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
+                <p className={cn(kpiFootnote, 'max-lg:mt-1 max-lg:text-[11px] max-lg:leading-tight max-lg:text-[var(--ink-muted)] lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <div className={cn(filterPanel, 'lg:hidden')}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('ptTag.filters.title')}</span>
-        </div>
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.dateFrom')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.dateTo')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-            />
-          </div>
+      <div
+        data-pt-mobile-filters
+        className="space-y-2 rounded-[12px] border border-[var(--stone-300)] bg-white/70 p-3 lg:hidden"
+      >
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            className="h-9 shrink-0"
+            variant={filterDateFrom === localDateYmd() && filterDateTo === localDateYmd() ? 'default' : 'outline'}
+            className={cn(
+              'h-11 gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold',
+              filterDateFrom === localDateYmd() && filterDateTo === localDateYmd()
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               const d = localDateYmd();
               setFilterDateFrom(d);
               setFilterDateTo(d);
             }}
           >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
             {t('ptTag.filters.today')}
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant={!filterDateFrom && !filterDateTo ? 'default' : 'outline'}
             size="sm"
-            className="h-9 shrink-0 text-slate-600"
+            className={cn(
+              'h-11 rounded-[8px] px-3 text-[13px] font-semibold',
+              !filterDateFrom && !filterDateTo
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               setFilterDateFrom('');
               setFilterDateTo('');
@@ -1931,23 +1972,40 @@ export function PtTagsPage() {
             {t('ptTag.filters.clearDates')}
           </Button>
         </div>
-        <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
-          <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.search')}</Label>
-            <Input
-              className={filterInputClass}
-              placeholder={t('ptTag.filters.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.producer')}</Label>
-            <select
-              className={filterSelectClass}
-              value={filterProducer}
-              onChange={(e) => setFilterProducer(Number(e.target.value))}
-            >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
+          <Input
+            className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white pl-10 text-[12px]')}
+            placeholder={t('ptTag.filters.searchPlaceholder')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label={t('ptTag.filters.search')}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-11 w-full gap-1.5 rounded-[8px] border-[var(--stone-300)] bg-white px-4 text-[12px] font-semibold"
+          onClick={() => setShowMoreFilters((v) => !v)}
+        >
+          <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+          {showMoreFilters ? 'Ocultar filtros' : t('ptTag.filters.moreFilters')}
+          <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+        </Button>
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.dateFrom')}</Label>
+                <Input type="date" className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.dateTo')}</Label>
+                <Input type="date" className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+              </div>
+            </div>
+            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
               <option value={0}>{t('ptTag.filters.producerAll')}</option>
               {(producersList ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
@@ -1956,14 +2014,7 @@ export function PtTagsPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.format')}</Label>
-            <select
-              className={filterSelectClass}
-              value={filterFormat}
-              onChange={(e) => setFilterFormat(e.target.value)}
-            >
+            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterFormat} onChange={(e) => setFilterFormat(e.target.value)}>
               <option value="">{t('ptTag.filters.formatAll')}</option>
               {formatOptions.map((f) => (
                 <option key={f} value={f}>
@@ -1971,46 +2022,31 @@ export function PtTagsPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="grid min-w-0 gap-1.5">
-            <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.boxState')}</Label>
-            <select
-              className={filterSelectClass}
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}
-            >
+            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterEstado} onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}>
               <option value="todas">{t('ptTag.filters.boxStateAll')}</option>
               <option value="disponible">{t('ptTag.filters.boxStateAvailable')}</option>
               <option value="sin_cajas">{t('ptTag.filters.boxStateEmpty')}</option>
             </select>
+            <select
+              className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')}
+              value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '') setFilterClient(null);
+                else if (v === '-1') setFilterClient(-1);
+                else setFilterClient(Number(v));
+              }}
+            >
+              <option value="">{t('ptTag.filters.clientAll')}</option>
+              <option value="-1">{t('ptTag.filters.clientNone')}</option>
+              {(commercialClients ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo} — {c.nombre}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-        <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-medium text-slate-500">{t('ptTag.filters.moreFilters')}</summary>
-          <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <div className="grid min-w-0 gap-1.5">
-              <Label className="text-[11px] font-medium text-slate-500">{t('ptTag.filters.expectedClient')}</Label>
-              <select
-                className={filterSelectClass}
-                value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === '') setFilterClient(null);
-                  else if (v === '-1') setFilterClient(-1);
-                  else setFilterClient(Number(v));
-                }}
-              >
-                <option value="">{t('ptTag.filters.clientAll')}</option>
-                <option value="-1">{t('ptTag.filters.clientNone')}</option>
-                {(commercialClients ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.codigo} — {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </details>
+        ) : null}
       </div>
 
       <div
@@ -2166,28 +2202,36 @@ export function PtTagsPage() {
 
       <section
         data-pt-desktop-list
-        className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        data-pt-mobile-list
+        className="space-y-0 overflow-hidden rounded-[12px] border border-[var(--stone-300)] bg-white lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="pt-listado"
       >
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+        <div className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div className="lg:flex lg:items-baseline lg:gap-4">
-            <h2 id="pt-listado" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
+            <h2 id="pt-listado" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:font-semibold max-lg:leading-tight max-lg:text-[var(--ink)] lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('ptTag.table.title')}
             </h2>
-            <span className={cn(sectionHint, '!mt-0 lg:hidden')}>{t('ptTag.table.hint')}</span>
+            <p className="mt-1 text-[11px] text-[var(--ink-muted)] lg:hidden">
+              {formatCount(filteredTags.length)} {t('ptTag.table.groupUnits')}
+              <span className="mx-1.5 text-[var(--stone-300)]">·</span>
+              {t('ptTag.table.hint')}
+            </p>
             <p className="hidden text-[12px] text-[var(--ink-muted)] lg:block">
               {formatCount(filteredTags.length)} {t('ptTag.table.groupUnits')}
               <span className="mx-2 text-[var(--stone-300)]">·</span>
               {t('ptTag.table.hint')}
             </p>
           </div>
-                    <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
+          <div className="mt-3 flex w-full flex-col gap-2 lg:mt-0 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="inline-flex w-full rounded-lg border border-slate-200 bg-white p-1 max-lg:rounded-[8px] max-lg:border-[var(--stone-300)] lg:w-auto lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
-                className={cn('h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]', viewMode === 'compact' && 'lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]')}
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'compact' && 'max-lg:bg-[var(--olive-700)] max-lg:text-white max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]',
+                )}
                 onClick={() => setViewMode('compact')}
               >
                 {t('ptTag.table.viewCompact')}
@@ -2196,14 +2240,17 @@ export function PtTagsPage() {
                 type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
-                className={cn('h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]', viewMode === 'detailed' && 'lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]')}
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'detailed' && 'max-lg:bg-[var(--olive-700)] max-lg:text-white max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]',
+                )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('ptTag.table.viewDetailed')}
               </Button>
-                    </div>
-            <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7">
+            </div>
+            <details className="group w-full lg:w-auto">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:px-2.5 max-lg:py-2 max-lg:text-center max-lg:border-[var(--stone-300)] max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7">
                 {t('ptTag.table.criteria')}
               </summary>
               <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
@@ -2213,10 +2260,143 @@ export function PtTagsPage() {
                 <p><span className="font-semibold text-sky-700">{t('ptTag.table.criteriaDirect')}</span> {t('ptTag.criteria.directDesc')}</p>
                 <p><span className="font-semibold text-slate-700">{t('ptTag.table.criteriaBol')}</span> {t('ptTag.criteria.bolDesc')}</p>
                 <p><span className="font-semibold text-slate-700">{t('ptTag.table.criteriaNoRoute')}</span> {t('ptTag.criteria.noRouteDesc')}</p>
-                  </div>
+              </div>
             </details>
           </div>
         </div>
+        <div className="lg:hidden">
+          {filteredTags.length === 0 ? (
+            <p className="mx-3 mb-3 flex min-h-[148px] items-center justify-center rounded-[11px] border border-[var(--stone-200)] bg-[#FBFCFD] px-5 text-center text-[13px] leading-snug text-[var(--bluegray-700)]">
+              {t('ptTag.table.empty')}
+            </p>
+          ) : (
+            <div className="space-y-2.5 bg-[#F9F7F5] p-3">
+              {filteredTags.map((tag) => {
+                const tone = compactTagStateTone(tag, t);
+                const trace = compactTagTraceability(tag, dispatchedTagIds, t);
+                const brand = brandLabel(tag);
+                return (
+                  <article
+                    key={tag.id}
+                    data-pt-mobile-card
+                    className="overflow-hidden rounded-[11px] border border-[var(--stone-300)] bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-3 border-b border-[var(--stone-200)] px-3 py-3">
+                      <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.badge)}>
+                        {tone.label}
+                      </span>
+                      <span className="shrink-0 font-serif text-[18px] font-semibold tabular-nums text-[var(--ink)]">
+                        {formatCount(tag.total_cajas)} {t('ptTag.table.groupBoxes')}
+                      </span>
+                    </div>
+                    <div className="px-3 py-3">
+                      <p className="font-serif text-[18px] font-semibold leading-tight text-[var(--ink)]">{tag.tag_code}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--ink-muted)]">
+                        #{tag.id} · {formatTagDateShort(tag.fecha)}
+                      </p>
+                      <p className="mt-2 text-[13px] font-semibold text-[var(--ink)]">{tag.format_code}</p>
+                      <p className="text-[12px] text-[var(--ink-muted)]">{tagVarietyLabel(tag, processById)}</p>
+                      <div className="mt-2.5">
+                        <CommercialStatusBadge state={commercialAssignment(tag)} t={t} />
+                        <p className="mt-1 truncate text-[12px] text-[var(--ink-muted)]">{clientLabel(tag)}</p>
+                      </div>
+                      {viewMode === 'detailed' ? (
+                        <div className="mt-3 grid gap-1.5 rounded-[8px] border border-[var(--stone-200)] bg-white px-3 py-2.5 text-[11px] text-[var(--ink-muted)]">
+                          <p>
+                            <span className="font-semibold text-[var(--ink)]">{t('ptTag.table.colProducer')}:</span> {tagProducerLabel(tag, producerById)}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-[var(--ink)]">{t('ptTag.table.colLb')}:</span> {fmtLbCell(tag.net_weight_lb)}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-[var(--ink)]">{t('ptTag.table.colProcess')}:</span> {tagProcessRefLabel(tag)}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-[var(--ink)]">{t('ptTag.table.colTrace')}:</span> {trace}
+                          </p>
+                          {tag.es_union_tarjas ? (
+                            <p>
+                              <span className="font-semibold text-[var(--ink)]">{t('ptTag.table.colUnion')}:</span> {t('ptTag.table.unionYes')}
+                            </p>
+                          ) : null}
+                          {brand ? (
+                            <p>
+                              <span className="font-semibold text-[var(--ink)]">{t('ptTag.dialog.fieldBrand')}:</span> {brand}
+                            </p>
+                          ) : null}
+                          {(tag.bol ?? '').trim() ? (
+                            <p>
+                              <span className="font-semibold text-[var(--ink)]">{t('ptTag.dialog.fieldBol')}:</span> {tag.bol}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <Button
+                          type="button"
+                          className="h-10 rounded-[8px] bg-[var(--olive-700)] text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+                          onClick={() => setDetailTag(tag)}
+                        >
+                          {t('ptTag.table.actionDetail')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none"
+                          onClick={() => openPrintDialog(tag)}
+                        >
+                          {t('ptTag.table.actionPrint')}
+                        </Button>
+                      </div>
+                      <details className="mt-2 border-t border-[var(--stone-200)] pt-2">
+                        <summary className="cursor-pointer list-none text-[12px] font-semibold text-[var(--ink-muted)]">
+                          Más datos <span aria-hidden>›</span>
+                        </summary>
+                        <div className="mt-2 space-y-1 text-[11px] text-[var(--ink-muted)]">
+                          <p>{t('ptTag.table.colProducer')}: {tagProducerLabel(tag, producerById)}</p>
+                          <p>{t('ptTag.table.colLb')}: {fmtLbCell(tag.net_weight_lb)}</p>
+                          <p>{t('ptTag.table.colProcess')}: {tagProcessRefLabel(tag)}</p>
+                          <p>{t('ptTag.table.colTrace')}: {trace}</p>
+                          {canEditTag ? (
+                            <button
+                              type="button"
+                              className="block w-full text-left font-semibold text-[var(--olive-700)]"
+                              onClick={() => {
+                                openPtModalForEditRef.current = true;
+                                setEditTag(tag);
+                                setTagOpen(true);
+                              }}
+                            >
+                              {t('ptTag.table.actionEdit')}
+                            </button>
+                          ) : null}
+                          <button type="button" className="block w-full text-left font-semibold text-[var(--olive-700)]" onClick={() => openLineage(tag)}>
+                            {t('ptTag.table.actionTraceability')}
+                          </button>
+                          <button type="button" className="block w-full text-left font-semibold text-[var(--olive-700)]" onClick={() => void downloadPtPdf(tag, 'detalle')}>
+                            {t('ptTag.table.actionPdfDetail')}
+                          </button>
+                          <button type="button" className="block w-full text-left font-semibold text-[var(--olive-700)]" onClick={() => void downloadPtPdf(tag, 'etiqueta')}>
+                            {t('ptTag.table.actionPdfLabel')}
+                          </button>
+                          <button type="button" className="block w-full text-left font-semibold text-[var(--olive-700)]" onClick={() => void downloadPtTagZpl(tag)}>
+                            {t('ptTag.table.actionZpl')}
+                          </button>
+                          {canDeleteTag ? (
+                            <button type="button" className="block w-full text-left font-semibold text-destructive" onClick={() => setDeleteConfirmTag(tag)}>
+                              {t('ptTag.table.actionDelete')}
+                            </button>
+                          ) : null}
+                        </div>
+                      </details>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="hidden lg:block">
         {filteredTags.length === 0 ? (
           <div className={cn(emptyStatePanel, 'py-14 lg:mx-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:py-16 lg:text-[15px] lg:text-[var(--ink-muted)]')}>{t('ptTag.table.empty')}</div>
         ) : viewMode === 'compact' ? (
@@ -2497,6 +2677,7 @@ export function PtTagsPage() {
                       </Table>
         </div>
       )}
+        </div>
       </section>
 
       <Dialog
