@@ -3,7 +3,7 @@ import { CalendarDays, ChevronDown, Filter, Info, Layers, ListOrdered, RotateCcw
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PineSnowflakeIcon, PineWeightIcon } from '@/components/icons/pinebloom';
+import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PinePlusIcon, PineSnowflakeIcon, PineWeightIcon } from '@/components/icons/pinebloom';
 import { appBranding } from '@/lib/branding';
 import { toast } from 'sonner';
 import { apiJson } from '@/api';
@@ -24,16 +24,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
-  btnToolbarOutline,
-  btnToolbarPrimary,
   emptyStatePanel,
   errorStatePanel,
   filterInputClass,
-  filterPanel,
   filterSelectClass,
   kpiCard,
   kpiFootnote,
-  kpiGrid,
   kpiLabel,
   kpiValueLg,
   operationalModalBodyClass,
@@ -43,13 +39,11 @@ import {
   operationalModalFormClass,
   operationalModalHeaderClass,
   operationalModalTitleClass,
-  pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
   pageTitle,
   sectionHint,
   sectionTitle,
-  signalsTitle,
   tableBodyRow,
   tableHeaderRow,
   tableShell,
@@ -833,43 +827,91 @@ export function ExistenciasPtPage() {
   const seeAllActive = !filterDateFrom && !filterDateTo;
 
   return (
-    <div className="space-y-8 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
-      <div className={cn(pageHeaderRow, 'lg:hidden')}>
-        <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>{t('existenciasPt.pageTitle')}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>{t('existenciasPt.pageSubtitle')}</p>
+    <div className="space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <header
+        data-stock-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-2.5 pt-3 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[31px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('nav.items.existenciasPt')}
+          </h1>
+          <div className="mt-1.5 flex items-center gap-2 text-[14px] leading-snug text-[var(--ink-muted)]">
+            <span>{t('existenciasPt.pageSubtitle')}</span>
             <button
               type="button"
               className={pageInfoButton}
               title="El pallet nace en Unidad PT (PF-…). Por defecto: definitivo, sin despacho. KPIs y reservas PL en paralelo a la API."
-              aria-label={t('existenciasPt.pageTitle')}
+              aria-label={t('nav.items.existenciasPt')}
             >
               <Info className="h-4 w-4" />
             </button>
           </div>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
-            <Link to="/existencias-pt/repaletizar" className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              {t('existenciasPt.repalletButton')}
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
-            <Link to="/existencias-pt/packing-lists" className="gap-2">
-              <ListOrdered className="h-4 w-4" />
-              {t('existenciasPt.plButton')}
-            </Link>
-          </Button>
-          <Button asChild size="sm" className={cn(btnToolbarPrimary, 'px-4')}>
-            <Link to="/pt-tags" className="gap-2">
-              <Tag className="h-4 w-4" />
+          <Button asChild className="mt-2 h-[42px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]">
+            <Link to="/pt-tags">
+              <PinePlusIcon size={20} strokeWidth={2.1} />
               {t('existenciasPt.ptUnitButton')}
             </Link>
           </Button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Button asChild variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold shadow-none">
+              <Link to="/existencias-pt/repaletizar" className="gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t('existenciasPt.repalletButton')}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold shadow-none">
+              <Link to="/existencias-pt/packing-lists" className="gap-1.5">
+                <ListOrdered className="h-3.5 w-3.5" />
+                {t('existenciasPt.plButton')}
+              </Link>
+            </Button>
+          </div>
         </div>
-      </div>
+        <div className="relative mt-2 h-[70px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[76px] w-[228px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
+        </div>
+      </header>
+
+      <nav
+        data-stock-mobile-tabs
+        className="grid grid-cols-2 gap-1.5 lg:hidden"
+        aria-label={t('existenciasPt.layout.navAriaLabel')}
+      >
+        {[
+          { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true as const },
+          { to: '/existencias-pt/repaletizar', label: t('existenciasPt.layout.tabRepallet') },
+          { to: '/existencias-pt/packing-lists', label: t('existenciasPt.layout.tabPackingLists'), wide: true },
+        ].map(({ to, label, end = false, wide }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'rounded-[8px] px-2 py-2 text-center text-[12px] font-semibold leading-tight',
+                wide && 'col-span-2',
+                isActive
+                  ? 'bg-[var(--olive-700)] text-white'
+                  : 'border border-[var(--stone-300)] bg-white text-[var(--ink-muted)]',
+              )
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
 
       <header
         data-stock-desktop-hero
@@ -951,47 +993,87 @@ export function ExistenciasPtPage() {
         ))}
       </nav>
 
-      <section aria-labelledby="ex-kpis" className="space-y-4 lg:hidden">
-        <h2 id="ex-kpis" className="sr-only">
+      <section data-stock-mobile-kpis aria-labelledby="ex-kpis" className="space-y-2 lg:hidden">
+        <h2 id="ex-kpis" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
           {t('existenciasPt.srKpis')}
         </h2>
-        <div className={kpiGrid}>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('existenciasPt.kpi.inCamera')}</p>
-            <p className={kpiValueLg}>{isPending ? '—' : formatCount(totalEnListado)}</p>
-            <p className={kpiFootnote}>{t('existenciasPt.kpi.inCameraNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('existenciasPt.kpi.totalBoxes')}</p>
-            <p className={kpiValueLg}>{isPending ? '—' : formatCount(kpiTotals.cajas)}</p>
-            <p className={kpiFootnote}>{t('existenciasPt.kpi.totalBoxesNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('existenciasPt.kpi.totalLb')}</p>
-            <p className={kpiValueLg}>{isPending ? '—' : fmtLb(kpiTotals.lb)}</p>
-            <p className={kpiFootnote}>{t('existenciasPt.kpi.totalLbNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('existenciasPt.kpi.ptUnits')}</p>
-            <p className={kpiValueLg}>{kpiPtDisponibles == null ? '—' : formatCount(kpiPtDisponibles)}</p>
-            <p className={kpiFootnote}>{t('existenciasPt.kpi.ptUnitsNote')}</p>
-          </div>
-        </div>
-        <div className={kpiGrid}>
-          <div className="flex min-h-[132px] flex-col justify-between rounded-lg border border-border bg-background p-4">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.kpi.reservedPl')}</p>
-            <p
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              label: t('existenciasPt.kpi.inCamera'),
+              value: isPending ? '—' : formatCount(totalEnListado),
+              note: t('existenciasPt.kpi.inCameraNote'),
+              Icon: PineSnowflakeIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+            {
+              label: t('existenciasPt.kpi.totalBoxes'),
+              value: isPending ? '—' : formatCount(kpiTotals.cajas),
+              note: t('existenciasPt.kpi.totalBoxesNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('existenciasPt.kpi.totalLb'),
+              value: isPending ? '—' : fmtLb(kpiTotals.lb),
+              note: t('existenciasPt.kpi.totalLbNote'),
+              Icon: PineWeightIcon,
+              card: 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('existenciasPt.kpi.ptUnits'),
+              value: kpiPtDisponibles == null ? '—' : formatCount(kpiPtDisponibles),
+              note: t('existenciasPt.kpi.ptUnitsNote'),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
               className={cn(
-                'text-2xl font-semibold tabular-nums',
-                kpiUnidadesReservadasPl == null || kpiUnidadesReservadasPl === 0
-                  ? 'text-foreground'
-                  : 'text-amber-600',
+                kpiCard,
+                'min-h-[112px] flex-row items-start gap-2.5 rounded-[var(--radius-lg)] px-3 py-3',
+                card,
               )}
             >
-              {kpiUnidadesReservadasPl == null ? '—' : formatCount(kpiUnidadesReservadasPl)}
-            </p>
-            <p className="text-[11px] text-muted-foreground">{t('existenciasPt.kpi.reservedPlNote')}</p>
+              <span className={cn('inline-flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-[30px] w-[30px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-serif text-[12px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
+                <p className="mt-1 font-serif text-[24px] font-bold tabular-nums leading-none tracking-[-0.65px] text-[var(--ink)]">{value}</p>
+                <p className="mt-1 text-[11px] leading-tight text-[var(--ink-muted)]">{note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div
+          data-stock-mobile-reserved
+          className="flex min-h-[48px] items-center justify-between gap-3 rounded-[10px] border border-[var(--stone-200)] bg-white/70 px-3 py-2"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] bg-[var(--harvest-200)] text-[var(--harvest-700)]" aria-hidden>
+              <PineDocumentIcon size={18} className="h-[18px] w-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('existenciasPt.kpi.reservedPl')}</p>
+              <p className="truncate text-[10px] text-[var(--ink-muted)]">{t('existenciasPt.kpi.reservedPlNote')}</p>
+            </div>
           </div>
+          <p
+            className={cn(
+              'shrink-0 font-serif text-[22px] font-semibold tabular-nums leading-none',
+              kpiUnidadesReservadasPl == null || kpiUnidadesReservadasPl === 0
+                ? 'text-[var(--ink)]'
+                : 'text-[var(--harvest-700)]',
+            )}
+          >
+            {kpiUnidadesReservadasPl == null ? '—' : formatCount(kpiUnidadesReservadasPl)}
+          </p>
         </div>
       </section>
 
@@ -1084,55 +1166,40 @@ export function ExistenciasPtPage() {
         </div>
       </section>
 
-      <div className={cn(filterPanel, 'lg:hidden')}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>{t('existenciasPt.filters.title')}</span>
-          <button
-            type="button"
-            className={pageInfoButton}
-            title="Especie, variedad, formato, cliente, estado y BOL (en el lote cargado, máx. 500)."
-            aria-label="Ayuda filtros"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.dateFrom')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.dateTo')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-            />
-          </div>
+      <div
+        data-stock-mobile-filters
+        className="space-y-2 rounded-[12px] border border-[var(--stone-300)] bg-white/70 p-3 lg:hidden"
+      >
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            className="h-9 shrink-0"
+            variant={todayActive ? 'default' : 'outline'}
+            className={cn(
+              'h-11 gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold',
+              todayActive
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               const d = localDateYmd();
               setFilterDateFrom(d);
               setFilterDateTo(d);
             }}
           >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
             {t('existenciasPt.filters.today')}
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant={seeAllActive ? 'default' : 'outline'}
             size="sm"
-            className="h-9 shrink-0 text-slate-600"
+            className={cn(
+              'h-11 rounded-[8px] px-3 text-[13px] font-semibold',
+              seeAllActive
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               setFilterDateFrom('');
               setFilterDateTo('');
@@ -1141,144 +1208,146 @@ export function ExistenciasPtPage() {
             {t('existenciasPt.filters.clearDates')}
           </Button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.species')}</Label>
-            <select
-              className={filterSelectClass}
-              value={speciesId}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setSpeciesId(v);
-                setVarietyId(0);
-              }}
-            >
-              <option value={0}>{t('existenciasPt.filters.speciesAll')}</option>
-              {(species ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.variety')}</Label>
-            <select
-              className={filterSelectClass}
-              value={varietyId}
-              onChange={(e) => setVarietyId(Number(e.target.value))}
-            >
-              <option value={0}>{t('existenciasPt.filters.varietyAll')}</option>
-              {(varieties ?? [])
-                .filter((v) => (speciesId > 0 ? v.species_id === speciesId : true))
-                .map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nombre}
+        <select
+          className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+          value={bolFilter}
+          onChange={(e) => setBolFilter(e.target.value)}
+          title="Filtra en el listado ya cargado (máx. 500 filas). No cambia la consulta al servidor."
+          aria-label={t('existenciasPt.filters.bol')}
+        >
+          <option value="">{t('existenciasPt.filters.bol')} · {t('existenciasPt.filters.bolAll')}</option>
+          {bolOptions.map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-11 w-full gap-1.5 rounded-[8px] border-[var(--stone-300)] bg-white px-4 text-[12px] font-semibold"
+          onClick={() => setShowMoreFilters((v) => !v)}
+        >
+          <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+          {showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+          <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+        </Button>
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.dateFrom')}</Label>
+                <Input type="date" className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white text-[12px]')} value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.dateTo')}</Label>
+                <Input type="date" className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white text-[12px]')} value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.species')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+                value={speciesId}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setSpeciesId(v);
+                  setVarietyId(0);
+                }}
+              >
+                <option value={0}>{t('existenciasPt.filters.speciesAll')}</option>
+                {(species ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
                   </option>
                 ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.format')}</Label>
-            <select
-              className={filterSelectClass}
-              value={formatId}
-              onChange={(e) => setFormatId(Number(e.target.value))}
-            >
-              <option value={0}>{t('existenciasPt.filters.formatAll')}</option>
-              {(formats ?? [])
-                .filter((f) => f.activo)
-                .map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.format_code}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.client')}</Label>
-            <select
-              className={filterSelectClass}
-              value={clientId}
-              onChange={(e) => setClientId(Number(e.target.value))}
-            >
-              <option value={0}>{t('existenciasPt.filters.clientAll')}</option>
-              {(clients ?? [])
-                .filter((c) => c.activo)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.status')}</Label>
-            <select
-              className={filterSelectClass}
-              disabled={soloDeposito}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">{t('existenciasPt.filters.statusAll')}</option>
-              <option value="borrador">borrador</option>
-              <option value="definitivo">definitivo</option>
-              <option value="anulado">anulado</option>
-              <option value="repaletizado">repaletizado</option>
-              <option value="revertido">revertido</option>
-              <option value="asignado_pl">asignado_pl (packing list)</option>
-            </select>
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.variety')}</Label>
+              <select className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')} value={varietyId} onChange={(e) => setVarietyId(Number(e.target.value))}>
+                <option value={0}>{t('existenciasPt.filters.varietyAll')}</option>
+                {(varieties ?? [])
+                  .filter((v) => (speciesId > 0 ? v.species_id === speciesId : true))
+                  .map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.format')}</Label>
+              <select className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')} value={formatId} onChange={(e) => setFormatId(Number(e.target.value))}>
+                <option value={0}>{t('existenciasPt.filters.formatAll')}</option>
+                {(formats ?? [])
+                  .filter((f) => f.activo)
+                  .map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.format_code}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.client')}</Label>
+              <select className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')} value={clientId} onChange={(e) => setClientId(Number(e.target.value))}>
+                <option value={0}>{t('existenciasPt.filters.clientAll')}</option>
+                {(clients ?? [])
+                  .filter((c) => c.activo)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.status')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+                disabled={soloDeposito}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">{t('existenciasPt.filters.statusAll')}</option>
+                <option value="borrador">borrador</option>
+                <option value="definitivo">definitivo</option>
+                <option value="anulado">anulado</option>
+                <option value="repaletizado">repaletizado</option>
+                <option value="revertido">revertido</option>
+                <option value="asignado_pl">asignado_pl (packing list)</option>
+              </select>
               {soloDeposito ? (
-              <p className="text-[11px] text-muted-foreground">
-                {t('existenciasPt.filters.statusFixed')}
-              </p>
-            ) : null}
-          </div>
-          <div className="grid gap-2">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('existenciasPt.filters.bol')}</Label>
-            <select
-              className={filterSelectClass}
-              value={bolFilter}
-              onChange={(e) => setBolFilter(e.target.value)}
-              title="Filtra en el listado ya cargado (máx. 500 filas). No cambia la consulta al servidor."
-            >
-              <option value="">{t('existenciasPt.filters.bolAll')}</option>
-              {bolOptions.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-muted-foreground">{t('existenciasPt.filters.bolHint')}</p>
-          </div>
-          <div className="grid gap-2 sm:col-span-2 lg:col-span-3 xl:col-span-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="rounded border-input"
-                  checked={soloDeposito}
-                  onChange={(e) => {
-                    setSoloDeposito(e.target.checked);
-                    if (e.target.checked) setStatus('');
-                  }}
-                />
-                {t('existenciasPt.filters.depositOnly')}
-              </label>
-              {!soloDeposito ? (
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="rounded border-input"
-                    checked={excluirAnulados}
-                    onChange={(e) => setExcluirAnulados(e.target.checked)}
-                  />
-                  {t('existenciasPt.filters.excludeVoided')}
-                </label>
+                <p className="text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.filters.statusFixed')}</p>
               ) : null}
             </div>
+            <label className="flex cursor-pointer items-start gap-2 text-[13px] leading-snug text-[var(--ink)]">
+              <input
+                type="checkbox"
+                className="mt-0.5 rounded border-[var(--stone-300)]"
+                checked={soloDeposito}
+                onChange={(e) => {
+                  setSoloDeposito(e.target.checked);
+                  if (e.target.checked) setStatus('');
+                }}
+              />
+              {t('existenciasPt.filters.depositOnly')}
+            </label>
+            {!soloDeposito ? (
+              <label className="flex cursor-pointer items-start gap-2 text-[13px] leading-snug text-[var(--ink)]">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-[var(--stone-300)]"
+                  checked={excluirAnulados}
+                  onChange={(e) => setExcluirAnulados(e.target.checked)}
+                />
+                {t('existenciasPt.filters.excludeVoided')}
+              </label>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div
@@ -1514,15 +1583,16 @@ export function ExistenciasPtPage() {
 
       <section
         data-stock-desktop-list
-        className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        data-stock-mobile-list
+        className="space-y-0 overflow-hidden rounded-[12px] border border-[var(--stone-300)] bg-white lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="ex-inventario"
       >
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+        <div className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div className="lg:flex lg:items-baseline lg:gap-4">
-            <h3 id="ex-inventario" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
+            <h3 id="ex-inventario" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:font-semibold max-lg:leading-tight max-lg:text-[var(--ink)] lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('existenciasPt.table.title')}
             </h3>
-            <p className={cn(sectionHint, 'lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
+            <p className={cn(sectionHint, 'max-lg:mt-1 max-lg:text-[11px] max-lg:text-[var(--ink-muted)] lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
               {t('existenciasPt.table.hint', {
                 filtered: filteredRows.length,
                 extra:
@@ -1532,23 +1602,23 @@ export function ExistenciasPtPage() {
               })}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex w-full flex-col gap-2 lg:mt-0 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center">
             <button
               type="button"
-              className={pageInfoButton}
+              className={cn(pageInfoButton, 'hidden lg:inline-flex')}
               title="Pallets = total de cajas del formato ÷ tope (12x18oz 100, 12x6oz 240, resto 144). Unidades seleccionadas = filas marcadas."
               aria-label="Ayuda productor en tabla"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
+            <div className="inline-flex w-full rounded-lg border border-slate-200 bg-white p-1 max-lg:rounded-[8px] max-lg:border-[var(--stone-300)] lg:w-auto lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'compact' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'compact' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('compact')}
               >
@@ -1559,16 +1629,16 @@ export function ExistenciasPtPage() {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'detailed' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'detailed' ? 'bg-[#1D9E75] text-white hover:bg-[#1D9E75] hover:text-white max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('existenciasPt.table.viewDetailed')}
               </Button>
             </div>
-            <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
+            <details className="group w-full lg:w-auto">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:flex max-lg:h-11 max-lg:items-center max-lg:justify-center max-lg:border-[var(--stone-300)] max-lg:px-2.5 max-lg:py-2 max-lg:text-[12px] max-lg:font-semibold max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
                 {t('existenciasPt.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm lg:border-[var(--stone-300)] lg:shadow-none">
@@ -1611,10 +1681,97 @@ export function ExistenciasPtPage() {
               {(error as Error)?.message ?? t('existenciasPt.table.loadError')}
             </div>
           ) : !rows?.length ? (
-            <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('existenciasPt.table.empty')}</p>
+            <p data-stock-mobile-empty className={cn(emptyStatePanel, 'max-lg:mx-3 max-lg:mb-3 max-lg:flex max-lg:min-h-[170px] max-lg:items-center max-lg:justify-center max-lg:rounded-[11px] max-lg:border-[var(--stone-200)] max-lg:bg-[#FBFCFD] max-lg:px-5 max-lg:py-10 max-lg:text-[13px] max-lg:leading-snug max-lg:text-[var(--bluegray-700)] lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('existenciasPt.table.empty')}</p>
           ) : !filteredRows.length ? (
-            <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('existenciasPt.table.emptyBol')}</p>
-          ) : viewMode === 'compact' ? (
+            <p className={cn(emptyStatePanel, 'max-lg:mx-3 max-lg:mb-3 max-lg:flex max-lg:min-h-[170px] max-lg:items-center max-lg:justify-center max-lg:rounded-[11px] max-lg:border-[var(--stone-200)] max-lg:bg-[#FBFCFD] max-lg:px-5 max-lg:py-10 max-lg:text-[13px] max-lg:leading-snug max-lg:text-[var(--bluegray-700)] lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('existenciasPt.table.emptyBol')}</p>
+          ) : (
+            <>
+            <div className="lg:hidden space-y-2.5 bg-[#F9F7F5] p-3">
+              {filteredRows.map((r) => {
+                const tone = compactStateTone(r, t);
+                const producerCell = producerLabelForPallet(r);
+                const vu = verUnidadesVisibility(r);
+                const codeDisplay =
+                  r.codigo_unidad_pt_display?.trim() ||
+                  r.tag_code?.trim() ||
+                  r.corner_board_code ||
+                  `PF-${r.id}`;
+                const logLine = logisticaResumen(r, t);
+                return (
+                  <article key={r.id} data-stock-mobile-card className="overflow-hidden rounded-[11px] border border-[var(--stone-300)] bg-white">
+                    <div className="flex items-start justify-between gap-3 border-b border-[var(--stone-200)] px-3 py-3">
+                      <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.badge)}>
+                        {tone.label}
+                      </span>
+                      <div className="text-right">
+                        <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                          {formatCount(r.boxes)} {t('existenciasPt.selection.boxes')}
+                        </p>
+                        <p className="mt-1 text-[11px] tabular-nums text-[var(--ink-muted)]">{fmtLb(r.pounds)} lb</p>
+                      </div>
+                    </div>
+                    <div className="px-3 py-3">
+                      <p className="font-serif text-[18px] font-semibold leading-tight text-[var(--ink)]">{codeDisplay}</p>
+                      <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">{r.format_code ?? '—'}</p>
+                      <p className="text-[12px] text-[var(--ink-muted)]">
+                        {(r.species_nombre?.trim() || '—') + ' · ' + (r.variedades_label?.trim() || '—')}
+                      </p>
+                      <p className="mt-1.5 truncate text-[12px] text-[var(--ink-muted)]">{r.client_nombre?.trim() || '—'}</p>
+                      <p className="truncate text-[12px] text-[var(--ink-muted)]">{logLine}</p>
+                      {viewMode === 'detailed' ? (
+                        <div className="mt-3 grid gap-1.5 rounded-[8px] border border-[var(--stone-200)] bg-white px-3 py-2.5 text-[11px] text-[var(--ink-muted)]">
+                          <p><span className="font-semibold text-[var(--ink)]">{t('existenciasPt.table.colProducer')}:</span> {producerCell}</p>
+                          <p><span className="font-semibold text-[var(--ink)]">{t('existenciasPt.table.colLocation')}:</span> {r.corner_board_code?.trim() || '—'}</p>
+                          <p><span className="font-semibold text-[var(--ink)]">{t('existenciasPt.table.colState')}:</span> {r.status}</p>
+                        </div>
+                      ) : null}
+                      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <Button asChild className="h-10 rounded-[8px] bg-[var(--olive-700)] text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]">
+                          <Link to={`/existencias-pt/detalle/${r.id}`}>{t('existenciasPt.table.actionDetail')}</Link>
+                        </Button>
+                        {vu === 'hide' ? (
+                          <span className="inline-flex items-center text-[11px] text-[var(--ink-muted)]">{t('existenciasPt.table.noDetailPt')}</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none"
+                            disabled={vu === 'wait'}
+                            onClick={() => setUnitsForPalletId(r.id)}
+                          >
+                            {t('existenciasPt.table.actionUnits')}
+                          </Button>
+                        )}
+                      </div>
+                      <details className="mt-2 border-t border-[var(--stone-200)] pt-2">
+                        <summary className="cursor-pointer list-none text-[12px] font-semibold text-[var(--ink-muted)]">
+                          Más datos <span aria-hidden>›</span>
+                        </summary>
+                        <div className="mt-2 space-y-1 text-[11px] text-[var(--ink-muted)]">
+                          <p>{t('existenciasPt.table.colProducer')}: {producerCell}</p>
+                          <p>{t('existenciasPt.table.colLocation')}: {r.corner_board_code?.trim() || '—'}</p>
+                          <p>{t('existenciasPt.table.colCondition')}: {tone.label}</p>
+                          {r.bol?.trim() ? <p>BOL: {r.bol.trim()}</p> : null}
+                          {canBulkBol(r) ? (
+                            <label className="flex items-center gap-2 pt-1">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-[var(--stone-300)]"
+                                checked={selectedIds.has(r.id)}
+                                onChange={() => toggleRow(r.id)}
+                              />
+                              {t('existenciasPt.table.selectRowTitle')}
+                            </label>
+                          ) : null}
+                        </div>
+                      </details>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden lg:block">
+          {viewMode === 'compact' ? (
             <div className="space-y-4 lg:space-y-3 lg:p-3">
               {groupedByFormat.map((group) => (
                 <div key={group.format} className="overflow-hidden rounded-2xl border border-slate-200 bg-white lg:rounded-[10px] lg:border-[var(--stone-300)]">
@@ -1923,6 +2080,9 @@ export function ExistenciasPtPage() {
                 </TableBody>
               </Table>
             </div>
+          )}
+            </div>
+            </>
           )}
       </section>
 
