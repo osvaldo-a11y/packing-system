@@ -1476,27 +1476,45 @@ export function PtTagsPage() {
             </Button>
           </DialogTrigger>
             <DialogContent
+              hideCloseButton
+              data-new-pt-dialog
               className={cn(
                 operationalModalContentClass,
                 'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] [&>button]:hidden',
+                'lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:max-w-[min(1050px,calc(100vw-2rem))] lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)]',
               )}
             >
-              <DialogHeader className={operationalModalHeaderClass}>
-                <div className="flex items-center justify-between">
-                  <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2')}>
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    {editTag ? t('ptTag.dialog.titleEdit', { code: editTag.tag_code }) : t('ptTag.dialog.titleNew')}
-                  </DialogTitle>
+              <DialogHeader
+                data-new-pt-header
+                className={cn(
+                  operationalModalHeaderClass,
+                  'relative overflow-hidden lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
+                )}
+              >
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 lg:text-[26px] lg:leading-tight')}>
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
+                      {editTag ? t('ptTag.dialog.titleEdit', { code: editTag.tag_code }) : t('ptTag.dialog.titleNew')}
+                    </DialogTitle>
+                    <p className="text-[13px] text-[var(--ink-muted)] lg:text-[14px]">{t('ptTag.pageSubtitle')}</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setTagOpen(false)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)] lg:h-9 lg:w-9"
                     aria-label={t('ptTag.dialog.closeAriaLabel')}
                   >
                     <X size={16} />
                   </button>
                 </div>
-            </DialogHeader>
+              </DialogHeader>
               <form
                 onSubmit={tagForm.handleSubmit((v) => {
                   if (editTag) {
@@ -1530,94 +1548,33 @@ export function PtTagsPage() {
                 })}
                 className={operationalModalFormClass}
               >
-                <div className={cn(operationalModalBodyClass, 'lg:overflow-hidden lg:px-8 lg:py-5')}>
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-2 lg:gap-6 lg:overflow-hidden">
-                    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:min-h-0 lg:overflow-hidden lg:pr-1">
-                    {/* 1 · Formato */}
-                    <section className={operationalModalSectionCard}>
-                      <div className={operationalModalSectionHeadingRow}>
-                        <span className={operationalModalStepBadge}>1</span>
-                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step1')}</h3>
-                      </div>
-                      <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
-                        <div className="grid gap-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-fecha">
-                            {t('ptTag.dialog.fieldDate')}
-                          </Label>
-                          <Input id="tag-fecha" type="datetime-local" className="h-9" {...tagForm.register('fecha')} />
-                {tagForm.formState.errors.fecha && (
-                            <p className="text-xs text-destructive">{tagForm.formState.errors.fecha.message}</p>
-                )}
-              </div>
-                        <div className="grid gap-1.5 rounded-lg border border-border/50 bg-muted/15 px-2.5 py-2">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('ptTag.dialog.fieldProductType')}</Label>
-                <select
-                            className="flex min-h-8 w-full rounded border-0 bg-transparent px-0 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
-                  {...tagForm.register('resultado')}
-                >
-                            {RESULTADOS_PT.map((r) => (
-                    <option key={r} value={r}>
-                                {labelPtProductoPt(r, t)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-                        <div className="grid gap-1.5 lg:col-span-2">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="format_code">
-                            {t('ptTag.dialog.fieldFormat')}
-                          </Label>
-                          {activePresFormats.length > 0 ? (
-                            <select
-                              id="format_code"
-                              className="min-w-0 flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              value={tagForm.watch('format_code')}
-                              onChange={(e) => tagForm.setValue('format_code', e.target.value, { shouldValidate: true })}
-                            >
-                              {activePresFormats.map((f) => (
-                                <option key={f.id} value={f.format_code}>
-                                  {f.format_code}
-                                  {f.descripcion ? ` — ${f.descripcion}` : ''}
-                                  {f.net_weight_lb_per_box != null ? ` · ${f.net_weight_lb_per_box} ${t('ptTag.formatSelector.lbPerBox')}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <Input
-                              placeholder="NxMoz (ej. 4x16oz) o PINT REGULAR / PINT LOW PROFILE"
-                              {...tagForm.register('format_code')}
-                            />
-                          )}
-                {tagForm.formState.errors.format_code && (
-                            <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
-                          )}
-                          <p className="leading-tight text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground/75">{t('ptTag.dialog.formatHint')}</span>{' '}
-                            <span className="tabular-nums font-semibold text-foreground/90">{tagForm.watch('cajas_por_pallet')}</span>
-                            {' · '}
-                            <span className="font-mono text-foreground/70">{watchedTagFormatCode || '—'}</span>
+                <div data-new-pt-body className={cn(operationalModalBodyClass, 'lg:overflow-y-auto lg:px-7 lg:py-4')}>
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+                    <section
+                      data-new-pt-step1
+                      className={cn(operationalModalSectionMuted, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4')}
+                    >
+                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
+                        <div className="min-w-0">
+                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('ptTag.dialog.step2')}</h3>
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                            Elegí el proceso del que sale esta unidad PT.
                           </p>
-                          {tagForm.formState.errors.cajas_por_pallet && (
-                            <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_por_pallet.message}</p>
-                )}
-              </div>
-              </div>
-                    </section>
-
-                    {/* 2 · Proceso origen */}
-                    <section className={cn(operationalModalSectionMuted, 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
-                      <div className={operationalModalSectionHeadingRow}>
-                        <span className={operationalModalStepBadge}>2</span>
-                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step2')}</h3>
+                        </div>
                       </div>
-                      <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto">
+                      <div className="grid gap-3">
                         <div className="grid gap-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground" htmlFor="tag-process">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]" htmlFor="tag-process">
                             {t('ptTag.dialog.fieldProcess')}
                           </Label>
                           <select
                             id="tag-process"
                             disabled={!!editTag && editTag.items.length > 1}
-                            className="min-w-0 flex h-auto min-h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-70 sm:text-sm"
+                            className={cn(
+                              filterSelectClass,
+                              'min-h-11 w-full lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]',
+                            )}
                             {...tagForm.register('process_id', { valueAsNumber: true })}
                           >
                             <option value={0}>{t('ptTag.dialog.choosePlaceholder')}</option>
@@ -1641,32 +1598,51 @@ export function PtTagsPage() {
                             <p className="text-xs text-destructive">{tagForm.formState.errors.process_id.message}</p>
                           ) : null}
                         </div>
-
                         {editTag && editTag.items.length > 1 ? (
                           <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
                             {t('ptTag.dialog.multiProcessWarning')}
                           </p>
                         ) : null}
                         {!editTag && availableProcesses.length === 0 ? (
-                          <p className="text-xs leading-snug text-amber-800 dark:text-amber-200">
+                          <p className="rounded-[8px] border border-[var(--harvest-200)] bg-[var(--harvest-100)] px-3 py-2 text-[13px] leading-snug text-[var(--harvest-700)]">
                             {t('ptTag.dialog.noProcesses')}
                           </p>
                         ) : null}
-
                         {selectedProcForCreate && (editTag ? editTag.items.length === 1 : true) ? (
                           <div className="space-y-2">
-                            <div className="flex flex-wrap gap-2">
-                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
-                                {t('ptTag.dialog.lbAvailable')}{' '}
-                                {selectedProcForCreate.lb_pt_restante != null &&
-                                String(selectedProcForCreate.lb_pt_restante).trim() !== ''
-                                  ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
-                                  : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
-                              </span>
-                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
-                                {t('ptTag.dialog.suggestedBoxes')} {maxCajasDesdeProcesoCreate ?? '—'}
-                              </span>
+                            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                              <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Proceso</p>
+                                <p className="mt-1 font-serif text-[18px] font-semibold text-[var(--ink)]">#{selectedProcForCreate.id}</p>
+                              </div>
+                              <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Variedad</p>
+                                <p className="mt-1 truncate text-[13px] font-medium text-[var(--ink)]">{selectedProcForCreate.variedad_nombre ?? '—'}</p>
+                              </div>
+                              <div className="rounded-[9px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.lbAvailable')}</p>
+                                <p className="mt-1 font-serif text-[18px] font-semibold tabular-nums text-[var(--ink)]">
+                                  {selectedProcForCreate.lb_pt_restante != null && String(selectedProcForCreate.lb_pt_restante).trim() !== ''
+                                    ? fmtLbCell(selectedProcForCreate.lb_pt_restante)
+                                    : fmtLbCell(selectedProcForCreate.lb_entrada ?? selectedProcForCreate.peso_procesado_lb)}
+                                </p>
+                              </div>
+                              <div className="rounded-[9px] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-2.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.suggestedBoxes')}</p>
+                                <p className="mt-1 font-serif text-[18px] font-semibold tabular-nums text-[var(--ink)]">{maxCajasDesdeProcesoCreate ?? '—'}</p>
+                              </div>
                             </div>
+                            {selectedProcForCreate.productor_nombre ? (
+                              <p className="text-[12px] text-[var(--ink-muted)]">
+                                Productor {selectedProcForCreate.productor_nombre}
+                                {' · '}
+                                {new Date(selectedProcForCreate.fecha_proceso).toLocaleDateString('es')}
+                              </p>
+                            ) : (
+                              <p className="text-[12px] text-[var(--ink-muted)]">
+                                {new Date(selectedProcForCreate.fecha_proceso).toLocaleDateString('es')}
+                              </p>
+                            )}
                             {procesoVsTopeHint ? (
                               <div
                                 className={cn(
@@ -1685,67 +1661,143 @@ export function PtTagsPage() {
                         ) : null}
                       </div>
                     </section>
-                    </div>
 
-                    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain lg:min-h-0 lg:pr-1">
-                    {/* 3 · Cantidad (cajas) */}
-                    <section className={operationalModalSectionCard}>
-                      <div className={operationalModalSectionHeadingRow}>
-                        <span className={operationalModalStepBadge}>3</span>
-                        <h3 className={operationalModalStepTitle}>{t('ptTag.dialog.step3')}</h3>
-                      </div>
-                      <div className="grid max-w-md gap-2">
-                        <Label htmlFor="cajas_generadas" className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {t('ptTag.dialog.fieldBoxes')}
-                        </Label>
-                        <Input
-                          id="cajas_generadas"
-                          type="number"
-                          min={1}
-                          max={maxCajasDesdeProcesoCreate ?? undefined}
-                          step={1}
-                          disabled={!!editTag && editTag.items.length > 1}
-                          className={cn(
-                            'h-12 rounded-lg border-input text-center text-[18px] font-medium tabular-nums tracking-tight',
-                            editTag && editTag.items.length > 1 ? 'disabled:cursor-not-allowed disabled:opacity-70' : '',
-                          )}
-                          {...(() => {
-                            const reg = tagForm.register('cajas_generadas', { valueAsNumber: true });
-                            return {
-                              ...reg,
-                              onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-                                if (!editTag) cajasGeneradasUserTouchedForSeedRef.current = true;
-                                void reg.onChange(e);
-                              },
-                            };
-                          })()}
-                        />
-                        {maxCajasDesdeProcesoCreate != null && !(editTag && editTag.items.length > 1) ? (
-                          <p className="text-[11px] leading-tight text-muted-foreground">
-                            {t('ptTag.dialog.maxSuggested')}{' '}
-                            <span className="font-semibold text-foreground">{maxCajasDesdeProcesoCreate}</span>{' '}
-                            {t('ptTag.dialog.maxNote')}
-                            {!editTag && maxCajasDesdeProcesoCreate > cajasPorPalletFormato ? (
-                              <>
-                                {' '}
-                                {t('ptTag.dialog.initialValue')}{' '}
-                                <span className="font-semibold text-foreground">{cajasPorPalletFormato}</span>{' '}
-                                {t('ptTag.dialog.onePallet')}
-                              </>
-                            ) : null}
+                    <section
+                      data-new-pt-step2
+                      className={cn(operationalModalSectionCard, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}
+                    >
+                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
+                        <div className="min-w-0">
+                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('ptTag.dialog.step1')} y {t('ptTag.dialog.step3').toLowerCase()}</h3>
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                            Definí fecha, formato y cajas de esta unidad.
                           </p>
-                        ) : null}
-                        {editTag && editTag.items.length > 1 ? (
-                          <p className="text-[11px] leading-tight text-muted-foreground">{t('ptTag.dialog.multiLinesNote')}</p>
-                        ) : editTag ? (
-                          <p className="text-[11px] leading-tight text-muted-foreground">{t('ptTag.dialog.serverValidation')}</p>
-                        ) : null}
-                        {tagForm.formState.errors.cajas_generadas ? (
-                          <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
-                        ) : null}
+                        </div>
+                      </div>
+                      <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
+                        <div className="grid gap-1.5">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]" htmlFor="tag-fecha">
+                            {t('ptTag.dialog.fieldDate')}
+                          </Label>
+                          <Input
+                            id="tag-fecha"
+                            type="datetime-local"
+                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white lg:h-11')}
+                            {...tagForm.register('fecha')}
+                          />
+                          {tagForm.formState.errors.fecha && (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.fecha.message}</p>
+                          )}
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldProductType')}</Label>
+                          <select
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                            {...tagForm.register('resultado')}
+                          >
+                            {RESULTADOS_PT.map((r) => (
+                              <option key={r} value={r}>
+                                {labelPtProductoPt(r, t)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid gap-1.5 lg:col-span-2">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]" htmlFor="format_code">
+                            {t('ptTag.dialog.fieldFormat')}
+                          </Label>
+                          {activePresFormats.length > 0 ? (
+                            <select
+                              id="format_code"
+                              className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white font-medium')}
+                              value={tagForm.watch('format_code')}
+                              onChange={(e) => tagForm.setValue('format_code', e.target.value, { shouldValidate: true })}
+                            >
+                              {activePresFormats.map((f) => (
+                                <option key={f.id} value={f.format_code}>
+                                  {f.format_code}
+                                  {f.descripcion ? ` — ${f.descripcion}` : ''}
+                                  {f.net_weight_lb_per_box != null ? ` · ${f.net_weight_lb_per_box} ${t('ptTag.formatSelector.lbPerBox')}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                              placeholder="NxMoz (ej. 4x16oz) o PINT REGULAR / PINT LOW PROFILE"
+                              {...tagForm.register('format_code')}
+                            />
+                          )}
+                          {tagForm.formState.errors.format_code && (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.format_code.message}</p>
+                          )}
+                          <p className="leading-tight text-[11px] text-[var(--ink-muted)]">
+                            <span className="font-medium">{t('ptTag.dialog.formatHint')}</span>{' '}
+                            <span className="tabular-nums font-semibold text-[var(--ink)]">{tagForm.watch('cajas_por_pallet')}</span>
+                            {' · '}
+                            <span className="font-mono">{watchedTagFormatCode || '—'}</span>
+                            {' · '}
+                            código TAR- se asignará automáticamente
+                          </p>
+                          {tagForm.formState.errors.cajas_por_pallet && (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_por_pallet.message}</p>
+                          )}
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="cajas_generadas" className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
+                            {t('ptTag.dialog.fieldBoxes')}
+                          </Label>
+                          <Input
+                            id="cajas_generadas"
+                            type="number"
+                            min={1}
+                            max={maxCajasDesdeProcesoCreate ?? undefined}
+                            step={1}
+                            disabled={!!editTag && editTag.items.length > 1}
+                            className={cn(
+                              filterInputClass,
+                              'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums',
+                              editTag && editTag.items.length > 1 ? 'disabled:cursor-not-allowed disabled:opacity-70' : '',
+                            )}
+                            {...(() => {
+                              const reg = tagForm.register('cajas_generadas', { valueAsNumber: true });
+                              return {
+                                ...reg,
+                                onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                                  if (!editTag) cajasGeneradasUserTouchedForSeedRef.current = true;
+                                  void reg.onChange(e);
+                                },
+                              };
+                            })()}
+                          />
+                          {maxCajasDesdeProcesoCreate != null && !(editTag && editTag.items.length > 1) ? (
+                            <p className="text-[11px] leading-tight text-[var(--ink-muted)]">
+                              {t('ptTag.dialog.maxSuggested')}{' '}
+                              <span className="font-semibold text-[var(--ink)]">{maxCajasDesdeProcesoCreate}</span>{' '}
+                              {t('ptTag.dialog.maxNote')}
+                              {!editTag && maxCajasDesdeProcesoCreate > cajasPorPalletFormato ? (
+                                <>
+                                  {' '}
+                                  {t('ptTag.dialog.initialValue')}{' '}
+                                  <span className="font-semibold text-[var(--ink)]">{cajasPorPalletFormato}</span>{' '}
+                                  {t('ptTag.dialog.onePallet')}
+                                </>
+                              ) : null}
+                            </p>
+                          ) : null}
+                          {editTag && editTag.items.length > 1 ? (
+                            <p className="text-[11px] leading-tight text-[var(--ink-muted)]">{t('ptTag.dialog.multiLinesNote')}</p>
+                          ) : editTag ? (
+                            <p className="text-[11px] leading-tight text-[var(--ink-muted)]">{t('ptTag.dialog.serverValidation')}</p>
+                          ) : null}
+                          {tagForm.formState.errors.cajas_generadas ? (
+                            <p className="text-xs text-destructive">{tagForm.formState.errors.cajas_generadas.message}</p>
+                          ) : null}
+                        </div>
                         {!editTag ? (
-                          <div className="mt-2 grid gap-1.5">
-                            <Label htmlFor="tag-bulk-units" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="tag-bulk-units" className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                               {t('ptTag.dialog.bulkUnitsLabel')}
                             </Label>
                             <Input
@@ -1755,12 +1807,10 @@ export function PtTagsPage() {
                               max={100}
                               step={1}
                               inputMode="numeric"
-                              className="h-10 rounded-md border-input/80 text-center text-base font-semibold tabular-nums"
+                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums')}
                               {...tagForm.register('bulk_units', { valueAsNumber: true })}
                             />
-                            <p className="text-[10px] leading-tight text-muted-foreground">
-                              {t('ptTag.dialog.bulkUnitsHint')}
-                            </p>
+                            <p className="text-[11px] leading-tight text-[var(--ink-muted)]">{t('ptTag.dialog.bulkUnitsHint')}</p>
                             {tagForm.formState.errors.bulk_units && (
                               <p className="text-xs text-destructive">{tagForm.formState.errors.bulk_units.message}</p>
                             )}
@@ -1769,18 +1819,26 @@ export function PtTagsPage() {
                       </div>
                     </section>
 
-                    {/* 4 · Comercial (opcional) */}
-                    <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
-                      <div className="mb-2 flex flex-wrap items-baseline gap-2">
-                        <span className={operationalModalStepBadge}>4</span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('ptTag.dialog.step4')}</span>
-                        <span className="text-[10px] text-muted-foreground/80">{t('ptTag.dialog.step4Optional')}</span>
+                    <section
+                      data-new-pt-step3
+                      className={cn(operationalModalSectionMuted, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/45 lg:p-4')}
+                    >
+                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
+                        <div className="min-w-0">
+                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>
+                            {t('ptTag.dialog.step4')} <span className="font-sans text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.step4Optional')}</span>
+                          </h3>
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                            Cliente, marca y BOL previstos. Se puede dejar sin asignar.
+                          </p>
+                        </div>
                       </div>
-                      <div className="grid gap-2.5 sm:grid-cols-2">
-                        <div className="grid gap-1">
-                          <Label className="text-[11px] text-muted-foreground">{t('ptTag.dialog.fieldClient')}</Label>
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="grid gap-1.5">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldClient')}</Label>
                           <select
-                            className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
                             {...tagForm.register('client_id', { valueAsNumber: true })}
                           >
                             <option value={0}>{t('ptTag.dialog.clientUndefined')}</option>
@@ -1791,10 +1849,10 @@ export function PtTagsPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="grid gap-1">
-                          <Label className="text-[11px] text-muted-foreground">{t('ptTag.dialog.fieldBrand')}</Label>
+                        <div className="grid gap-1.5">
+                          <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldBrand')}</Label>
                           <select
-                            className="flex h-9 w-full rounded-md border border-input/80 bg-background px-2 py-1 text-xs"
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
                             {...tagForm.register('brand_id', { valueAsNumber: true })}
                           >
                             <option value={0}>{t('ptTag.dialog.brandUndefined')}</option>
@@ -1805,53 +1863,103 @@ export function PtTagsPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="grid gap-1 sm:col-span-2">
-                          <Label htmlFor="tag-bol-prev" className="text-[11px] text-muted-foreground">
+                        <div className="grid gap-1.5 lg:col-span-2">
+                          <Label htmlFor="tag-bol-prev" className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                             {t('ptTag.dialog.fieldBol')}
                           </Label>
                           <Input
                             id="tag-bol-prev"
                             placeholder={t('ptTag.dialog.fieldBolPlaceholder')}
-                            className="h-9 rounded-md text-xs"
+                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
                             {...tagForm.register('bol')}
                           />
                         </div>
                       </div>
                     </section>
 
-                    </div>
+                    <section
+                      data-new-pt-step4
+                      className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5"
+                    >
+                      <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)]">Revisión</p>
+                      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                        <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Formato</p>
+                          <p className="mt-1.5 font-serif text-[18px] font-semibold text-[var(--ink)]">{watchedTagFormatCode || '—'}</p>
+                        </div>
+                        <div className="rounded-[9px] border border-[var(--sage-200)] bg-[var(--sage-100)] px-3 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Cajas</p>
+                          <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(Number(watchedCajasGeneradas) || 0)}</p>
+                        </div>
+                        <div className="rounded-[9px] border border-[var(--bluegray-200)] bg-[var(--bluegray-100)] px-3 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Lb est.</p>
+                          <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                            {netLbPerBoxCreate != null && Number.isFinite(Number(watchedCajasGeneradas))
+                              ? formatLb(Number(watchedCajasGeneradas) * netLbPerBoxCreate, 2)
+                              : '—'}
+                          </p>
+                        </div>
+                        <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.bulkUnitsLabel')}</p>
+                          <p className="mt-1.5 font-serif text-[22px] font-semibold tabular-nums leading-none text-[var(--ink)]">{editTag ? 1 : formatCount(bulkUnitsSubmitLabel)}</p>
+                        </div>
+                      </div>
+                    </section>
                   </div>
                 </div>
 
-                <DialogFooter className={cn(operationalModalFooterClass, 'gap-2')}>
-                <Button type="button" variant="outline" onClick={() => setTagOpen(false)}>
-                  {t('ptTag.dialog.cancelButton')}
-                </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      editTag
+                <DialogFooter
+                  data-new-pt-footer
+                  className={cn(
+                    operationalModalFooterClass,
+                    'gap-2 lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:px-7 lg:py-3',
+                  )}
+                >
+                  <div className="hidden items-center gap-5 text-[12px] text-[var(--ink-muted)] lg:flex">
+                    <span>
+                      Cajas <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">{formatCount(Number(watchedCajasGeneradas) || 0)}</strong>
+                    </span>
+                    <span className="h-5 w-px bg-[var(--stone-300)]" aria-hidden />
+                    <span>
+                      Formato <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">{watchedTagFormatCode || '—'}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 min-w-[126px] rounded-[8px] border-[var(--stone-300)] bg-white px-5 text-[13px] font-semibold shadow-none"
+                      onClick={() => setTagOpen(false)}
+                    >
+                      {t('ptTag.dialog.cancelButton')}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="h-11 min-w-[168px] rounded-[8px] bg-[var(--olive-700)] px-5 text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+                      disabled={
+                        editTag
+                          ? updateTagMut.isPending
+                          : createTagMut.isPending || availableProcesses.length === 0
+                      }
+                    >
+                      {editTag
                         ? updateTagMut.isPending
-                        : createTagMut.isPending || availableProcesses.length === 0
-                    }
-                  >
-                    {editTag
-                      ? updateTagMut.isPending
-                        ? t('ptTag.dialog.savingButton')
-                        : t('ptTag.dialog.saveButton')
-                      : createTagMut.isPending
-                        ? bulkCreateProgress
-                          ? t('ptTag.dialog.creatingBulkButton', {
-                              cur: bulkCreateProgress.cur,
-                              total: bulkCreateProgress.total,
-                            })
-                          : t('ptTag.dialog.creatingButton')
-                        : bulkUnitsSubmitLabel > 1
-                          ? t('ptTag.dialog.createBulkButton', { n: bulkUnitsSubmitLabel })
-                          : t('ptTag.dialog.createButton')}
-                </Button>
-              </DialogFooter>
-            </form>
+                          ? t('ptTag.dialog.savingButton')
+                          : t('ptTag.dialog.saveButton')
+                        : createTagMut.isPending
+                          ? bulkCreateProgress
+                            ? t('ptTag.dialog.creatingBulkButton', {
+                                cur: bulkCreateProgress.cur,
+                                total: bulkCreateProgress.total,
+                              })
+                            : t('ptTag.dialog.creatingButton')
+                          : bulkUnitsSubmitLabel > 1
+                            ? t('ptTag.dialog.createBulkButton', { n: bulkUnitsSubmitLabel })
+                            : t('ptTag.dialog.createButton')}
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </form>
           </DialogContent>
         </Dialog>
           ) : null}
