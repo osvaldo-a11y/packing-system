@@ -1374,13 +1374,13 @@ export function PtTagsPage() {
     <div className="font-inter space-y-5 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
       <header
         data-pt-mobile-hero
-        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:hidden"
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-2.5 pt-3 lg:hidden"
       >
         <div className="relative z-[1]">
-          <h1 className="font-serif text-[33px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+          <h1 className="font-serif text-[31px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
             {t('nav.items.unidadPt')}
           </h1>
-          <div className="mt-2 flex items-center gap-2 text-[15px] leading-snug text-[var(--ink-muted)]">
+          <div className="mt-1.5 flex items-center gap-2 text-[14px] leading-snug text-[var(--ink-muted)]">
             <span>{t('ptTag.pageSubtitle')}</span>
             <button
               type="button"
@@ -1394,7 +1394,7 @@ export function PtTagsPage() {
           {canOperate(role) ? (
             <Button
               type="button"
-              className="mt-3 h-[46px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+              className="mt-2 h-[42px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
               onClick={() => {
                 openPtModalForEditRef.current = false;
                 setEditTag(null);
@@ -1406,8 +1406,8 @@ export function PtTagsPage() {
             </Button>
           ) : null}
         </div>
-        <div className="relative mt-2.5 h-[72px] overflow-hidden border-t border-[var(--stone-200)]">
-          <p className="absolute left-0 top-2.5 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.55] tracking-[0.17em] text-[var(--olive-700)]">
+        <div className="relative mt-2 h-[58px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-1.5 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
             <span className="block">FRUTA DE NUESTRA</span>
             <span className="block">TIERRA.</span>
             <span className="block">UN FUTURO MÁS</span>
@@ -1416,7 +1416,7 @@ export function PtTagsPage() {
           <img
             src={appBranding.landscapeUrl}
             alt=""
-            className="pointer-events-none absolute bottom-[-5px] right-[-3px] h-[82px] w-[244px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[70px] w-[220px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
             aria-hidden
           />
         </div>
@@ -2206,7 +2206,7 @@ export function PtTagsPage() {
         className="space-y-0 overflow-hidden rounded-[12px] border border-[var(--stone-300)] bg-white lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="pt-listado"
       >
-        <div className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+        <div data-pt-mobile-list-header className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div className="lg:flex lg:items-baseline lg:gap-4">
             <h2 id="pt-listado" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:font-semibold max-lg:leading-tight max-lg:text-[var(--ink)] lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('ptTag.table.title')}
@@ -2250,7 +2250,7 @@ export function PtTagsPage() {
               </Button>
             </div>
             <details className="group w-full lg:w-auto">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:px-2.5 max-lg:py-2 max-lg:text-center max-lg:border-[var(--stone-300)] max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:flex max-lg:h-11 max-lg:items-center max-lg:justify-center max-lg:border-[var(--stone-300)] max-lg:px-2.5 max-lg:py-2 max-lg:text-[12px] max-lg:font-semibold max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7">
                 {t('ptTag.table.criteria')}
               </summary>
               <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
@@ -2266,7 +2266,7 @@ export function PtTagsPage() {
         </div>
         <div className="lg:hidden">
           {filteredTags.length === 0 ? (
-            <p className="mx-3 mb-3 flex min-h-[148px] items-center justify-center rounded-[11px] border border-[var(--stone-200)] bg-[#FBFCFD] px-5 text-center text-[13px] leading-snug text-[var(--bluegray-700)]">
+            <p data-pt-mobile-empty className="mx-3 mb-3 flex min-h-[148px] items-center justify-center rounded-[11px] border border-[var(--stone-200)] bg-[#FBFCFD] px-5 text-center text-[13px] leading-snug text-[var(--bluegray-700)]">
               {t('ptTag.table.empty')}
             </p>
           ) : (
