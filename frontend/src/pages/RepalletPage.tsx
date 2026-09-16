@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, Info, ListOrdered, Plus } from 'lucide-react';
+import { Boxes, ChevronDown, Filter, Info, ListOrdered, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { PineBoxesIcon, PineCubeIcon, PineSnowflakeIcon, PineWeightIcon } from '@/components/icons/pinebloom';
+import { appBranding } from '@/lib/branding';
 import { apiJson } from '@/api';
 import { OperateOnly } from '@/components/OperateOnly';
 import { Button } from '@/components/ui/button';
@@ -22,9 +24,11 @@ import {
   filterInputClass,
   filterPanel,
   filterSelectClass,
+  kpiCard,
   kpiCardSm,
   kpiFootnote,
   kpiLabel,
+  kpiValueLg,
   kpiValueMd,
   pageHeaderRow,
   pageInfoButton,
@@ -176,6 +180,7 @@ export function RepalletPage() {
   const [filterRepallet, setFilterRepallet] = useState<string>('');
   /** Solo pallets con menos cajas que el tope del formato (cuando el maestro define tope). */
   const [filterPartialOnly, setFilterPartialOnly] = useState<'all' | 'partial'>('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const speciesOptions = useMemo(() => {
     const m = new Map<number, string>();
@@ -378,9 +383,59 @@ export function RepalletPage() {
     );
   }
 
+  const stockTabs = [
+    { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true as const },
+    { to: '/existencias-pt/repaletizar', label: t('existenciasPt.layout.tabRepallet') },
+    { to: '/existencias-pt/packing-lists', label: t('existenciasPt.layout.tabPackingLists') },
+  ];
+
+  const desktopKpis = [
+    {
+      label: t('repallet.kpis.palletsInView'),
+      value: formatCount(kpis.total),
+      note:
+        filterPartialOnly === 'partial'
+          ? t('repallet.kpis.palletsNotePartial')
+          : partialCountInBase > 0
+            ? t('repallet.kpis.palletsNoteIncomplete', { count: formatCount(partialCountInBase) })
+            : t('repallet.kpis.palletsNoteAll'),
+      Icon: PineSnowflakeIcon,
+      card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+      well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+    },
+    {
+      label: t('repallet.kpis.totalBoxes'),
+      value: formatCount(kpis.totalCajas),
+      note: t('repallet.kpis.totalBoxesNote'),
+      Icon: PineCubeIcon,
+      card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+      well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+    },
+    {
+      label: t('repallet.kpis.weight'),
+      value: formatLb(kpis.totalLb, 2),
+      note: t('repallet.kpis.weightNote'),
+      Icon: PineWeightIcon,
+      card: 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+      well: 'bg-[#DED9CF] text-[#41443F]',
+    },
+    {
+      label: t('repallet.kpis.repalletTitle'),
+      value: t('repallet.kpis.repalletValue', {
+        origins: formatCount(kpis.origen),
+        results: formatCount(kpis.resultado),
+        noBoxes: formatCount(kpis.sinCajas),
+      }),
+      note: t('repallet.kpis.repalletNote'),
+      Icon: PineBoxesIcon,
+      card: kpis.sinCajas > 0 ? 'border-amber-200/90 bg-amber-50/35' : 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+      well: kpis.sinCajas > 0 ? 'bg-amber-100 text-amber-950' : 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+    },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div className={pageHeaderRow}>
+    <div className="space-y-8 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <div className={cn(pageHeaderRow, 'lg:hidden')}>
         <div className="min-w-0 space-y-1.5">
           <h2 className={pageTitle}>{t('repallet.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -417,19 +472,232 @@ export function RepalletPage() {
         </div>
       </div>
 
-      <Card id="repallet-origenes" className={contentCard}>
-        <CardHeader className="pb-3">
+      <header
+        data-repallet-desktop-hero
+        className="relative hidden overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:flex lg:h-[171px] lg:min-h-[171px] lg:items-start lg:justify-between lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.05] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
+              {t('existenciasPt.layout.tabRepallet')}
+            </h1>
+            <button
+              type="button"
+              className={cn(pageInfoButton, 'lg:mt-1')}
+              title={helpBody}
+              aria-label={t('existenciasPt.layout.tabRepallet')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+          <p className={cn(pageSubtitle, 'lg:max-w-[38rem] lg:font-serif lg:text-[22px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('repallet.pageSubtitle')}
+          </p>
+        </div>
+        <div className="relative z-[1] flex shrink-0 flex-col items-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 min-w-[168px] rounded-[var(--radius-md)] border-[var(--stone-300)] bg-white px-4 text-[13px] font-semibold shadow-none hover:bg-[var(--stone-100)]"
+            onClick={scrollToForm}
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            {t('repallet.configButton')}
+          </Button>
+          <Button
+            type="button"
+            className="h-[52px] min-w-[216px] rounded-[var(--radius-md)] bg-[var(--olive-700)] px-6 text-[16px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)] disabled:opacity-50"
+            disabled={totalCajasAMover === 0 || mut.isPending}
+            onClick={() => mut.mutate()}
+          >
+            {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
+          </Button>
+        </div>
+      </header>
+
+      <nav
+        data-repallet-desktop-tabs
+        className="mb-2 hidden lg:flex lg:flex-wrap lg:gap-1"
+        aria-label={t('existenciasPt.layout.navAriaLabel')}
+      >
+        {stockTabs.map(({ to, label, end = false }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'rounded-[8px] px-3 py-1 text-[12px] font-semibold transition-colors',
+                isActive
+                  ? 'bg-[var(--olive-700)] text-white'
+                  : 'border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--stone-100)] hover:text-[var(--ink)]',
+              )
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <section
+        data-repallet-desktop-kpis
+        aria-labelledby="repallet-kpis-desktop"
+        className="hidden space-y-2.5 lg:block lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <h2 id="repallet-kpis-desktop" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+          {t('repallet.kpis.srOnly')}
+        </h2>
+        <div className="grid grid-cols-4 gap-3">
+          {desktopKpis.map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-9 w-9" />
+              </span>
+              <div className="min-w-0">
+                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
+                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[22px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                  {value}
+                </p>
+                <p className={cn(kpiFootnote, 'lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {alertLines.length > 0 ? (
+          <div className="space-y-1.5 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('repallet.alerts.title')}</p>
+            <ul className="space-y-1">
+              {alertLines.map((a) => (
+                <li
+                  key={a.key}
+                  className={cn(
+                    'rounded-[7px] border px-2.5 py-1.5 text-[12px] leading-snug',
+                    a.tone === 'warn'
+                      ? 'border-amber-200/90 bg-amber-50/50 text-amber-950'
+                      : 'border-[var(--stone-200)] bg-white text-[var(--ink-muted)]',
+                  )}
+                >
+                  {a.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+
+      <div
+        data-repallet-desktop-filters
+        className="mt-3 hidden min-h-[62px] rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+      >
+        <div className="flex items-center gap-2">
+          <div className="min-w-[16rem] flex-1">
+            <Input
+              className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+              placeholder="Unidad PT, cliente, variedad, código…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Buscar"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="col-span-3 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('repallet.filters.species')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterSpeciesId}
+                onChange={(e) => setFilterSpeciesId(Number(e.target.value))}
+              >
+                <option value={0}>{t('repallet.filters.speciesAll')}</option>
+                {speciesOptions.map(([id, nombre]) => (
+                  <option key={id} value={id}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('repallet.filters.format')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterFormatId}
+                onChange={(e) => setFilterFormatId(Number(e.target.value))}
+              >
+                <option value={0}>{t('repallet.filters.formatAll')}</option>
+                {formatOptions.map(([id, code]) => (
+                  <option key={id} value={id}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-4 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">Rol repaletizaje</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterRepallet}
+                onChange={(e) => setFilterRepallet(e.target.value)}
+              >
+                <option value="">Todos</option>
+                <option value="no">Stock operativo</option>
+                <option value="origen">Origen</option>
+                <option value="resultado">Resultado</option>
+              </select>
+            </div>
+            <div className="col-span-3 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('repallet.filters.completeness')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterPartialOnly}
+                onChange={(e) => setFilterPartialOnly(e.target.value as 'all' | 'partial')}
+                title="Solo pallets con cajas por debajo del tope del formato (si el maestro define tope)"
+              >
+                <option value="all">{t('repallet.filters.completenessAll')}</option>
+                <option value="partial">{t('repallet.filters.completenessPartial')}</option>
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <Card id="repallet-origenes" className={cn(contentCard, 'lg:mt-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:shadow-none')}>
+        <CardHeader className="pb-3 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className={cn(sectionTitle, 'mb-0')}>{t('repallet.form.title')}</CardTitle>
+            <CardTitle className={cn(sectionTitle, 'mb-0 lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>{t('repallet.form.title')}</CardTitle>
             <button type="button" className={pageInfoButton} title={nuevoRepalletInfo} aria-label={t('repallet.form.title')}>
               <Info className="h-4 w-4" />
             </button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-5 lg:px-[14px] lg:py-4">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(200px,260px)] lg:items-start">
             <div className="min-w-0 space-y-5">
-              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5 lg:rounded-[10px] lg:border-[var(--stone-200)] lg:bg-[var(--sage-100)]/45">
                 <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.formatLabel')}</Label>
                   <select
@@ -457,7 +725,7 @@ export function RepalletPage() {
             return (
               <div
                 key={row.key}
-                className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end"
+                className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:flex-row sm:items-end lg:rounded-[10px] lg:border-[var(--stone-200)] lg:bg-white"
               >
                 <div className="grid min-w-0 flex-1 gap-2">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.sourceLabel', { n: idx + 1 })}</Label>
@@ -555,7 +823,7 @@ export function RepalletPage() {
 
           <OperateOnly>
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button type="button" className={btnToolbarPrimary} disabled={mut.isPending} onClick={() => mut.mutate()}>
+                  <Button type="button" className={cn(btnToolbarPrimary, 'lg:h-10 lg:rounded-[var(--radius-md)] lg:bg-[var(--olive-700)] lg:px-5 lg:text-[14px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]')} disabled={mut.isPending} onClick={() => mut.mutate()}>
                 {mut.isPending ? t('repallet.processingButton') : t('repallet.createButton')}
               </Button>
             </div>
@@ -563,7 +831,7 @@ export function RepalletPage() {
             </div>
 
             <aside
-              className="sticky top-4 shrink-0 rounded-xl border border-border bg-background p-4 shadow-sm lg:min-h-0"
+              className="sticky top-4 shrink-0 rounded-xl border border-border bg-background p-4 shadow-sm lg:min-h-0 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:shadow-none"
               title="Suma de todas las cajas que estás asignando a mover en los orígenes"
             >
               <div className="flex items-center gap-2">
@@ -587,7 +855,7 @@ export function RepalletPage() {
         </CardContent>
       </Card>
 
-      <div className={filterPanel}>
+      <div className={cn(filterPanel, 'lg:hidden')}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>{t('repallet.filters.title')}</span>
           <button
@@ -667,10 +935,14 @@ export function RepalletPage() {
         </div>
       </div>
 
-      <section className="space-y-3" aria-labelledby="repallet-tabla">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <section
+        data-repallet-desktop-list
+        className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="repallet-tabla"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="repallet-tabla" className={sectionTitle}>
+            <h2 id="repallet-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('repallet.table.title')}
             </h2>
             <p className={sectionHint}>
@@ -684,7 +956,7 @@ export function RepalletPage() {
               {t('repallet.table.hintUniverse')}
             </p>
           </div>
-          <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
+          <Button asChild variant="outline" size="sm" className={cn(btnToolbarOutline, 'lg:h-9 lg:border-[var(--stone-300)] lg:bg-white')}>
             <Link to="/existencias-pt/inventario" className="gap-2">
               <ListOrdered className="h-4 w-4" />
               {t('repallet.table.inventoryButton')}
@@ -693,19 +965,19 @@ export function RepalletPage() {
         </div>
 
         {!rows?.length ? (
-          <p className={emptyStatePanel}>{t('repallet.table.emptyAll')}</p>
+          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('repallet.table.emptyAll')}</p>
         ) : !filteredRows.length ? (
-          <p className={emptyStatePanel}>
+          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>
             {filterPartialOnly === 'partial' && filteredRowsBase.length > 0
               ? t('repallet.table.emptyPartial')
               : t('repallet.table.emptyFilter')}
           </p>
         ) : (
-          <div className={cn(tableShell, 'max-h-[min(52vh,520px)] overflow-auto')}>
+          <div className={cn(tableShell, 'max-h-[min(52vh,520px)] overflow-auto lg:max-h-none lg:rounded-none lg:border-0 lg:shadow-none')}>
             <Table className="min-w-[780px]">
               <TableHeader>
-                <TableRow className={tableHeaderRow}>
-                  <TableHead className="min-w-[160px]">{t('repallet.table.colCode')}</TableHead>
+                  <TableRow className={cn(tableHeaderRow, 'lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)]')}>
+                  <TableHead className="min-w-[160px] lg:text-[11px] lg:font-semibold lg:uppercase lg:tracking-[0.04em] lg:text-[var(--ink-muted)]">{t('repallet.table.colCode')}</TableHead>
                   <TableHead className="min-w-[72px]">{t('repallet.table.colFormat')}</TableHead>
                   <TableHead className="min-w-[108px] text-right tabular-nums">{t('repallet.table.colBoxes')}</TableHead>
                   <TableHead className="min-w-[120px]">{t('repallet.table.colClient')}</TableHead>
@@ -787,7 +1059,7 @@ export function RepalletPage() {
       </section>
 
       {alertLines.length > 0 ? (
-        <div className={signalsPanel}>
+        <div className={cn(signalsPanel, 'lg:hidden')}>
           <p className={signalsTitle}>{t('repallet.alerts.title')}</p>
           <ul className="space-y-2">
             {alertLines.map((a) => (
@@ -807,7 +1079,7 @@ export function RepalletPage() {
         </div>
       ) : null}
 
-      <section aria-labelledby="repallet-kpis-resumen" className="space-y-3">
+      <section aria-labelledby="repallet-kpis-resumen" className="space-y-3 lg:hidden">
         <h2 id="repallet-kpis-resumen" className="sr-only">
           {t('repallet.kpis.srOnly')}
         </h2>
