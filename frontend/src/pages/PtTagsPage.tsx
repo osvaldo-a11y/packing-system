@@ -1,7 +1,10 @@
 ﻿import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CalendarDays,
+  ChevronDown,
   FileDown,
+  Filter,
   Info,
   Loader2,
   MoreHorizontal,
@@ -10,6 +13,7 @@ import {
   Printer,
   CircleCheck,
   RefreshCw,
+  Search,
   Trash2,
   Waypoints,
   X,
@@ -44,8 +48,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PineWeightIcon } from '@/components/icons/pinebloom';
 import { isoInLocalDateRange, localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb } from '@/lib/number-format';
+import { appBranding } from '@/lib/branding';
 import {
   downloadZplFile,
   fetchTarjaTemplateCatalog,
@@ -87,7 +93,6 @@ import {
   operationalModalStepBadge,
   operationalModalStepTitle,
   operationalModalTitleClass,
-  pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
   pageTitle,
@@ -463,6 +468,7 @@ export function PtTagsPage() {
   const [filterClient, setFilterClient] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<'todas' | 'disponible' | 'sin_cajas'>('todas');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const { data: tags, isPending, isError, error } = useQuery({
     queryKey: ['pt-tags'],
@@ -1367,23 +1373,37 @@ export function PtTagsPage() {
   }
 
   return (
-    <div className="font-inter space-y-8">
-      <div className={pageHeaderRow}>
-        <div className="min-w-0 space-y-1.5">
+    <div className="font-inter space-y-8 lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <header
+        data-pt-desktop-hero
+        className="relative flex flex-col gap-3 overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 sm:flex-row sm:items-start sm:justify-between lg:h-[171px] lg:min-h-[171px] lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-1.5 lg:space-y-2">
           <div className="flex items-center gap-2">
-            <h1 className={pageTitle}>{t('ptTag.pageTitle')}</h1>
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.05] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
+              <span className="lg:hidden">{t('ptTag.pageTitle')}</span>
+              <span className="hidden lg:inline">{t('nav.items.unidadPt')}</span>
+            </h1>
             <button
               type="button"
-              className={pageInfoButton}
+              className={cn(pageInfoButton, 'lg:mt-1')}
               title="Alta de tarja TAR-… y vínculo a proceso; genera pallet PF-… y stock en Existencias PT. Flujo: repalet, packing lists, BOL, despacho."
               aria-label={t('ptTag.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
+          </div>
+          <p className={cn(pageSubtitle, 'lg:font-serif lg:text-[24px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('ptTag.pageSubtitle')}
+          </p>
         </div>
-          <p className={pageSubtitle}>{t('ptTag.pageSubtitle')}</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <div className="relative z-[1] flex shrink-0 flex-wrap justify-end gap-2">
           {canOperate(role) ? (
           <Dialog
             open={tagOpen}
@@ -1402,8 +1422,8 @@ export function PtTagsPage() {
             }}
           >
           <DialogTrigger asChild>
-              <Button type="button" className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm">
-              <Plus className="h-4 w-4" />
+              <Button type="button" className="h-10 shrink-0 gap-2 rounded-xl px-5 shadow-sm lg:h-[52px] lg:min-w-[216px] lg:rounded-[var(--radius-md)] lg:bg-[var(--olive-700)] lg:px-6 lg:text-[16px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]">
+              <Plus className="h-4 w-4 lg:h-6 lg:w-6" />
                 {t('ptTag.newButton')}
             </Button>
           </DialogTrigger>
@@ -1788,44 +1808,81 @@ export function PtTagsPage() {
         </Dialog>
           ) : null}
         </div>
-      </div>
+      </header>
 
-      <section aria-labelledby="pt-kpis" className="space-y-4">
-        <h2 id="pt-kpis" className="sr-only">
+      <section
+        data-pt-desktop-kpis
+        aria-labelledby="pt-kpis"
+        className="space-y-4 lg:space-y-2.5 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <h2 id="pt-kpis" className="sr-only lg:not-sr-only lg:font-serif lg:text-[20px] lg:font-semibold lg:text-[var(--ink)]">
           {t('ptTag.srKpis')}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('ptTag.kpi.units')}</p>
-            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatCount(listKpis.unidades)}</p>
-            <p className={kpiFootnote}>{t('ptTag.kpi.unitsNote')}</p>
-      </div>
-          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('ptTag.kpi.boxes')}</p>
-            <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(listKpis.cajas)}</p>
-            <p className={kpiFootnote}>{t('ptTag.kpi.boxesNote')}</p>
-          </div>
-          <div className={cn(kpiCard, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('ptTag.kpi.lb')}</p>
-            <p className={cn(kpiValueLg, 'text-blue-700')}>{formatLb(listKpis.lb, 2)}</p>
-            <p className={kpiFootnote}>{t('ptTag.kpi.lbNote')}</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              listKpis.sinCliente > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50',
-            )}
-          >
-            <p className={kpiLabel}>{t('ptTag.kpi.pending')}</p>
-            <p className={cn(kpiValueLg, listKpis.sinCliente > 0 ? 'text-amber-700' : 'text-green-700')}>
-              {formatCount(listKpis.sinCliente)}
-            </p>
-            <p className={kpiFootnote}>{t('ptTag.kpi.pendingNote')}</p>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+          {[
+            {
+              label: t('ptTag.kpi.units'),
+              value: formatCount(listKpis.unidades),
+              note: t('ptTag.kpi.unitsNote'),
+              Icon: PineBoxesIcon,
+              card: 'border-blue-200 bg-blue-50 lg:border-[var(--stone-300)] lg:bg-[var(--stone-100)]',
+              well: 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('ptTag.kpi.boxes'),
+              value: formatCount(listKpis.cajas),
+              note: t('ptTag.kpi.boxesNote'),
+              Icon: PineCubeIcon,
+              card: 'border-green-200 bg-green-50 lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('ptTag.kpi.lb'),
+              value: formatLb(listKpis.lb, 2),
+              note: t('ptTag.kpi.lbNote'),
+              Icon: PineWeightIcon,
+              card: 'border-blue-200 bg-blue-50 lg:border-[var(--bluegray-200)] lg:bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+            {
+              label: t('ptTag.kpi.pending'),
+              value: formatCount(listKpis.sinCliente),
+              note: t('ptTag.kpi.pendingNote'),
+              Icon: PineDocumentIcon,
+              card:
+                listKpis.sinCliente > 0
+                  ? 'border-amber-200 bg-amber-50 lg:border-[var(--harvest-200)] lg:bg-[var(--harvest-100)]'
+                  : 'border-green-200 bg-green-50 lg:border-[var(--sage-200)] lg:bg-[var(--sage-100)]',
+              well:
+                listKpis.sinCliente > 0
+                  ? 'bg-[var(--harvest-200)] text-[var(--harvest-700)]'
+                  : 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                card,
+              )}
+            >
+              <span className={cn('hidden lg:inline-flex lg:h-[58px] lg:w-[58px] lg:shrink-0 lg:items-center lg:justify-center lg:rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-9 w-9" />
+              </span>
+              <div className="min-w-0">
+                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
+                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                  {value}
+                </p>
+                <p className={cn(kpiFootnote, 'lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      <div className={filterPanel}>
+      <div className={cn(filterPanel, 'lg:hidden')}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{t('ptTag.filters.title')}</span>
         </div>
@@ -1956,21 +2013,181 @@ export function PtTagsPage() {
         </details>
       </div>
 
-      <section className="space-y-3" aria-labelledby="pt-listado">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 id="pt-listado" className={sectionTitle}>
+      <div
+        data-pt-desktop-filters
+        className="mt-3 hidden rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+      >
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={filterDateFrom === localDateYmd() && filterDateTo === localDateYmd() ? 'default' : 'outline'}
+            className={cn(
+              'h-10 min-w-[104px] gap-1.5 rounded-md px-4 text-[13px] font-semibold',
+              filterDateFrom === localDateYmd() && filterDateTo === localDateYmd()
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterDateFrom(d);
+              setFilterDateTo(d);
+            }}
+          >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {t('ptTag.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant={!filterDateFrom && !filterDateTo ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'h-10 min-w-[104px] rounded-md px-4 text-[13px] font-semibold',
+              !filterDateFrom && !filterDateTo
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
+            onClick={() => {
+              setFilterDateFrom('');
+              setFilterDateTo('');
+            }}
+          >
+            {t('ptTag.filters.clearDates')}
+          </Button>
+          <div className="relative min-w-[16rem] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden />
+            <Input
+              className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white pl-10')}
+              placeholder={t('ptTag.filters.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('ptTag.filters.search')}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? 'Ocultar filtros' : t('ptTag.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.dateFrom')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.dateTo')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.producer')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterProducer}
+                onChange={(e) => setFilterProducer(Number(e.target.value))}
+              >
+                <option value={0}>{t('ptTag.filters.producerAll')}</option>
+                {(producersList ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.codigo ? `${p.codigo} · ` : ''}
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.format')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterFormat}
+                onChange={(e) => setFilterFormat(e.target.value)}
+              >
+                <option value="">{t('ptTag.filters.formatAll')}</option>
+                {formatOptions.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.boxState')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}
+              >
+                <option value="todas">{t('ptTag.filters.boxStateAll')}</option>
+                <option value="disponible">{t('ptTag.filters.boxStateAvailable')}</option>
+                <option value="sin_cajas">{t('ptTag.filters.boxStateEmpty')}</option>
+              </select>
+            </div>
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptTag.filters.expectedClient')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '') setFilterClient(null);
+                  else if (v === '-1') setFilterClient(-1);
+                  else setFilterClient(Number(v));
+                }}
+              >
+                <option value="">{t('ptTag.filters.clientAll')}</option>
+                <option value="-1">{t('ptTag.filters.clientNone')}</option>
+                {(commercialClients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.codigo} — {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <section
+        data-pt-desktop-list
+        className="space-y-3 lg:mt-[19px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="pt-listado"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+          <div className="lg:flex lg:items-baseline lg:gap-4">
+            <h2 id="pt-listado" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('ptTag.table.title')}
             </h2>
-            <span className={cn(sectionHint, '!mt-0')}>{t('ptTag.table.hint')}</span>
+            <span className={cn(sectionHint, '!mt-0 lg:hidden')}>{t('ptTag.table.hint')}</span>
+            <p className="hidden text-[12px] text-[var(--ink-muted)] lg:block">
+              {formatCount(filteredTags.length)} {t('ptTag.table.groupUnits')}
+              <span className="mx-2 text-[var(--stone-300)]">·</span>
+              {t('ptTag.table.hint')}
+            </p>
           </div>
                     <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn('h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]', viewMode === 'compact' && 'lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]')}
                 onClick={() => setViewMode('compact')}
               >
                 {t('ptTag.table.viewCompact')}
@@ -1979,14 +2196,14 @@ export function PtTagsPage() {
                 type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn('h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]', viewMode === 'detailed' && 'lg:bg-[var(--olive-700)] lg:text-white lg:hover:bg-[var(--olive-600)]')}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('ptTag.table.viewDetailed')}
               </Button>
                     </div>
             <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7">
                 {t('ptTag.table.criteria')}
               </summary>
               <div className="mt-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
@@ -2001,11 +2218,11 @@ export function PtTagsPage() {
           </div>
         </div>
         {filteredTags.length === 0 ? (
-          <div className={cn(emptyStatePanel, 'py-14')}>{t('ptTag.table.empty')}</div>
+          <div className={cn(emptyStatePanel, 'py-14 lg:mx-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:py-16 lg:text-[15px] lg:text-[var(--ink-muted)]')}>{t('ptTag.table.empty')}</div>
         ) : viewMode === 'compact' ? (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 lg:space-y-0">
             {groupedTagsByFormat.map((group) => (
-              <div key={group.format} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white">
+              <div key={group.format} className="overflow-hidden rounded-lg border border-slate-200/85 bg-white lg:rounded-none lg:border-0 lg:border-b lg:border-[var(--stone-200)] last:lg:border-b-0">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/85">
                   <div className="min-w-0">
                     <p className="font-mono text-sm font-semibold text-slate-900">{group.format}</p>
@@ -2046,11 +2263,11 @@ export function PtTagsPage() {
                         const tone = compactTagStateTone(tag, t);
                         const trace = compactTagTraceability(tag, dispatchedTagIds, t);
                         return (
-                          <TableRow key={tag.id} className={cn(tableBodyRow, 'cursor-pointer hover:bg-slate-50/70')} onClick={() => setDetailTag(tag)}>
+                          <TableRow key={tag.id} className={cn(tableBodyRow, 'cursor-pointer hover:bg-slate-50/70 lg:h-[74px] lg:border-b lg:border-[var(--stone-200)] lg:hover:bg-[var(--stone-50)]')} onClick={() => setDetailTag(tag)}>
                             <TableCell className="py-2.5">
                               <div className="flex items-center gap-2">
                                 <span className={cn('h-5 w-1.5 rounded-full', tone.bar)} />
-                                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone.badge)}>
+                                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:text-[11px] lg:font-medium lg:text-[var(--ink)]', tone.badge)}>
                                   {tone.label}
                                 </span>
                               </div>
@@ -2071,10 +2288,10 @@ export function PtTagsPage() {
                             </TableCell>
                             <TableCell className="py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-1.5">
-                                <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setDetailTag(tag)}>
+                                <Button type="button" size="sm" className="h-8 px-2 text-xs lg:h-9 lg:bg-[var(--olive-700)] lg:px-3 lg:text-[12px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]" onClick={() => setDetailTag(tag)}>
                                   {t('ptTag.table.actionDetail')}
                       </Button>
-                                <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => openPrintDialog(tag)}>
+                                <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-xs lg:h-9 lg:border-[var(--stone-300)] lg:bg-white lg:px-3 lg:text-[12px]" onClick={() => openPrintDialog(tag)}>
                                   {t('ptTag.table.actionPrint')}
                     </Button>
                                 <DropdownMenu>
@@ -2139,8 +2356,8 @@ export function PtTagsPage() {
             ))}
           </div>
         ) : (
-          <div className={cn(tableShell, 'overflow-x-auto')}>
-            <Table className="min-w-[1140px] [&_td]:py-2.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right">
+          <div className={cn(tableShell, 'overflow-x-auto lg:rounded-none lg:border-0')}>
+            <Table className="min-w-[1140px] [&_td]:py-2.5 [&_td:last-child]:w-[52px] [&_td:last-child]:text-right [&_th]:whitespace-nowrap [&_th]:bg-slate-50/90 [&_th]:py-2 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500 [&_th:last-child]:text-right lg:[&_td]:h-[74px] lg:[&_th]:bg-[var(--stone-50)] lg:[&_th]:text-[var(--ink-muted)]">
                         <TableHeader>
                 <TableRow className={tableHeaderRow}>
                   <TableHead>{t('ptTag.table.colState')}</TableHead>
