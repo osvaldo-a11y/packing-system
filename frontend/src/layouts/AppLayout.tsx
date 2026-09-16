@@ -317,7 +317,8 @@ export function AppLayout() {
   const isHomeDesktop = pathname === '/';
   const isReceptionsPage = pathname === '/receptions';
   const isProcessesPage = pathname === '/processes';
-  const usesOperationalMobileNav = isReceptionsPage || isProcessesPage;
+  const isPtTagsPage = pathname === '/pt-tags';
+  const usesOperationalMobileNav = isReceptionsPage || isProcessesPage || isPtTagsPage;
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
   const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
@@ -504,7 +505,7 @@ export function AppLayout() {
             'sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7',
             isHomeDesktop && 'max-md:h-[72px]',
             isProcessesPage && 'max-md:h-[72px]',
-            isReceptionsPage && 'max-md:h-[48px]',
+            (isReceptionsPage || isPtTagsPage) && 'max-md:h-[48px]',
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -525,11 +526,11 @@ export function AppLayout() {
                   'pointer-events-none [&_img]:h-8',
                   isHomeDesktop && '[&_img]:h-[52px] [&_img]:max-w-[132px]',
                   isProcessesPage && 'max-md:[&_img]:h-[52px] max-md:[&_img]:max-w-[132px]',
-                  isReceptionsPage && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
+                  (isReceptionsPage || isPtTagsPage) && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
                 )}
               />
             </span>
-            {isReceptionsPage ? (
+            {isReceptionsPage || isPtTagsPage ? (
               <>
                 <span className="h-6 w-px bg-[var(--stone-300)] md:hidden" aria-hidden />
                 <h1 className="min-w-0 truncate font-serif text-[16px] font-semibold tracking-[-0.2px] text-[var(--ink)] md:hidden">
@@ -574,7 +575,7 @@ export function AppLayout() {
                     usesApprovedDesktopTopbar && 'lg:h-9 lg:min-w-[206px] lg:justify-start lg:gap-2.5',
                   )}
                 >
-                  {isReceptionsPage ? (
+                  {isReceptionsPage || isPtTagsPage ? (
                     <span className="inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full text-[var(--olive-700)] md:hidden">
                       <PineEllipsisIcon size={19} aria-hidden />
                     </span>
@@ -582,7 +583,7 @@ export function AppLayout() {
                   <span
                     className={cn(
                       'inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]',
-                      isReceptionsPage && 'max-md:hidden',
+                      isReceptionsPage || isPtTagsPage ? 'max-md:hidden' : '',
                       isHomeDesktop && 'h-[30px] w-[30px] bg-[var(--pine-950)] text-white',
                       isHomeDesktop && 'max-md:!h-[29px] max-md:!w-[29px] max-md:!bg-[var(--sage-100)] max-md:!text-[var(--olive-700)]',
                       usesApprovedDesktopTopbar && 'lg:h-[30px] lg:w-[30px] lg:bg-[var(--pine-950)] lg:text-white',
@@ -639,6 +640,7 @@ export function AppLayout() {
             isReceptionsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
             isHomeDesktop && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
             isProcessesPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
+            isPtTagsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
           )}
         >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">
