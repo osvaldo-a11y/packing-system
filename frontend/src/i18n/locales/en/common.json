@@ -1402,7 +1402,9 @@
       "dateFrom": "From",
       "dateTo": "To",
       "today": "Today",
-      "clearDates": "Show all"
+      "clearDates": "Show all",
+      "moreFilters": "More filters",
+      "hideFilters": "Hide filters"
     },
     "selection": {
       "boxes": "boxes",

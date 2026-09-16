@@ -1405,7 +1405,9 @@
       "dateFrom": "Desde",
       "dateTo": "Hasta",
       "today": "Hoy",
-      "clearDates": "Ver todo"
+      "clearDates": "Ver todo",
+      "moreFilters": "Más filtros",
+      "hideFilters": "Ocultar filtros"
     },
     "selection": {
       "boxes": "cajas",
