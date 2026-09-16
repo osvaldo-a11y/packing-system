@@ -92,6 +92,7 @@ import {
   operationalModalStepBadge,
   operationalModalStepTitle,
   operationalModalTitleClass,
+  modalFormPrimaryButton,
   pageInfoButton,
   pageSubtitle,
   pageTitle,
@@ -1477,10 +1478,11 @@ export function PtTagsPage() {
           </DialogTrigger>
             <DialogContent
               hideCloseButton
+              fullScreenMobile
               data-new-pt-dialog
               className={cn(
                 operationalModalContentClass,
-                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] [&>button]:hidden',
+                'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))] max-lg:overflow-x-hidden [&>button]:hidden',
                 'lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:max-w-[min(1050px,calc(100vw-2rem))] lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)]',
               )}
             >
@@ -1488,7 +1490,7 @@ export function PtTagsPage() {
                 data-new-pt-header
                 className={cn(
                   operationalModalHeaderClass,
-                  'relative overflow-hidden lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
+                  'relative overflow-hidden max-lg:!pr-4 max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:min-h-[112px] lg:px-7 lg:pb-5 lg:pt-5',
                 )}
               >
                 <img
@@ -1497,13 +1499,28 @@ export function PtTagsPage() {
                   className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
                   aria-hidden
                 />
+                <div className="lg:hidden">
+                  <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)]" aria-hidden />
+                  <img
+                    src={appBranding.landscapeUrl}
+                    alt=""
+                    className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)]"
+                    aria-hidden
+                  />
+                </div>
                 <div className="relative z-[1] flex items-start justify-between gap-4">
                   <div className="min-w-0 space-y-1">
-                    <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 lg:text-[26px] lg:leading-tight')}>
+                    <DialogTitle className={cn(operationalModalTitleClass, 'flex items-center gap-2.5 max-lg:text-[23px] lg:text-[26px] lg:leading-tight')}>
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" aria-hidden />
                       {editTag ? t('ptTag.dialog.titleEdit', { code: editTag.tag_code }) : t('ptTag.dialog.titleNew')}
                     </DialogTitle>
                     <p className="text-[13px] text-[var(--ink-muted)] lg:text-[14px]">{t('ptTag.pageSubtitle')}</p>
+                    <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] lg:hidden">
+                      <span className="block">FRUTA DE</span>
+                      <span className="block">NUESTRA TIERRA.</span>
+                      <span className="block">UN FUTURO</span>
+                      <span className="block">MÁS BRILLANTE.</span>
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1548,17 +1565,17 @@ export function PtTagsPage() {
                 })}
                 className={operationalModalFormClass}
               >
-                <div data-new-pt-body className={cn(operationalModalBodyClass, 'lg:overflow-y-auto lg:px-7 lg:py-4')}>
+                <div data-new-pt-body className={cn(operationalModalBodyClass, 'max-lg:overflow-x-hidden max-lg:overflow-y-auto max-lg:px-[14px] max-lg:py-3 max-lg:pb-24 lg:overflow-y-auto lg:px-7 lg:py-4')}>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
                     <section
                       data-new-pt-step1
-                      className={cn(operationalModalSectionMuted, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4')}
+                      className={cn(operationalModalSectionMuted, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4')}
                     >
-                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
-                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
+                      <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
                         <div className="min-w-0">
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('ptTag.dialog.step2')}</h3>
-                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('ptTag.dialog.step2')}</h3>
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                             Elegí el proceso del que sale esta unidad PT.
                           </p>
                         </div>
@@ -1573,7 +1590,7 @@ export function PtTagsPage() {
                             disabled={!!editTag && editTag.items.length > 1}
                             className={cn(
                               filterSelectClass,
-                              'min-h-11 w-full lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]',
+                              'min-h-11 w-full max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]',
                             )}
                             {...tagForm.register('process_id', { valueAsNumber: true })}
                           >
@@ -1664,18 +1681,18 @@ export function PtTagsPage() {
 
                     <section
                       data-new-pt-step2
-                      className={cn(operationalModalSectionCard, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}
+                      className={cn(operationalModalSectionCard, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:p-4')}
                     >
-                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
-                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
+                      <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
                         <div className="min-w-0">
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('ptTag.dialog.step1')} y {t('ptTag.dialog.step3').toLowerCase()}</h3>
-                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('ptTag.dialog.step1')} y {t('ptTag.dialog.step3').toLowerCase()}</h3>
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                             Definí fecha, formato y cajas de esta unidad.
                           </p>
                         </div>
                       </div>
-                      <div className="grid gap-3.5 lg:grid-cols-2 lg:items-start">
+                      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:items-start">
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]" htmlFor="tag-fecha">
                             {t('ptTag.dialog.fieldDate')}
@@ -1683,7 +1700,7 @@ export function PtTagsPage() {
                           <Input
                             id="tag-fecha"
                             type="datetime-local"
-                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white lg:h-11')}
+                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12 lg:h-11')}
                             {...tagForm.register('fecha')}
                           />
                           {tagForm.formState.errors.fecha && (
@@ -1693,7 +1710,7 @@ export function PtTagsPage() {
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldProductType')}</Label>
                           <select
-                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12 max-lg:text-[15px]')}
                             {...tagForm.register('resultado')}
                           >
                             {RESULTADOS_PT.map((r) => (
@@ -1710,7 +1727,7 @@ export function PtTagsPage() {
                           {activePresFormats.length > 0 ? (
                             <select
                               id="format_code"
-                              className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white font-medium')}
+                              className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white font-medium max-lg:h-12 max-lg:min-h-12 max-lg:text-[15px]')}
                               value={tagForm.watch('format_code')}
                               onChange={(e) => tagForm.setValue('format_code', e.target.value, { shouldValidate: true })}
                             >
@@ -1724,7 +1741,7 @@ export function PtTagsPage() {
                             </select>
                           ) : (
                             <Input
-                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12')}
                               placeholder="NxMoz (ej. 4x16oz) o PINT REGULAR / PINT LOW PROFILE"
                               {...tagForm.register('format_code')}
                             />
@@ -1757,7 +1774,7 @@ export function PtTagsPage() {
                             disabled={!!editTag && editTag.items.length > 1}
                             className={cn(
                               filterInputClass,
-                              'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums',
+                              'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums max-lg:h-12 max-lg:min-h-12',
                               editTag && editTag.items.length > 1 ? 'disabled:cursor-not-allowed disabled:opacity-70' : '',
                             )}
                             {...(() => {
@@ -1807,7 +1824,7 @@ export function PtTagsPage() {
                               max={100}
                               step={1}
                               inputMode="numeric"
-                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums')}
+                              className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white text-center font-serif text-[18px] font-semibold tabular-nums max-lg:h-12 max-lg:min-h-12')}
                               {...tagForm.register('bulk_units', { valueAsNumber: true })}
                             />
                             <p className="text-[11px] leading-tight text-[var(--ink-muted)]">{t('ptTag.dialog.bulkUnitsHint')}</p>
@@ -1821,24 +1838,24 @@ export function PtTagsPage() {
 
                     <section
                       data-new-pt-step3
-                      className={cn(operationalModalSectionMuted, 'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/45 lg:p-4')}
+                      className={cn(operationalModalSectionMuted, 'max-lg:px-[14px] max-lg:py-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/45 lg:p-4')}
                     >
-                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-4 lg:gap-3')}>
-                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
+                      <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-4 lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
                         <div className="min-w-0">
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>
                             {t('ptTag.dialog.step4')} <span className="font-sans text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.step4Optional')}</span>
                           </h3>
-                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">
+                          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">
                             Cliente, marca y BOL previstos. Se puede dejar sin asignar.
                           </p>
                         </div>
                       </div>
-                      <div className="grid gap-3 lg:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldClient')}</Label>
                           <select
-                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12 max-lg:text-[15px]')}
                             {...tagForm.register('client_id', { valueAsNumber: true })}
                           >
                             <option value={0}>{t('ptTag.dialog.clientUndefined')}</option>
@@ -1852,7 +1869,7 @@ export function PtTagsPage() {
                         <div className="grid gap-1.5">
                           <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptTag.dialog.fieldBrand')}</Label>
                           <select
-                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                            className={cn(filterSelectClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12 max-lg:text-[15px]')}
                             {...tagForm.register('brand_id', { valueAsNumber: true })}
                           >
                             <option value={0}>{t('ptTag.dialog.brandUndefined')}</option>
@@ -1870,7 +1887,7 @@ export function PtTagsPage() {
                           <Input
                             id="tag-bol-prev"
                             placeholder={t('ptTag.dialog.fieldBolPlaceholder')}
-                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white')}
+                            className={cn(filterInputClass, 'h-11 rounded-[9px] border-[var(--stone-300)] bg-white max-lg:h-12 max-lg:min-h-12')}
                             {...tagForm.register('bol')}
                           />
                         </div>
@@ -1879,10 +1896,10 @@ export function PtTagsPage() {
 
                     <section
                       data-new-pt-step4
-                      className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5"
+                      className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5 max-lg:px-[14px] max-lg:py-[14px]"
                     >
-                      <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)]">Revisión</p>
-                      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                      <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)] max-lg:text-[18px]">Revisión</p>
+                      <div className="grid grid-cols-2 gap-2.5 max-lg:gap-[10px] lg:grid-cols-4">
                         <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Formato</p>
                           <p className="mt-1.5 font-serif text-[18px] font-semibold text-[var(--ink)]">{watchedTagFormatCode || '—'}</p>
@@ -1909,10 +1926,60 @@ export function PtTagsPage() {
                 </div>
 
                 <DialogFooter
+                  data-new-pt-footer-mobile
+                  className={cn(
+                    operationalModalFooterClass,
+                    'hidden max-lg:!flex max-lg:!flex-col gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2',
+                    'sticky bottom-0 z-10',
+                  )}
+                >
+                  <div className="flex w-full flex-nowrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 min-h-11 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)]"
+                      onClick={() => setTagOpen(false)}
+                    >
+                      {t('ptTag.dialog.cancelButton')}
+                    </Button>
+                    <button
+                      type="submit"
+                      className={cn(modalFormPrimaryButton, 'inline-flex h-11 min-h-11 w-[62%] flex-none items-center justify-center gap-2 text-[13px]')}
+                      disabled={
+                        editTag
+                          ? updateTagMut.isPending
+                          : createTagMut.isPending || availableProcesses.length === 0
+                      }
+                    >
+                      {editTag
+                        ? updateTagMut.isPending
+                          ? t('ptTag.dialog.savingButton')
+                          : t('ptTag.dialog.saveButton')
+                        : createTagMut.isPending
+                          ? bulkCreateProgress
+                            ? t('ptTag.dialog.creatingBulkButton', {
+                                cur: bulkCreateProgress.cur,
+                                total: bulkCreateProgress.total,
+                              })
+                            : t('ptTag.dialog.creatingButton')
+                          : bulkUnitsSubmitLabel > 1
+                            ? t('ptTag.dialog.createBulkButton', { n: bulkUnitsSubmitLabel })
+                            : t('ptTag.dialog.createButton')}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] leading-none text-[var(--ink-muted)]">
+                    <span>
+                      Cajas <span className="font-serif font-semibold text-[var(--ink)]">{formatCount(Number(watchedCajasGeneradas) || 0)}</span>
+                      {' · '}
+                      Formato <span className="font-serif font-semibold text-[var(--ink)]">{watchedTagFormatCode || '—'}</span>
+                    </span>
+                  </div>
+                </DialogFooter>
+                <DialogFooter
                   data-new-pt-footer
                   className={cn(
                     operationalModalFooterClass,
-                    'gap-2 lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:px-7 lg:py-3',
+                    'hidden gap-2 lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:px-7 lg:py-3',
                   )}
                 >
                   <div className="hidden items-center gap-5 text-[12px] text-[var(--ink-muted)] lg:flex">
