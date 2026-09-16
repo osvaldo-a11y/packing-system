@@ -1406,8 +1406,8 @@ export function PtTagsPage() {
             </Button>
           ) : null}
         </div>
-        <div className="relative mt-2 h-[58px] overflow-hidden border-t border-[var(--stone-200)]">
-          <p className="absolute left-0 top-1.5 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
+        <div className="relative mt-2 h-[70px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
             <span className="block">FRUTA DE NUESTRA</span>
             <span className="block">TIERRA.</span>
             <span className="block">UN FUTURO MÁS</span>
@@ -1416,7 +1416,7 @@ export function PtTagsPage() {
           <img
             src={appBranding.landscapeUrl}
             alt=""
-            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[70px] w-[220px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[76px] w-[228px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
             aria-hidden
           />
         </div>
@@ -2005,46 +2005,58 @@ export function PtTagsPage() {
                 <Input type="date" className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
               </div>
             </div>
-            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
-              <option value={0}>{t('ptTag.filters.producerAll')}</option>
-              {(producersList ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo ? `${p.codigo} · ` : ''}
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterFormat} onChange={(e) => setFilterFormat(e.target.value)}>
-              <option value="">{t('ptTag.filters.formatAll')}</option>
-              {formatOptions.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-            <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterEstado} onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}>
-              <option value="todas">{t('ptTag.filters.boxStateAll')}</option>
-              <option value="disponible">{t('ptTag.filters.boxStateAvailable')}</option>
-              <option value="sin_cajas">{t('ptTag.filters.boxStateEmpty')}</option>
-            </select>
-            <select
-              className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')}
-              value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === '') setFilterClient(null);
-                else if (v === '-1') setFilterClient(-1);
-                else setFilterClient(Number(v));
-              }}
-            >
-              <option value="">{t('ptTag.filters.clientAll')}</option>
-              <option value="-1">{t('ptTag.filters.clientNone')}</option>
-              {(commercialClients ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.codigo} — {c.nombre}
-                </option>
-              ))}
-            </select>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.producer')}</Label>
+              <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterProducer} onChange={(e) => setFilterProducer(Number(e.target.value))}>
+                <option value={0}>{t('ptTag.filters.producerAll')}</option>
+                {(producersList ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.codigo ? `${p.codigo} · ` : ''}
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.format')}</Label>
+              <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterFormat} onChange={(e) => setFilterFormat(e.target.value)}>
+                <option value="">{t('ptTag.filters.formatAll')}</option>
+                {formatOptions.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.boxState')}</Label>
+              <select className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')} value={filterEstado} onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)}>
+                <option value="todas">{t('ptTag.filters.boxStateAll')}</option>
+                <option value="disponible">{t('ptTag.filters.boxStateAvailable')}</option>
+                <option value="sin_cajas">{t('ptTag.filters.boxStateEmpty')}</option>
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptTag.filters.expectedClient')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white text-[12px]')}
+                value={filterClient === null ? '' : filterClient === -1 ? '-1' : String(filterClient)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '') setFilterClient(null);
+                  else if (v === '-1') setFilterClient(-1);
+                  else setFilterClient(Number(v));
+                }}
+              >
+                <option value="">{t('ptTag.filters.clientAll')}</option>
+                <option value="-1">{t('ptTag.filters.clientNone')}</option>
+                {(commercialClients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.codigo} — {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         ) : null}
       </div>
