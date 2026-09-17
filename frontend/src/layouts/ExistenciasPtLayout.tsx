@@ -9,6 +9,7 @@ export function ExistenciasPtLayout() {
   const detalleOpen = pathname.startsWith('/existencias-pt/detalle/');
   const inventoryPage = pathname === '/existencias-pt/inventario';
   const repalletPage = pathname === '/existencias-pt/repaletizar';
+  const packingListsIndex = pathname === '/existencias-pt/packing-lists';
 
   const tabs = [
     { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true },
@@ -17,8 +18,14 @@ export function ExistenciasPtLayout() {
   ];
 
   return (
-    <div className={cn('font-inter w-full min-w-0 flex-1 pb-6 pt-1 md:pt-0', (inventoryPage || repalletPage) && 'max-lg:pb-0 max-lg:pt-0 lg:pb-0 lg:pt-0')}>
-      <div className={cn('mb-6 space-y-3', (inventoryPage || repalletPage) && 'hidden')}>
+    <div
+      className={cn(
+        'font-inter w-full min-w-0 flex-1 pb-6 pt-1 md:pt-0',
+        (inventoryPage || repalletPage) && 'max-lg:pb-0 max-lg:pt-0 lg:pb-0 lg:pt-0',
+        packingListsIndex && 'lg:pb-0 lg:pt-0',
+      )}
+    >
+      <div className={cn('mb-6 space-y-3', (inventoryPage || repalletPage) && 'hidden', packingListsIndex && 'lg:hidden')}>
         <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">{t('existenciasPt.layout.moduleLabel')}</p>
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{t('existenciasPt.layout.title')}</h1>
         <nav

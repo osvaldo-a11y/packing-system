@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Info, ListOrdered, MoreHorizontal } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { AlertTriangle, ChevronDown, Filter, Info, ListOrdered, MoreHorizontal } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
 import { useQueries, useQuery } from '@tanstack/react-query';
+import { PineBoxesIcon, PineCubeIcon, PineDocumentIcon, PineSnowflakeIcon, PineWeightIcon } from '@/components/icons/pinebloom';
+import { appBranding } from '@/lib/branding';
 import { apiJson } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,6 +275,7 @@ export function PtPackingListsPage() {
   const [filterClientId, setFilterClientId] = useState(0);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['pt-packing-lists'],
@@ -473,8 +476,8 @@ export function PtPackingListsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className={pageHeaderRow}>
+    <div className="space-y-8 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <div className={cn(pageHeaderRow, 'lg:hidden')}>
         <div className="min-w-0 space-y-1.5">
           <h2 className={pageTitle}>{t('ptPackingLists.pageTitle')}</h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -494,7 +497,73 @@ export function PtPackingListsPage() {
         </div>
       </div>
 
-      <section aria-labelledby="pl-kpis" className="space-y-4">
+      <header
+        data-pl-desktop-hero
+        className="relative hidden overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:flex lg:h-[171px] lg:min-h-[171px] lg:items-start lg:justify-between lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.05] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
+              {t('existenciasPt.layout.tabPackingLists')}
+            </h1>
+            <button
+              type="button"
+              className={cn(pageInfoButton, 'lg:mt-1')}
+              title={helpTitle}
+              aria-label={t('existenciasPt.layout.tabPackingLists')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+          <p className={cn(pageSubtitle, 'lg:max-w-[38rem] lg:font-serif lg:text-[22px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('ptPackingLists.pageSubtitle')}
+          </p>
+        </div>
+        <div className="relative z-[1] flex shrink-0 flex-col items-end gap-2">
+          <Button asChild variant="outline" className="h-10 min-w-[168px] rounded-[var(--radius-md)] border-[var(--stone-300)] bg-white px-4 text-[13px] font-semibold shadow-none hover:bg-[var(--stone-100)]">
+            <Link to="/existencias-pt/inventario" className="gap-2">
+              <ListOrdered className="h-4 w-4" />
+              {t('ptPackingLists.inventoryButton')}
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      <nav
+        data-pl-desktop-tabs
+        className="mb-2 hidden lg:flex lg:flex-wrap lg:gap-1"
+        aria-label={t('existenciasPt.layout.navAriaLabel')}
+      >
+        {[
+          { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true as const },
+          { to: '/existencias-pt/repaletizar', label: t('existenciasPt.layout.tabRepallet') },
+          { to: '/existencias-pt/packing-lists', label: t('existenciasPt.layout.tabPackingLists') },
+        ].map(({ to, label, end = false }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'rounded-[8px] px-3 py-1 text-[12px] font-semibold transition-colors',
+                isActive
+                  ? 'bg-[var(--olive-700)] text-white'
+                  : 'border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--stone-100)] hover:text-[var(--ink)]',
+              )
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <section aria-labelledby="pl-kpis" className="space-y-4 lg:hidden">
         <h2 id="pl-kpis" className="sr-only">
           {t('ptPackingLists.srKpis')}
         </h2>
@@ -573,7 +642,104 @@ export function PtPackingListsPage() {
         </div>
       </section>
 
-      <div className={filterPanel}>
+      <section
+        data-pl-desktop-kpis
+        aria-labelledby="pl-kpis-desktop"
+        className="hidden space-y-2.5 lg:block lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <h2 id="pl-kpis-desktop" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+          {t('ptPackingLists.srKpis')}
+        </h2>
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            {
+              label: t('ptPackingLists.kpi.total'),
+              value: formatCount(kpis.total),
+              note: t('ptPackingLists.kpi.totalNote'),
+              Icon: PineDocumentIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('ptPackingLists.kpi.drafts'),
+              value: formatCount(kpis.borrador),
+              note: t('ptPackingLists.kpi.draftsNote'),
+              Icon: PineSnowflakeIcon,
+              card: 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('ptPackingLists.kpi.confirmed'),
+              value: formatCount(kpis.confirmado),
+              note: t('ptPackingLists.kpi.confirmedNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('ptPackingLists.kpi.inDispatch'),
+              value: formatCount(kpis.enDespacho),
+              note: t('ptPackingLists.kpi.inDispatchNote'),
+              Icon: PineBoxesIcon,
+              card: kpis.enDespacho > 0 ? 'border-sky-200/90 bg-sky-50/50' : 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: kpis.enDespacho > 0 ? 'bg-sky-100 text-sky-950' : 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-9 w-9" />
+              </span>
+              <div className="min-w-0">
+                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
+                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                  {value}
+                </p>
+                <p className={cn(kpiFootnote, 'lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: t('ptPackingLists.kpi.totalBoxes'), value: formatCount(kpis.totalCajas), note: t('ptPackingLists.kpi.totalBoxesNote'), Icon: PineCubeIcon },
+            { label: t('ptPackingLists.kpi.totalWeight'), value: formatLb(kpis.totalLb, 2), note: t('ptPackingLists.kpi.totalWeightNote'), Icon: PineWeightIcon },
+            { label: t('ptPackingLists.kpi.clients'), value: formatCount(kpis.clientesActivos), note: t('ptPackingLists.kpi.clientsNote'), Icon: PineDocumentIcon },
+            { label: t('ptPackingLists.kpi.linkedOrders'), value: formatCount(kpis.conPedido), note: t('ptPackingLists.kpi.linkedOrdersNote'), Icon: PineBoxesIcon },
+          ].map(({ label, value, note, Icon }) => (
+            <div key={label} className="flex min-h-[42px] items-center justify-between gap-2 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                  <Icon size={16} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{label}</p>
+                  <p className="truncate text-[10px] text-[var(--ink-muted)]">{note}</p>
+                </div>
+              </div>
+              <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', kpis.anulado > 0 ? 'border-[var(--stone-300)] bg-[var(--stone-100)]' : 'border-[var(--stone-200)] bg-white/65')}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptPackingLists.kpi.voided')}</p>
+            <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(kpis.anulado)}</p>
+          </div>
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', kpis.conReversa > 0 ? 'border-violet-200/85 bg-violet-50/40' : 'border-[var(--stone-200)] bg-white/65')}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptPackingLists.kpi.withReversal')}</p>
+            <p className={cn('font-serif text-[18px] font-semibold tabular-nums leading-none', kpis.conReversa > 0 ? 'text-violet-950' : 'text-[var(--ink)]')}>{formatCount(kpis.conReversa)}</p>
+          </div>
+        </div>
+      </section>
+
+      <div className={cn(filterPanel, 'lg:hidden')}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>{t('ptPackingLists.filters.title')}</span>
           <button
@@ -622,25 +788,86 @@ export function PtPackingListsPage() {
         </div>
       </div>
 
-      <section className="space-y-3" aria-labelledby="pl-tabla">
-        <div className="flex flex-wrap items-end justify-between gap-2">
+      <div
+        data-pl-desktop-filters
+        className="mt-3 hidden min-h-[62px] rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+      >
+        <div className="flex items-center gap-2">
+          <div className="min-w-[16rem] flex-1">
+            <Input
+              className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+              placeholder={t('ptPackingLists.filters.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('ptPackingLists.filters.search')}
+            />
+          </div>
+          <select
+            className={cn(filterSelectClass, 'h-10 w-[11rem] border-[var(--stone-300)] bg-white')}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            aria-label={t('ptPackingLists.filters.status')}
+          >
+            <option value="">{t('ptPackingLists.filters.status')} · {t('ptPackingLists.filters.statusAll')}</option>
+            <option value="borrador">{t('ptPackingLists.filters.statusDraft')}</option>
+            <option value="confirmado">{t('ptPackingLists.filters.statusConfirmed')}</option>
+            <option value="anulado">{t('ptPackingLists.filters.statusVoided')}</option>
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="col-span-4 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('ptPackingLists.filters.client')}</Label>
+              <select
+                className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterClientId}
+                onChange={(e) => setFilterClientId(Number(e.target.value))}
+              >
+                <option value={0}>{t('ptPackingLists.filters.clientAll')}</option>
+                {clientOptions.map(([id, nombre]) => (
+                  <option key={id} value={id}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <section className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white" aria-labelledby="pl-tabla">
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="pl-tabla" className={sectionTitle}>
+            <h2 id="pl-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('ptPackingLists.table.title')}
             </h2>
-            <p className={sectionHint}>
+            <p className={cn(sectionHint, 'lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
               {viewMode === 'detailed'
                 ? t('ptPackingLists.table.hintDetailed', { count: filtered.length })
                 : t('ptPackingLists.table.hintCompact', { count: filtered.length })}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
+                  viewMode === 'compact' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                )}
                 onClick={() => setViewMode('compact')}
               >
                 {t('ptPackingLists.table.viewCompact')}
@@ -649,14 +876,17 @@ export function PtPackingListsPage() {
                 type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
+                  viewMode === 'detailed' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('ptPackingLists.table.viewDetailed')}
               </Button>
             </div>
             <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
                 {t('ptPackingLists.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
@@ -707,14 +937,14 @@ export function PtPackingListsPage() {
         ) : null}
 
         {!data?.length ? (
-          <p className={emptyStatePanel}>{t('ptPackingLists.table.emptyAll')}</p>
+          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyAll')}</p>
         ) : !filtered.length ? (
-          <p className={emptyStatePanel}>{t('ptPackingLists.table.emptyFilter')}</p>
+          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyFilter')}</p>
         ) : viewMode === 'compact' ? (
-          <div className="space-y-4">
+          <div className="space-y-4 lg:space-y-3 lg:p-3">
             {groupedByClient.map((group) => (
-              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
+              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white lg:rounded-[10px] lg:border-[var(--stone-300)]">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)]">
                   <p className="text-sm font-semibold text-slate-900">{group.clientLabel}</p>
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span>{' '}
@@ -830,7 +1060,7 @@ export function PtPackingListsPage() {
                           </TableCell>
                           <TableCell className="py-2.5 text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1">
-                              <Button asChild type="button" size="sm" variant="default" className="h-7 rounded-md px-2 text-[11px]">
+              <Button asChild type="button" size="sm" variant="default" className="h-7 rounded-md px-2 text-[11px] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]">
                                 <Link to={detailUrl}>{t('ptPackingLists.table.actionDetail')}</Link>
                               </Button>
                               {st === 'borrador' ? (
@@ -897,7 +1127,7 @@ export function PtPackingListsPage() {
             ))}
           </div>
         ) : (
-          <div className={tableShell}>
+          <div className={cn(tableShell, 'lg:rounded-none lg:border-0 lg:shadow-none')}>
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
@@ -1002,7 +1232,7 @@ export function PtPackingListsPage() {
       </section>
 
       {(sinCliente > 0 || borradoresVacios > 0) && (
-        <div className="space-y-2">
+        <div className="space-y-2 lg:mt-3">
           {sinCliente > 0 ? (
             <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/40 px-4 py-3 text-sm text-amber-950">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
