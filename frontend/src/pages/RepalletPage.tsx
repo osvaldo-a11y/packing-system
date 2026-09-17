@@ -871,7 +871,7 @@ export function RepalletPage() {
                 <div className="grid w-full min-w-0 flex-1 gap-1.5">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.formatLabel')}</Label>
                   <select
-                    className={filterSelectClass}
+                    className={cn(filterSelectClass, 'max-lg:h-11 max-lg:w-full max-lg:border-[var(--stone-300)] max-lg:bg-white')}
                     value={filterFormatId}
                     onChange={(e) => setFilterFormatId(Number(e.target.value))}
                   >
@@ -900,7 +900,7 @@ export function RepalletPage() {
                 <div className="grid min-w-0 flex-1 gap-2">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.sourceLabel', { n: idx + 1 })}</Label>
                   <select
-                    className={filterSelectClass}
+                    className={cn(filterSelectClass, 'max-lg:h-11 max-lg:w-full max-lg:border-[var(--stone-300)] max-lg:bg-white')}
                     value={row.palletId || ''}
                     onChange={(e) => {
                       const v = Number(e.target.value);
