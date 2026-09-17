@@ -868,7 +868,7 @@ export function RepalletPage() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(200px,260px)] lg:items-start">
             <div className="min-w-0 space-y-5">
               <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5 max-lg:rounded-[10px] max-lg:border-[var(--stone-200)] max-lg:bg-[var(--sage-100)]/45 lg:flex-row lg:flex-wrap lg:items-end lg:gap-3 lg:rounded-[10px] lg:border-[var(--stone-200)] lg:bg-[var(--sage-100)]/45">
-                <div className="grid w-full min-w-0 flex-1 gap-1.5">
+                <div className="grid min-w-[min(100%,14rem)] flex-1 gap-1.5 max-lg:w-full">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.formatLabel')}</Label>
                   <select
                     className={cn(filterSelectClass, 'max-lg:h-11 max-lg:w-full max-lg:border-[var(--stone-300)] max-lg:bg-white')}
@@ -883,7 +883,7 @@ export function RepalletPage() {
                     ))}
                   </select>
                 </div>
-                <p className="w-full text-[11px] leading-snug text-slate-500 lg:max-w-md lg:flex-1">
+                <p className="text-[11px] leading-snug text-slate-500 max-lg:w-full lg:max-w-md lg:flex-1">
                   {t('repallet.form.formatHint')}
                 </p>
               </div>
@@ -895,7 +895,7 @@ export function RepalletPage() {
             return (
               <div
                 key={row.key}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 max-lg:rounded-[10px] max-lg:border-[var(--stone-200)] max-lg:bg-white sm:flex-row sm:items-end lg:rounded-[10px] lg:border-[var(--stone-200)] lg:bg-white"
+                className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 max-lg:gap-3 max-lg:rounded-[10px] max-lg:border-[var(--stone-200)] max-lg:bg-white sm:flex-row sm:items-end lg:rounded-[10px] lg:border-[var(--stone-200)] lg:bg-white"
               >
                 <div className="grid min-w-0 flex-1 gap-2">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.sourceLabel', { n: idx + 1 })}</Label>
@@ -932,7 +932,7 @@ export function RepalletPage() {
                     </p>
                   ) : null}
                 </div>
-                <div className="grid w-full gap-2 max-lg:w-full sm:w-40">
+                <div className="grid w-full gap-2 sm:w-40">
                   <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('repallet.form.boxesLabel')}</Label>
                   <Input
                     className={filterInputClass}
