@@ -2,10 +2,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   FileSpreadsheet,
   FileText,
+  Filter,
   Info,
   MoreHorizontal,
   Package,
@@ -19,6 +21,16 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { apiJson, downloadPdf } from '@/api';
+import {
+  PineBoxesIcon,
+  PineCubeIcon,
+  PineDispatchTruckIcon,
+  PineDocumentIcon,
+  PinePlusIcon,
+  PineSnowflakeIcon,
+  PineWeightIcon,
+} from '@/components/icons/pinebloom';
+import { appBranding } from '@/lib/branding';
 import { useAuth } from '@/AuthContext';
 import { OperateOnly } from '@/components/OperateOnly';
 import { canOperate } from '@/lib/roles';
@@ -514,6 +526,7 @@ export function DispatchesPage() {
   const [orderLinkCommercialClientId, setOrderLinkCommercialClientId] = useState(0);
   const [confirmDispatchId, setConfirmDispatchId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const { data: dispatches, isPending, isError, error } = useQuery({
     queryKey: ['dispatches'],
@@ -1253,6 +1266,9 @@ export function DispatchesPage() {
   }
 
   const helpDespachosTitle = t('dispatch.helpTitle');
+  const todayYmd = localDateYmd();
+  const todayActive = filterFechaDesde === todayYmd && filterFechaHasta === todayYmd;
+  const seeAllActive = !filterFechaDesde && !filterFechaHasta;
 
   function openDispatchDetailView(dispatchId: number) {
     setViewMode('detailed');
@@ -1282,8 +1298,18 @@ export function DispatchesPage() {
   }
 
   return (
-    <div className="font-inter space-y-8">
-      <div className={pageHeaderRow}>
+    <div className="font-inter space-y-8 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <Dialog
+        open={dispatchOpen}
+        onOpenChange={(o) => {
+          setDispatchOpen(o);
+          if (!o) {
+            setSelectedPlIds([]);
+            dispatchForm.reset(defaultNewDispatchFormValues());
+          }
+        }}
+      >
+      <div className={cn(pageHeaderRow, 'lg:hidden')}>
         <div className="min-w-0 space-y-1.5">
           <h1 className={pageTitle}>{t('dispatch.pageTitle')}</h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -1299,22 +1325,57 @@ export function DispatchesPage() {
         </div>
         </div>
         <OperateOnly>
-        <Dialog
-          open={dispatchOpen}
-          onOpenChange={(o) => {
-            setDispatchOpen(o);
-            if (!o) {
-              setSelectedPlIds([]);
-              dispatchForm.reset(defaultNewDispatchFormValues());
-            }
-          }}
-        >
           <DialogTrigger asChild>
             <Button className="h-10 shrink-0 gap-2 rounded-xl px-4 shadow-sm" disabled={!salesOrders?.length}>
               <Plus className="h-4 w-4" />
               {t('dispatch.newButton')}
             </Button>
           </DialogTrigger>
+        </OperateOnly>
+      </div>
+
+      <header
+        data-dispatch-desktop-hero
+        className="relative hidden overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:flex lg:h-[171px] lg:min-h-[171px] lg:items-start lg:justify-between lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <h1 className={cn(pageTitle, 'lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.05] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
+              {t('dispatch.pageTitle')}
+            </h1>
+            <button
+              type="button"
+              className={cn(pageInfoButton, 'lg:mt-1')}
+              title={helpDespachosTitle}
+              aria-label={t('dispatch.pageTitle')}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+          <p className={cn(pageSubtitle, 'lg:max-w-[38rem] lg:font-serif lg:text-[22px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('dispatch.pageSubtitle')}
+          </p>
+        </div>
+        <div className="relative z-[1] flex shrink-0 flex-col items-end gap-2">
+          <OperateOnly>
+            <DialogTrigger asChild>
+              <Button
+                className="h-10 min-w-[168px] gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+                disabled={!salesOrders?.length}
+              >
+                <PinePlusIcon size={18} strokeWidth={2.1} />
+                {t('dispatch.newButton')}
+              </Button>
+            </DialogTrigger>
+          </OperateOnly>
+        </div>
+      </header>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl [&>button]:hidden">
             <DialogHeader>
               <div className="flex items-center justify-between">
@@ -1511,11 +1572,9 @@ export function DispatchesPage() {
               </DialogFooter>
             </form>
           </DialogContent>
-        </Dialog>
-        </OperateOnly>
-      </div>
+      </Dialog>
 
-      <section aria-labelledby="dp-kpis" className="space-y-4">
+      <section aria-labelledby="dp-kpis" className="space-y-4 lg:hidden">
         <h2 id="dp-kpis" className="sr-only">
           {t('dispatch.srKpis')}
         </h2>
@@ -1639,7 +1698,149 @@ export function DispatchesPage() {
                   </div>
       </section>
 
-      <div className={filterPanel}>
+      <section
+        data-dispatch-desktop-kpis
+        aria-labelledby="dp-kpis-desktop"
+        className="hidden space-y-2.5 lg:block lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <h2 id="dp-kpis-desktop" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+          {t('dispatch.srKpis')}
+        </h2>
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            {
+              label: t('dispatch.kpi.total'),
+              value: formatCount(dispatchKpis.totalDespachos),
+              note: t('dispatch.kpi.totalNote'),
+              Icon: PineDispatchTruckIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('dispatch.kpi.pending'),
+              value: formatCount(dispatchKpis.pendientes),
+              note: t('dispatch.kpi.pendingNote'),
+              Icon: PineSnowflakeIcon,
+              card: dispatchKpis.pendientes > 0 ? 'border-amber-200/90 bg-amber-50/50' : 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: dispatchKpis.pendientes > 0 ? 'bg-amber-100 text-amber-950' : 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('dispatch.kpi.confirmed'),
+              value: formatCount(dispatchKpis.confirmados),
+              note: t('dispatch.kpi.confirmedNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('dispatch.kpi.dispatched'),
+              value: formatCount(dispatchKpis.despachados),
+              note: t('dispatch.kpi.dispatchedNote'),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-9 w-9" />
+              </span>
+              <div className="min-w-0">
+                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>{label}</p>
+                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                  {value}
+                </p>
+                <p className={cn(kpiFootnote, 'lg:mt-1 lg:text-[11px] lg:leading-tight lg:text-[var(--ink-muted)]')}>{note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: t('dispatch.kpi.totalBoxes'), value: formatCount(dispatchKpis.totalCajas), note: t('dispatch.kpi.totalBoxesNote'), Icon: PineBoxesIcon },
+            { label: t('dispatch.kpi.totalLb'), value: dispatchKpis.totalLb != null ? formatLb(dispatchKpis.totalLb, 2) : '—', note: t('dispatch.kpi.totalLbNote'), Icon: PineWeightIcon },
+            { label: t('dispatch.kpi.sales'), value: dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—', note: t('dispatch.kpi.salesNote'), Icon: PineDocumentIcon },
+            { label: t('dispatch.kpi.pricePerLb'), value: dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)} / lb` : '—', note: t('dispatch.kpi.pricePerLbNote'), Icon: PineWeightIcon },
+          ].map(({ label, value, note, Icon }) => (
+            <div key={label} className="flex min-h-[42px] items-center justify-between gap-2 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                  <Icon size={16} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{label}</p>
+                  <p className="truncate text-[10px] text-[var(--ink-muted)]">{note}</p>
+                </div>
+              </div>
+              <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.ptUnits')}</p>
+              <p className="truncate text-[10px] text-[var(--ink-muted)]">{t('dispatch.kpi.ptUnitsNote')}</p>
+            </div>
+            <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(dispatchTraceKpis.ptUnits)}</p>
+          </div>
+          <div className="flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.ptStock')}</p>
+              <p className="truncate text-[10px] text-[var(--ink-muted)]">{t('dispatch.kpi.ptStockNote')}</p>
+            </div>
+            <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(dispatchTraceKpis.ptStock)}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', dispatchKpis.conAlertas > 0 ? 'border-amber-200/90 bg-amber-50/50' : 'border-[var(--stone-200)] bg-white/65')}>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.withAlerts')}</p>
+              <p className="truncate text-[10px] text-[var(--ink-muted)]">{t('dispatch.kpi.withAlertsNote')}</p>
+            </div>
+            <p className={cn('shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none', dispatchKpis.conAlertas > 0 ? 'text-amber-950' : 'text-[var(--ink)]')}>{formatCount(dispatchKpis.conAlertas)}</p>
+          </div>
+          <div className="rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.topVolume')}</p>
+            {dispatchKpis.topClientesCajas.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">{t('dispatch.kpi.noData')}</p>
+            ) : (
+              <ol className="mt-0.5 space-y-0.5">
+                {dispatchKpis.topClientesCajas.map(([name, cajas], i) => (
+                  <li key={name} className="flex justify-between gap-2 text-[11px] text-[var(--ink)]">
+                    <span className="min-w-0 truncate" title={name}>{i + 1}. {name}</span>
+                    <span className="shrink-0 tabular-nums">{formatCount(cajas)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+          <div className="rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.topValue')}</p>
+            {dispatchKpis.topClientesValor.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">{t('dispatch.kpi.noData')}</p>
+            ) : (
+              <ol className="mt-0.5 space-y-0.5">
+                {dispatchKpis.topClientesValor.map(([name, val], i) => (
+                  <li key={name} className="flex justify-between gap-2 text-[11px] text-[var(--ink)]">
+                    <span className="min-w-0 truncate" title={name}>{i + 1}. {name}</span>
+                    <span className="shrink-0 tabular-nums">${formatMoney(val)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className={cn(filterPanel, 'lg:hidden')}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={signalsTitle}>{t('dispatch.filters.title')}</span>
           <button
@@ -1724,8 +1925,103 @@ export function DispatchesPage() {
         </div>
       </div>
 
+      <div
+        data-dispatch-desktop-filters
+        className="mt-3 hidden min-h-[62px] rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+      >
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={todayActive ? 'default' : 'outline'}
+            className={cn(
+              'h-10 shrink-0 gap-1.5 border-[var(--stone-300)] px-4',
+              todayActive ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]' : 'bg-white',
+            )}
+            onClick={() => {
+              const d = localDateYmd();
+              setFilterFechaDesde(d);
+              setFilterFechaHasta(d);
+            }}
+          >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {t('dispatch.filters.today')}
+          </Button>
+          <Button
+            type="button"
+            variant={seeAllActive ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'h-10 shrink-0 border-[var(--stone-300)] px-4',
+              seeAllActive ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]' : 'bg-white',
+            )}
+            onClick={() => {
+              setFilterFechaDesde('');
+              setFilterFechaHasta('');
+            }}
+          >
+            {t('dispatch.filters.clearDates')}
+          </Button>
+          <div className="min-w-[16rem] flex-1">
+            <Input
+              className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+              placeholder={t('dispatch.filters.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label={t('dispatch.filters.search')}
+            />
+          </div>
+          <select
+            className={cn(filterSelectClass, 'h-10 w-[14rem] border-[var(--stone-300)] bg-white')}
+            value={filterClienteComercial}
+            onChange={(e) => setFilterClienteComercial(Number(e.target.value))}
+            aria-label={t('dispatch.filters.client')}
+          >
+            <option value={0}>{t('dispatch.filters.client')} · {t('dispatch.filters.clientAll')}</option>
+            {(commercialClients ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.codigo} — {c.nombre}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+            {showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+            <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
+        </div>
+        {showMoreFilters ? (
+          <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="col-span-3 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('dispatch.filters.from')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterFechaDesde}
+                onChange={(e) => setFilterFechaDesde(e.target.value)}
+              />
+            </div>
+            <div className="col-span-3 grid gap-1.5">
+              <Label className="text-xs text-[var(--ink-muted)]">{t('dispatch.filters.to')}</Label>
+              <Input
+                type="date"
+                className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                value={filterFechaHasta}
+                onChange={(e) => setFilterFechaHasta(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       {dispatchKpis.conAlertas > 0 ? (
-        <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/40 px-4 py-3 text-sm text-amber-950">
+        <div className="flex flex-wrap items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/40 px-4 py-3 text-sm text-amber-950 lg:mt-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
           <p>
             {t('dispatch.alertBanner', {
@@ -1736,13 +2032,17 @@ export function DispatchesPage() {
         </div>
       ) : null}
 
-      <section className="space-y-3" aria-labelledby="dp-listado">
-        <div className="flex flex-wrap items-end justify-between gap-2">
+      <section
+        data-dispatch-desktop-list
+        className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="dp-listado"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="dp-listado" className={sectionTitle}>
+            <h2 id="dp-listado" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('dispatch.table.title')}
             </h2>
-            <p className={sectionHint}>
+            <p className={cn(sectionHint, 'lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
               {viewMode === 'detailed'
                 ? t('dispatch.table.hintDetailed', { count: filtered.length })
                 : t('dispatch.table.hintCompact', {
@@ -1757,28 +2057,34 @@ export function DispatchesPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
+                  viewMode === 'compact' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                )}
                 onClick={() => setViewMode('compact')}
               >
                 {t('dispatch.table.viewCompact')}
-                    </Button>
-                    <Button
-                      type="button"
+              </Button>
+              <Button
+                type="button"
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
-                      size="sm"
-                className="h-8 rounded-md px-3 text-xs"
+                size="sm"
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
+                  viewMode === 'detailed' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                )}
                 onClick={() => setViewMode('detailed')}
-                    >
+              >
                 {t('dispatch.table.viewDetailed')}
-                    </Button>
+              </Button>
             </div>
             <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
                 {t('dispatch.table.criteria')}
               </summary>
               <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
@@ -1808,14 +2114,14 @@ export function DispatchesPage() {
         </div>
 
       {filtered.length === 0 ? (
-          <p className={emptyStatePanel}>
+          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>
             {dispatches?.length === 0 ? t('dispatch.table.emptyAll') : t('dispatch.table.emptyFilter')}
           </p>
         ) : viewMode === 'compact' ? (
-        <div className="space-y-4">
+        <div className="space-y-4 lg:space-y-3 lg:p-3">
             {groupedByClient.map((group) => (
-              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur">
+              <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white lg:rounded-[10px] lg:border-[var(--stone-300)]">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)]">
                   <p className="text-sm font-semibold text-slate-900">{group.label}</p>
                   <p className="text-xs text-slate-600">
                     <span className="font-semibold text-slate-900">{formatCount(group.totalBoxes)}</span>{' '}
@@ -1945,7 +2251,7 @@ export function DispatchesPage() {
                       type="button"
                       size="sm"
                                 variant="default"
-                                className="h-7 rounded-md px-2 text-[11px]"
+                                className="h-7 rounded-md px-2 text-[11px] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]"
                                 onClick={() => openDispatchDetailView(d.id)}
                               >
                                 {t('dispatch.table.actionDetail')}
@@ -2162,7 +2468,7 @@ export function DispatchesPage() {
             ))}
           </div>
         ) : (
-          <div className={tableShell}>
+          <div className={cn(tableShell, 'lg:rounded-none lg:border-0 lg:shadow-none')}>
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
