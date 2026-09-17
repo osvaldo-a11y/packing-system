@@ -319,6 +319,7 @@ export function AppLayout() {
   const isProcessesPage = pathname === '/processes';
   const isPtTagsPage = pathname === '/pt-tags';
   const isStockModule = pathname.startsWith('/existencias-pt');
+  const isPackingListsIndex = pathname === '/existencias-pt/packing-lists';
   const usesOperationalMobileNav = isReceptionsPage || isProcessesPage || isPtTagsPage || isStockModule;
   const usesApprovedMobileHeader = isReceptionsPage || isPtTagsPage || isStockModule;
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
@@ -536,7 +537,7 @@ export function AppLayout() {
               <>
                 <span className="h-6 w-px bg-[var(--stone-300)] md:hidden" aria-hidden />
                 <h1 className="min-w-0 truncate font-serif text-[16px] font-semibold tracking-[-0.2px] text-[var(--ink)] md:hidden">
-                  {pageTitle}
+                  {isPackingListsIndex ? t('existenciasPt.layout.tabPackingLists') : pageTitle}
                 </h1>
               </>
             ) : null}

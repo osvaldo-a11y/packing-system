@@ -22,25 +22,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { formatCount, formatLb } from '@/lib/number-format';
 import {
   badgePill,
-  btnToolbarOutline,
   emptyStatePanel,
   errorStateCard,
   filterInputClass,
-  filterPanel,
   filterSelectClass,
   kpiCard,
-  kpiCardSm,
   kpiFootnote,
   kpiLabel,
   kpiValueLg,
-  kpiValueMd,
-  pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
   pageTitle,
   sectionHint,
   sectionTitle,
-  signalsTitle,
   tableBodyRow,
   tableHeaderRow,
   tableShell,
@@ -207,7 +201,15 @@ function notesPreview(notes: string | null): { text: string; title?: string } {
   return { text: `${n.slice(0, 48)}…`, title: n };
 }
 
-function PlAdvanceBar({ pct, hasReversal }: { pct: number; hasReversal?: boolean }) {
+function PlAdvanceBar({
+  pct,
+  hasReversal,
+  className,
+}: {
+  pct: number;
+  hasReversal?: boolean;
+  className?: string;
+}) {
   const w = Math.max(0, Math.min(100, Math.round(pct)));
   const fill = hasReversal
     ? 'bg-violet-500'
@@ -220,7 +222,7 @@ function PlAdvanceBar({ pct, hasReversal }: { pct: number; hasReversal?: boolean
           : 'bg-slate-400';
   return (
     <div
-      className="flex min-w-[100px] max-w-[140px] flex-col gap-0.5"
+      className={cn('flex min-w-[100px] max-w-[140px] flex-col gap-0.5', className)}
       title={
         hasReversal
           ? 'PL con reversa registrada en historial. Avance según estado actual; barra en violeta para distinguir del flujo activo.'
@@ -476,26 +478,77 @@ export function PtPackingListsPage() {
   }
 
   return (
-    <div className="space-y-8 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
-      <div className={cn(pageHeaderRow, 'lg:hidden')}>
-        <div className="min-w-0 space-y-1.5">
-          <h2 className={pageTitle}>{t('ptPackingLists.pageTitle')}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>{t('ptPackingLists.pageSubtitle')}</p>
-            <button type="button" className={pageInfoButton} title={helpTitle} aria-label={t('ptPackingLists.pageTitle')}>
+    <div className="space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+      <header
+        data-pl-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-2.5 pt-3 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[31px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('existenciasPt.layout.tabPackingLists')}
+          </h1>
+          <div className="mt-1.5 flex items-start gap-2 text-[14px] leading-snug text-[var(--ink-muted)]">
+            <span>{t('ptPackingLists.pageSubtitle')}</span>
+            <button
+              type="button"
+              className={cn(pageInfoButton, 'mt-0.5 shrink-0')}
+              title={helpTitle}
+              aria-label={t('existenciasPt.layout.tabPackingLists')}
+            >
               <Info className="h-4 w-4" />
             </button>
           </div>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button asChild variant="outline" size="sm" className={btnToolbarOutline}>
-            <Link to="/existencias-pt/inventario" className="gap-2">
-              <ListOrdered className="h-4 w-4" />
+          <Button asChild variant="outline" className="mt-2 h-10 w-full gap-1.5 rounded-[8px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold shadow-none">
+            <Link to="/existencias-pt/inventario">
+              <ListOrdered className="h-3.5 w-3.5" />
               {t('ptPackingLists.inventoryButton')}
             </Link>
           </Button>
         </div>
-      </div>
+        <div className="relative mt-2 h-[70px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[76px] w-[228px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
+        </div>
+      </header>
+
+      <nav
+        data-pl-mobile-tabs
+        className="grid grid-cols-2 gap-1.5 lg:hidden"
+        aria-label={t('existenciasPt.layout.navAriaLabel')}
+      >
+        {[
+          { to: '/existencias-pt/inventario', label: t('existenciasPt.layout.tabInventory'), end: true as const },
+          { to: '/existencias-pt/repaletizar', label: t('existenciasPt.layout.tabRepallet') },
+          { to: '/existencias-pt/packing-lists', label: t('existenciasPt.layout.tabPackingLists'), wide: true },
+        ].map(({ to, label, end = false, wide }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'rounded-[8px] px-2 py-2 text-center text-[12px] font-semibold leading-tight',
+                wide && 'col-span-2',
+                isActive
+                  ? 'bg-[var(--olive-700)] text-white'
+                  : 'border border-[var(--stone-300)] bg-white text-[var(--ink-muted)]',
+              )
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
 
       <header
         data-pl-desktop-hero
@@ -563,81 +616,91 @@ export function PtPackingListsPage() {
         ))}
       </nav>
 
-      <section aria-labelledby="pl-kpis" className="space-y-4 lg:hidden">
-        <h2 id="pl-kpis" className="sr-only">
+      <section data-pl-mobile-kpis aria-labelledby="pl-kpis" className="space-y-2 lg:hidden">
+        <h2 id="pl-kpis" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
           {t('ptPackingLists.srKpis')}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.total')}</p>
-            <p className={kpiValueLg}>{formatCount(kpis.total)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.drafts')}</p>
-            <p className={kpiValueLg}>{formatCount(kpis.borrador)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.draftsNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.confirmed')}</p>
-            <p className={kpiValueLg}>{formatCount(kpis.confirmado)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.confirmedNote')}</p>
-          </div>
-          <div
-            className={cn(
-              kpiCard,
-              kpis.enDespacho > 0 ? 'border-sky-200/90 bg-sky-50/50' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.inDispatch')}</p>
-            <p className={cn(kpiValueLg, kpis.enDespacho > 0 ? 'text-sky-950' : '')}>{formatCount(kpis.enDespacho)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.inDispatchNote')}</p>
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              label: t('ptPackingLists.kpi.total'),
+              value: formatCount(kpis.total),
+              note: t('ptPackingLists.kpi.totalNote'),
+              Icon: PineDocumentIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('ptPackingLists.kpi.drafts'),
+              value: formatCount(kpis.borrador),
+              note: t('ptPackingLists.kpi.draftsNote'),
+              Icon: PineSnowflakeIcon,
+              card: 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('ptPackingLists.kpi.confirmed'),
+              value: formatCount(kpis.confirmado),
+              note: t('ptPackingLists.kpi.confirmedNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('ptPackingLists.kpi.inDispatch'),
+              value: formatCount(kpis.enDespacho),
+              note: t('ptPackingLists.kpi.inDispatchNote'),
+              Icon: PineBoxesIcon,
+              card: kpis.enDespacho > 0 ? 'border-sky-200/90 bg-sky-50/50' : 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: kpis.enDespacho > 0 ? 'bg-sky-100 text-sky-950' : 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'min-h-[112px] flex-row items-start gap-2.5 rounded-[var(--radius-lg)] px-3 py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-[30px] w-[30px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-serif text-[12px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
+                <p className="mt-1 font-serif text-[20px] font-bold tabular-nums leading-tight tracking-[-0.65px] text-[var(--ink)]">{value}</p>
+                <p className="mt-1 text-[11px] leading-tight text-[var(--ink-muted)]">{note}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.totalBoxes')}</p>
-            <p className={kpiValueMd}>{formatCount(kpis.totalCajas)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalBoxesNote')}</p>
+        <div data-pl-mobile-secondary className="grid grid-cols-1 gap-1.5">
+          {[
+            { label: t('ptPackingLists.kpi.totalBoxes'), value: formatCount(kpis.totalCajas), note: t('ptPackingLists.kpi.totalBoxesNote'), Icon: PineCubeIcon },
+            { label: t('ptPackingLists.kpi.totalWeight'), value: formatLb(kpis.totalLb, 2), note: t('ptPackingLists.kpi.totalWeightNote'), Icon: PineWeightIcon },
+            { label: t('ptPackingLists.kpi.clients'), value: formatCount(kpis.clientesActivos), note: t('ptPackingLists.kpi.clientsNote'), Icon: PineDocumentIcon },
+            { label: t('ptPackingLists.kpi.linkedOrders'), value: formatCount(kpis.conPedido), note: t('ptPackingLists.kpi.linkedOrdersNote'), Icon: PineBoxesIcon },
+          ].map(({ label, value, note, Icon }) => (
+            <div key={label} className="flex min-h-[42px] items-center justify-between gap-2 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                  <Icon size={16} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{label}</p>
+                  <p className="truncate text-[10px] text-[var(--ink-muted)]">{note}</p>
+                </div>
+              </div>
+              <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{value}</p>
+            </div>
+          ))}
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', kpis.anulado > 0 ? 'border-[var(--stone-300)] bg-[var(--stone-100)]' : 'border-[var(--stone-200)] bg-white/65')}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptPackingLists.kpi.voided')}</p>
+            <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(kpis.anulado)}</p>
           </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.totalWeight')}</p>
-            <p className={kpiValueMd}>{formatLb(kpis.totalLb, 2)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.totalWeightNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.clients')}</p>
-            <p className={kpiValueMd}>{formatCount(kpis.clientesActivos)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.clientsNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.linkedOrders')}</p>
-            <p className={kpiValueMd}>{formatCount(kpis.conPedido)}</p>
-            <p className={kpiFootnote}>{t('ptPackingLists.kpi.linkedOrdersNote')}</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div
-            className={cn(
-              kpiCardSm,
-              kpis.anulado > 0 ? 'border-slate-200/90 bg-slate-50/50' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.voided')}</p>
-            <p className={cn(kpiValueMd, 'text-slate-800')}>{formatCount(kpis.anulado)}</p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.voidedNote')}</p>
-          </div>
-          <div
-            className={cn(
-              kpiCardSm,
-              kpis.conReversa > 0 ? 'border-violet-200/85 bg-violet-50/40' : '',
-            )}
-          >
-            <p className={kpiLabel}>{t('ptPackingLists.kpi.withReversal')}</p>
-            <p className={cn(kpiValueMd, kpis.conReversa > 0 ? 'text-violet-950' : 'text-slate-800')}>
-              {formatCount(kpis.conReversa)}
-            </p>
-            <p className={cn(kpiFootnote, 'text-slate-500')}>{t('ptPackingLists.kpi.withReversalNote')}</p>
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', kpis.conReversa > 0 ? 'border-violet-200/85 bg-violet-50/40' : 'border-[var(--stone-200)] bg-white/65')}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('ptPackingLists.kpi.withReversal')}</p>
+            <p className={cn('font-serif text-[18px] font-semibold tabular-nums leading-none', kpis.conReversa > 0 ? 'text-violet-950' : 'text-[var(--ink)]')}>{formatCount(kpis.conReversa)}</p>
           </div>
         </div>
       </section>
@@ -739,34 +802,49 @@ export function PtPackingListsPage() {
         </div>
       </section>
 
-      <div className={cn(filterPanel, 'lg:hidden')}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>{t('ptPackingLists.filters.title')}</span>
-          <button
-            type="button"
-            className={pageInfoButton}
-            title="Estado, cliente y búsqueda por código, BOL, notas, pedido o despacho."
-            aria-label="Ayuda filtros"
+      <div
+        data-pl-mobile-filters
+        className="space-y-2 rounded-[12px] border border-[var(--stone-300)] bg-white/70 p-3 lg:hidden"
+      >
+        <Input
+          className={cn(filterInputClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+          placeholder={t('ptPackingLists.filters.searchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label={t('ptPackingLists.filters.search')}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className={cn(filterSelectClass, 'h-11 w-full min-w-0 border-[var(--stone-300)] bg-white text-[13px]')}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            aria-label={t('ptPackingLists.filters.status')}
           >
-            <Info className="h-3.5 w-3.5" />
-          </button>
+            <option value="">{t('ptPackingLists.filters.status')} · {t('ptPackingLists.filters.statusAll')}</option>
+            <option value="borrador">{t('ptPackingLists.filters.statusDraft')}</option>
+            <option value="confirmado">{t('ptPackingLists.filters.statusConfirmed')}</option>
+            <option value="anulado">{t('ptPackingLists.filters.statusVoided')}</option>
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-11 min-w-0 gap-1 rounded-[8px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold"
+            onClick={() => setShowMoreFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+            <span className="truncate">{showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}</span>
+            <ChevronDown className={cn('ml-auto h-3.5 w-3.5 shrink-0 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+          </Button>
         </div>
-        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
-          <div className="grid gap-2 lg:col-span-3">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.status')}</Label>
-            <select className={filterSelectClass} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">{t('ptPackingLists.filters.statusAll')}</option>
-              <option value="borrador">{t('ptPackingLists.filters.statusDraft')}</option>
-              <option value="confirmado">{t('ptPackingLists.filters.statusConfirmed')}</option>
-              <option value="anulado">{t('ptPackingLists.filters.statusVoided')}</option>
-            </select>
-          </div>
-          <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.client')}</Label>
+        {showMoreFilters ? (
+          <div className="grid gap-1 border-t border-[var(--stone-200)] pt-3">
+            <Label className="text-[11px] text-[var(--ink-muted)]">{t('ptPackingLists.filters.client')}</Label>
             <select
-              className={filterSelectClass}
+              className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
               value={filterClientId}
               onChange={(e) => setFilterClientId(Number(e.target.value))}
+              aria-label={t('ptPackingLists.filters.client')}
             >
               <option value={0}>{t('ptPackingLists.filters.clientAll')}</option>
               {clientOptions.map(([id, nombre]) => (
@@ -776,16 +854,7 @@ export function PtPackingListsPage() {
               ))}
             </select>
           </div>
-          <div className="grid gap-2 lg:col-span-5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('ptPackingLists.filters.search')}</Label>
-            <Input
-              className={filterInputClass}
-              placeholder={t('ptPackingLists.filters.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <div
@@ -846,27 +915,31 @@ export function PtPackingListsPage() {
         ) : null}
       </div>
 
-      <section className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white" aria-labelledby="pl-tabla">
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+      <section
+        data-pl-mobile-list
+        className="space-y-0 overflow-hidden rounded-[12px] border border-[var(--stone-300)] bg-white lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        aria-labelledby="pl-tabla"
+      >
+        <div className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="pl-tabla" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
+            <h2 id="pl-tabla" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:font-semibold max-lg:text-[var(--ink)] lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('ptPackingLists.table.title')}
             </h2>
-            <p className={cn(sectionHint, 'lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
+            <p className={cn(sectionHint, 'max-lg:mt-1 max-lg:text-[11px] max-lg:text-[var(--ink-muted)] lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
               {viewMode === 'detailed'
                 ? t('ptPackingLists.table.hintDetailed', { count: filtered.length })
                 : t('ptPackingLists.table.hintCompact', { count: filtered.length })}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
+          <div className="mt-3 flex w-full flex-col gap-2 lg:mt-0 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="inline-flex w-full rounded-lg border border-slate-200 bg-white p-1 max-lg:rounded-[8px] max-lg:border-[var(--stone-300)] lg:w-auto lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'compact' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'compact' ? 'max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('compact')}
               >
@@ -877,19 +950,19 @@ export function PtPackingListsPage() {
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'detailed' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'detailed' ? 'max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('ptPackingLists.table.viewDetailed')}
               </Button>
             </div>
-            <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
+            <details className="group w-full lg:w-auto">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:flex max-lg:h-11 max-lg:items-center max-lg:justify-center max-lg:border-[var(--stone-300)] max-lg:px-2.5 max-lg:py-2 max-lg:text-[12px] max-lg:font-semibold max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
                 {t('ptPackingLists.table.criteria')}
               </summary>
-              <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+              <div className="mt-1 w-full max-w-none space-y-1 rounded-md border border-slate-200 bg-white p-3 text-[11px] leading-snug text-slate-600 shadow-sm max-lg:border-[var(--stone-300)] max-lg:shadow-none lg:max-w-[min(22rem,calc(100vw-2rem))]">
                 <p>
                   <span className="font-semibold text-emerald-700">{t('ptPackingLists.table.criteriaComplete')}</span>{' '}
                   {t('ptPackingLists.table.criteriaCompleteDesc')}
@@ -937,11 +1010,241 @@ export function PtPackingListsPage() {
         ) : null}
 
         {!data?.length ? (
-          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyAll')}</p>
+          <p data-pl-mobile-empty className={cn(emptyStatePanel, 'max-lg:mx-3 max-lg:mb-3 max-lg:flex max-lg:min-h-[170px] max-lg:items-center max-lg:justify-center max-lg:rounded-[11px] max-lg:border-[var(--stone-200)] max-lg:bg-[#FBFCFD] max-lg:px-5 max-lg:py-10 max-lg:text-[13px] max-lg:leading-snug max-lg:text-[var(--bluegray-700)] lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyAll')}</p>
         ) : !filtered.length ? (
-          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyFilter')}</p>
-        ) : viewMode === 'compact' ? (
-          <div className="space-y-4 lg:space-y-3 lg:p-3">
+          <p className={cn(emptyStatePanel, 'max-lg:mx-3 max-lg:mb-3 max-lg:flex max-lg:min-h-[170px] max-lg:items-center max-lg:justify-center max-lg:rounded-[11px] max-lg:border-[var(--stone-200)] max-lg:bg-[#FBFCFD] max-lg:px-5 max-lg:py-10 max-lg:text-[13px] max-lg:leading-snug max-lg:text-[var(--bluegray-700)] lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>{t('ptPackingLists.table.emptyFilter')}</p>
+        ) : (
+          <>
+            <div className="space-y-3 px-3 pb-3 lg:hidden">
+              {viewMode === 'compact'
+                ? groupedByClient.map((group) => (
+                    <div key={group.key} className="space-y-2">
+                      <div className="rounded-[10px] border border-[var(--stone-200)] bg-[var(--stone-50)] px-3 py-2">
+                        <p className="font-serif text-[15px] font-semibold text-[var(--ink)]">{group.clientLabel}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
+                          <span className="font-semibold text-[var(--ink)]">{formatCount(group.totalBoxes)}</span>{' '}
+                          {t('ptPackingLists.table.groupBoxes')}
+                          {' · '}
+                          <span className="font-semibold text-[var(--ink)]">{formatLb(group.totalLb, 2)}</span> lb
+                          {' · '}
+                          {formatCount(group.plCount)} {t('ptPackingLists.table.groupPl')}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {group.hasEmptyBorrador ? (
+                            <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-900">
+                              {t('ptPackingLists.table.groupIncomplete')}
+                            </span>
+                          ) : group.hasBorrador ? (
+                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
+                              {t('ptPackingLists.table.groupInProgress')}
+                            </span>
+                          ) : null}
+                          {group.hasReversa ? (
+                            <span className="inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-900">
+                              {t('ptPackingLists.table.groupWithReversal')}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {group.rows.map((r) => {
+                        const tone = plCompactRowTone(r, t);
+                        const pct = packingListAdvancePct(r);
+                        const detailUrl = `/existencias-pt/packing-lists/${r.id}`;
+                        const st = String(r.status || '').toLowerCase();
+                        const prefetchIdx = detailPrefetchIds.indexOf(r.id);
+                        const q = prefetchIdx >= 0 ? detailQueries[prefetchIdx] : undefined;
+                        const formatText = prefetchIdSet.has(r.id)
+                          ? q?.isPending && !formatSummaryByPlId.has(r.id)
+                            ? null
+                            : (formatSummaryByPlId.get(r.id) ?? '—')
+                          : '—';
+                        const bol = r.numero_bol?.trim();
+                        return (
+                          <article key={r.id} data-pl-mobile-card className="overflow-hidden rounded-[11px] border border-[var(--stone-300)] bg-white">
+                            <div className="flex items-start justify-between gap-3 border-b border-[var(--stone-200)] px-3 py-3">
+                              <div className="min-w-0 space-y-1">
+                                <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize', tone.badgeClass)}>
+                                  {tone.shortLabel}
+                                </span>
+                                {r.reversed_at ? (
+                                  <span className="ml-1 inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900">
+                                    {t('ptPackingLists.table.reversalBadge')}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                                  {formatCount(r.total_boxes)} {t('ptPackingLists.table.colBoxes').toLowerCase()}
+                                </p>
+                                <p className="mt-1 text-[11px] tabular-nums text-[var(--ink-muted)]">{formatLb(r.total_pounds, 2)} lb</p>
+                              </div>
+                            </div>
+                            <div className="px-3 py-3">
+                              <p className="font-serif text-[18px] font-semibold leading-tight text-[var(--ink)]">{r.list_code}</p>
+                              <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">{r.client_nombre?.trim() || 'Sin cliente'}</p>
+                              <p className="text-[12px] tabular-nums text-[var(--ink-muted)]">{formatListDate(r.list_date)}</p>
+                              <p className="mt-1 text-[12px] text-[var(--ink-muted)]">
+                                {t('ptPackingLists.table.colFormats')}: {formatText ?? '—'}
+                              </p>
+                              <p className="text-[12px] text-[var(--ink-muted)]">
+                                {bol ? `${t('ptPackingLists.condicion.bolPrefix')}${bol}` : t('ptPackingLists.condicion.noBol')}
+                              </p>
+                              {r.orden_id != null && r.orden_id > 0 ? (
+                                <p className="text-[12px] text-[var(--ink-muted)]">
+                                  {t('ptPackingLists.table.colOrder')}: {r.order_number?.trim() || `#${r.orden_id}`}
+                                </p>
+                              ) : null}
+                              {r.dispatch_id != null && r.dispatch_id > 0 ? (
+                                <p className="text-[12px] text-[var(--ink-muted)]">
+                                  {t('ptPackingLists.table.colDispatch')} #{r.dispatch_id}
+                                </p>
+                              ) : null}
+                              <div className="mt-2">
+                                <PlAdvanceBar pct={pct} hasReversal={!!r.reversed_at && st !== 'anulado'} className="min-w-0 max-w-none w-full" />
+                                <p className="mt-1 text-[11px] font-medium text-[var(--ink-muted)]">{plCompletenessLabel(r, t)}</p>
+                              </div>
+                              <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                                <Button asChild className="h-10 rounded-[8px] bg-[var(--olive-700)] text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]">
+                                  <Link to={detailUrl}>{st === 'borrador' ? t('ptPackingLists.table.actionPrepare') : t('ptPackingLists.table.actionDetail')}</Link>
+                                </Button>
+                                {r.dispatch_id != null && r.dispatch_id > 0 ? (
+                                  <Button asChild type="button" variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none">
+                                    <Link to="/dispatches" title={`Despacho #${r.dispatch_id}`}>
+                                      {t('ptPackingLists.table.actionDispatch')}
+                                    </Link>
+                                  </Button>
+                                ) : st === 'borrador' ? (
+                                  <Button asChild type="button" variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none">
+                                    <Link to={detailUrl}>{t('ptPackingLists.table.actionDetail')}</Link>
+                                  </Button>
+                                ) : (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button type="button" variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none" aria-label={t('ptPackingLists.table.actionMore')}>
+                                        {t('ptPackingLists.table.actionMore')}
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      {r.orden_id != null && r.orden_id > 0 ? (
+                                        <DropdownMenuItem asChild>
+                                          <Link to={`/sales-orders/${r.orden_id}/avance`}>{t('ptPackingLists.table.actionViewOrder')}</Link>
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      <DropdownMenuItem asChild>
+                                        <Link to="/dispatches">{t('ptPackingLists.table.actionGoDispatches')}</Link>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      {r.reversed_at ? (
+                                        <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                                          {t('ptPackingLists.table.reversalBadge')}: {new Date(r.reversed_at).toLocaleString('es')}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          void navigator.clipboard?.writeText(r.list_code);
+                                        }}
+                                      >
+                                        {t('ptPackingLists.table.actionCopyCode')}
+                                      </DropdownMenuItem>
+                                      {r.notes?.trim() ? (
+                                        <DropdownMenuItem disabled className="line-clamp-3 text-xs text-muted-foreground">
+                                          {r.notes.trim()}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
+                              {st === 'borrador' || (r.dispatch_id != null && r.dispatch_id > 0) ? (
+                                <details className="mt-2 border-t border-[var(--stone-200)] pt-2">
+                                  <summary className="cursor-pointer list-none text-[12px] font-semibold text-[var(--ink-muted)]">
+                                    {t('ptPackingLists.table.actionMore')} <span aria-hidden>›</span>
+                                  </summary>
+                                  <div className="mt-2 flex flex-col gap-1">
+                                    {r.orden_id != null && r.orden_id > 0 ? (
+                                      <Button asChild variant="ghost" className="h-9 justify-start px-2 text-[12px]">
+                                        <Link to={`/sales-orders/${r.orden_id}/avance`}>{t('ptPackingLists.table.actionViewOrder')}</Link>
+                                      </Button>
+                                    ) : null}
+                                    <Button asChild variant="ghost" className="h-9 justify-start px-2 text-[12px]">
+                                      <Link to="/dispatches">{t('ptPackingLists.table.actionGoDispatches')}</Link>
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-9 justify-start px-2 text-[12px]"
+                                      onClick={() => {
+                                        void navigator.clipboard?.writeText(r.list_code);
+                                      }}
+                                    >
+                                      {t('ptPackingLists.table.actionCopyCode')}
+                                    </Button>
+                                  </div>
+                                </details>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ))
+                : filtered.map((r) => {
+                    const st = String(r.status || '').toLowerCase();
+                    const bol = r.numero_bol?.trim();
+                    const np = notesPreview(r.notes);
+                    return (
+                      <article key={r.id} data-pl-mobile-card className="overflow-hidden rounded-[11px] border border-[var(--stone-300)] bg-white">
+                        <div className="flex items-start justify-between gap-3 border-b border-[var(--stone-200)] px-3 py-3">
+                          <div className="min-w-0 space-y-1">
+                            <PlStatusBadge status={r.status} t={t} />
+                            {r.reversed_at ? (
+                              <span className="inline-flex rounded-full border border-violet-200/85 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900">
+                                {t('ptPackingLists.table.reversalBadge')}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">
+                              {formatCount(r.total_boxes)} {t('ptPackingLists.table.colBoxes').toLowerCase()}
+                            </p>
+                            <p className="mt-1 text-[11px] tabular-nums text-[var(--ink-muted)]">{formatLb(r.total_pounds, 2)} lb</p>
+                          </div>
+                        </div>
+                        <div className="px-3 py-3">
+                          <p className="font-serif text-[18px] font-semibold leading-tight text-[var(--ink)]">{r.list_code}</p>
+                          <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">{r.client_nombre?.trim() || '—'}</p>
+                          <p className="text-[12px] tabular-nums text-[var(--ink-muted)]">{formatListDate(r.list_date)}</p>
+                          <p className="mt-1.5 text-[12px] text-[var(--ink-muted)]">
+                            {t('ptPackingLists.table.colPallets')}: {formatCount(r.pallet_count)}
+                          </p>
+                          <p className="text-[12px] text-[var(--ink-muted)]">
+                            {bol ? `${t('ptPackingLists.condicion.bolPrefix')}${bol}` : t('ptPackingLists.condicion.noBol')}
+                          </p>
+                          {r.dispatch_id != null && r.dispatch_id > 0 ? (
+                            <p className="text-[12px] text-[var(--ink-muted)]">{t('ptPackingLists.condicion.inDispatch')} #{r.dispatch_id}</p>
+                          ) : null}
+                          {r.orden_id != null ? (
+                            <p className="text-[12px] text-[var(--ink-muted)]">
+                              {t('ptPackingLists.table.colOrder')}: {r.order_number?.trim() || `#${r.orden_id}`}
+                            </p>
+                          ) : null}
+                          {np.text ? (
+                            <p className="mt-1 text-[12px] leading-snug text-[var(--ink-muted)]" title={np.title}>{np.text}</p>
+                          ) : (
+                            <p className="mt-1 text-[11px] text-[var(--ink-muted)]">{t('ptPackingLists.condicion.noNotes')}</p>
+                          )}
+                          <div className="mt-3">
+                            <Button asChild className="h-10 w-full rounded-[8px] bg-[var(--olive-700)] text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]">
+                              <Link to={`/existencias-pt/packing-lists/${r.id}`}>{st === 'borrador' ? t('ptPackingLists.table.actionPrepare') : t('ptPackingLists.table.actionOpen')}</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+            </div>
+            {viewMode === 'compact' ? (
+          <div className="hidden space-y-4 lg:block lg:space-y-3 lg:p-3">
             {groupedByClient.map((group) => (
               <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white lg:rounded-[10px] lg:border-[var(--stone-300)]">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)]">
@@ -1126,8 +1429,8 @@ export function PtPackingListsPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className={cn(tableShell, 'lg:rounded-none lg:border-0 lg:shadow-none')}>
+            ) : (
+          <div className={cn(tableShell, 'hidden lg:block lg:rounded-none lg:border-0 lg:shadow-none')}>
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
@@ -1228,6 +1531,8 @@ export function PtPackingListsPage() {
               </TableBody>
             </Table>
           </div>
+            )}
+          </>
         )}
       </section>
 
