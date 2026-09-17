@@ -11,7 +11,6 @@ import {
   Info,
   MoreHorizontal,
   Package,
-  Plus,
   Truck,
   X,
 } from 'lucide-react';
@@ -58,24 +57,18 @@ import {
 import { localDateYmd } from '@/lib/date-filter';
 import { formatCount, formatLb, formatMoney, parseNumeric } from '@/lib/number-format';
 import {
-  contentCard,
   emptyStatePanel,
   filterInputClass,
-  filterPanel,
   filterSelectClass,
   kpiCard,
-  kpiCardSm,
   kpiFootnote,
   kpiLabel,
   kpiValueLg,
-  kpiValueMd,
-  pageHeaderRow,
   pageInfoButton,
   pageSubtitle,
   pageTitle,
   sectionHint,
   sectionTitle,
-  signalsTitle,
   tableBodyRow,
   tableHeaderRow,
   tableShell,
@@ -1275,6 +1268,144 @@ export function DispatchesPage() {
     setCollapsed((p) => ({ ...p, [dispatchId]: false }));
   }
 
+  const renderDispatchMobileCard = (d: DispatchApi) => {
+    const tone = dispatchCompactRowTone(d, t);
+    const destinoD = destinoDespachoDisplay(d);
+    const cajasList = dispatchCajasListDisplay(d);
+    const totalLb = dispatchTotalLb(d);
+    const st = String(d.status ?? 'borrador').toLowerCase();
+    const primaryLabel =
+      d.kind === 'packing_lists' && st === 'borrador'
+        ? t('dispatch.table.actionConfirm')
+        : d.kind === 'packing_lists' && st === 'confirmado'
+          ? t('dispatch.table.actionRegisterExit')
+          : t('dispatch.table.actionDetail');
+    const onPrimary = () => {
+      if (d.kind === 'packing_lists' && st === 'borrador' && canOperateDispatch) {
+        const s = summarizeDispatchPalletRisks(
+          { client_id: d.client_id, numero_bol: d.numero_bol ?? '', final_pallets: d.final_pallets, pt_packing_lists: d.pt_packing_lists },
+          palletById,
+          processes,
+          ptTags,
+        );
+        if (dispatchConfirmShouldWarn(s)) setConfirmDispatchId(d.id);
+        else confirmDispatchMut.mutate(d.id);
+        return;
+      }
+      if (d.kind === 'packing_lists' && st === 'confirmado' && canOperateDispatch) {
+        despacharMut.mutate(d.id);
+        return;
+      }
+      openDispatchDetailView(d.id);
+    };
+    return (
+      <article key={d.id} data-dispatch-mobile-card className="overflow-hidden rounded-[11px] border border-[var(--stone-300)] bg-white">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--stone-200)] px-3 py-3">
+          <div className="min-w-0 space-y-1">
+            <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize', tone.badgeClass)}>
+              {tone.shortLabel}
+            </span>
+            <DispatchKindBadge kind={d.kind} t={t} />
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{cajasList.text}</p>
+            <p className="mt-1 text-[11px] tabular-nums text-[var(--ink-muted)]">{totalLb != null ? `${formatLb(totalLb, 2)} lb` : '—'}</p>
+          </div>
+        </div>
+        <div className="px-3 py-3">
+          <p className="font-serif text-[18px] font-semibold leading-tight text-[var(--ink)]">#{d.id}</p>
+          <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">{dispatchClienteLabel(d)}</p>
+          <p className="text-[12px] tabular-nums text-[var(--ink-muted)]">{formatDispatchFechaCell(d.fecha_despacho)}</p>
+          <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('dispatch.table.colOrder')}: {orderLabelForDispatch(d, salesOrders)}</p>
+          <p className="text-[12px] text-[var(--ink-muted)]">{t('dispatch.table.colPl')}: {packingListSummary(d)}</p>
+          <p className="text-[12px] font-mono text-[var(--ink-muted)]">{t('dispatch.table.bolPrefix')} {d.numero_bol?.trim() || '—'}</p>
+          <p className="text-[12px] text-[var(--ink-muted)]">{t('dispatch.table.colDest')}: {destinoD.text}</p>
+          {viewMode === 'detailed' ? (
+            <p className="mt-1 text-[12px] text-[var(--ink-muted)]">{t('dispatch.table.colFormats')}: {summarizeDispatchFormatCodes(d)}</p>
+          ) : null}
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <Button type="button" className="h-10 rounded-[8px] bg-[var(--olive-700)] text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]" onClick={onPrimary}>
+              {primaryLabel}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="h-10 rounded-[8px] border-[var(--stone-300)] bg-white px-3 text-[12px] shadow-none">
+                  PDF
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await downloadPdf(`/api/documents/dispatches/${d.id}/packing-list/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `packing-list-${d.id}.pdf`);
+                      toast.success(t('dispatch.toast.pdfPl'));
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
+                    }
+                  }}
+                >
+                  {t('dispatch.toast.pdfPl')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await downloadPdf(`/api/documents/dispatches/${d.id}/invoice/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `invoice-${d.id}.pdf`);
+                      toast.success(t('dispatch.toast.pdfInvoice'));
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
+                    }
+                  }}
+                >
+                  {t('dispatch.toast.pdfInvoice')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await downloadPdf(`/api/documents/dispatches/${d.id}/bol/pdf?lang=${i18n.language.startsWith('en') ? 'en' : 'es'}`, `bol-${d.id}.pdf`);
+                      toast.success(t('dispatch.toast.pdfBol'));
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : t('dispatch.toast.pdfError'));
+                    }
+                  }}
+                >
+                  {t('dispatch.toast.pdfBol')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <details className="mt-2 border-t border-[var(--stone-200)] pt-2">
+            <summary className="cursor-pointer list-none text-[12px] font-semibold text-[var(--ink-muted)]">
+              {t('dispatch.table.actionMenu')} <span aria-hidden>›</span>
+            </summary>
+            <div className="mt-2 flex flex-col gap-1">
+              <Button type="button" variant="ghost" className="h-9 justify-start px-2 text-[12px]" onClick={() => openDispatchDetailView(d.id)}>
+                {t('dispatch.table.actionDetail')}
+              </Button>
+              {canOperateDispatch ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 justify-start px-2 text-[12px]"
+                  onClick={() => {
+                    setMetaDialogDispatchId(d.id);
+                    setMetaFechaDespacho(toDatetimeLocalValue(d.fecha_despacho));
+                    setMetaTemperaturaF(String(parseNumeric(d.temperatura_f) ?? 0));
+                    setMetaThermographSerial(d.thermograph_serial?.trim() ?? '');
+                    setMetaThermographNotes(d.thermograph_notes?.trim() ?? '');
+                    setMetaShipToName(d.ship_to_name ?? '');
+                    setMetaShipToAddress(d.ship_to_address ?? '');
+                  }}
+                >
+                  {t('dispatch.table.actionEdit')}
+                </Button>
+              ) : null}
+            </div>
+          </details>
+        </div>
+      </article>
+    );
+  };
+
   if (isPending) {
     return (
       <div className="font-inter space-y-4">
@@ -1298,7 +1429,7 @@ export function DispatchesPage() {
   }
 
   return (
-    <div className="font-inter space-y-8 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
+    <div className="font-inter space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-0 lg:bg-[#F9F7F5] lg:px-7">
       <Dialog
         open={dispatchOpen}
         onOpenChange={(o) => {
@@ -1309,30 +1440,52 @@ export function DispatchesPage() {
           }
         }}
       >
-      <div className={cn(pageHeaderRow, 'lg:hidden')}>
-        <div className="min-w-0 space-y-1.5">
-          <h1 className={pageTitle}>{t('dispatch.pageTitle')}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={pageSubtitle}>{t('dispatch.pageSubtitle')}</p>
+      <header
+        data-dispatch-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-2.5 pt-3 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[31px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('dispatch.pageTitle')}
+          </h1>
+          <div className="mt-1.5 flex items-start gap-2 text-[14px] leading-snug text-[var(--ink-muted)]">
+            <span>{t('dispatch.pageSubtitle')}</span>
             <button
               type="button"
-              className={pageInfoButton}
+              className={cn(pageInfoButton, 'mt-0.5 shrink-0')}
               title={helpDespachosTitle}
               aria-label={t('dispatch.pageTitle')}
             >
               <Info className="h-4 w-4" />
             </button>
+          </div>
+          <OperateOnly>
+            <DialogTrigger asChild>
+              <Button
+                className="mt-2 h-[42px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)] disabled:opacity-50"
+                disabled={!salesOrders?.length}
+              >
+                <PinePlusIcon size={20} strokeWidth={2.1} />
+                {t('dispatch.newButton')}
+              </Button>
+            </DialogTrigger>
+          </OperateOnly>
         </div>
+        <div className="relative mt-2 h-[70px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[76px] w-[228px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
         </div>
-        <OperateOnly>
-          <DialogTrigger asChild>
-            <Button className="h-10 shrink-0 gap-2 rounded-xl px-4 shadow-sm" disabled={!salesOrders?.length}>
-              <Plus className="h-4 w-4" />
-              {t('dispatch.newButton')}
-            </Button>
-          </DialogTrigger>
-        </OperateOnly>
-      </div>
+      </header>
 
       <header
         data-dispatch-desktop-hero
@@ -1574,128 +1727,132 @@ export function DispatchesPage() {
           </DialogContent>
       </Dialog>
 
-      <section aria-labelledby="dp-kpis" className="space-y-4 lg:hidden">
-        <h2 id="dp-kpis" className="sr-only">
+      <section data-dispatch-mobile-kpis aria-labelledby="dp-kpis" className="space-y-2 lg:hidden">
+        <h2 id="dp-kpis" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
           {t('dispatch.srKpis')}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('dispatch.kpi.total')}</p>
-            <p className={kpiValueLg}>{formatCount(dispatchKpis.totalDespachos)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.totalNote')}</p>
-                    </div>
-          <div className={cn(kpiCard, dispatchKpis.pendientes > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('dispatch.kpi.pending')}</p>
-            <p className={cn(kpiValueLg, dispatchKpis.pendientes > 0 ? 'text-amber-700' : 'text-green-700')}>
-              {formatCount(dispatchKpis.pendientes)}
-            </p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.pendingNote')}</p>
-          </div>
-          <div className={kpiCard}>
-            <p className={kpiLabel}>{t('dispatch.kpi.confirmed')}</p>
-            <p className={kpiValueLg}>{formatCount(dispatchKpis.confirmados)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.confirmedNote')}</p>
-          </div>
-          <div className={cn(kpiCard, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('dispatch.kpi.dispatched')}</p>
-            <p className={cn(kpiValueLg, 'text-green-700')}>{formatCount(dispatchKpis.despachados)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.dispatchedNote')}</p>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className={cn(kpiCardSm, 'border-blue-200 bg-blue-50')}>
-            <p className={kpiLabel}>{t('dispatch.kpi.totalBoxes')}</p>
-            <p className={cn(kpiValueMd, 'text-blue-700')}>{formatCount(dispatchKpis.totalCajas)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.totalBoxesNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('dispatch.kpi.totalLb')}</p>
-            <p className={kpiValueMd}>{dispatchKpis.totalLb != null ? formatLb(dispatchKpis.totalLb, 2) : '—'}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.totalLbNote')}</p>
-          </div>
-          <div className={cn(kpiCardSm, 'border-green-200 bg-green-50')}>
-            <p className={kpiLabel}>{t('dispatch.kpi.sales')}</p>
-            <p className={cn(kpiValueMd, 'text-green-700')}>{dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—'}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.salesNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('dispatch.kpi.pricePerLb')}</p>
-            <p className={kpiValueMd}>{dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)} / lb` : '—'}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.pricePerLbNote')}</p>
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('dispatch.kpi.ptUnits')}</p>
-            <p className={kpiValueMd}>{formatCount(dispatchTraceKpis.ptUnits)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.ptUnitsNote')}</p>
-          </div>
-          <div className={kpiCardSm}>
-            <p className={kpiLabel}>{t('dispatch.kpi.ptStock')}</p>
-            <p className={kpiValueMd}>{formatCount(dispatchTraceKpis.ptStock)}</p>
-            <p className={kpiFootnote}>{t('dispatch.kpi.ptStockNote')}</p>
-          </div>
-        </div>
-        <div
-          className={cn(
-            'grid gap-3',
-            dispatchKpis.conAlertas > 0 ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]' : 'sm:grid-cols-2',
-          )}
-        >
-          <div
-            className={cn(
-              'rounded-2xl border px-4 py-4',
-              dispatchKpis.conAlertas > 0
-                ? 'border-amber-200/90 bg-amber-50/50'
-                : 'border-slate-100/90 bg-slate-50/40',
-            )}
-          >
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{t('dispatch.kpi.withAlerts')}</p>
-            <p
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              label: t('dispatch.kpi.total'),
+              value: formatCount(dispatchKpis.totalDespachos),
+              note: t('dispatch.kpi.totalNote'),
+              Icon: PineDispatchTruckIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('dispatch.kpi.pending'),
+              value: formatCount(dispatchKpis.pendientes),
+              note: t('dispatch.kpi.pendingNote'),
+              Icon: PineSnowflakeIcon,
+              card: dispatchKpis.pendientes > 0 ? 'border-amber-200/90 bg-amber-50/50' : 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well: dispatchKpis.pendientes > 0 ? 'bg-amber-100 text-amber-950' : 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('dispatch.kpi.confirmed'),
+              value: formatCount(dispatchKpis.confirmados),
+              note: t('dispatch.kpi.confirmedNote'),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('dispatch.kpi.dispatched'),
+              value: formatCount(dispatchKpis.despachados),
+              note: t('dispatch.kpi.dispatchedNote'),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, note, Icon, card, well }) => (
+            <div
+              key={label}
               className={cn(
-                'mt-2 text-xl font-semibold tabular-nums',
-                dispatchKpis.conAlertas > 0 ? 'text-amber-950' : 'text-slate-800',
+                kpiCard,
+                'min-h-[112px] flex-row items-start gap-2.5 rounded-[var(--radius-lg)] px-3 py-3',
+                card,
               )}
             >
-              {formatCount(dispatchKpis.conAlertas)}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">{t('dispatch.kpi.withAlertsNote')}</p>
+              <span className={cn('inline-flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-[30px] w-[30px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-serif text-[12px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
+                <p className="mt-1 font-serif text-[20px] font-bold tabular-nums leading-tight tracking-[-0.65px] text-[var(--ink)]">{value}</p>
+                <p className="mt-1 text-[11px] leading-tight text-[var(--ink-muted)]">{note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div data-dispatch-mobile-secondary className="grid grid-cols-1 gap-1.5">
+          {[
+            { label: t('dispatch.kpi.totalBoxes'), value: formatCount(dispatchKpis.totalCajas), note: t('dispatch.kpi.totalBoxesNote'), Icon: PineBoxesIcon },
+            { label: t('dispatch.kpi.totalLb'), value: dispatchKpis.totalLb != null ? formatLb(dispatchKpis.totalLb, 2) : '—', note: t('dispatch.kpi.totalLbNote'), Icon: PineWeightIcon },
+            { label: t('dispatch.kpi.sales'), value: dispatchKpis.totalVentas != null ? `$${formatMoney(dispatchKpis.totalVentas)}` : '—', note: t('dispatch.kpi.salesNote'), Icon: PineDocumentIcon },
+            { label: t('dispatch.kpi.pricePerLb'), value: dispatchKpis.avgPricePerLb != null ? `$${formatMoney(dispatchKpis.avgPricePerLb)} / lb` : '—', note: t('dispatch.kpi.pricePerLbNote'), Icon: PineWeightIcon },
+          ].map(({ label, value, note, Icon }) => (
+            <div key={label} className="flex min-h-[42px] items-center justify-between gap-2 rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--stone-100)] text-[var(--ink-muted)]" aria-hidden>
+                  <Icon size={16} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{label}</p>
+                  <p className="truncate text-[10px] text-[var(--ink-muted)]">{note}</p>
+                </div>
+              </div>
+              <p className="shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{value}</p>
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="flex min-h-[42px] flex-col justify-center rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.ptUnits')}</p>
+              <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(dispatchTraceKpis.ptUnits)}</p>
+            </div>
+            <div className="flex min-h-[42px] flex-col justify-center rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.ptStock')}</p>
+              <p className="font-serif text-[18px] font-semibold tabular-nums leading-none text-[var(--ink)]">{formatCount(dispatchTraceKpis.ptStock)}</p>
+            </div>
           </div>
-          <div className={cn(contentCard, 'px-4 py-4')}>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dispatch.kpi.topVolume')}</p>
-            <ol className="mt-2 list-none space-y-1.5 text-sm text-slate-700">
-              {dispatchKpis.topClientesCajas.length === 0 ? (
-                <li className="text-slate-400">{t('dispatch.kpi.noData')}</li>
-              ) : (
-                dispatchKpis.topClientesCajas.map(([name, cajas], i) => (
-                  <li key={name} className="flex justify-between gap-2 border-b border-slate-100/90 pb-1.5 last:border-0 last:pb-0">
-                    <span className="min-w-0 truncate text-xs font-medium" title={name}>
-                      {i + 1}. {name}
-                        </span>
-                    <span className="shrink-0 tabular-nums text-xs text-slate-500">{formatCount(cajas)}</span>
-                  </li>
-                ))
-              )}
-            </ol>
+          <div className={cn('flex min-h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3', dispatchKpis.conAlertas > 0 ? 'border-amber-200/90 bg-amber-50/50' : 'border-[var(--stone-200)] bg-white/65')}>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.withAlerts')}</p>
+              <p className="truncate text-[10px] text-[var(--ink-muted)]">{t('dispatch.kpi.withAlertsNote')}</p>
+            </div>
+            <p className={cn('shrink-0 font-serif text-[18px] font-semibold tabular-nums leading-none', dispatchKpis.conAlertas > 0 ? 'text-amber-950' : 'text-[var(--ink)]')}>{formatCount(dispatchKpis.conAlertas)}</p>
           </div>
-          <div className={cn(contentCard, 'px-4 py-4')}>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{t('dispatch.kpi.topValue')}</p>
-            <ol className="mt-2 list-none space-y-1.5 text-sm text-slate-700">
-              {dispatchKpis.topClientesValor.length === 0 ? (
-                <li className="text-slate-400">{t('dispatch.kpi.noData')}</li>
-              ) : (
-                dispatchKpis.topClientesValor.map(([name, val], i) => (
-                  <li key={name} className="flex justify-between gap-2 border-b border-slate-100/90 pb-1.5 last:border-0 last:pb-0">
-                    <span className="min-w-0 truncate text-xs font-medium" title={name}>
-                      {i + 1}. {name}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-xs text-slate-500">${formatMoney(val)}</span>
+          <div className="rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.topVolume')}</p>
+            {dispatchKpis.topClientesCajas.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">{t('dispatch.kpi.noData')}</p>
+            ) : (
+              <ol className="mt-0.5 space-y-0.5">
+                {dispatchKpis.topClientesCajas.map(([name, cajas], i) => (
+                  <li key={name} className="flex justify-between gap-2 text-[11px] text-[var(--ink)]">
+                    <span className="min-w-0 truncate" title={name}>{i + 1}. {name}</span>
+                    <span className="shrink-0 tabular-nums">{formatCount(cajas)}</span>
                   </li>
-                ))
-              )}
-            </ol>
-                    </div>
-                  </div>
+                ))}
+              </ol>
+            )}
+          </div>
+          <div className="rounded-[8px] border border-[var(--stone-200)] bg-white/65 px-3 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.kpi.topValue')}</p>
+            {dispatchKpis.topClientesValor.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">{t('dispatch.kpi.noData')}</p>
+            ) : (
+              <ol className="mt-0.5 space-y-0.5">
+                {dispatchKpis.topClientesValor.map(([name, val], i) => (
+                  <li key={name} className="flex justify-between gap-2 text-[11px] text-[var(--ink)]">
+                    <span className="min-w-0 truncate" title={name}>{i + 1}. {name}</span>
+                    <span className="shrink-0 tabular-nums">${formatMoney(val)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
       </section>
 
       <section
@@ -1840,55 +1997,40 @@ export function DispatchesPage() {
         </div>
       </section>
 
-      <div className={cn(filterPanel, 'lg:hidden')}>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className={signalsTitle}>{t('dispatch.filters.title')}</span>
-          <button
-            type="button"
-            className={pageInfoButton}
-            title="Cliente comercial, rango de fechas del despacho y búsqueda por BOL, id, cliente u orden."
-            aria-label="Ayuda filtros"
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dispatch.filters.from')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterFechaDesde}
-              onChange={(e) => setFilterFechaDesde(e.target.value)}
-            />
-          </div>
-          <div className="grid min-w-[9.5rem] gap-1.5">
-            <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dispatch.filters.to')}</Label>
-            <Input
-              type="date"
-              className={cn(filterInputClass, 'h-9')}
-              value={filterFechaHasta}
-              onChange={(e) => setFilterFechaHasta(e.target.value)}
-            />
-          </div>
+      <div
+        data-dispatch-mobile-filters
+        className="space-y-2 rounded-[12px] border border-[var(--stone-300)] bg-white/70 p-3 lg:hidden"
+      >
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            className="h-9 shrink-0"
+            variant={todayActive ? 'default' : 'outline'}
+            className={cn(
+              'h-11 gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold',
+              todayActive
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               const d = localDateYmd();
               setFilterFechaDesde(d);
               setFilterFechaHasta(d);
             }}
           >
+            <CalendarDays className="h-4 w-4" strokeWidth={2} aria-hidden />
             {t('dispatch.filters.today')}
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant={seeAllActive ? 'default' : 'outline'}
             size="sm"
-            className="h-9 shrink-0 text-slate-600"
+            className={cn(
+              'h-11 rounded-[8px] px-3 text-[13px] font-semibold',
+              seeAllActive
+                ? 'bg-[var(--olive-700)] text-white hover:bg-[var(--olive-600)]'
+                : 'border-[var(--stone-300)] bg-white',
+            )}
             onClick={() => {
               setFilterFechaDesde('');
               setFilterFechaHasta('');
@@ -1897,32 +2039,61 @@ export function DispatchesPage() {
             {t('dispatch.filters.clearDates')}
           </Button>
         </div>
-        <div className="grid gap-2 lg:grid-cols-12 lg:items-end">
-          <div className="grid gap-2 lg:col-span-4">
-            <Label className="text-xs text-slate-500">{t('dispatch.filters.client')}</Label>
-            <select
-              className={cn(filterSelectClass, 'w-full max-w-none')}
-              value={filterClienteComercial}
-              onChange={(e) => setFilterClienteComercial(Number(e.target.value))}
-            >
-              <option value={0}>{t('dispatch.filters.clientAll')}</option>
-              {(commercialClients ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.codigo} — {c.nombre}
-                </option>
-              ))}
-            </select>
+        <Input
+          className={cn(filterInputClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+          placeholder={t('dispatch.filters.searchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label={t('dispatch.filters.search')}
+        />
+        <select
+          className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+          value={filterClienteComercial}
+          onChange={(e) => setFilterClienteComercial(Number(e.target.value))}
+          aria-label={t('dispatch.filters.client')}
+        >
+          <option value={0}>{t('dispatch.filters.client')} · {t('dispatch.filters.clientAll')}</option>
+          {(commercialClients ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.codigo} — {c.nombre}
+            </option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-11 w-full gap-1.5 rounded-[8px] border-[var(--stone-300)] bg-white px-4 text-[12px] font-semibold"
+          onClick={() => setShowMoreFilters((v) => !v)}
+        >
+          <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+          {showMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+          <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', showMoreFilters ? 'rotate-180' : '')} />
+        </Button>
+        {showMoreFilters ? (
+          <div className="grid gap-2 border-t border-[var(--stone-200)] pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('dispatch.filters.from')}</Label>
+                <Input
+                  type="date"
+                  className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white text-[12px]')}
+                  value={filterFechaDesde}
+                  onChange={(e) => setFilterFechaDesde(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('dispatch.filters.to')}</Label>
+                <Input
+                  type="date"
+                  className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white text-[12px]')}
+                  value={filterFechaHasta}
+                  onChange={(e) => setFilterFechaHasta(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-          <div className="grid gap-2 lg:col-span-8">
-            <Label className="text-xs text-slate-500">{t('dispatch.filters.search')}</Label>
-            <Input
-              className={filterInputClass}
-              placeholder={t('dispatch.filters.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <div
@@ -2034,15 +2205,16 @@ export function DispatchesPage() {
 
       <section
         data-dispatch-desktop-list
-        className="space-y-3 lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
+        data-dispatch-mobile-list
+        className="space-y-0 overflow-hidden rounded-[12px] border border-[var(--stone-300)] bg-white lg:mt-[14px] lg:space-y-0 lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white"
         aria-labelledby="dp-listado"
       >
-        <div className="flex flex-wrap items-end justify-between gap-2 lg:min-h-[60px] lg:items-center lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
+        <div className="block border-b border-[var(--stone-200)] p-3 lg:flex lg:min-h-[60px] lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-[var(--stone-200)] lg:px-[14px] lg:py-2">
           <div>
-            <h2 id="dp-listado" className={cn(sectionTitle, 'lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
+            <h2 id="dp-listado" className={cn(sectionTitle, 'max-lg:font-serif max-lg:text-[20px] max-lg:font-semibold max-lg:text-[var(--ink)] lg:font-serif lg:text-[21px] lg:leading-tight lg:text-[var(--ink)]')}>
               {t('dispatch.table.title')}
             </h2>
-            <p className={cn(sectionHint, 'lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
+            <p className={cn(sectionHint, 'max-lg:mt-1 max-lg:text-[11px] max-lg:text-[var(--ink-muted)] lg:mt-0 lg:text-[12px] lg:text-[var(--ink-muted)]')}>
               {viewMode === 'detailed'
                 ? t('dispatch.table.hintDetailed', { count: filtered.length })
                 : t('dispatch.table.hintCompact', {
@@ -2056,15 +2228,15 @@ export function DispatchesPage() {
                   })}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 lg:border-[var(--stone-300)]">
+          <div className="mt-3 flex w-full flex-col gap-2 lg:mt-0 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="inline-flex w-full rounded-lg border border-slate-200 bg-white p-1 max-lg:rounded-[8px] max-lg:border-[var(--stone-300)] lg:w-auto lg:border-[var(--stone-300)]">
               <Button
                 type="button"
                 variant={viewMode === 'compact' ? 'default' : 'ghost'}
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'compact' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'compact' ? 'max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('compact')}
               >
@@ -2075,19 +2247,19 @@ export function DispatchesPage() {
                 variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                 size="sm"
                 className={cn(
-                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px]',
-                  viewMode === 'detailed' ? 'lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
+                  'h-8 rounded-md px-3 text-xs lg:h-9 lg:px-3.5 lg:text-[12px] max-lg:flex-1 max-lg:shadow-none',
+                  viewMode === 'detailed' ? 'max-lg:bg-[var(--olive-700)] max-lg:hover:bg-[var(--olive-600)] lg:bg-[var(--olive-700)] lg:hover:bg-[var(--olive-600)]' : '',
                 )}
                 onClick={() => setViewMode('detailed')}
               >
                 {t('dispatch.table.viewDetailed')}
               </Button>
             </div>
-            <details className="group">
-              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
+            <details className="group w-full lg:w-auto">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 max-lg:flex max-lg:h-11 max-lg:items-center max-lg:justify-center max-lg:border-[var(--stone-300)] max-lg:px-2.5 max-lg:py-2 max-lg:text-[12px] max-lg:font-semibold max-lg:text-[var(--ink-muted)] max-lg:hover:bg-[var(--stone-100)] lg:h-9 lg:border-[var(--stone-300)] lg:px-3 lg:text-[12px] lg:leading-7 lg:text-[var(--ink-muted)] [&::-webkit-details-marker]:hidden">
                 {t('dispatch.table.criteria')}
               </summary>
-              <div className="mt-1 max-w-[min(22rem,calc(100vw-2rem))] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-600 shadow-sm">
+              <div className="mt-1 w-full max-w-none space-y-1 rounded-md border border-slate-200 bg-white p-3 text-[11px] leading-snug text-slate-600 shadow-sm max-lg:border-[var(--stone-300)] max-lg:shadow-none lg:max-w-[min(22rem,calc(100vw-2rem))]">
                 <p>
                   <span className="font-semibold text-emerald-700">{t('dispatch.table.criteriaExecuted')}</span>{' '}
                   {t('dispatch.table.criteriaExecutedDesc')}
@@ -2114,11 +2286,32 @@ export function DispatchesPage() {
         </div>
 
       {filtered.length === 0 ? (
-          <p className={cn(emptyStatePanel, 'lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>
+          <p data-dispatch-mobile-empty className={cn(emptyStatePanel, 'max-lg:mx-3 max-lg:mb-3 max-lg:flex max-lg:min-h-[170px] max-lg:items-center max-lg:justify-center max-lg:rounded-[11px] max-lg:border-[var(--stone-200)] max-lg:bg-[#FBFCFD] max-lg:px-5 max-lg:py-10 max-lg:text-[13px] max-lg:leading-snug max-lg:text-[var(--bluegray-700)] lg:m-3 lg:min-h-[180px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)] lg:py-16 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]')}>
             {dispatches?.length === 0 ? t('dispatch.table.emptyAll') : t('dispatch.table.emptyFilter')}
           </p>
-        ) : viewMode === 'compact' ? (
-        <div className="space-y-4 lg:space-y-3 lg:p-3">
+        ) : (
+          <>
+            <div className="space-y-3 px-3 pb-3 lg:hidden">
+              {viewMode === 'compact'
+                ? groupedByClient.map((group) => (
+                    <div key={group.key} className="space-y-2">
+                      <div className="rounded-[10px] border border-[var(--stone-200)] bg-[var(--stone-50)] px-3 py-2">
+                        <p className="font-serif text-[15px] font-semibold text-[var(--ink)]">{group.label}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
+                          <span className="font-semibold text-[var(--ink)]">{formatCount(group.totalBoxes)}</span> {t('dispatch.table.groupBoxes')}
+                          {' · '}
+                          <span className="font-semibold text-[var(--ink)]">{group.totalLb > 0 ? formatLb(group.totalLb, 2) : '—'}</span> lb
+                          {' · '}
+                          {formatCount(group.count)} {t('dispatch.table.groupDispatches')}
+                        </p>
+                      </div>
+                      {group.rows.map((d) => renderDispatchMobileCard(d))}
+                    </div>
+                  ))
+                : filtered.map((d) => renderDispatchMobileCard(d))}
+            </div>
+            {viewMode === 'compact' ? (
+        <div className="hidden space-y-4 lg:block lg:space-y-3 lg:p-3">
             {groupedByClient.map((group) => (
               <div key={group.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white lg:rounded-[10px] lg:border-[var(--stone-300)]">
                 <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)]">
@@ -2467,8 +2660,8 @@ export function DispatchesPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className={cn(tableShell, 'lg:rounded-none lg:border-0 lg:shadow-none')}>
+            ) : (
+          <div className={cn(tableShell, 'hidden lg:block lg:rounded-none lg:border-0 lg:shadow-none')}>
             <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className={tableHeaderRow}>
@@ -3021,7 +3214,9 @@ export function DispatchesPage() {
               </TableBody>
             </Table>
         </div>
-      )}
+            )}
+          </>
+        )}
       </section>
 
       <Dialog
