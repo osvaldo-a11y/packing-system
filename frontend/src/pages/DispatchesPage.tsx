@@ -1553,7 +1553,6 @@ export function DispatchesPage() {
         </div>
       </header>
           <DialogContent
-            hideCloseButton
             data-new-dispatch-dialog
             className={cn(
               'max-h-[90vh] overflow-y-auto sm:max-w-3xl [&>button]:hidden',
@@ -1562,7 +1561,7 @@ export function DispatchesPage() {
           >
             <DialogHeader
               data-new-dispatch-header
-              className="relative overflow-hidden lg:min-h-[112px] lg:shrink-0 lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
+              className="relative overflow-hidden max-lg:overflow-visible lg:min-h-[112px] lg:shrink-0 lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
             >
               <img
                 src={appBranding.landscapeUrl}
@@ -1571,7 +1570,7 @@ export function DispatchesPage() {
                 aria-hidden
               />
               <div className="relative z-[1] flex items-center justify-between lg:items-start lg:gap-4">
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 space-y-1 lg:space-y-1">
                   <DialogTitle className="flex items-center gap-2 lg:font-serif lg:text-[26px] lg:font-bold lg:leading-tight lg:tracking-tight lg:text-[var(--ink)]">
                     <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 lg:bg-[var(--olive-700)]" />
                     {t('dispatch.dialog.title')}
@@ -1635,7 +1634,7 @@ export function DispatchesPage() {
                 <div className="space-y-3 lg:contents">
               <section
                 data-new-dispatch-step1
-                className="lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
+                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
               >
                 <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
                   <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
@@ -1679,7 +1678,7 @@ export function DispatchesPage() {
               </section>
               <section
                 data-new-dispatch-step2
-                className="max-lg:space-y-3 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
+                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
               >
                 <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
                   <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
@@ -1738,7 +1737,7 @@ export function DispatchesPage() {
                 <div className="space-y-3 lg:contents">
               <section
                 data-new-dispatch-step3
-                className="max-lg:space-y-3 lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
+                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
               >
                 <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
                   <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
@@ -1747,7 +1746,7 @@ export function DispatchesPage() {
                     <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('dispatch.dialog.step3Hint')}</p>
                   </div>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-2">
+                <div className="max-lg:contents lg:grid lg:grid-cols-2 lg:gap-3">
               <div className="grid gap-2">
                 <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                   {t('dispatch.dialog.dateLabel')}
@@ -1808,7 +1807,7 @@ export function DispatchesPage() {
               ) : null}
               <section
                 data-new-dispatch-step4
-                className="lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
+                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
               >
                 <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
                   <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
