@@ -78,7 +78,6 @@ import {
   operationalModalStepBadge,
   operationalModalStepTitle,
   operationalModalTitleClass,
-  pageHeaderRow,
   pageSubtitle,
   pageTitle,
 } from '@/lib/page-ui';
@@ -1003,7 +1002,7 @@ export function MaterialsPage() {
 
   return (
     <div className="font-inter space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-3 lg:bg-[#F9F7F5] lg:px-7 lg:pb-8">
-      <div className={cn(pageHeaderRow, 'lg:hidden')}>
+      <div className="flex flex-col gap-3 lg:hidden">
         <div>
           <h1 className={pageTitle}>{t('materials.pageTitle')}</h1>
           <p className={pageSubtitle}>{t('materials.pageSubtitle')}</p>
