@@ -64,6 +64,7 @@ import {
   kpiFootnote,
   kpiLabel,
   kpiValueLg,
+  modalFormPrimaryButton,
   operationalModalSectionHeadingRow,
   operationalModalStepBadge,
   operationalModalStepTitle,
@@ -1553,15 +1554,18 @@ export function DispatchesPage() {
         </div>
       </header>
           <DialogContent
+            hideCloseButton
+            fullScreenMobile
             data-new-dispatch-dialog
             className={cn(
               'max-h-[90vh] overflow-y-auto sm:max-w-3xl [&>button]:hidden',
+              'max-lg:flex max-lg:h-full max-lg:max-h-none max-lg:w-full max-lg:flex-col max-lg:gap-0 max-lg:overflow-hidden max-lg:overflow-x-hidden max-lg:bg-[var(--stone-50)] max-lg:p-0',
               'lg:flex lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:w-full lg:min-w-0 lg:max-w-[min(1050px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)]',
             )}
           >
             <DialogHeader
               data-new-dispatch-header
-              className="relative overflow-hidden max-lg:overflow-visible lg:min-h-[112px] lg:shrink-0 lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
+              className="relative overflow-hidden max-lg:border-b max-lg:border-[var(--stone-200)] max-lg:bg-[var(--stone-50)] max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:min-h-[112px] lg:shrink-0 lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
             >
               <img
                 src={appBranding.landscapeUrl}
@@ -1569,18 +1573,33 @@ export function DispatchesPage() {
                 className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
                 aria-hidden
               />
-              <div className="relative z-[1] flex items-center justify-between lg:items-start lg:gap-4">
-                <div className="min-w-0 space-y-1 lg:space-y-1">
-                  <DialogTitle className="flex items-center gap-2 lg:font-serif lg:text-[26px] lg:font-bold lg:leading-tight lg:tracking-tight lg:text-[var(--ink)]">
-                    <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 lg:bg-[var(--olive-700)]" />
+              <div className="lg:hidden">
+                <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)]" aria-hidden />
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)]"
+                  aria-hidden
+                />
+              </div>
+              <div className="relative z-[1] flex items-start justify-between gap-4">
+                <div className="min-w-0 space-y-1">
+                  <DialogTitle className="flex items-center gap-2 font-serif text-[23px] font-bold tracking-tight text-[var(--ink)] lg:text-[26px] lg:leading-tight">
+                    <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" />
                     {t('dispatch.dialog.title')}
                   </DialogTitle>
-                  <p className="hidden text-[13px] text-[var(--ink-muted)] lg:block lg:text-[14px]">{t('dispatch.dialog.subtitle')}</p>
+                  <p className="text-[13px] text-[var(--ink-muted)] lg:text-[14px]">{t('dispatch.dialog.subtitle')}</p>
+                  <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)] lg:hidden">
+                    <span className="block">FRUTA DE</span>
+                    <span className="block">NUESTRA TIERRA.</span>
+                    <span className="block">UN FUTURO</span>
+                    <span className="block">MÁS BRILLANTE.</span>
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDispatchOpen(false)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted lg:h-9 lg:w-9 lg:rounded-full lg:border-[var(--stone-300)] lg:bg-white lg:text-[var(--ink-muted)] lg:hover:bg-[var(--sage-100)]"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)] lg:h-9 lg:w-9"
                   aria-label={t('dispatch.dialog.closeAriaLabel')}
                 >
                   <X size={16} />
@@ -1624,30 +1643,30 @@ export function DispatchesPage() {
                 }
                 createDispatchMut.mutate({ ...v, pt_packing_list_ids: selectedPlIds });
               })}
-              className="grid gap-4 py-2 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-0 lg:py-0"
+              className="flex min-h-0 flex-1 flex-col gap-0 py-0 max-lg:min-h-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-0 lg:py-0"
             >
               <div
                 data-new-dispatch-body
-                className="contents lg:block lg:min-h-0 lg:flex-1 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
+                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto max-lg:px-[14px] max-lg:py-3 max-lg:pb-24 lg:px-7 lg:py-4"
               >
-              <div className="grid gap-4 md:grid-cols-2 lg:flex lg:min-h-0 lg:flex-col lg:gap-4">
-                <div className="space-y-3 lg:contents">
+              <div className="flex min-h-0 min-w-0 flex-col gap-4 md:max-lg:grid md:max-lg:grid-cols-2 lg:flex lg:min-h-0 lg:flex-col lg:gap-4">
+                <div className="space-y-4 lg:contents">
               <section
                 data-new-dispatch-step1
-                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
+                className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--sage-100)]/55 px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
-                  <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                  <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
                   <div className="min-w-0">
-                    <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('dispatch.dialog.step1Title')}</h3>
-                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('dispatch.dialog.step1Hint')}</p>
+                    <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step1Title')}</h3>
+                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">{t('dispatch.dialog.step1Hint')}</p>
                   </div>
                 </div>
               <div className="grid gap-2">
-                    <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                       {t('dispatch.dialog.plLabel')}
                     </Label>
-                    <div className="max-h-[180px] space-y-2 overflow-y-auto rounded-md border border-border p-2 text-sm lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
+                    <div className="max-h-[180px] space-y-2 overflow-y-auto rounded-md border border-border p-2 text-sm max-lg:max-h-[220px] max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:p-3 lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
                       {(linkablePtPl ?? []).length === 0 ? (
                         <p className="text-muted-foreground">{t('dispatch.dialog.plEmpty')}</p>
                       ) : (
@@ -1678,21 +1697,21 @@ export function DispatchesPage() {
               </section>
               <section
                 data-new-dispatch-step2
-                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
+                className="rounded-[10px] border border-[var(--stone-300)] bg-white px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
-                  <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                  <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
                   <div className="min-w-0">
-                    <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('dispatch.dialog.step2Title')}</h3>
-                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('dispatch.dialog.step2Hint')}</p>
+                    <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step2Title')}</h3>
+                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">{t('dispatch.dialog.step2Hint')}</p>
                   </div>
                 </div>
                   <div className="grid gap-2">
-                    <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                       {t('dispatch.dialog.orderLabel')}
                     </Label>
                 <select
-                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]"
+                      className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]"
                       disabled={
                         dispatchPedidoClienteId == null ||
                         pedidoOptions.length === 0 ||
@@ -1727,43 +1746,43 @@ export function DispatchesPage() {
                       <p className="text-[11px] leading-snug text-muted-foreground">{t('dispatch.dialog.orderChoosePl')}</p>
                     )}
               </div>
-                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm lg:mt-3 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--stone-50)] lg:mt-3 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-[var(--stone-50)]">
                     {t('dispatch.dialog.clientPreview')}{' '}
                     {selectedSalesOrder?.cliente_nombre?.trim() || `Cliente #${selectedSalesOrder?.cliente_id ?? '—'}`}{' '}
                     <span className="font-mono text-xs">#{selectedSalesOrder?.id ?? '—'}</span>
               </div>
               </section>
                 </div>
-                <div className="space-y-3 lg:contents">
+                <div className="space-y-4 lg:contents">
               <section
                 data-new-dispatch-step3
-                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4"
+                className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--sage-100)]/55 px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
-                  <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                  <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
                   <div className="min-w-0">
-                    <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('dispatch.dialog.step3Title')}</h3>
-                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('dispatch.dialog.step3Hint')}</p>
+                    <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step3Title')}</h3>
+                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">{t('dispatch.dialog.step3Hint')}</p>
                   </div>
                 </div>
-                <div className="max-lg:contents lg:grid lg:grid-cols-2 lg:gap-3">
+                <div className="grid gap-3 max-lg:grid-cols-1 lg:grid lg:grid-cols-2 lg:gap-3">
               <div className="grid gap-2">
-                <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                   {t('dispatch.dialog.dateLabel')}
                 </Label>
                 <Input
                   type="datetime-local"
-                  className="lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
+                  className="max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
                   {...dispatchForm.register('fecha_despacho')}
                 />
               </div>
               <div className="grid gap-2">
-                <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                   {t('dispatch.dialog.bolLabel')}
                 </Label>
                 <Input
                   placeholder={t('dispatch.dialog.bolPlaceholder')}
-                  className="lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
+                  className="max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
                   {...dispatchForm.register('numero_bol')}
                 />
                     {inheritedBolPreview.conflict ? (
@@ -1777,23 +1796,23 @@ export function DispatchesPage() {
                     )}
               </div>
               <div className="grid gap-2">
-                <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                   {t('dispatch.dialog.tempLabel')}
                 </Label>
                 <Input
                   type="number"
                   step="0.01"
-                  className="lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
+                  className="max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
                   {...dispatchForm.register('temperatura_f')}
                 />
               </div>
                   <div className="grid gap-2">
-                    <Label className="lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">
                       {t('dispatch.dialog.thermographLabel')}
                     </Label>
                     <Input
                       placeholder={t('dispatch.dialog.thermographPlaceholder')}
-                      className="lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
+                      className="max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white"
                       {...dispatchForm.register('thermograph_serial')}
                     />
                   </div>
@@ -1807,23 +1826,23 @@ export function DispatchesPage() {
               ) : null}
               <section
                 data-new-dispatch-step4
-                className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white lg:p-4"
+                className="rounded-[10px] border border-[var(--stone-300)] bg-white px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'hidden lg:mb-4 lg:flex lg:gap-3')}>
-                  <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                  <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
                   <div className="min-w-0">
-                    <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('dispatch.dialog.step4Title')}</h3>
-                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('dispatch.dialog.step4Hint')}</p>
+                    <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step4Title')}</h3>
+                    <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">{t('dispatch.dialog.step4Hint')}</p>
                   </div>
                 </div>
-              <details className="rounded-md border border-border text-sm lg:rounded-[9px] lg:border-[var(--stone-300)]">
-                <summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground hover:text-foreground">
+              <details className="rounded-md border border-border text-sm max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] lg:rounded-[9px] lg:border-[var(--stone-300)]">
+                <summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground hover:text-foreground max-lg:min-h-12 max-lg:py-3">
                   {t('dispatch.dialog.advancedTitle')}
                 </summary>
                 <div className="space-y-2 border-t border-border px-3 py-3">
                   <Label className="text-xs font-normal text-muted-foreground">{t('dispatch.dialog.advancedHint')}</Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]"
+                    className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]"
                     {...dispatchForm.register('client_id', { valueAsNumber: true })}
                   >
                     <option value={0}>{t('dispatch.dialog.advancedDefault')}</option>
@@ -1841,9 +1860,9 @@ export function DispatchesPage() {
               </section>
               <section
                 data-new-dispatch-review
-                className="hidden rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5 lg:block"
+                className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--stone-100)]/70 p-3.5 max-lg:px-[14px] max-lg:py-[14px]"
               >
-                <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)]">{t('dispatch.dialog.stepReviewTitle')}</p>
+                <p className="mb-3 font-serif text-[17px] font-semibold text-[var(--ink)] max-lg:text-[18px]">{t('dispatch.dialog.stepReviewTitle')}</p>
                 <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
                   <div className="rounded-[9px] border border-[var(--stone-200)] bg-white px-3 py-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('dispatch.dialog.reviewPl')}</p>
@@ -1901,13 +1920,36 @@ export function DispatchesPage() {
                 </Button>
                 </div>
               </DialogFooter>
-              <DialogFooter className="lg:hidden">
-                <Button type="button" variant="outline" onClick={() => setDispatchOpen(false)}>
-                  {t('dispatch.dialog.cancelButton')}
-                </Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={createDispatchMut.isPending}>
-                  {createDispatchMut.isPending ? t('dispatch.dialog.creatingButton') : t('dispatch.dialog.createButton')}
-                </Button>
+              <DialogFooter
+                data-new-dispatch-footer-mobile
+                className="sticky bottom-0 z-10 hidden gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 max-lg:!flex max-lg:!flex-col"
+              >
+                <div className="flex w-full flex-nowrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 min-h-11 w-[36%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)]"
+                    onClick={() => setDispatchOpen(false)}
+                  >
+                    {t('dispatch.dialog.cancelButton')}
+                  </Button>
+                  <button
+                    type="submit"
+                    className={cn(modalFormPrimaryButton, 'inline-flex h-11 min-h-11 w-[62%] flex-none items-center justify-center gap-2 text-[13px]')}
+                    disabled={createDispatchMut.isPending}
+                  >
+                    {createDispatchMut.isPending ? t('dispatch.dialog.creatingButton') : t('dispatch.dialog.createButton')}
+                  </button>
+                </div>
+                <div className="flex items-center justify-center gap-1.5 text-[10px] leading-none text-[var(--ink-muted)]">
+                  <span>
+                    {t('dispatch.dialog.footerPl')}{' '}
+                    <span className="font-serif font-semibold text-[var(--ink)]">{selectedPlIds.length}</span>
+                    {' · '}
+                    {t('dispatch.dialog.footerBol')}{' '}
+                    <span className="font-serif font-semibold text-[var(--ink)]">{reviewBolValue || '—'}</span>
+                  </span>
+                </div>
               </DialogFooter>
             </form>
           </DialogContent>
