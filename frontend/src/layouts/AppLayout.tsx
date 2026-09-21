@@ -321,8 +321,9 @@ export function AppLayout() {
   const isStockModule = pathname.startsWith('/existencias-pt');
   const isPackingListsIndex = pathname === '/existencias-pt/packing-lists';
   const isDispatchesPage = pathname === '/dispatches';
-  const usesOperationalMobileNav = isReceptionsPage || isProcessesPage || isPtTagsPage || isStockModule || isDispatchesPage;
-  const usesApprovedMobileHeader = isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage;
+  const isMaterialsPage = pathname === '/packaging/materials';
+  const usesOperationalMobileNav = isReceptionsPage || isProcessesPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage;
+  const usesApprovedMobileHeader = isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage;
   const usesApprovedDesktopRail = isHomeDesktop || pathname === '/receptions';
   const usesApprovedDesktopTopbar = pathname === '/receptions';
   useEffect(() => {
@@ -509,7 +510,7 @@ export function AppLayout() {
             'sticky top-0 z-40 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[var(--stone-200)] bg-[var(--stone-50)] px-3 sm:px-4 lg:px-7',
             isHomeDesktop && 'max-md:h-[72px]',
             isProcessesPage && 'max-md:h-[72px]',
-            (isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage) && 'max-md:h-[48px]',
+            (isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage) && 'max-md:h-[48px]',
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -530,7 +531,7 @@ export function AppLayout() {
                   'pointer-events-none [&_img]:h-8',
                   isHomeDesktop && '[&_img]:h-[52px] [&_img]:max-w-[132px]',
                   isProcessesPage && 'max-md:[&_img]:h-[52px] max-md:[&_img]:max-w-[132px]',
-                  (isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage) && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
+                  (isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage) && '[&_img]:h-[30px] [&_img]:max-w-[79px]',
                 )}
               />
             </span>
@@ -579,7 +580,7 @@ export function AppLayout() {
                     usesApprovedDesktopTopbar && 'lg:h-9 lg:min-w-[206px] lg:justify-start lg:gap-2.5',
                   )}
                 >
-                  {isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage ? (
+                  {isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage ? (
                     <span className="inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full text-[var(--olive-700)] md:hidden">
                       <PineEllipsisIcon size={19} aria-hidden />
                     </span>
@@ -587,7 +588,7 @@ export function AppLayout() {
                   <span
                     className={cn(
                       'inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-[var(--sage-100)] text-[var(--olive-700)]',
-                      isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage ? 'max-md:hidden' : '',
+                      isReceptionsPage || isPtTagsPage || isStockModule || isDispatchesPage || isMaterialsPage ? 'max-md:hidden' : '',
                       isHomeDesktop && 'h-[30px] w-[30px] bg-[var(--pine-950)] text-white',
                       isHomeDesktop && 'max-md:!h-[29px] max-md:!w-[29px] max-md:!bg-[var(--sage-100)] max-md:!text-[var(--olive-700)]',
                       usesApprovedDesktopTopbar && 'lg:h-[30px] lg:w-[30px] lg:bg-[var(--pine-950)] lg:text-white',
@@ -647,6 +648,7 @@ export function AppLayout() {
             isPtTagsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
             isStockModule && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
             isDispatchesPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
+            isMaterialsPage && 'max-md:overflow-x-hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
           )}
         >
           <div key={pathname} className="animate-route-content mx-auto w-full max-w-full">

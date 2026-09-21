@@ -23,7 +23,6 @@ import {
   Search,
   Shrink,
   Tag,
-  Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -1001,26 +1000,59 @@ export function MaterialsPage() {
   }
 
   return (
-    <div className="font-inter space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-3 lg:bg-[#F9F7F5] lg:px-7 lg:pb-8">
-      <div className="flex flex-col gap-3 lg:hidden">
-        <div>
-          <h1 className={pageTitle}>{t('materials.pageTitle')}</h1>
-          <p className={pageSubtitle}>{t('materials.pageSubtitle')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="shrink-0 rounded-xl" type="button" onClick={() => openKardexPicker(0, 'compra')}>
-            {t('materials.kardexButton')}
-          </Button>
-          <Button type="button" variant="default" className={cn(btnToolbarPrimary, 'gap-2 rounded-xl')} onClick={() => setQuickOpen(true)}>
-            <Zap className="h-4 w-4" />
+    <div className="font-inter space-y-3 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-3 lg:bg-[#F9F7F5] lg:px-7 lg:pb-8">
+      <header
+        data-materials-mobile-hero
+        className="relative overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-2.5 pt-3 lg:hidden"
+      >
+        <div className="relative z-[1]">
+          <h1 className="font-serif text-[31px] font-semibold leading-none tracking-[-0.55px] text-[var(--ink)]">
+            {t('materials.pageTitle')}
+          </h1>
+          <p className="mt-1.5 text-[14px] leading-snug text-[var(--ink-muted)]">{t('materials.pageSubtitle')}</p>
+          <Button
+            type="button"
+            className="mt-2 h-[42px] w-full gap-2 rounded-[10px] bg-[var(--olive-700)] px-4 text-[15px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+            onClick={() => setQuickOpen(true)}
+          >
+            <PinePlusIcon size={20} strokeWidth={2.1} />
             {t('materials.quickButton')}
           </Button>
-          <Button variant="outline" className="shrink-0 gap-2 rounded-xl" type="button" onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t('materials.addButton')}
-          </Button>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-[10px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold leading-tight shadow-none hover:bg-[var(--stone-100)]"
+              onClick={() => openKardexPicker(0, 'compra')}
+            >
+              {t('materials.kardexButton')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-1 rounded-[10px] border-[var(--stone-300)] bg-white px-2 text-[12px] font-semibold leading-tight shadow-none hover:bg-[var(--stone-100)]"
+              onClick={() => setOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5 shrink-0" />
+              {t('materials.addButton')}
+            </Button>
+          </div>
         </div>
-      </div>
+        <div className="relative mt-2 h-[70px] overflow-hidden border-t border-[var(--stone-200)]">
+          <p className="absolute left-0 top-2 z-[1] w-[132px] text-[9px] font-medium uppercase leading-[1.45] tracking-[0.17em] text-[var(--olive-700)]">
+            <span className="block">FRUTA DE NUESTRA</span>
+            <span className="block">TIERRA.</span>
+            <span className="block">UN FUTURO MÁS</span>
+            <span className="block">BRILLANTE.</span>
+          </p>
+          <img
+            src={appBranding.landscapeUrl}
+            alt=""
+            className="pointer-events-none absolute bottom-[-4px] right-[-3px] h-[76px] w-[228px] max-w-none object-contain object-right-bottom opacity-[0.72] contrast-[0.97] brightness-[1.04] saturate-[0.62] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.25)_18%,black_42%,black_100%)]"
+            aria-hidden
+          />
+        </div>
+      </header>
 
       <header
         data-materials-desktop-hero
@@ -1776,32 +1808,71 @@ export function MaterialsPage() {
             </DialogContent>
           </Dialog>
 
-      <Card className={cn(contentCard, 'lg:hidden')}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">{t('materials.summary.title')}</CardTitle>
-          <CardDescription>{t('materials.summary.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>{t('materials.summary.activeMaterials')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.activeMaterials}</p>
+      <section data-materials-mobile-kpis aria-labelledby="materials-kpis-mobile" className="space-y-2 lg:hidden">
+        <div>
+          <h2 id="materials-kpis-mobile" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+            {t('materials.summary.title')}
+          </h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.summary.description')}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              label: t('materials.summary.activeMaterials'),
+              value: String(inventorySummary.activeMaterials),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('materials.summary.categoriesWithStock'),
+              value: String(inventorySummary.categories),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('materials.summary.withStock'),
+              value: String(inventorySummary.stockLines),
+              Icon: PineLeafIcon,
+              card:
+                inventorySummary.stockLines > 0
+                  ? 'border-[var(--sage-200)] bg-[var(--sage-100)]'
+                  : 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well:
+                inventorySummary.stockLines > 0
+                  ? 'bg-[var(--sage-200)] text-[var(--olive-700)]'
+                  : 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('materials.summary.referenceValue'),
+              value: `$${formatMoneySimple(inventorySummary.stockValue)}`,
+              Icon: PineDocumentIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'min-h-[112px] flex-row items-start gap-2.5 rounded-[var(--radius-lg)] px-3 py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-[30px] w-[30px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-serif text-[12px] font-semibold leading-tight text-[var(--ink)]">{label}</p>
+                <p className="mt-1 font-serif text-[20px] font-bold tabular-nums leading-tight tracking-[-0.65px] text-[var(--ink)]">
+                  {value}
+                </p>
+              </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>{t('materials.summary.categoriesWithStock')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.categories}</p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>{t('materials.summary.withStock')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{inventorySummary.stockLines}</p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-              <p className={materialCardFieldLabelClass}>{t('materials.summary.referenceValue')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">${formatMoneySimple(inventorySummary.stockValue)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </section>
 
       <section
         data-materials-desktop-kpis
@@ -1875,45 +1946,67 @@ export function MaterialsPage() {
         </div>
       </section>
 
-      <Card className={cn(contentCard, 'lg:mt-1 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none')}>
+      <Card
+        data-materials-inventory
+        className={cn(
+          contentCard,
+          'max-lg:rounded-[12px] max-lg:border-[var(--stone-300)] max-lg:bg-white/70 max-lg:shadow-none',
+          'lg:mt-1 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none',
+        )}
+      >
         <CardHeader className="pb-2 lg:flex lg:flex-row lg:items-end lg:justify-between lg:gap-4 lg:space-y-0">
           <div>
-            <CardTitle className="text-base font-semibold lg:font-serif lg:text-[22px] lg:text-[var(--ink)]">
+            <CardTitle className="text-base font-semibold max-lg:font-serif max-lg:text-[20px] max-lg:text-[var(--ink)] lg:font-serif lg:text-[22px] lg:text-[var(--ink)]">
               {t('materials.inventory.title')}
             </CardTitle>
-            <CardDescription className="lg:mt-1 lg:text-[13px] lg:text-[var(--ink-muted)]">
+            <CardDescription className="max-lg:mt-1 max-lg:text-[13px] max-lg:text-[var(--ink-muted)] lg:mt-1 lg:text-[13px] lg:text-[var(--ink-muted)]">
               {t('materials.inventory.description')}
-              <span className="hidden lg:inline">
-                {' · '}
-                {inventoryVisibleCount}{' '}
-                {inventoryVisibleCount === 1 ? t('materials.inventory.material') : t('materials.inventory.materials')}
-              </span>
+              {' · '}
+              {inventoryVisibleCount}{' '}
+              {inventoryVisibleCount === 1 ? t('materials.inventory.material') : t('materials.inventory.materials')}
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(140px,1fr)] lg:hidden">
+          <div data-materials-mobile-filters className="space-y-2 rounded-[12px] border border-[var(--stone-300)] bg-white/70 p-3 lg:hidden">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" />
               <Input
                 placeholder={t('materials.inventory.searchPlaceholder')}
                 value={inventorySearch}
                 onChange={(e) => setInventorySearch(e.target.value)}
-                className={cn(filterInputClass, 'pl-9')}
+                className={cn(filterInputClass, 'h-11 border-[var(--stone-300)] bg-white pl-9 text-[13px]')}
+                aria-label={t('materials.inventory.searchPlaceholder')}
               />
             </div>
-            <select
-              className={filterSelectClass}
-              value={inventoryCategoryFilter}
-              onChange={(e) => setInventoryCategoryFilter(Number(e.target.value))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-11 w-full gap-1.5 rounded-[8px] border-[var(--stone-300)] bg-white px-4 text-[12px] font-semibold"
+              onClick={() => setInventoryMoreFilters((v) => !v)}
             >
-              <option value={0}>{t('materials.inventory.allCategories')}</option>
-              {categoryOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+              <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+              {inventoryMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+              <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', inventoryMoreFilters ? 'rotate-180' : '')} />
+            </Button>
+            {inventoryMoreFilters || inventoryCategoryFilter > 0 ? (
+              <div className="grid gap-1 border-t border-[var(--stone-200)] pt-3">
+                <Label className="text-[11px] text-[var(--ink-muted)]">{t('materials.inventory.allCategories')}</Label>
+                <select
+                  className={cn(filterSelectClass, 'h-11 w-full border-[var(--stone-300)] bg-white text-[13px]')}
+                  value={inventoryCategoryFilter}
+                  onChange={(e) => setInventoryCategoryFilter(Number(e.target.value))}
+                >
+                  <option value={0}>{t('materials.inventory.allCategories')}</option>
+                  {categoryOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
           <div
             data-materials-desktop-filters
@@ -1965,7 +2058,7 @@ export function MaterialsPage() {
           {groupedInventoryFiltered.length === 0 ? (
             <div
               data-materials-empty
-              className="rounded-[10px] border border-dashed border-[var(--stone-300)] bg-[var(--stone-50)]/80 px-4 py-8 text-center lg:py-10"
+              className="rounded-[10px] border border-dashed border-[var(--stone-300)] bg-[var(--stone-50)]/80 px-4 py-4 text-center max-lg:py-5 lg:py-10"
             >
               <p className="text-sm text-slate-500 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]">
                 {t('materials.inventory.empty')}
@@ -2392,9 +2485,12 @@ export function MaterialsPage() {
         </DialogContent>
       </Dialog>
 
-      <Card className="lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none">
+      <Card
+        data-materials-notices
+        className="max-lg:rounded-[12px] max-lg:border-[var(--stone-300)] max-lg:bg-white/70 max-lg:shadow-none lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none"
+      >
         <CardHeader className="pb-2">
-          <CardTitle className="text-base lg:font-serif lg:text-[20px] lg:text-[var(--ink)]">{t('materials.notices.title')}</CardTitle>
+          <CardTitle className="text-base max-lg:font-serif max-lg:text-[20px] max-lg:text-[var(--ink)] lg:font-serif lg:text-[20px] lg:text-[var(--ink)]">{t('materials.notices.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div>
