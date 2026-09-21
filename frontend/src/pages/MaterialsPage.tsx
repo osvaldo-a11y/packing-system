@@ -6,9 +6,11 @@ import {
   Box,
   Boxes,
   Check,
+  ChevronDown,
   ClipboardList,
   Droplets,
   FileStack,
+  Filter,
   Info,
   Layers,
   LayoutGrid,
@@ -32,6 +34,14 @@ import { localDateYmd } from '@/lib/date-filter';
 import { z } from 'zod';
 import { apiJson } from '@/api';
 import { useAuth } from '@/AuthContext';
+import {
+  PineBoxesIcon,
+  PineCubeIcon,
+  PineDocumentIcon,
+  PineLeafIcon,
+  PinePlusIcon,
+} from '@/components/icons/pinebloom';
+import { appBranding } from '@/lib/branding';
 import { canOperate, canSupervise } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +53,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +63,9 @@ import {
   contentCard,
   filterInputClass,
   filterSelectClass,
+  kpiCard,
+  kpiLabel,
+  kpiValueLg,
   operationalModalBodyClass,
   operationalModalContentClass,
   operationalModalDescriptionClass,
@@ -66,7 +78,6 @@ import {
   operationalModalStepBadge,
   operationalModalStepTitle,
   operationalModalTitleClass,
-  pageHeaderRow,
   pageSubtitle,
   pageTitle,
 } from '@/lib/page-ui';
@@ -465,6 +476,7 @@ export function MaterialsPage() {
   const [moveOccurredDate, setMoveOccurredDate] = useState(() => localDateYmd());
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState(0);
+  const [inventoryMoreFilters, setInventoryMoreFilters] = useState(false);
   const [materialPickerSearch, setMaterialPickerSearch] = useState('');
   const [scopeEditRow, setScopeEditRow] = useState<PackagingMaterialRow | null>(null);
   const [scopeFormatIds, setScopeFormatIds] = useState<number[]>([]);
@@ -882,6 +894,11 @@ export function MaterialsPage() {
       .filter((group) => group.items.length > 0);
   }, [groupedInventory, inventoryCategoryFilter, inventorySearch]);
 
+  const inventoryVisibleCount = useMemo(
+    () => groupedInventoryFiltered.reduce((n, group) => n + group.items.length, 0),
+    [groupedInventoryFiltered],
+  );
+
   const groupedPickerOptions = useMemo(() => {
     const q = materialPickerSearch.trim().toLowerCase();
     const rows = (data ?? [])
@@ -933,6 +950,21 @@ export function MaterialsPage() {
 
   const categoryOptions = (materialCategories ?? []).filter((c) => c.activo !== false);
 
+  const openKardexPicker = (materialId = 0, refType = 'compra') => {
+    setKardexMaterialId(materialId);
+    setMoveRefType(refType);
+    setMoveDelta('');
+    setMoveGuideRef('');
+    setMoveGuiaRef('');
+    setMoveInvoiceRef('');
+    setMoveSupplierId(0);
+    setMoveNota('');
+    setMoveUnitCostRef('');
+    setMoveOccurredDate(localDateYmd());
+    setMaterialPickerSearch('');
+    setKardexOpen(true);
+  };
+
   const moveTypeOptions = useMemo(
     () =>
       [
@@ -969,44 +1001,80 @@ export function MaterialsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className={pageHeaderRow}>
+    <div className="font-inter space-y-5 max-lg:overflow-x-hidden lg:-mx-7 lg:min-h-[calc(100vh-52px)] lg:space-y-3 lg:bg-[#F9F7F5] lg:px-7 lg:pb-8">
+      <div className="flex flex-col gap-3 lg:hidden">
         <div>
           <h1 className={pageTitle}>{t('materials.pageTitle')}</h1>
           <p className={pageSubtitle}>{t('materials.pageSubtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            className="shrink-0 rounded-xl"
-            type="button"
-            onClick={() => {
-              setKardexMaterialId(0);
-              setMoveRefType('compra');
-              setMoveDelta('');
-              setMoveGuideRef('');
-              setMoveGuiaRef('');
-              setMoveInvoiceRef('');
-              setMoveSupplierId(0);
-              setMoveNota('');
-              setMoveUnitCostRef('');
-              setMoveOccurredDate(localDateYmd());
-              setMaterialPickerSearch('');
-              setKardexOpen(true);
-            }}
-          >
+          <Button variant="outline" className="shrink-0 rounded-xl" type="button" onClick={() => openKardexPicker(0, 'compra')}>
             {t('materials.kardexButton')}
           </Button>
+          <Button type="button" variant="default" className={cn(btnToolbarPrimary, 'gap-2 rounded-xl')} onClick={() => setQuickOpen(true)}>
+            <Zap className="h-4 w-4" />
+            {t('materials.quickButton')}
+          </Button>
+          <Button variant="outline" className="shrink-0 gap-2 rounded-xl" type="button" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            {t('materials.addButton')}
+          </Button>
+        </div>
+      </div>
+
+      <header
+        data-materials-desktop-hero
+        className="relative hidden overflow-hidden rounded-[14px] border border-[var(--stone-300)] bg-white/55 px-3.5 pb-3 pt-3.5 lg:flex lg:h-[171px] lg:min-h-[171px] lg:items-start lg:justify-between lg:gap-5 lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-[var(--stone-200)] lg:bg-transparent lg:px-0 lg:pb-5 lg:pl-2 lg:pt-7"
+      >
+        <img
+          src={appBranding.landscapeUrl}
+          alt=""
+          className="pointer-events-none absolute right-0 top-1 hidden h-[118%] w-[680px] max-w-[62%] object-contain object-right opacity-[0.78] contrast-[0.96] brightness-[1.03] saturate-[0.68] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.22)_12%,rgba(0,0,0,0.68)_28%,black_46%,black_100%),linear-gradient(to_top,transparent_0%,rgba(0,0,0,0.35)_10%,black_30%,black_100%)] lg:block"
+          aria-hidden
+        />
+        <div className="relative z-[1] min-w-0 space-y-2">
+          <h1 className={cn(pageTitle, 'lg:max-w-[42rem] lg:font-serif lg:text-[66px] lg:font-semibold lg:leading-[1.02] lg:tracking-[-0.9px] lg:text-[var(--ink)]')}>
+            {t('materials.pageTitle')}
+          </h1>
+          <p className={cn(pageSubtitle, 'lg:max-w-[36rem] lg:font-serif lg:text-[20px] lg:leading-tight lg:text-[var(--ink-muted)]')}>
+            {t('materials.pageSubtitle')}
+          </p>
+        </div>
+        <div className="relative z-[1] flex shrink-0 flex-col items-end gap-2">
+          <Button
+            type="button"
+            className="h-10 min-w-[168px] gap-2 rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+            onClick={() => setQuickOpen(true)}
+          >
+            <PinePlusIcon size={18} strokeWidth={2.1} />
+            {t('materials.quickButton')}
+          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-[var(--radius-md)] border-[var(--stone-300)] bg-white px-3 text-[12px] font-semibold shadow-none hover:bg-[var(--stone-100)]"
+              onClick={() => openKardexPicker(0, 'compra')}
+            >
+              {t('materials.kardexButton')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-1.5 rounded-[var(--radius-md)] border-[var(--stone-300)] bg-white px-3 text-[12px] font-semibold shadow-none hover:bg-[var(--stone-100)]"
+              onClick={() => setOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {t('materials.addButton')}
+            </Button>
+          </div>
+        </div>
+      </header>
+
           <Dialog
             open={quickOpen}
             onOpenChange={setQuickOpen}
           >
-            <DialogTrigger asChild>
-              <Button type="button" variant="default" className={cn(btnToolbarPrimary, 'gap-2 rounded-xl')}>
-                <Zap className="h-4 w-4" />
-                {t('materials.quickButton')}
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]">
               <DialogHeader>
                 <DialogTitle>{t('materials.quickDialog.title')}</DialogTitle>
@@ -1058,12 +1126,6 @@ export function MaterialsPage() {
           </Dialog>
 
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="shrink-0 gap-2 rounded-xl">
-                <Plus className="h-4 w-4" />
-                {t('materials.addButton')}
-              </Button>
-            </DialogTrigger>
             <DialogContent
               className={cn(
                 operationalModalContentClass,
@@ -1713,10 +1775,8 @@ export function MaterialsPage() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
 
-      <Card className={contentCard}>
+      <Card className={cn(contentCard, 'lg:hidden')}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">{t('materials.summary.title')}</CardTitle>
           <CardDescription>{t('materials.summary.description')}</CardDescription>
@@ -1743,13 +1803,96 @@ export function MaterialsPage() {
         </CardContent>
       </Card>
 
-      <Card className={contentCard}>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">{t('materials.inventory.title')}</CardTitle>
-          <CardDescription>{t('materials.inventory.description')}</CardDescription>
+      <section
+        data-materials-desktop-kpis
+        aria-labelledby="materials-kpis-desktop"
+        className="hidden space-y-2.5 lg:block lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-white/45 lg:px-[14px] lg:py-2.5"
+      >
+        <div>
+          <h2 id="materials-kpis-desktop" className="font-serif text-[20px] font-semibold text-[var(--ink)]">
+            {t('materials.summary.title')}
+          </h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.summary.description')}</p>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            {
+              label: t('materials.summary.activeMaterials'),
+              value: String(inventorySummary.activeMaterials),
+              Icon: PineBoxesIcon,
+              card: 'border-[var(--harvest-200)] bg-[var(--harvest-100)]',
+              well: 'bg-[var(--harvest-200)] text-[var(--harvest-700)]',
+            },
+            {
+              label: t('materials.summary.categoriesWithStock'),
+              value: String(inventorySummary.categories),
+              Icon: PineCubeIcon,
+              card: 'border-[var(--sage-200)] bg-[var(--sage-100)]',
+              well: 'bg-[var(--sage-200)] text-[var(--olive-700)]',
+            },
+            {
+              label: t('materials.summary.withStock'),
+              value: String(inventorySummary.stockLines),
+              Icon: PineLeafIcon,
+              card:
+                inventorySummary.stockLines > 0
+                  ? 'border-[var(--sage-200)] bg-[var(--sage-100)]'
+                  : 'border-[var(--stone-300)] bg-[var(--stone-100)]',
+              well:
+                inventorySummary.stockLines > 0
+                  ? 'bg-[var(--sage-200)] text-[var(--olive-700)]'
+                  : 'bg-[#DED9CF] text-[#41443F]',
+            },
+            {
+              label: t('materials.summary.referenceValue'),
+              value: `$${formatMoneySimple(inventorySummary.stockValue)}`,
+              Icon: PineDocumentIcon,
+              card: 'border-[var(--bluegray-200)] bg-[var(--bluegray-100)]',
+              well: 'bg-[var(--bluegray-200)] text-[var(--bluegray-700)]',
+            },
+          ].map(({ label, value, Icon, card, well }) => (
+            <div
+              key={label}
+              className={cn(
+                kpiCard,
+                'lg:flex lg:min-h-[104px] lg:flex-row lg:items-center lg:gap-4 lg:rounded-[var(--radius-lg)] lg:px-3.5 lg:py-3',
+                card,
+              )}
+            >
+              <span className={cn('inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[9px]', well)} aria-hidden>
+                <Icon size={36} className="h-9 w-9" />
+              </span>
+              <div className="min-w-0">
+                <p className={cn(kpiLabel, 'lg:font-serif lg:text-[13px] lg:font-medium lg:normal-case lg:tracking-normal lg:text-[var(--ink)]')}>
+                  {label}
+                </p>
+                <p className={cn(kpiValueLg, 'lg:mt-1 lg:font-serif lg:text-[28px] lg:font-bold lg:tabular-nums lg:leading-none lg:tracking-[-0.65px] lg:text-[var(--ink)]')}>
+                  {value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <Card className={cn(contentCard, 'lg:mt-1 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none')}>
+        <CardHeader className="pb-2 lg:flex lg:flex-row lg:items-end lg:justify-between lg:gap-4 lg:space-y-0">
+          <div>
+            <CardTitle className="text-base font-semibold lg:font-serif lg:text-[22px] lg:text-[var(--ink)]">
+              {t('materials.inventory.title')}
+            </CardTitle>
+            <CardDescription className="lg:mt-1 lg:text-[13px] lg:text-[var(--ink-muted)]">
+              {t('materials.inventory.description')}
+              <span className="hidden lg:inline">
+                {' · '}
+                {inventoryVisibleCount}{' '}
+                {inventoryVisibleCount === 1 ? t('materials.inventory.material') : t('materials.inventory.materials')}
+              </span>
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(140px,1fr)]">
+          <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(140px,1fr)] lg:hidden">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
@@ -1772,8 +1915,62 @@ export function MaterialsPage() {
               ))}
             </select>
           </div>
+          <div
+            data-materials-desktop-filters
+            className="hidden min-h-[62px] rounded-[10px] border border-[var(--stone-300)] bg-white/70 px-3.5 py-[11px] lg:block"
+          >
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-[16rem] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" />
+                <Input
+                  placeholder={t('materials.inventory.searchPlaceholder')}
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  className={cn(filterInputClass, 'h-10 border-[var(--stone-300)] bg-white pl-9')}
+                  aria-label={t('materials.inventory.searchPlaceholder')}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 min-w-[146px] gap-1.5 border-[var(--stone-300)] bg-white px-4"
+                onClick={() => setInventoryMoreFilters((v) => !v)}
+              >
+                <Filter className="h-4 w-4" strokeWidth={2} aria-hidden />
+                {inventoryMoreFilters ? t('existenciasPt.filters.hideFilters') : t('existenciasPt.filters.moreFilters')}
+                <ChevronDown className={cn('ml-1 h-3.5 w-3.5 transition-transform', inventoryMoreFilters ? 'rotate-180' : '')} />
+              </Button>
+            </div>
+            {inventoryMoreFilters || inventoryCategoryFilter > 0 ? (
+              <div className="mt-3 grid grid-cols-12 items-end gap-2 border-t border-[var(--stone-200)] pt-3">
+                <div className="col-span-4 grid gap-1.5">
+                  <Label className="text-xs text-[var(--ink-muted)]">{t('materials.inventory.allCategories')}</Label>
+                  <select
+                    className={cn(filterSelectClass, 'h-10 border-[var(--stone-300)] bg-white')}
+                    value={inventoryCategoryFilter}
+                    onChange={(e) => setInventoryCategoryFilter(Number(e.target.value))}
+                  >
+                    <option value={0}>{t('materials.inventory.allCategories')}</option>
+                    {categoryOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : null}
+          </div>
           {groupedInventoryFiltered.length === 0 ? (
-            <p className="text-sm text-slate-500">{t('materials.inventory.empty')}</p>
+            <div
+              data-materials-empty
+              className="rounded-[10px] border border-dashed border-[var(--stone-300)] bg-[var(--stone-50)]/80 px-4 py-8 text-center lg:py-10"
+            >
+              <p className="text-sm text-slate-500 lg:font-serif lg:text-[16px] lg:text-[var(--ink-muted)]">
+                {t('materials.inventory.empty')}
+              </p>
+            </div>
           ) : (
             groupedInventoryFiltered.map((group, groupIdx) => {
               const CategoryIcon = packagingCategorySectionIcon(group.category);
@@ -1809,7 +2006,7 @@ export function MaterialsPage() {
                     const stockNum = Number(row.cantidad_disponible);
                     const stockN = Number.isFinite(stockNum) ? stockNum : 0;
                     return (
-                    <article key={`card-${row.id}`} className="rounded-lg border border-slate-200/80 bg-white p-2.5 shadow-sm">
+                    <article key={`card-${row.id}`} className="rounded-lg border border-slate-200/80 bg-white p-2.5 shadow-sm lg:border-[var(--stone-300)] lg:shadow-none">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="break-words text-[13px] font-semibold leading-snug text-slate-900">
@@ -2195,9 +2392,9 @@ export function MaterialsPage() {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <Card className="lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white/70 lg:shadow-none">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">{t('materials.notices.title')}</CardTitle>
+          <CardTitle className="text-base lg:font-serif lg:text-[20px] lg:text-[var(--ink)]">{t('materials.notices.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div>
