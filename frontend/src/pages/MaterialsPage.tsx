@@ -1111,14 +1111,49 @@ export function MaterialsPage() {
             onOpenChange={setQuickOpen}
           >
             <DialogContent
+              hideCloseButton
+              fullScreenMobile
               data-quick-material-dialog
               className={cn(
-                'max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]',
+                '[&>button]:hidden',
+                'max-lg:flex max-lg:h-full max-lg:max-h-none max-lg:w-full max-lg:max-w-none max-lg:flex-col max-lg:gap-0 max-lg:overflow-hidden max-lg:overflow-x-hidden max-lg:bg-[var(--stone-50)] max-lg:p-0',
                 'lg:flex lg:max-h-[min(80vh,520px)] lg:w-full lg:min-w-0 lg:max-w-[min(720px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
               )}
             >
-              <DialogHeader className="lg:hidden">
-                <DialogTitle>{t('materials.quickDialog.title')}</DialogTitle>
+              <DialogHeader
+                data-quick-material-header-mobile
+                className="relative shrink-0 overflow-hidden max-lg:border-b max-lg:border-[var(--stone-200)] max-lg:bg-[var(--stone-50)] max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:hidden"
+              >
+                <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)]" aria-hidden />
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)]"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle className="flex items-center gap-2 font-serif text-[23px] font-bold tracking-tight text-[var(--ink)]">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" />
+                      {t('materials.quickDialog.title')}
+                    </DialogTitle>
+                    <p className="text-[13px] text-[var(--ink-muted)]">{t('materials.quickDialog.hint')}</p>
+                    <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)]">
+                      <span className="block">FRUTA DE</span>
+                      <span className="block">NUESTRA TIERRA.</span>
+                      <span className="block">UN FUTURO</span>
+                      <span className="block">MÁS BRILLANTE.</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setQuickOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
+                    aria-label={t('actions.close')}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </DialogHeader>
               <DialogHeader
                 data-quick-material-header
@@ -1150,25 +1185,25 @@ export function MaterialsPage() {
               </DialogHeader>
               <form
                 onSubmit={quickForm.handleSubmit((v) => quickMutation.mutate(v))}
-                className="grid gap-4 py-1 lg:flex lg:flex-col lg:gap-0 lg:py-0"
+                className="grid gap-4 py-1 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0 max-lg:py-0 lg:flex lg:flex-col lg:gap-0 lg:py-0"
               >
                 <div
                   data-quick-material-body
-                  className="min-w-0 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
+                  className="min-w-0 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-x-hidden max-lg:overflow-y-auto max-lg:px-[14px] max-lg:py-3 max-lg:pb-24 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
                 >
-                  <section className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4">
-                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 hidden lg:flex lg:flex-nowrap lg:items-start lg:gap-3')}>
-                      <span className={cn(operationalModalStepBadge, 'h-9 w-9 text-[14px]')}>1</span>
+                  <section className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--sage-100)]/55 p-[14px] max-lg:p-[14px] lg:p-4">
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex flex-nowrap items-start gap-3')}>
+                      <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
                       <div className="min-w-0">
-                        <h3 className={cn(operationalModalStepTitle, 'text-[20px]')}>{t('materials.quickDialog.stepTitle')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.stepHelp')}</p>
+                        <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('materials.quickDialog.stepTitle')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)] max-lg:text-[13px]">{t('materials.quickDialog.stepHelp')}</p>
                       </div>
                     </div>
-                    <div className="grid gap-4 max-lg:contents lg:gap-3">
+                    <div className="grid gap-4 lg:gap-3">
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.nameLabel')}</Label>
+                  <Label className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.nameLabel')}</Label>
                   <Input
-                    className={cn(filterInputClass, 'lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
+                    className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
                     autoComplete="off"
                     placeholder={t('materials.quickDialog.namePlaceholder')}
                     {...quickForm.register('nombre_material')}
@@ -1178,9 +1213,9 @@ export function MaterialsPage() {
                   )}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.categoryLabel')}</Label>
+                  <Label className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.categoryLabel')}</Label>
                   <select
-                    className={cn(filterSelectClass, 'lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
+                    className={cn(filterSelectClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
                     {...quickForm.register('material_category_id', { valueAsNumber: true })}
                   >
                     <option value={0}>{t('materials.quickDialog.categoryPlaceholder')}</option>
@@ -1193,13 +1228,45 @@ export function MaterialsPage() {
                   {quickForm.formState.errors.material_category_id && (
                     <p className="text-xs text-destructive">{quickForm.formState.errors.material_category_id.message}</p>
                   )}
-                  <p className="hidden text-[12px] leading-snug text-[var(--ink-muted)] lg:block">{t('materials.quickDialog.hint')}</p>
+                  <p className="text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.hint')}</p>
                 </div>
                     </div>
                   </section>
-                  <p className="text-xs text-slate-500 lg:hidden">{t('materials.quickDialog.hint')}</p>
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0 lg:mt-auto lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:border-t lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:py-3">
+                <DialogFooter
+                  data-quick-material-footer-mobile
+                  className="sticky bottom-0 z-10 hidden shrink-0 gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 max-lg:!flex max-lg:!flex-col"
+                >
+                  <div className="flex w-full flex-nowrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 min-h-11 w-[49%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)]"
+                      onClick={() => setQuickOpen(false)}
+                    >
+                      {t('materials.quickDialog.cancelButton')}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="h-11 min-h-11 w-[49%] flex-none rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+                      disabled={quickMutation.isPending}
+                    >
+                      {quickMutation.isPending ? t('materials.quickDialog.creatingButton') : t('materials.quickDialog.createButton')}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] leading-none text-[var(--ink-muted)]">
+                    <span>
+                      {t('materials.quickDialog.nameLabel')}{' '}
+                      <span className="font-serif font-semibold text-[var(--ink)]">{quickNombre.trim() || '—'}</span>
+                      {' · '}
+                      {t('materials.quickDialog.categoryLabel')}{' '}
+                      <span className="font-serif font-semibold text-[var(--ink)]">
+                        {categoryOptions.find((c) => c.id === Number(quickCategoryId))?.nombre ?? '—'}
+                      </span>
+                    </span>
+                  </div>
+                </DialogFooter>
+                <DialogFooter className="hidden gap-2 sm:gap-0 lg:!flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:border-t lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:py-3">
                   <div className="hidden min-w-0 items-center gap-2 text-[12px] text-[var(--ink-muted)] lg:flex">
                     <span className="truncate">
                       {t('materials.quickDialog.nameLabel')}{' '}
