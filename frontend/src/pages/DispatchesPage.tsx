@@ -1655,7 +1655,7 @@ export function DispatchesPage() {
                 data-new-dispatch-step1
                 className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--sage-100)]/55 px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex-nowrap items-start gap-3 lg:mb-4')}>
                   <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
                   <div className="min-w-0">
                     <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step1Title')}</h3>
@@ -1699,7 +1699,7 @@ export function DispatchesPage() {
                 data-new-dispatch-step2
                 className="rounded-[10px] border border-[var(--stone-300)] bg-white px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex-nowrap items-start gap-3 lg:mb-4')}>
                   <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
                   <div className="min-w-0">
                     <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step2Title')}</h3>
@@ -1758,7 +1758,7 @@ export function DispatchesPage() {
                 data-new-dispatch-step3
                 className="rounded-[10px] border border-[var(--stone-300)] bg-[var(--sage-100)]/55 px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex-nowrap items-start gap-3 lg:mb-4')}>
                   <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
                   <div className="min-w-0">
                     <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step3Title')}</h3>
@@ -1828,7 +1828,7 @@ export function DispatchesPage() {
                 data-new-dispatch-step4
                 className="rounded-[10px] border border-[var(--stone-300)] bg-white px-[14px] py-[14px] lg:p-4"
               >
-                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex gap-3 lg:mb-4')}>
+                <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex-nowrap items-start gap-3 lg:mb-4')}>
                   <span className={cn(operationalModalStepBadge, 'h-[34px] w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
                   <div className="min-w-0">
                     <h3 className={cn(operationalModalStepTitle, 'text-[19px] lg:text-[20px]')}>{t('dispatch.dialog.step4Title')}</h3>
