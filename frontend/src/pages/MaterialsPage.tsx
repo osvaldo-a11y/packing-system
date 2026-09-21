@@ -23,6 +23,7 @@ import {
   Search,
   Shrink,
   Tag,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -614,6 +615,8 @@ export function MaterialsPage() {
   const selectedCatCodigo = materialCategories?.find((c) => c.id === materialCategoryIdW)?.codigo;
   const selectedFormatIds = useWatch({ control: form.control, name: 'presentation_format_ids' }) ?? [];
   const selectedClientIds = useWatch({ control: form.control, name: 'client_ids' }) ?? [];
+  const quickNombre = useWatch({ control: quickForm.control, name: 'nombre_material' }) ?? '';
+  const quickCategoryId = useWatch({ control: quickForm.control, name: 'material_category_id' }) ?? 0;
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: number; body: PatchMaterialBody }) =>
@@ -1107,18 +1110,65 @@ export function MaterialsPage() {
             open={quickOpen}
             onOpenChange={setQuickOpen}
           >
-            <DialogContent className="max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]">
-              <DialogHeader>
+            <DialogContent
+              data-quick-material-dialog
+              className={cn(
+                'max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]',
+                'lg:flex lg:max-h-[min(80vh,520px)] lg:w-full lg:min-w-0 lg:max-w-[min(720px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
+              )}
+            >
+              <DialogHeader className="lg:hidden">
                 <DialogTitle>{t('materials.quickDialog.title')}</DialogTitle>
+              </DialogHeader>
+              <DialogHeader
+                data-quick-material-header
+                className="relative hidden overflow-hidden lg:flex lg:min-h-[112px] lg:shrink-0 lg:flex-col lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
+              >
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle className="flex items-center gap-2 font-serif text-[26px] font-bold leading-tight tracking-tight text-[var(--ink)]">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" />
+                      {t('materials.quickDialog.title')}
+                    </DialogTitle>
+                    <p className="max-w-[28rem] text-[14px] text-[var(--ink-muted)]">{t('materials.quickDialog.hint')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setQuickOpen(false)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
+                    aria-label={t('actions.close')}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </DialogHeader>
               <form
                 onSubmit={quickForm.handleSubmit((v) => quickMutation.mutate(v))}
-                className="grid gap-4 py-1"
+                className="grid gap-4 py-1 lg:flex lg:flex-col lg:gap-0 lg:py-0"
               >
+                <div
+                  data-quick-material-body
+                  className="min-w-0 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
+                >
+                  <section className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4">
+                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 hidden lg:flex lg:flex-nowrap lg:items-start lg:gap-3')}>
+                      <span className={cn(operationalModalStepBadge, 'h-9 w-9 text-[14px]')}>1</span>
+                      <div className="min-w-0">
+                        <h3 className={cn(operationalModalStepTitle, 'text-[20px]')}>{t('materials.quickDialog.stepTitle')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.stepHelp')}</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 max-lg:contents lg:gap-3">
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600">{t('materials.quickDialog.nameLabel')}</Label>
+                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.nameLabel')}</Label>
                   <Input
-                    className={filterInputClass}
+                    className={cn(filterInputClass, 'lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
                     autoComplete="off"
                     placeholder={t('materials.quickDialog.namePlaceholder')}
                     {...quickForm.register('nombre_material')}
@@ -1128,9 +1178,9 @@ export function MaterialsPage() {
                   )}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-xs text-slate-600">{t('materials.quickDialog.categoryLabel')}</Label>
+                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.quickDialog.categoryLabel')}</Label>
                   <select
-                    className={filterSelectClass}
+                    className={cn(filterSelectClass, 'lg:h-12 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[15px]')}
                     {...quickForm.register('material_category_id', { valueAsNumber: true })}
                   >
                     <option value={0}>{t('materials.quickDialog.categoryPlaceholder')}</option>
@@ -1143,15 +1193,34 @@ export function MaterialsPage() {
                   {quickForm.formState.errors.material_category_id && (
                     <p className="text-xs text-destructive">{quickForm.formState.errors.material_category_id.message}</p>
                   )}
+                  <p className="hidden text-[12px] leading-snug text-[var(--ink-muted)] lg:block">{t('materials.quickDialog.hint')}</p>
                 </div>
-                <p className="text-xs text-slate-500">{t('materials.quickDialog.hint')}</p>
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => setQuickOpen(false)}>
+                    </div>
+                  </section>
+                  <p className="text-xs text-slate-500 lg:hidden">{t('materials.quickDialog.hint')}</p>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0 lg:mt-auto lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:border-t lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:py-3">
+                  <div className="hidden min-w-0 items-center gap-2 text-[12px] text-[var(--ink-muted)] lg:flex">
+                    <span className="truncate">
+                      {t('materials.quickDialog.nameLabel')}{' '}
+                      <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">{quickNombre.trim() || '—'}</strong>
+                    </span>
+                    <span className="h-5 w-px shrink-0 bg-[var(--stone-300)]" aria-hidden />
+                    <span className="truncate">
+                      {t('materials.quickDialog.categoryLabel')}{' '}
+                      <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">
+                        {categoryOptions.find((c) => c.id === Number(quickCategoryId))?.nombre ?? '—'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2.5">
+                  <Button type="button" variant="outline" className="rounded-xl lg:h-11 lg:min-w-[126px] lg:rounded-[8px] lg:border-[var(--stone-300)] lg:bg-white lg:px-5 lg:text-[13px] lg:font-semibold lg:shadow-none" onClick={() => setQuickOpen(false)}>
                     {t('materials.quickDialog.cancelButton')}
                   </Button>
-                  <Button type="submit" className="rounded-xl" disabled={quickMutation.isPending}>
+                  <Button type="submit" className="rounded-xl lg:h-11 lg:min-w-[140px] lg:rounded-[8px] lg:bg-[var(--olive-700)] lg:px-5 lg:text-[13px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]" disabled={quickMutation.isPending}>
                     {quickMutation.isPending ? t('materials.quickDialog.creatingButton') : t('materials.quickDialog.createButton')}
                   </Button>
+                  </div>
                 </DialogFooter>
               </form>
             </DialogContent>
