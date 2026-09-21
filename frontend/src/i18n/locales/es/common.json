@@ -2364,6 +2364,8 @@
       "namePlaceholder": "Ej. Cinta 48mm",
       "categoryLabel": "Categoría",
       "categoryPlaceholder": "Elegir…",
+      "stepTitle": "Material",
+      "stepHelp": "Definí el nombre y la categoría.",
       "hint": "Unidad por defecto «unidad», costo 0 y stock 0. Ajustá en la tabla después.",
       "cancelButton": "Cancelar",
       "creatingButton": "Creando…",

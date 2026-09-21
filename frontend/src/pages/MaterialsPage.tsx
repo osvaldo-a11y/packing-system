@@ -1114,7 +1114,7 @@ export function MaterialsPage() {
               data-quick-material-dialog
               className={cn(
                 'max-h-[min(90vh,640px)] w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-y-auto sm:max-w-[min(28rem,calc(100vw-2rem))]',
-                'lg:flex lg:max-h-[min(80vh,620px)] lg:w-full lg:min-w-0 lg:max-w-[min(720px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
+                'lg:flex lg:max-h-[min(80vh,520px)] lg:w-full lg:min-w-0 lg:max-w-[min(720px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
               )}
             >
               <DialogHeader className="lg:hidden">
@@ -1150,18 +1150,18 @@ export function MaterialsPage() {
               </DialogHeader>
               <form
                 onSubmit={quickForm.handleSubmit((v) => quickMutation.mutate(v))}
-                className="grid gap-4 py-1 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-0 lg:py-0"
+                className="grid gap-4 py-1 lg:flex lg:flex-col lg:gap-0 lg:py-0"
               >
                 <div
                   data-quick-material-body
-                  className="min-w-0 lg:min-h-0 lg:flex-1 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
+                  className="min-w-0 lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4"
                 >
                   <section className="max-lg:contents lg:rounded-[10px] lg:border lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4">
                     <div className={cn(operationalModalSectionHeadingRow, 'mb-3 hidden lg:flex lg:flex-nowrap lg:items-start lg:gap-3')}>
                       <span className={cn(operationalModalStepBadge, 'h-9 w-9 text-[14px]')}>1</span>
                       <div className="min-w-0">
-                        <h3 className={cn(operationalModalStepTitle, 'text-[20px]')}>{t('materials.quickDialog.nameLabel')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.categoryLabel')}</p>
+                        <h3 className={cn(operationalModalStepTitle, 'text-[20px]')}>{t('materials.quickDialog.stepTitle')}</h3>
+                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.stepHelp')}</p>
                       </div>
                     </div>
                     <div className="grid gap-4 max-lg:contents lg:gap-3">
@@ -1193,34 +1193,11 @@ export function MaterialsPage() {
                   {quickForm.formState.errors.material_category_id && (
                     <p className="text-xs text-destructive">{quickForm.formState.errors.material_category_id.message}</p>
                   )}
+                  <p className="hidden text-[12px] leading-snug text-[var(--ink-muted)] lg:block">{t('materials.quickDialog.hint')}</p>
                 </div>
                     </div>
                   </section>
                   <p className="text-xs text-slate-500 lg:hidden">{t('materials.quickDialog.hint')}</p>
-                  <section
-                    data-quick-material-review
-                    className="mt-4 hidden rounded-[10px] border border-[var(--stone-300)] bg-white lg:block lg:p-4"
-                  >
-                    <div className={cn(operationalModalSectionHeadingRow, 'mb-3 flex-nowrap items-start gap-3')}>
-                      <span className={cn(operationalModalStepBadge, 'h-9 w-9 text-[14px]')}>2</span>
-                      <div className="min-w-0">
-                        <h3 className={cn(operationalModalStepTitle, 'text-[20px]')}>{t('materials.quickDialog.createButton')}</h3>
-                        <p className="mt-0.5 text-[12px] leading-snug text-[var(--ink-muted)]">{t('materials.quickDialog.hint')}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-[8px] border border-[var(--stone-200)] bg-[var(--stone-50)] px-3 py-2.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('materials.quickDialog.nameLabel')}</p>
-                        <p className="mt-1 truncate font-serif text-[18px] font-semibold text-[var(--ink)]">{quickNombre.trim() || '—'}</p>
-                      </div>
-                      <div className="rounded-[8px] border border-[var(--stone-200)] bg-[var(--stone-50)] px-3 py-2.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">{t('materials.quickDialog.categoryLabel')}</p>
-                        <p className="mt-1 truncate font-serif text-[18px] font-semibold text-[var(--ink)]">
-                          {categoryOptions.find((c) => c.id === Number(quickCategoryId))?.nombre ?? '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </section>
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0 lg:mt-auto lg:flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:border-t lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:py-3">
                   <div className="hidden min-w-0 items-center gap-2 text-[12px] text-[var(--ink-muted)] lg:flex">
