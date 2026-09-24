@@ -109,7 +109,7 @@ type FormatPick = { id: number; format_code: string };
 
 const createMaterialSchema = z.object({
   nombre_material: z.string().min(1, 'Requerido'),
-  material_category_id: z.coerce.number().int().positive(),
+  material_category_id: z.coerce.number().int().positive('Elegí una categoría'),
   descripcion: z.string().optional(),
   unidad_medida: z.enum(MATERIAL_UOM_OPTIONS),
   costo_unitario: z.coerce.number().min(0),
@@ -1301,7 +1301,7 @@ export function MaterialsPage() {
               className={cn(
                 operationalModalContentClass,
                 'min-h-0 max-h-[min(96vh,920px)] max-w-[min(920px,calc(100vw-2rem))] sm:max-w-[min(920px,calc(100vw-2rem))]',
-                'lg:flex lg:h-[calc(100vh-36px)] lg:max-h-[864px] lg:w-full lg:min-w-0 lg:max-w-[min(1050px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
+                'lg:flex lg:h-auto lg:max-h-[min(864px,calc(100vh-36px))] lg:w-full lg:min-w-0 lg:max-w-[min(1050px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
               )}
             >
               <DialogHeader className={cn(operationalModalHeaderClass, 'lg:hidden')}>
@@ -1378,11 +1378,11 @@ export function MaterialsPage() {
               </DialogHeader>
               <form
                 onSubmit={form.handleSubmit((vals) => mutation.mutate(vals))}
-                className={cn(operationalModalFormClass, 'min-h-0 gap-0')}
+                className={cn(operationalModalFormClass, 'min-h-0 gap-0 lg:flex-auto')}
               >
                 <div
                   data-add-material-body
-                  className={cn(operationalModalBodyClass, 'lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4')}
+                  className={cn(operationalModalBodyClass, 'lg:flex-auto lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4')}
                 >
                   <div className="flex min-h-0 flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
                     <div className="flex min-h-0 flex-col gap-4">

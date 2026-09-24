@@ -2373,7 +2373,7 @@
     },
     "addDialog": {
       "title": "Nuevo material",
-      "description": "Alta en maestro con alcance y unidad. El stock inicia en 0: cargá inventario inicial o compras desde «Ajuste de inventario».",
+      "description": "Alta en maestro con alcance y unidad. El stock inicia en 0; registrá inventario inicial o compras desde Movimiento / kardex.",
       "tipsTitle": "Consejos para un registro limpio",
       "tip1Bold": "Alcance vacío = general.",
       "tip1": "Sin formatos ni clientes marcados, el material aplica a toda la operación.",

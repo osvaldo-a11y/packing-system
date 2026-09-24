@@ -2371,7 +2371,7 @@
     },
     "addDialog": {
       "title": "New material",
-      "description": "Add to master with scope and unit. Stock starts at 0: load initial inventory or purchases from «Inventory adjustment».",
+      "description": "Add to master with scope and unit. Stock starts at 0; register initial inventory or purchases from Movement / kardex.",
       "tipsTitle": "Tips for a clean record",
       "tip1Bold": "Empty scope = general.",
       "tip1": "Without formats or clients checked, the material applies to all operations.",
