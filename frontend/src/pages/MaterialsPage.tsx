@@ -59,7 +59,6 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  btnToolbarPrimary,
   contentCard,
   filterInputClass,
   filterSelectClass,
@@ -1297,36 +1296,70 @@ export function MaterialsPage() {
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent
+              hideCloseButton
+              fullScreenMobile
               data-add-material-dialog
               className={cn(
                 operationalModalContentClass,
                 'min-h-0 max-h-[min(96vh,920px)] max-w-[min(920px,calc(100vw-2rem))] sm:max-w-[min(920px,calc(100vw-2rem))]',
+                'max-lg:flex max-lg:h-full max-lg:max-h-none max-lg:w-full max-lg:max-w-none max-lg:flex-col max-lg:gap-0 max-lg:overflow-hidden max-lg:overflow-x-hidden max-lg:bg-[var(--stone-50)] max-lg:p-0',
                 'lg:flex lg:h-auto lg:max-h-[min(864px,calc(100vh-36px))] lg:w-full lg:min-w-0 lg:max-w-[min(1050px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
               )}
             >
-              <DialogHeader className={cn(operationalModalHeaderClass, 'lg:hidden')}>
-                <DialogTitle className={operationalModalTitleClass}>{t('materials.addDialog.title')}</DialogTitle>
-                <DialogDescription className={operationalModalDescriptionClass}>
-                  {t('materials.addDialog.description')}
-                </DialogDescription>
-                <details className="group text-[13px] text-muted-foreground">
-                  <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
-                    <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
-                      <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                      {t('materials.addDialog.tipsTitle')}
-                    </span>
-                  </summary>
-                  <ul className="mt-2 max-w-prose list-disc space-y-1.5 pl-4 text-pretty leading-snug">
-                    <li>
-                      <strong className="font-medium text-foreground">{t('materials.addDialog.tip1Bold')}</strong> {t('materials.addDialog.tip1')}
-                    </li>
-                    <li>{t('materials.addDialog.tip2')}</li>
-                    <li>
-                      <strong className="font-medium text-foreground">{t('materials.addDialog.tip3Bold')}</strong>{' '}
-                      {t('materials.addDialog.tip3')}
-                    </li>
-                  </ul>
-                </details>
+              <DialogHeader
+                data-add-material-header-mobile
+                className="relative shrink-0 overflow-hidden max-lg:border-b max-lg:border-[var(--stone-200)] max-lg:bg-[var(--stone-50)] max-lg:px-4 max-lg:pb-4 max-lg:pt-3 lg:hidden"
+              >
+                <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[var(--stone-300)]" aria-hidden />
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-0 h-full w-[70%] max-w-none object-contain object-right object-bottom opacity-100 contrast-[1.08] brightness-[0.96] [mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_22%,black_100%)]"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle className="flex items-center gap-2 font-serif text-[23px] font-bold tracking-tight text-[var(--ink)]">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" />
+                      {t('materials.addDialog.title')}
+                    </DialogTitle>
+                    <DialogDescription className="text-[13px] leading-snug text-[var(--ink-muted)]">
+                      {t('materials.addDialog.description')}
+                    </DialogDescription>
+                    <p className="max-w-[9.5rem] text-[10px] font-medium uppercase leading-[1.45] tracking-[0.18em] text-[var(--sage-700,#6B7A55)]">
+                      <span className="block">FRUTA DE</span>
+                      <span className="block">NUESTRA TIERRA.</span>
+                      <span className="block">UN FUTURO</span>
+                      <span className="block">MÁS BRILLANTE.</span>
+                    </p>
+                    <details className="group text-[12px] text-[var(--ink-muted)]">
+                      <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                        <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                          <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                          {t('materials.addDialog.tipsTitle')}
+                        </span>
+                      </summary>
+                      <ul className="mt-1.5 max-w-prose list-disc space-y-1 pl-4 text-pretty leading-snug">
+                        <li>
+                          <strong className="font-medium text-[var(--ink)]">{t('materials.addDialog.tip1Bold')}</strong> {t('materials.addDialog.tip1')}
+                        </li>
+                        <li>{t('materials.addDialog.tip2')}</li>
+                        <li>
+                          <strong className="font-medium text-[var(--ink)]">{t('materials.addDialog.tip3Bold')}</strong>{' '}
+                          {t('materials.addDialog.tip3')}
+                        </li>
+                      </ul>
+                    </details>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
+                    aria-label={t('actions.close')}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </DialogHeader>
               <DialogHeader
                 data-add-material-header
@@ -1378,11 +1411,14 @@ export function MaterialsPage() {
               </DialogHeader>
               <form
                 onSubmit={form.handleSubmit((vals) => mutation.mutate(vals))}
-                className={cn(operationalModalFormClass, 'min-h-0 gap-0 lg:flex-auto')}
+                className={cn(operationalModalFormClass, 'min-h-0 gap-0 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0 max-lg:py-0 lg:flex-auto')}
               >
                 <div
                   data-add-material-body
-                  className={cn(operationalModalBodyClass, 'lg:flex-auto lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4')}
+                  className={cn(
+                    operationalModalBodyClass,
+                    'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-x-hidden max-lg:overflow-y-auto max-lg:px-[14px] max-lg:py-3 max-lg:pb-24 lg:flex-auto lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4',
+                  )}
                 >
                   <div className="flex min-h-0 flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
                     <div className="flex min-h-0 flex-col gap-4">
@@ -1390,24 +1426,24 @@ export function MaterialsPage() {
                         data-add-material-step1
                         className={cn(
                           operationalModalSectionCard,
-                          'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
+                          'max-lg:rounded-[10px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--sage-100)]/55 max-lg:p-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
                         )}
                       >
-                        <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
-                          <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.addDialog.step1')}</h3>
+                        <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                          <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('materials.addDialog.step1')}</h3>
                         </div>
                         <div className="grid gap-3">
                           <div className="grid gap-1.5">
                             <Label
-                              className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
+                              className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
                               htmlFor="nombre_material"
                             >
                               {t('materials.addDialog.nameLabel')}
                             </Label>
                             <Input
                               id="nombre_material"
-                              className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                              className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                               autoComplete="off"
                               placeholder={t('materials.addDialog.namePlaceholder')}
                               {...form.register('nombre_material')}
@@ -1418,14 +1454,14 @@ export function MaterialsPage() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label
-                              className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
+                              className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
                               htmlFor="material_category_id"
                             >
                               {t('materials.addDialog.categoryLabel')}
                             </Label>
                             <select
                               id="material_category_id"
-                              className={cn(filterSelectClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                              className={cn(filterSelectClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                               {...form.register('material_category_id', { valueAsNumber: true })}
                             >
                               <option value={0}>{t('materials.quickDialog.categoryPlaceholder')}</option>
@@ -1441,14 +1477,14 @@ export function MaterialsPage() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label
-                              className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
+                              className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
                               htmlFor="descripcion"
                             >
                               {t('materials.addDialog.noteLabel')}
                             </Label>
                             <Input
                               id="descripcion"
-                              className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                              className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                               autoComplete="off"
                               {...form.register('descripcion')}
                             />
@@ -1459,14 +1495,14 @@ export function MaterialsPage() {
                         data-add-material-step2
                         className={cn(
                           operationalModalSectionCard,
-                          'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:p-4',
+                          'max-lg:rounded-[10px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:p-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:p-4',
                         )}
                       >
-                        <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
-                          <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.addDialog.step2')}</h3>
+                        <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                          <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('materials.addDialog.step2')}</h3>
                         </div>
-                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2 lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
+                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2 max-lg:max-h-[220px] max-lg:overflow-x-hidden max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:p-3 lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
                           {(formatList ?? [])
                             .filter((f) => (f as { activo?: boolean }).activo !== false)
                             .map((f) => {
@@ -1499,14 +1535,14 @@ export function MaterialsPage() {
                         data-add-material-step3
                         className={cn(
                           operationalModalSectionCard,
-                          'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:p-4',
+                          'max-lg:rounded-[10px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:p-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:p-4',
                         )}
                       >
-                        <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
-                          <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.addDialog.step3')}</h3>
+                        <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                          <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('materials.addDialog.step3')}</h3>
                         </div>
-                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2 lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
+                        <div className="max-h-[min(200px,28vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 px-2 py-2 max-lg:max-h-[220px] max-lg:overflow-x-hidden max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:p-3 lg:max-h-[220px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:p-3">
                           {(commercialClients ?? []).map((c) => {
                             const checked = selectedClientIds.includes(c.id);
                             return (
@@ -1538,24 +1574,24 @@ export function MaterialsPage() {
                         data-add-material-step4
                         className={cn(
                           operationalModalSectionMuted,
-                          'lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
+                          'max-lg:rounded-[10px] max-lg:border-[var(--stone-300)] max-lg:bg-[var(--sage-100)]/55 max-lg:p-[14px] lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
                         )}
                       >
-                        <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
-                          <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
-                          <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.addDialog.step4')}</h3>
+                        <div className={cn(operationalModalSectionHeadingRow, 'max-lg:mb-3 max-lg:flex-nowrap max-lg:items-start max-lg:gap-3 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                          <span className={cn(operationalModalStepBadge, 'max-lg:h-[34px] max-lg:w-[34px] lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
+                          <h3 className={cn(operationalModalStepTitle, 'max-lg:text-[19px] lg:text-[20px]')}>{t('materials.addDialog.step4')}</h3>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="grid gap-1.5 sm:col-span-2">
                             <Label
-                              className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
+                              className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
                               htmlFor="unidad_medida"
                             >
                               {t('materials.addDialog.uomLabel')}
                             </Label>
                             <select
                               id="unidad_medida"
-                              className={cn(filterSelectClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                              className={cn(filterSelectClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                               {...form.register('unidad_medida')}
                             >
                               {MATERIAL_UOM_OPTIONS.map((u) => (
@@ -1567,7 +1603,7 @@ export function MaterialsPage() {
                           </div>
                           <div className="grid gap-1.5 sm:col-span-2">
                             <Label
-                              className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
+                              className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]"
                               htmlFor="costo_unitario"
                             >
                               {t('materials.addDialog.costLabel')}
@@ -1577,7 +1613,7 @@ export function MaterialsPage() {
                               type="number"
                               step="0.0001"
                               min={0}
-                              className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                              className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                               {...form.register('costo_unitario')}
                             />
                           </div>
@@ -1586,7 +1622,7 @@ export function MaterialsPage() {
                           </p>
                           {selectedCatCodigo === 'clamshell' ? (
                             <div className="grid gap-1.5 sm:col-span-2">
-                              <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
+                              <Label className="text-xs text-slate-600 max-lg:text-[10px] max-lg:font-semibold max-lg:uppercase max-lg:tracking-[0.08em] max-lg:text-[var(--ink-muted)] lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                                 {t('materials.addDialog.clamshellUnitsLabel')}
                               </Label>
                               <Input
@@ -1594,7 +1630,7 @@ export function MaterialsPage() {
                                 step="0.0001"
                                 min={0}
                                 placeholder="1"
-                                className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
+                                className={cn(filterInputClass, 'max-lg:h-12 max-lg:min-h-12 max-lg:rounded-[9px] max-lg:border-[var(--stone-300)] max-lg:bg-white max-lg:text-[15px] lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                 {...form.register('clamshell_units_per_box', { valueAsNumber: true })}
                               />
                             </div>
@@ -1604,13 +1640,42 @@ export function MaterialsPage() {
                     </div>
                   </div>
                 </div>
-                <DialogFooter className={cn(operationalModalFooterClass, 'lg:hidden')}>
-                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
-                    {t('materials.addDialog.cancelButton')}
-                  </Button>
-                  <Button type="submit" className={cn(btnToolbarPrimary)} disabled={mutation.isPending}>
-                    {mutation.isPending ? t('materials.addDialog.savingButton') : t('materials.addDialog.saveButton')}
-                  </Button>
+                <DialogFooter
+                  data-add-material-footer-mobile
+                  className="sticky bottom-0 z-10 hidden shrink-0 gap-1.5 border-t border-[var(--stone-200)] bg-[var(--stone-50)] px-3.5 py-2 max-lg:!flex max-lg:!flex-col"
+                >
+                  <div className="flex w-full flex-nowrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 min-h-11 w-[49%] flex-none rounded-[var(--radius-md)] border-[var(--stone-300)] bg-[var(--stone-100)] text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--stone-200)]"
+                      onClick={() => setOpen(false)}
+                    >
+                      {t('materials.addDialog.cancelButton')}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="h-11 min-h-11 w-[49%] flex-none rounded-[var(--radius-md)] bg-[var(--olive-700)] px-4 text-[13px] font-semibold text-white shadow-none hover:bg-[var(--olive-600)]"
+                      disabled={mutation.isPending}
+                    >
+                      {mutation.isPending ? t('materials.addDialog.savingButton') : t('materials.addDialog.saveButton')}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-center text-[10px] leading-tight text-[var(--ink-muted)]">
+                    <span>
+                      {t('materials.addDialog.nameLabel')}{' '}
+                      <span className="font-serif font-semibold text-[var(--ink)]">{addNombre.trim() || '—'}</span>
+                      {' · '}
+                      {t('materials.addDialog.categoryLabel')}{' '}
+                      <span className="font-serif font-semibold text-[var(--ink)]">{selectedCatNombre ?? '—'}</span>
+                    </span>
+                    <span>
+                      <span className="font-serif font-semibold text-[var(--ink)]">{selectedFormatIds.length}</span>
+                      {' formatos · '}
+                      <span className="font-serif font-semibold text-[var(--ink)]">{selectedClientIds.length}</span>
+                      {' clientes'}
+                    </span>
+                  </div>
                 </DialogFooter>
                 <DialogFooter
                   data-add-material-footer
