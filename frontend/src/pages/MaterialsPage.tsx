@@ -1735,12 +1735,14 @@ export function MaterialsPage() {
             }}
           >
             <DialogContent
+              data-kardex-dialog
               className={cn(
                 operationalModalContentClass,
                 'min-h-0 max-h-[min(96vh,1000px)] max-w-[min(1280px,calc(100vw-2rem))] sm:max-w-[min(1280px,calc(100vw-2rem))]',
+                'lg:flex lg:h-auto lg:max-h-[min(864px,calc(100vh-36px))] lg:w-full lg:min-w-0 lg:max-w-[min(1100px,calc(100vw-2rem))] lg:flex-col lg:gap-0 lg:overflow-hidden lg:overflow-x-hidden lg:bg-[var(--stone-50)] lg:p-0 lg:rounded-[12px] lg:border-[var(--stone-300)] lg:shadow-[0_18px_55px_rgba(32,39,34,0.18)] lg:[&>button]:hidden',
               )}
             >
-              <DialogHeader className={operationalModalHeaderClass}>
+              <DialogHeader className={cn(operationalModalHeaderClass, 'lg:hidden')}>
                 <DialogTitle className={operationalModalTitleClass}>{t('materials.kardexDialog.title')}</DialogTitle>
                 <DialogDescription className={operationalModalDescriptionClass}>
                   {t('materials.kardexDialog.description')}
@@ -1755,24 +1757,65 @@ export function MaterialsPage() {
                   <p className="mt-2 max-w-prose text-pretty leading-snug">{t('materials.kardexDialog.detailDesc')}</p>
                 </details>
               </DialogHeader>
+              <DialogHeader
+                data-kardex-header
+                className="relative hidden overflow-hidden lg:flex lg:min-h-[112px] lg:shrink-0 lg:flex-col lg:space-y-1.5 lg:border-b lg:border-[var(--stone-200)] lg:bg-[var(--stone-50)] lg:px-7 lg:pb-5 lg:pt-5 lg:text-left"
+              >
+                <img
+                  src={appBranding.landscapeUrl}
+                  alt=""
+                  className="pointer-events-none absolute inset-y-0 right-[-1%] hidden h-full w-[58%] max-w-none object-contain object-right object-bottom opacity-[0.72] contrast-[0.98] brightness-[1.02] [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.18)_18%,rgba(0,0,0,0.7)_42%,black_68%)] lg:block"
+                  aria-hidden
+                />
+                <div className="relative z-[1] flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle className="flex items-center gap-2 font-serif text-[26px] font-bold leading-tight tracking-tight text-[var(--ink)]">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--olive-700)]" />
+                      {t('materials.kardexDialog.title')}
+                    </DialogTitle>
+                    <DialogDescription className="max-w-[34rem] text-[14px] leading-snug text-[var(--ink-muted)]">
+                      {t('materials.kardexDialog.description')}
+                    </DialogDescription>
+                    <details className="group max-w-[30rem] text-[12px] text-[var(--ink-muted)]">
+                      <summary className="cursor-pointer select-none list-none py-0.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                        <span className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+                          <Info className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                          {t('materials.kardexDialog.detailTitle')}
+                        </span>
+                      </summary>
+                      <p className="mt-1.5 text-pretty leading-snug">{t('materials.kardexDialog.detailDesc')}</p>
+                    </details>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKardexOpen(false)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stone-300)] bg-white text-[var(--ink-muted)] hover:bg-[var(--sage-100)]"
+                    aria-label={t('actions.close')}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </DialogHeader>
 
-              <div className={operationalModalFormClass}>
+              <div className={cn(operationalModalFormClass, 'lg:flex-auto')}>
                 <div
+                  data-kardex-body
                   className={cn(
                     operationalModalBodyClass,
-                    'lg:overflow-hidden lg:px-8 lg:py-6',
+                    'lg:flex-auto lg:overflow-x-hidden lg:overflow-y-auto lg:px-7 lg:py-4',
                   )}
                 >
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:max-h-[min(82vh,860px)] lg:grid-cols-[minmax(min(320px,100%),min(460px,44vw))_minmax(0,1fr)] lg:grid-rows-1 lg:items-start lg:gap-8 lg:overflow-hidden">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,38%)_minmax(0,1fr)] lg:items-start lg:gap-4">
                     <section
+                      data-kardex-step1
                       className={cn(
                         operationalModalSectionCard,
-                        'flex min-h-0 flex-col lg:h-full lg:min-h-0 lg:overflow-hidden',
+                        'flex min-h-0 flex-col lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
                       )}
                     >
-                      <div className={operationalModalSectionHeadingRow}>
-                        <span className={operationalModalStepBadge}>1</span>
-                        <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step1')}</h3>
+                      <div className={cn(operationalModalSectionHeadingRow, 'lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                        <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>1</span>
+                        <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.kardexDialog.step1')}</h3>
                       </div>
                       <div className="flex min-h-0 flex-1 flex-col gap-3">
                         <div className="relative shrink-0">
@@ -1781,11 +1824,11 @@ export function MaterialsPage() {
                             value={materialPickerSearch}
                             onChange={(e) => setMaterialPickerSearch(e.target.value)}
                             placeholder={t('materials.kardexDialog.searchPlaceholder')}
-                            className={cn(filterInputClass, 'pl-9')}
+                            className={cn(filterInputClass, 'pl-9 lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                             aria-label={t('materials.kardexDialog.searchAriaLabel')}
                           />
                         </div>
-                        <div className="min-h-[200px] flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 lg:min-h-0">
+                        <div className="min-h-[200px] flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-muted/10 lg:min-h-[140px] lg:max-h-[min(36vh,300px)] lg:flex-none lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white">
                           {groupedPickerOptions.length === 0 ? (
                             <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('materials.kardexDialog.noResults')}</p>
                           ) : (
@@ -1805,7 +1848,7 @@ export function MaterialsPage() {
                                           className={cn(
                                             'flex w-full flex-col gap-0.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors sm:flex-row sm:items-start sm:justify-between sm:gap-3',
                                             selected
-                                              ? 'border-primary/35 bg-primary/8'
+                                              ? 'border-primary/35 bg-primary/8 lg:border-[var(--olive-700)]/35 lg:bg-[var(--sage-100)]'
                                               : 'hover:border-border hover:bg-background',
                                           )}
                                           onClick={() => {
@@ -1830,14 +1873,14 @@ export function MaterialsPage() {
                           )}
                         </div>
                         {kardexMaterialId > 0 ? (
-                          <div className="shrink-0 rounded-lg border border-border bg-muted/20 p-3 shadow-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <div className="shrink-0 rounded-lg border border-border bg-muted/20 p-3 shadow-sm lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground lg:text-[10px] lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                               {t('materials.kardexDialog.selectedLabel')}
                             </p>
-                            <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{selectedKardexMaterial?.nombre_material}</p>
-                            <p className="mt-1.5 text-sm text-muted-foreground">
+                            <p className="mt-1 text-sm font-semibold leading-snug text-foreground lg:font-serif lg:text-[16px] lg:text-[var(--ink)]">{selectedKardexMaterial?.nombre_material}</p>
+                            <p className="mt-1.5 text-sm text-muted-foreground lg:text-[13px] lg:text-[var(--ink-muted)]">
                               {t('materials.kardexDialog.currentStock')}{' '}
-                              <span className="font-mono font-semibold tabular-nums text-foreground">
+                              <span className="font-mono font-semibold tabular-nums text-foreground lg:text-[var(--ink)]">
                                 {formatQty(selectedKardexMaterial?.cantidad_disponible ?? 0)}
                               </span>
                             </p>
@@ -1847,12 +1890,15 @@ export function MaterialsPage() {
                     </section>
 
                     {kardexMaterialId > 0 ? (
-                      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:h-[min(82vh,860px)] lg:max-h-[min(82vh,860px)] lg:overflow-hidden lg:pr-0.5">
-                        <div className="flex min-h-0 flex-shrink-0 flex-col gap-5 overflow-y-auto overscroll-contain lg:max-h-[min(48vh,480px)]">
-                        <section className={cn(operationalModalSectionMuted, 'shrink-0')}>
-                          <div className={cn(operationalModalSectionHeadingRow, 'mb-1')}>
-                            <span className={operationalModalStepBadge}>2</span>
-                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step2')}</h3>
+                      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 lg:gap-4">
+                        <div className="flex min-h-0 flex-shrink-0 flex-col gap-5 overflow-y-auto overscroll-contain lg:gap-4 lg:overflow-visible">
+                        <section
+                          data-kardex-step2
+                          className={cn(operationalModalSectionMuted, 'shrink-0 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4')}
+                        >
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-1 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                            <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>2</span>
+                            <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.kardexDialog.step2')}</h3>
                           </div>
                           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                             {moveTypeOptions.map((opt) => (
@@ -1862,8 +1908,8 @@ export function MaterialsPage() {
                                 className={cn(
                                   'rounded-xl border p-3.5 text-left shadow-sm transition-colors',
                                   moveRefType === opt.key
-                                    ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30',
+                                    ? 'border-primary bg-primary text-primary-foreground lg:border-[var(--olive-700)] lg:bg-[var(--olive-700)] lg:text-white'
+                                    : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30 lg:border-[var(--stone-300)] lg:bg-white lg:hover:border-[var(--olive-700)]/40 lg:hover:bg-[var(--sage-100)]',
                                 )}
                                 onClick={() => setMoveRefType(opt.key)}
                               >
@@ -1874,7 +1920,7 @@ export function MaterialsPage() {
                                 <p
                                   className={cn(
                                     'mt-1 text-xs leading-snug',
-                                    moveRefType === opt.key ? 'text-primary-foreground/90' : 'text-muted-foreground',
+                                    moveRefType === opt.key ? 'text-primary-foreground/90 lg:text-white/90' : 'text-muted-foreground',
                                   )}
                                 >
                                   {opt.hint}
@@ -1884,16 +1930,19 @@ export function MaterialsPage() {
                           </div>
                         </section>
 
-                        <section className={cn(operationalModalSectionCard, 'shrink-0')}>
-                          <div className={cn(operationalModalSectionHeadingRow, 'mb-3')}>
-                            <span className={operationalModalStepBadge}>3</span>
-                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step3')}</h3>
+                        <section
+                          data-kardex-step3
+                          className={cn(operationalModalSectionCard, 'shrink-0 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:p-4')}
+                        >
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                            <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>3</span>
+                            <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.kardexDialog.step3')}</h3>
                           </div>
                           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                             {moveRefType === 'compra' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.supplierLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.supplierLabel')}</Label>
                                   {purchaseSuppliersLoading ? (
                                     <p className="text-xs text-slate-500">{t('materials.kardexDialog.supplierLoading')}</p>
                                   ) : (purchaseSuppliers?.suppliers.length ?? 0) === 0 ? (
@@ -1908,7 +1957,7 @@ export function MaterialsPage() {
                                     </p>
                                   ) : (
                                     <select
-                                      className={filterSelectClass}
+                                      className={cn(filterSelectClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                       value={moveSupplierId}
                                       onChange={(e) => setMoveSupplierId(Number(e.target.value) || 0)}
                                     >
@@ -1922,43 +1971,43 @@ export function MaterialsPage() {
                                   )}
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.purchaseDateLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.purchaseDateLabel')}</Label>
                                   <Input
                                     type="date"
                                     value={moveOccurredDate}
                                     onChange={(e) => setMoveOccurredDate(e.target.value)}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.qtyLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
                                     placeholder={t('materials.kardexDialog.qtyPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.ocLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.ocLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.ocPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.invoiceLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.invoiceLabel')}</Label>
                                   <Input
                                     value={moveInvoiceRef}
                                     onChange={(e) => setMoveInvoiceRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.invoicePlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600" title="Referencia de costo por unidad de medida del material">
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]" title="Referencia de costo por unidad de medida del material">
                                     {t('materials.kardexDialog.unitCostLabel')}
                                   </Label>
                                   <Input
@@ -1966,25 +2015,25 @@ export function MaterialsPage() {
                                     onChange={(e) => setMoveUnitCostRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.unitCostPlaceholder')}
                                     title="Referencia de costo por unidad"
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.guideLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.guideLabel')}</Label>
                                   <Input
                                     value={moveGuiaRef}
                                     onChange={(e) => setMoveGuiaRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.guidePlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.reasonLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.reasonLabel')}</Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
                                     placeholder={t('materials.kardexDialog.reasonPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                               </>
@@ -1992,32 +2041,32 @@ export function MaterialsPage() {
                             {moveRefType === 'salida' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.qtyLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
                                     placeholder={t('materials.kardexDialog.qtyExitPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.guideOptLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.guideOptLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.guideOptPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                                     {t('materials.kardexDialog.reasonRequired')} <span className="text-destructive">*</span>
                                   </Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
                                     placeholder={t('materials.kardexDialog.reasonExitPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                               </>
@@ -2025,23 +2074,23 @@ export function MaterialsPage() {
                             {moveRefType === 'manual' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyDeltaLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.qtyDeltaLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
                                     placeholder={t('materials.kardexDialog.qtyDeltaPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">
                                     {t('materials.kardexDialog.reasonRequired')} <span className="text-destructive">*</span>
                                   </Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
                                     placeholder={t('materials.kardexDialog.reasonManualPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                               </>
@@ -2049,30 +2098,30 @@ export function MaterialsPage() {
                             {moveRefType === 'inventario_inicial' ? (
                               <>
                                 <div className="grid min-w-0 gap-1.5">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.qtyInitialLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.qtyInitialLabel')}</Label>
                                   <Input
                                     value={moveDelta}
                                     onChange={(e) => setMoveDelta(e.target.value)}
                                     placeholder={t('materials.kardexDialog.qtyInitialPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.refOptLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.refOptLabel')}</Label>
                                   <Input
                                     value={moveGuideRef}
                                     onChange={(e) => setMoveGuideRef(e.target.value)}
                                     placeholder={t('materials.kardexDialog.refOptPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                                 <div className="grid min-w-0 gap-1.5 sm:col-span-2">
-                                  <Label className="text-xs text-slate-600">{t('materials.kardexDialog.reasonLabel')}</Label>
+                                  <Label className="text-xs text-slate-600 lg:text-[10px] lg:font-semibold lg:uppercase lg:tracking-[0.08em] lg:text-[var(--ink-muted)]">{t('materials.kardexDialog.reasonLabel')}</Label>
                                   <Input
                                     value={moveNota}
                                     onChange={(e) => setMoveNota(e.target.value)}
                                     placeholder={t('materials.kardexDialog.reasonPlaceholder')}
-                                    className={filterInputClass}
+                                    className={cn(filterInputClass, 'lg:h-11 lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white lg:text-[13px]')}
                                   />
                                 </div>
                               </>
@@ -2082,14 +2131,15 @@ export function MaterialsPage() {
                         </div>
 
                         <section
+                          data-kardex-step4
                           className={cn(
                             operationalModalSectionMuted,
-                            'flex min-h-[min(260px,36vh)] flex-1 shrink-0 flex-col overflow-hidden lg:min-h-[280px]',
+                            'flex min-h-[min(260px,36vh)] flex-1 shrink-0 flex-col overflow-hidden lg:min-h-0 lg:max-h-[220px] lg:flex-none lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-[var(--sage-100)]/55 lg:p-4',
                           )}
                         >
-                          <div className={cn(operationalModalSectionHeadingRow, 'mb-2')}>
-                            <span className={operationalModalStepBadge}>4</span>
-                            <h3 className={operationalModalStepTitle}>{t('materials.kardexDialog.step4')}</h3>
+                          <div className={cn(operationalModalSectionHeadingRow, 'mb-2 lg:mb-3 lg:flex-nowrap lg:items-start lg:gap-3')}>
+                            <span className={cn(operationalModalStepBadge, 'lg:h-9 lg:w-9 lg:text-[14px]')}>4</span>
+                            <h3 className={cn(operationalModalStepTitle, 'lg:text-[20px]')}>{t('materials.kardexDialog.step4')}</h3>
                           </div>
                           <p className="mb-3 shrink-0 text-xs text-muted-foreground">
                             {moveRefType === 'compra'
@@ -2099,7 +2149,7 @@ export function MaterialsPage() {
                                 : t('materials.kardexDialog.reqInitial')}
                           </p>
                           <p className={cn(materialCardFieldLabelClass, 'mb-2')}>{t('materials.kardexDialog.recentHistory')}</p>
-                          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-lg border border-border lg:min-h-[200px]">
+                          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-lg border border-border lg:min-h-0 lg:max-h-[140px] lg:rounded-[9px] lg:border-[var(--stone-300)] lg:bg-white">
                             <Table>
                               <TableHeader>
                                 <TableRow>
@@ -2137,14 +2187,17 @@ export function MaterialsPage() {
                         </section>
                       </div>
                     ) : (
-                      <div className="hidden min-h-[120px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-8 text-center text-sm text-muted-foreground lg:flex">
+                      <div
+                        data-kardex-empty-hint
+                        className="hidden min-h-[120px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-8 text-center text-sm text-muted-foreground lg:flex lg:min-h-0 lg:rounded-[10px] lg:border-[var(--stone-300)] lg:bg-white lg:px-6 lg:py-10 lg:text-[14px] lg:text-[var(--ink-muted)]"
+                      >
                         {t('materials.kardexDialog.selectHint')}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <DialogFooter className={cn(operationalModalFooterClass, 'flex flex-row flex-wrap justify-end gap-2')}>
+                <DialogFooter className={cn(operationalModalFooterClass, 'flex flex-row flex-wrap justify-end gap-2 lg:hidden')}>
                   <Button type="button" variant="outline" onClick={() => setKardexOpen(false)}>
                     {t('materials.kardexDialog.cancelButton')}
                   </Button>
@@ -2155,6 +2208,51 @@ export function MaterialsPage() {
                   >
                     {movementMut.isPending ? t('materials.kardexDialog.savingButton') : t('materials.kardexDialog.saveButton')}
                   </Button>
+                </DialogFooter>
+                <DialogFooter
+                  data-kardex-footer
+                  className="hidden gap-2 border-t border-[var(--stone-200)] bg-[var(--stone-50)] lg:!flex lg:!flex-row lg:!justify-between lg:min-h-[65px] lg:items-center lg:px-7 lg:py-3"
+                >
+                  <div className="hidden min-w-0 items-center gap-2 text-[12px] text-[var(--ink-muted)] lg:flex">
+                    <span className="truncate">
+                      {t('materials.kardexDialog.step1')}{' '}
+                      <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">
+                        {selectedKardexMaterial?.nombre_material ?? '—'}
+                      </strong>
+                    </span>
+                    <span className="h-5 w-px shrink-0 bg-[var(--stone-300)]" aria-hidden />
+                    <span className="truncate">
+                      {t('materials.kardexDialog.currentStock')}{' '}
+                      <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">
+                        {selectedKardexMaterial ? formatQty(selectedKardexMaterial.cantidad_disponible) : '—'}
+                      </strong>
+                    </span>
+                    <span className="h-5 w-px shrink-0 bg-[var(--stone-300)]" aria-hidden />
+                    <span className="truncate">
+                      {t('materials.kardexDialog.step2')}{' '}
+                      <strong className="font-serif text-[16px] font-semibold text-[var(--ink)]">
+                        {moveTypeOptions.find((o) => o.key === moveRefType)?.title ?? '—'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="lg:h-11 lg:min-w-[126px] lg:rounded-[8px] lg:border-[var(--stone-300)] lg:bg-white lg:px-5 lg:text-[13px] lg:font-semibold lg:shadow-none"
+                      onClick={() => setKardexOpen(false)}
+                    >
+                      {t('materials.kardexDialog.cancelButton')}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="lg:h-11 lg:min-w-[168px] lg:rounded-[8px] lg:bg-[var(--olive-700)] lg:px-5 lg:text-[13px] lg:font-semibold lg:text-white lg:shadow-none lg:hover:bg-[var(--olive-600)]"
+                      disabled={movementMut.isPending || !canSubmitAdjustment}
+                      onClick={() => movementMut.mutate()}
+                    >
+                      {movementMut.isPending ? t('materials.kardexDialog.savingButton') : t('materials.kardexDialog.saveButton')}
+                    </Button>
+                  </div>
                 </DialogFooter>
               </div>
             </DialogContent>
