@@ -17,14 +17,13 @@ function hostnameOf(urlOrHost) {
 
 function assertNotProductionApi(apiBase) {
   const host = hostnameOf(apiBase);
-  if (PRODUCTION_HOSTS.has(host)) {
+  if (PRODUCTION_HOSTS.has(host) || host === 'packing-system-production.up.railway.app') {
     throw new Error(
       `ABORT: API_BASE apunta al host de producción (${host}). El seed/reset demo no puede ejecutarse ahí.`,
     );
   }
-  if (host.includes('production') && host.includes('railway')) {
-    throw new Error(`ABORT: API_BASE parece producción Railway (${host}).`);
-  }
+  // No bloquear packing-system-demo-production.up.railway.app: ese es el sandbox
+  // (Railway nombra el environment "production" en el hostname).
 }
 
 function assertDemoSandboxHealth(health) {
