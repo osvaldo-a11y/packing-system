@@ -73,7 +73,9 @@ Materiales → Movimiento/kardex (dialog desktop y listado).
 - **Clave:** `demo123`  
 - Operador interno seed/reset: `admin` / `admin123`
 
-### Railway (URL para el cliente, cuando exista el servicio)
+### Railway (URL para el cliente)
+
+Instrucciones clic a clic y tabla de variables (copiar / nueva / no copiar): [RAILWAY-DEMO.md](./RAILWAY-DEMO.md).
 
 Variables **solo** en el servicio demo (Postgres **nuevo**):
 
