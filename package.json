@@ -30,6 +30,7 @@
     "seed:validation": "node scripts/seed-validation-flow.cjs",
     "seed:demo": "node scripts/seed-demo-sandbox.cjs",
     "demo:reset": "node scripts/reset-demo-sandbox.cjs",
+    "demo:capture": "node scripts/capture-demo-comercial.mjs",
     "auth:hash-password": "node scripts/hash-auth-password.cjs",
     "screenshots:app": "node scripts/capture-app-screenshots.mjs",
     "screenshots:presentation": "node scripts/capture-presentation-screenshots.mjs",
