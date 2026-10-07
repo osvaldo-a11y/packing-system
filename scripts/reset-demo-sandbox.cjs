@@ -10,22 +10,42 @@ require('dotenv').config();
 
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { assertNotProductionApi } = require('./demo-safety.cjs');
 
 const API_BASE = (process.env.API_BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
 
 async function main() {
-  const user = process.env.DEMO_SEED_USER || 'admin';
-  const pass = process.env.DEMO_SEED_PASS || 'admin123';
-
-  const loginRes = await fetch(`${API_BASE}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ username: user, password: pass }),
-  });
-  if (!loginRes.ok) {
-    throw new Error(`Login falló: ${loginRes.status} ${await loginRes.text()}`);
+  assertNotProductionApi(API_BASE);
+  const healthRes = await fetch(`${API_BASE}/api/auth/health`, { headers: { Accept: 'application/json' } });
+  const health = await healthRes.json().catch(() => ({}));
+  if (health?.demo_sandbox !== true) {
+    throw new Error('ABORT: reset solo contra un API con demo_sandbox=true.');
   }
-  const { access_token } = await loginRes.json();
+
+  const creds = [
+    [process.env.DEMO_SEED_USER, process.env.DEMO_SEED_PASS],
+    ['admin', 'admin123'],
+    [process.env.DEMO_USERNAME || 'admin.demo', process.env.DEMO_PASSWORD || 'demo123'],
+    ['demo', 'demo123'],
+  ].filter((p, i, arr) => p[0] && p[1] && arr.findIndex((q) => q[0] === p[0] && q[1] === p[1]) === i);
+
+  let access_token;
+  const errors = [];
+  for (const [user, pass] of creds) {
+    const loginRes = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    if (loginRes.ok) {
+      access_token = (await loginRes.json()).access_token;
+      break;
+    }
+    errors.push(`${user}: ${loginRes.status} ${await loginRes.text()}`);
+  }
+  if (!access_token) {
+    throw new Error(`Login falló:\n${errors.join('\n')}`);
+  }
 
   const resetRes = await fetch(`${API_BASE}/api/demo/reset`, {
     method: 'POST',

@@ -17,7 +17,7 @@ Misma imagen/código (`main`). La diferencia es solo variables de entorno.
 DEMO_SANDBOX=true
 DEMO_USER_ENABLED=true
 DEMO_USER_ROLE=admin
-DEMO_USERNAME=demo
+DEMO_USERNAME=admin.demo
 DEMO_PASSWORD=demo123
 DEMO_SHOW_CREDENTIALS=true
 JWT_SECRET=<secreto distinto al de producción>
@@ -47,7 +47,7 @@ Credenciales seed admin por defecto: `admin` / `admin123` (o las de `AUTH_USERS_
 
 ## Credenciales para el prospecto
 
-- **Usuario:** `demo`
+- **Usuario:** `admin.demo` (o `DEMO_USERNAME`; fallback histórico `demo`)
 - **Clave:** `demo123` (o `DEMO_PASSWORD`)
 - En el login verá “Prueba el sistema” y podrá crear/editar.
 

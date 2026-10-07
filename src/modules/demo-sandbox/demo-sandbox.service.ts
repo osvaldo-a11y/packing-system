@@ -33,6 +33,9 @@ export class DemoSandboxService {
     const sql = readFileSync(sqlPath, 'utf8');
     this.logger.warn('DEMO_SANDBOX: limpiando datos operativos (maestros intactos)');
     await this.dataSource.query(sql);
+    // TRUNCATE de movimientos no resetea packaging_materials.cantidad_disponible.
+    // En sandbox el stock queda en 0 para que seed:demo vuelva a armar el kardex.
+    await this.dataSource.query(`UPDATE packaging_materials SET cantidad_disponible = '0.000'`);
     return { ok: true, cleared: true };
   }
 }
